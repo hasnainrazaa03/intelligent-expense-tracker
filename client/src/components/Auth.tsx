@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { WalletIcon, GoogleIcon } from './Icons';
 import { registerUser, loginUser } from '../services/api'; // Import our new functions
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+
 interface AuthProps {
   onLoginSuccess: () => void;
 }
@@ -121,7 +123,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 </div>
             </div>
             
-            <a href="http://localhost:3001/api/auth/google" className="w-full flex items-center justify-center py-3 px-4 bg-base-100 dark:bg-dark-200 border border-base-300 dark:border-dark-300 text-base-content dark:text-base-100 font-medium rounded-lg shadow-sm hover:bg-base-200 dark:hover:bg-dark-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors">
+            <a href={`${API_BASE_URL}/auth/google`} className="w-full flex items-center justify-center py-3 px-4 bg-base-100 dark:bg-dark-200 border border-base-300 dark:border-dark-300 text-base-content dark:text-base-100 font-medium rounded-lg shadow-sm hover:bg-base-200 dark:hover:bg-dark-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors">
             <GoogleIcon className="h-5 w-5 mr-3" />
             <span>Sign in with Google</span>
             </a>
