@@ -1,0 +1,21 @@
+# Ignore all node_modules folders
+node_modules
+client/node_modules
+server/node_modules
+
+# Ignore all environment files
+.env
+client/.env.local
+server/.env
+
+# Ignore build outputs
+client/dist
+server/dist
+
+# macOS
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

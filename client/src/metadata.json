@@ -1,0 +1,5 @@
+{
+  "name": "Intelligent Expense Tracker",
+  "description": "A visually appealing and intelligent expense tracker for students. It uses data visualization to show spending habits and leverages the Gemini API to provide personalized financial analysis and tips.",
+  "requestFramePermissions": []
+}
