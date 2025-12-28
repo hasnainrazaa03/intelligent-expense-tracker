@@ -9,7 +9,7 @@ import { transporter } from '../utils/mailer';
 const router = Router();
 
 // --- 1. Sign Up (Register) ---
-router.post('/register', async (req, res) => {
+router.post('/register', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     
@@ -69,7 +69,7 @@ router.post('/register', async (req, res) => {
 });
 
 // --- 2. Verify OTP ---
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', async (req: Request, res: Response) => {
   try {
     const { email, otp } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
@@ -90,7 +90,7 @@ router.post('/verify-otp', async (req, res) => {
 });
 
 // --- 3. Sign In (Login) ---
-router.post('/login', async (req, res) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -136,7 +136,7 @@ router.get('/google/callback',
     failureRedirect: `${process.env.FRONTEND_URL}/login`,
     session: false 
   }),
-  (req, res) => {
+  (req: Request, res: Response) => {
     const user = req.user as any; 
     const token = jwt.sign(
       { id: user.id, email: user.email },

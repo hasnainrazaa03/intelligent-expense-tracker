@@ -41,13 +41,12 @@ passport.use(
 );
 
 // We're not using sessions, so these are just boilerplate
-passport.serializeUser((user, done) => {
-  // 'user' here is the full user object from the database
-  done(null, (user as any).id);
+passport.serializeUser((user: any, done: (err: any, id?: any) => void) => {
+  done(null, user.id);
 });
 
 // Add 'string' type to the id parameter
-passport.deserializeUser((id: string, done) => {
+passport.deserializeUser((id: string, done: (err: any, user?: any) => void) => {
   // This won't really be used in our JWT flow,
   // so we just pass a minimal user object back.
   done(null, { id: id, email: "" });
