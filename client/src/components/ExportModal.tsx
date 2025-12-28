@@ -1,10 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Expense, Budget } from '../types';
-import { DateRange } from './Dashboard';
 import { exportData } from '../utils/exportUtils';
+import { 
+  XMarkIcon, 
+  TableCellsIcon, 
+  PlusCircleIcon, 
+  ExclamationTriangleIcon,
+  ClipboardDocumentListIcon 
+} from './Icons'; // Swapped to icons already in your project
 
-// Note: This component is now responsible for both Import and Export.
-// It has been renamed from ExportModal to DataModal.
+export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
 
 interface DataModalProps {
   isOpen: boolean;
@@ -15,36 +20,33 @@ interface DataModalProps {
 }
 
 const ranges: { id: DateRange; label: string }[] = [
-  { id: 'this_month', label: 'This Month' },
-  { id: 'last_month', label: 'Last Month' },
-  { id: 'last_90_days', label: 'Last 90 Days' },
-  { id: 'all_time', label: 'All Time' },
+  { id: 'this_month', label: 'THIS_MONTH' },
+  { id: 'last_month', label: 'LAST_MONTH' },
+  { id: 'last_90_days', label: '90_DAYS' },
+  { id: 'all_time', label: 'ALL_TIME' },
 ];
 
 const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, budgets, onImport }) => {
-  // Export states
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [includeExpenses, setIncludeExpenses] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
   const [format, setFormat] = useState<'csv' | 'pdf'>('pdf');
 
-  // Import states
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredExpenses = useMemo(() => {
     if (dateRange === 'all_time') return allExpenses;
-    
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const getUTCDate = (dateString: string) => new Date(dateString);
-    let start, end;
+    let start: Date = new Date(), end: Date = today;
     
     switch (dateRange) {
         case 'this_month':
             start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-            end = today;
             break;
         case 'last_month':
             start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
@@ -53,7 +55,6 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
         case 'last_90_days':
             start = new Date(today);
             start.setUTCDate(today.getUTCDate() - 90);
-            end = today;
             break;
     }
     return allExpenses.filter(exp => { const d = getUTCDate(exp.date); return d >= start && d <= end; });
@@ -74,10 +75,9 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
 
   const handleImport = () => {
     if (!importFile) {
-        setImportError("Please select a file to import.");
+        setImportError("FILE_SELECTION_REQUIRED");
         return;
     }
-
     setIsImporting(true);
     setImportError(null);
 
@@ -86,31 +86,25 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
         try {
             const csvText = event.target?.result as string;
             const lines = csvText.trim().split(/\r?\n/);
-            if (lines.length < 2) throw new Error("CSV file is empty or has no data rows.");
+            if (lines.length < 2) throw new Error("CSV_EMPTY_OR_NO_DATA");
             
             const header = lines[0].split(',').map(h => h.trim());
             const requiredHeaders = ['title', 'amount', 'category', 'date'];
             if (!requiredHeaders.every(h => header.includes(h))) {
-                throw new Error(`CSV is missing required headers. Must include: ${requiredHeaders.join(', ')}`);
+                throw new Error(`MISSING_HEADERS: ${requiredHeaders.join(', ')}`);
             }
             
-            const importedExpenses: Omit<Expense, 'id'>[] = lines.slice(1).map((line, index) => {
-                if (!line.trim()) return null; // Skip empty lines
-                
+            const importedExpenses = lines.slice(1).map((line) => {
+                if (!line.trim()) return null;
                 const values = line.split(',');
                 const entry: any = header.reduce((obj, key, i) => {
                     obj[key] = values[i] ? values[i].replace(/"/g, '').trim() : undefined;
                     return obj;
                 }, {} as any);
 
-                if (!entry.title || isNaN(parseFloat(entry.amount)) || !entry.category || !entry.date) {
-                    console.warn(`Skipping invalid row #${index + 2}:`, line);
-                    return null;
-                }
+                if (!entry.title || isNaN(parseFloat(entry.amount)) || !entry.category || !entry.date) return null;
 
-                // FIX: Explicitly type the object to match Omit<Expense, 'id'>.
-                // This resolves the type predicate error by ensuring the object shape
-                // from the map function is compatible with the filter's type guard.
+                // FIXED TYPE PREDICATE LOGIC:
                 const newExpense: Omit<Expense, 'id'> = {
                     title: entry.title,
                     amount: parseFloat(entry.amount),
@@ -125,103 +119,126 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
 
             onImport(importedExpenses);
             onClose();
-
         } catch (error: any) {
-            setImportError(error.message || "An error occurred during parsing.");
+            setImportError(error.message || "PARSING_FAILURE");
         } finally {
             setIsImporting(false);
         }
     };
-
-    reader.onerror = () => {
-        setImportError("Failed to read the file.");
-        setIsImporting(false);
-    };
-
     reader.readAsText(importFile);
   };
-
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-base-100 dark:bg-dark-200 rounded-2xl shadow-xl w-full max-w-lg m-4" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-base-200 dark:border-dark-300">
-            <h2 className="text-2xl font-bold text-base-content dark:text-base-100">Export / Import Data</h2>
-        </div>
+    <div className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-2 sm:p-4">
+      <div className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-xl overflow-hidden flex flex-col max-h-[95vh]">
         
-        <div className="p-6 space-y-6">
-            {/* --- EXPORT SECTION --- */}
-            <div>
-              <h3 className="text-lg font-semibold text-base-content dark:text-base-100 mb-3">Export Data</h3>
-              <div className="space-y-4">
-                  <div>
-                      <label className="block text-sm font-medium text-base-content-secondary dark:text-base-300 mb-2">Date Range</label>
-                      <div className="flex flex-wrap items-center gap-2 bg-base-200 dark:bg-dark-300 p-1 rounded-lg">
-                          {ranges.map(range => (
-                              <button key={range.id} onClick={() => setDateRange(range.id)}
-                                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
-                                  dateRange === range.id ? 'bg-brand-primary text-white shadow' : 'text-base-content-secondary dark:text-base-300 hover:bg-base-300/50 dark:hover:bg-dark-100'}`}>
-                                  {range.label}
-                              </button>
-                          ))}
-                      </div>
-                  </div>
+        {/* HEADER */}
+        <div className="bg-usc-cardinal p-4 md:p-6 border-b-4 md:border-b-8 border-ink flex justify-between items-center flex-shrink-0">
+          <div className="min-w-0">
+            <h2 className="font-loud text-xl md:text-3xl text-bone leading-none uppercase truncate">DATA_TRANSFER_HUB</h2>
+            <p className="text-[8px] md:text-[10px] font-mono text-bone/60 mt-1 uppercase">Link: Secure_Active</p>
+          </div>
+          <button onClick={onClose} className="bg-ink text-bone p-1 border-2 border-bone">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
 
-                  <div>
-                      <label className="block text-sm font-medium text-base-content-secondary dark:text-base-300 mb-2">Data to Include</label>
-                      <div className="space-y-2">
-                          <div className="flex items-center"><input id="inc-exp" type="checkbox" checked={includeExpenses} onChange={e => setIncludeExpenses(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary" /><label htmlFor="inc-exp" className="ml-2 block text-sm text-base-content dark:text-base-200">Expenses</label></div>
-                          <div className="flex items-center"><input id="inc-bud" type="checkbox" checked={includeBudgets} onChange={e => setIncludeBudgets(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary" /><label htmlFor="inc-bud" className="ml-2 block text-sm text-base-content dark:text-base-200">Budgets</label></div>
-                      </div>
-                  </div>
+        <div className="p-4 md:p-8 space-y-8 overflow-y-auto bg-bone">
+          
+          {/* EXPORT */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-2">
+                <TableCellsIcon className="h-5 w-5 text-usc-gold" />
+                <h3 className="font-loud text-lg md:text-xl text-ink uppercase">Export_Data_Manifest</h3>
+            </div>
 
-                  <div>
-                      <label className="block text-sm font-medium text-base-content-secondary dark:text-base-300 mb-2">Format</label>
-                      <div className="mt-1 grid grid-cols-2 gap-2 rounded-md bg-base-200 dark:bg-dark-300 p-1">
-                          <button type="button" onClick={() => setFormat('pdf')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${format === 'pdf' ? 'bg-brand-primary text-white shadow' : 'text-base-content-secondary dark:text-base-300'}`}>PDF</button>
-                          <button type="button" onClick={() => setFormat('csv')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${format === 'csv' ? 'bg-brand-primary text-white shadow' : 'text-base-content-secondary dark:text-base-300'}`}>CSV</button>
-                      </div>
-                  </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="col-span-1 sm:col-span-2">
+                <label className="font-loud text-[9px] text-ink/40 mb-2 block">DATE_RANGE_SELECTOR</label>
+                <div className="grid grid-cols-2 lg:grid-cols-4 bg-ink border-4 border-ink p-1">
+                  {ranges.map(range => (
+                    <button 
+                      key={range.id} 
+                      onClick={() => setDateRange(range.id)}
+                      className={`py-2 text-[9px] font-loud transition-all ${dateRange === range.id ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="col-span-1">
+                <label className="font-loud text-[9px] text-ink/40 mb-2 block uppercase">Format</label>
+                <div className="grid grid-cols-2 bg-ink border-4 border-ink p-1">
+                  <button onClick={() => setFormat('pdf')} className={`py-2 font-loud text-xs ${format === 'pdf' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>PDF</button>
+                  <button onClick={() => setFormat('csv')} className={`py-2 font-loud text-xs ${format === 'csv' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>CSV</button>
+                </div>
+              </div>
+
+              <div className="col-span-1">
+                <label className="font-loud text-[10px] text-ink/40 dark:text-bone/40 mb-2 block uppercase">Inclusion</label>
+                <div className="flex flex-col gap-2">
+                    <button onClick={() => setIncludeExpenses(!includeExpenses)} className={`text-left font-loud text-[10px] px-2 py-1 border-2 border-ink ${includeExpenses ? 'bg-usc-cardinal text-bone' : 'bg-white text-ink opacity-30'}`}>
+                        EXPENSES: {includeExpenses ? 'ON' : 'OFF'}
+                    </button>
+                    <button onClick={() => setIncludeBudgets(!includeBudgets)} className={`text-left font-loud text-[10px] px-2 py-1 border-2 border-ink ${includeBudgets ? 'bg-usc-cardinal text-bone' : 'bg-white text-ink opacity-30'}`}>
+                        BUDGETS: {includeBudgets ? 'ON' : 'OFF'}
+                    </button>
+                </div>
               </div>
             </div>
 
-            {/* --- DIVIDER --- */}
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center" aria-hidden="true"><div className="w-full border-t border-base-300 dark:border-dark-300" /></div>
-                <div className="relative flex justify-center"><span className="px-2 bg-base-100 dark:bg-dark-200 text-sm text-base-content-secondary dark:text-base-300">OR</span></div>
-            </div>
+            <button 
+              onClick={handleDownload} 
+              disabled={!includeExpenses && !includeBudgets}
+              className="w-full bg-usc-gold text-ink font-loud text-lg py-4 border-4 border-ink shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30"
+            >
+              DOWNLOAD_MANIFEST
+            </button>
+          </div>
 
-            {/* --- IMPORT SECTION --- */}
-            <div>
-              <h3 className="text-lg font-semibold text-base-content dark:text-base-100 mb-3">Import Expenses from CSV</h3>
-              <p className="text-sm text-base-content-secondary dark:text-base-300 mb-3">
-                The CSV file should match the export format. Required columns: <strong>title, amount, category, date</strong>. Optional: <strong>paymentMethod, notes, isRecurring</strong>.
-              </p>
-              <div>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileChange}
-                  className="block w-full text-sm text-base-content-secondary dark:text-base-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/10 file:text-brand-primary hover:file:bg-brand-primary/20"
-                />
-                 {importError && <p className="text-red-500 text-sm mt-2">{importError}</p>}
+          <div className="relative flex items-center justify-center py-2">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t-4 border-dashed border-ink/10" /></div>
+            <span className="relative bg-bone px-4 font-loud text-[10px] opacity-30 uppercase">Direction_Swap</span>
+          </div>
+
+          {/* IMPORT */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-2">
+                <ClipboardDocumentListIcon className="h-5 w-5 text-usc-gold" />
+                <h3 className="font-loud text-lg md:text-xl text-ink uppercase">Import_Stream</h3>
+            </div>
+            
+            <input type="file" ref={fileInputRef} accept=".csv" onChange={handleFileChange} className="hidden" />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-white border-4 border-ink border-dashed p-6 font-loud text-ink flex flex-col items-center text-center"
+            >
+              {importFile ? <span className="text-usc-gold break-all">{importFile.name.toUpperCase()}</span> : "UPLOAD_LOCAL_CSV_MANIFEST"}
+            </button>
+
+            {importError && (
+              <div className="bg-ink text-usc-cardinal p-3 border-2 border-ink shadow-neo flex items-center font-bold text-[10px] uppercase italic">
+                <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
+                Error: {importError}
               </div>
-            </div>
+            )}
 
+            <button 
+              onClick={handleImport} 
+              disabled={isImporting || !importFile}
+              className="w-full bg-ink text-bone font-loud text-lg py-4 border-4 border-ink shadow-neo-gold hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30"
+            >
+              {isImporting ? 'INGESTING...' : 'INITIALIZE_IMPORT'}
+            </button>
+          </div>
         </div>
         
-        <div className="flex justify-between items-center p-4 bg-base-200/50 dark:bg-dark-300/50 rounded-b-2xl space-x-3">
-            <div>
-                <button onClick={handleImport} disabled={isImporting || !importFile} className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    {isImporting ? 'Importing...' : 'Import CSV'}
-                </button>
-            </div>
-            <div className="flex space-x-3">
-                <button type="button" onClick={onClose} className="px-4 py-2 bg-base-100 dark:bg-dark-200 text-base-content dark:text-base-200 rounded-md hover:bg-base-300/70 dark:hover:bg-dark-100 border border-base-300 dark:border-dark-100 transition-colors">Cancel</button>
-                <button onClick={handleDownload} disabled={!includeExpenses && !includeBudgets} className="px-5 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-secondary transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">Download</button>
-            </div>
+        <div className="bg-ink p-4 flex justify-center border-t-4 border-ink">
+          <p className="font-mono text-[8px] text-bone/20 uppercase tracking-[0.4em] select-none italic">Verified_by_Trojan_Audit</p>
         </div>
       </div>
     </div>

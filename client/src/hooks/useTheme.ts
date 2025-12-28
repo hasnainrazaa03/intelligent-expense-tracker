@@ -1,33 +1,8 @@
-
-import { useState, useEffect } from 'react';
-
-type Theme = 'light' | 'dark';
-
 export const useTheme = () => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const storedTheme = localStorage.getItem('theme') as Theme | null;
-      // Also check user's system preference
-      const userMedia = window.matchMedia('(prefers-color-scheme: dark)');
-      if (storedTheme) {
-        return storedTheme;
-      }
-      if (userMedia.matches) {
-        return 'dark';
-      }
-    }
-    return 'light';
-  });
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove(theme === 'light' ? 'dark' : 'light');
-    root.classList.add(theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
+  // We lock this to light so no other component can trigger dark mode
+  const theme = 'light' as const;
   const toggleTheme = () => {
-    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+    console.log("Theme toggle disabled: App is locked to Light Mode.");
   };
 
   return { theme, toggleTheme };

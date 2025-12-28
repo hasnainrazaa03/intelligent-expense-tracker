@@ -13,16 +13,24 @@ interface SummaryCardProps {
   conversionRate: number | null;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, isString = false, icon, percentageChange, isNetFlow = false, displayCurrency, conversionRate }) => {
+const SummaryCard: React.FC<SummaryCardProps> = ({ 
+  title, value, isString = false, icon, percentageChange, 
+  isNetFlow = false, displayCurrency, conversionRate 
+}) => {
   const isNumeric = !isString && typeof value === 'number';
+  
+  // Format the value
   const formattedValue = isNumeric
     ? formatCurrency(Math.abs(value as number), displayCurrency, conversionRate)
     : value;
 
-  let valueColor = 'text-base-content dark:text-base-100';
+  // Neo-Brutalist Color Logic
+  let valueColor = 'text-ink'; 
+
   if (isNetFlow && isNumeric) {
-    if (value > 0) valueColor = 'text-green-600 dark:text-green-400';
-    if (value < 0) valueColor = 'text-red-600 dark:text-red-400';
+    if (value > 0) valueColor = 'text-green-600';
+    // USC Cardinal for negative flow (High Contrast)
+    if (value < 0) valueColor = 'text-usc-cardinal';
   }
 
   const renderPercentageChange = () => {
@@ -31,31 +39,44 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, isString = fals
     }
 
     const isPositive = percentageChange >= 0;
-    const colorClass = isPositive ? 'text-red-500' : 'text-green-500';
+    // Streetwear "Status Tag" look
+    const tagBg = isPositive ? 'bg-usc-cardinal' : 'bg-green-600';
+    const tagText = 'text-bone';
     const Icon = isPositive ? ArrowUpIcon : ArrowDownIcon;
 
     return (
-      <div className={`flex items-center text-xs font-semibold ${colorClass}`}>
-        <Icon className="h-3 w-3 mr-0.5" />
-        <span>{Math.abs(percentageChange).toFixed(1)}%</span>
+      <div className={`mt-2 flex items-center w-fit px-2 py-0.5 border-2 border-ink shadow-[2px_2px_0px_0px_#111111] ${tagBg} ${tagText}`}>
+        <Icon className="h-3 w-3 mr-1 stroke-[3px]" />
+        <span className="font-loud text-[10px]">{Math.abs(percentageChange).toFixed(1)}%</span>
       </div>
     );
   };
 
   return (
-    <div className="bg-base-200 dark:bg-dark-300 p-6 rounded-xl flex items-center space-x-4 transition-shadow hover:shadow-md">
-      <div className="bg-brand-primary/20 text-brand-primary rounded-full p-3">
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm text-base-content-secondary dark:text-base-300">{title}</p>
-        <div className="flex items-baseline space-x-2">
-            <p className={`text-2xl font-bold ${valueColor}`}>
-              {isNetFlow && isNumeric && (value as number) < 0 ? '-' : ''}
-              {formattedValue}
-            </p>
-            {renderPercentageChange()}
+    <div className="h-full p-4 md:p-6 bg-bone flex flex-col justify-between group transition-all relative overflow-hidden">
+      {/* Top Row: Icon and Title */}
+      <div className="flex items-start justify-between mb-3 md:mb-4 gap-2">
+        <div className="bg-usc-gold text-ink p-1.5 md:p-2 border-2 border-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[3px_3px_0px_0px_#111111] group-hover:translate-x-0.5 group-hover:translate-y-0.5 group-hover:shadow-none transition-all flex-shrink-0">
+          {React.cloneElement(icon as React.ReactElement, { className: 'h-5 w-5 md:h-6 md:w-6 stroke-[2.5px]' })}
         </div>
+        <span className="font-loud text-[9px] md:text-[10px] text-ink/60 tracking-widest uppercase text-right leading-tight truncate md:whitespace-normal">
+          {title.replace(/\s+/g, '_')}
+        </span>
+      </div>
+
+      {/* Bottom Row: Value and Trend */}
+      <div className="min-w-0">
+        <h4 className={`font-loud text-xl sm:text-2xl md:text-3xl leading-none break-all sm:break-words ${valueColor}`}>
+          {formattedValue}
+        </h4>
+        {renderPercentageChange()}
+      </div>
+
+      {/* Decorative Technical ID (Streetwear Detail) */}
+      <div className="absolute bottom-1 right-2 opacity-10 pointer-events-none hidden xs:block">
+      <span className="font-mono text-[7px] md:text-[8px] text-ink">
+          METRIC_REF_{title.slice(0,3).toUpperCase()}
+        </span>
       </div>
     </div>
   );

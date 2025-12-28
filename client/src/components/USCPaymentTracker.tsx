@@ -1,150 +1,227 @@
-
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Semester } from '../types';
-import { AcademicCapIcon, CheckIcon } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
+import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
 
 interface USCPaymentTrackerProps {
   semesters: Semester[];
   onUpdateTuition: (semesterId: string, totalTuition: number) => void;
+  onUpdateInstallmentCount: (semesterId: string, count: number) => void;
   onMarkAsPaid: (semesterId: string, installmentId: number) => void;
   onUpdateDate: (semesterId: string, installmentId: number, newDate: string) => void;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
 }
 
-const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
-  semesters,
-  onUpdateTuition,
-  onMarkAsPaid,
-  onUpdateDate,
-  displayCurrency,
-  conversionRate
-}) => {
-  const [activeSemesterId, setActiveSemesterId] = useState<string>(semesters[0]?.id || '');
+// --- INTELLIGENT SEMESTER DETECTOR ---
+const detectCurrentSemesterId = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-11
 
+  let season = "";
+  if (month <= 4) season = "SPRING";      // Jan - May
+  else if (month <= 6) season = "SUMMER"; // June - July
+  else season = "FALL";                   // Aug - Dec
+
+  return `${season}_${year}`;
+};
+
+const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({ 
+  semesters, onUpdateTuition, onUpdateInstallmentCount, onMarkAsPaid, onUpdateDate, displayCurrency, conversionRate 
+}) => {
+  // Initialize with the detected current semester
+  const [activeSemesterId, setActiveSemesterId] = useState<string>(detectCurrentSemesterId());
+
+  // Ensure we fall back to the first available semester if the detected one isn't in the list
   useEffect(() => {
-    if (!activeSemesterId && semesters.length > 0) {
+    const exists = semesters.find(s => s.id === activeSemesterId);
+    if (!exists && semesters.length > 0) {
       setActiveSemesterId(semesters[0].id);
     }
-    if (activeSemesterId && !semesters.some(s => s.id === activeSemesterId) && semesters.length > 0) {
-      setActiveSemesterId(semesters[0].id);
-    }
-  }, [semesters, activeSemesterId]);
+  }, [semesters]);
 
   const activeSemester = semesters.find(s => s.id === activeSemesterId);
 
-  const handleTuitionChange = (totalTuitionInDisplay: number) => {
-    if (!activeSemester) return;
-    let totalTuitionInUSD = totalTuitionInDisplay;
-    if (displayCurrency === 'INR' && conversionRate) {
-      totalTuitionInUSD = totalTuitionInDisplay / conversionRate;
-    }
-    onUpdateTuition(activeSemester.id, totalTuitionInUSD);
-  }
-
-  const displayedTuition = useMemo(() => {
-    if (!activeSemester) return 0;
-    if (displayCurrency === 'INR' && conversionRate) {
-      return activeSemester.totalTuition * conversionRate;
-    }
-    return activeSemester.totalTuition;
-  }, [activeSemester, displayCurrency, conversionRate]);
-
   return (
-    <div className="bg-base-100 dark:bg-dark-200 p-6 rounded-2xl shadow-lg">
-      <div className="flex items-center mb-6">
-        <AcademicCapIcon className="h-6 w-6 text-brand-primary" />
-        <h2 className="text-2xl font-bold ml-3 text-base-content dark:text-base-100">USC Tuition Payment Plan</h2>
+    <div className="space-y-8 animate-in fade-in duration-700">
+      
+      {/* 1. HERO HEADER */}
+      <div className="relative border-b-4 md:border-b-8 border-ink pb-6 md:pb-8 overflow-hidden">
+        <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none hidden sm:block">
+          <AcademicCapIcon className="h-64 w-64 text-ink" />
+        </div>
+        <div className="relative z-10">
+          <div className="bg-usc-cardinal text-bone px-3 py-1 font-loud text-[10px] w-fit border-2 md:border-4 border-ink shadow-neo mb-4 uppercase">
+            OFFICIAL_BURSAR_MANIFEST // 2024-2026
+          </div>
+          <h2 className="font-loud text-4xl sm:text-6xl md:text-8xl text-ink leading-[0.85] tracking-tighter uppercase">
+            TUITION_LEDGER
+          </h2>
+        </div>
       </div>
-      <p className="mb-6 text-base-content-secondary dark:text-base-300">
-        Track your interest-free tuition installments. Enter the total tuition for a semester to calculate installment amounts. Marking an installment as paid will automatically create a 'Tuition' expense for you.
-      </p>
 
-      <div className="border-b border-base-300 dark:border-dark-300">
-        <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Semesters">
-          {semesters.map((semester) => (
+      {/* 2. SEMESTER SELECTION TABS (Folder Style) */}
+      <div className="flex bg-ink p-1 border-4 border-ink shadow-neo w-full overflow-x-auto no-scrollbar scroll-smooth">
+        {semesters.map((s) => {
+          const isActive = s.id === activeSemesterId;
+          const isCurrentAuto = s.id === detectCurrentSemesterId();
+          
+          return (
             <button
-              key={semester.id}
-              onClick={() => setActiveSemesterId(semester.id)}
-              className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeSemesterId === semester.id
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-transparent text-base-content-secondary dark:text-base-300 hover:text-base-content dark:hover:text-base-200 hover:border-gray-300 dark:hover:border-gray-600'
+              key={s.id}
+              onClick={() => setActiveSemesterId(s.id)}
+              className={`px-4 md:px-6 py-2 font-loud text-[10px] md:text-xs transition-all relative flex-shrink-0 whitespace-nowrap ${
+                isActive 
+                  ? 'bg-usc-gold text-ink' 
+                  : 'text-bone hover:bg-white/10'
               }`}
             >
-              {semester.name}
+              {s.name.toUpperCase()}
+              {isCurrentAuto && (
+                <div className="absolute top-0 right-0 w-2 h-2 bg-usc-cardinal border border-bone" title="CURRENT_TERM" />
+              )}
             </button>
-          ))}
-        </nav>
+          );
+        })}
       </div>
 
-      <div className="mt-6">
-        {activeSemester ? (
-          <div key={activeSemester.id} className="bg-base-200 dark:bg-dark-300 p-4 rounded-lg">
-            <div className="mb-4">
-              <label htmlFor={`tuition-${activeSemester.id}`} className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Total Semester Tuition ({displayCurrency})</label>
-              <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <span className="text-gray-500 sm:text-sm">{displayCurrency === 'INR' ? '₹' : '$'}</span>
-                  </div>
-                  <input
-                      id={`tuition-${activeSemester.id}`}
-                      type="number"
-                      value={displayedTuition || ''}
-                      onChange={e => handleTuitionChange(parseFloat(e.target.value) || 0)}
-                      className="block w-full bg-base-100 dark:bg-dark-200 border-base-300 dark:border-dark-100 rounded-md shadow-sm focus:ring-brand-primary focus:border-brand-primary sm:text-sm text-base-content dark:text-base-200 pl-7 pr-3 py-2"
-                      placeholder="e.g., 28000"
-                      min="0"
+      {/* 3. ACTIVE SEMESTER VIEW */}
+      {activeSemester ? (
+        <div className="bg-bone border-4 border-ink shadow-neo flex flex-col animate-in slide-in-from-right-4 duration-300">
+          {/* Header */}
+          <div className="bg-ink p-6 border-b-4 border-ink flex justify-between items-center text-bone">
+            <div>
+              <h3 className="font-loud text-3xl text-usc-gold tracking-tight">
+                {activeSemester.name.toUpperCase()}
+              </h3>
+              <p className="font-mono text-[10px] opacity-50 uppercase">Active_Session_Focused</p>
+            </div>
+            <div className="text-right">
+              <span className="block font-mono text-[10px] text-bone/40 leading-none">SEMESTER_ID</span>
+              <span className="font-loud text-bone text-xs">{activeSemester.id}</span>
+            </div>
+          </div>
+
+          <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          {/* SEMESTER CONFIGURATION PANEL */}
+          <div className="space-y-6">
+            <div className="bg-white border-4 border-ink p-6 md:p-10 shadow-neo-gold relative overflow-hidden flex flex-col items-center justify-center text-center min-w-0">
+              <div className="absolute top-0 right-0 bg-ink text-usc-gold px-2 py-0.5 font-loud text-[8px]">REQUIRED_CONFIG</div>
+              
+              {/* Total Valuation Field */}
+              <div className="mb-8 md:mb-10 w-full">
+                <label className="font-loud text-[9px] md:text-[10px] text-ink/40 mb-3 block tracking-widest uppercase">Total_Tuition_Valuation</label> 
+                <div className="flex flex-col items-center gap-4">
+                  <span className="font-loud text-3xl sm:text-4xl md:text-5xl text-ink leading-none break-all">
+                    {formatCurrency(activeSemester.totalTuition, displayCurrency, conversionRate)}
+                  </span>
+                  <input 
+                    type="number" 
+                    placeholder="SET_VAL"
+                    className="w-full max-w-[180px] bg-bone border-4 border-ink p-3 font-loud text-sm focus:ring-4 focus:ring-usc-gold focus:outline-none text-center"
+                    onBlur={(e) => onUpdateTuition(activeSemester.id, parseFloat(e.target.value) || 0)}
                   />
+                </div>
+              </div>
+
+              {/* Dynamic Installment Splitter */}
+              <div className="pt-10 border-t-4 border-dashed border-ink/10 w-full flex flex-col items-center">
+                <label className="font-loud text-[10px] text-ink/40 mb-3 block tracking-widest uppercase">Installment_Split_Quantity</label>
+                <div className="flex flex-col items-center gap-4">
+                  <span className="font-loud text-3xl text-ink">
+                    {activeSemester.installments.length} <span className="text-xs opacity-40">UNITS</span>
+                  </span>
+                  <input 
+                    type="number" 
+                    min="1"
+                    max="12"
+                    // Use the actual length from state so it stays in sync
+                    defaultValue={activeSemester.installments.length} 
+                    className="w-24 bg-bone border-4 border-ink p-2 font-loud text-xs focus:ring-4 focus:ring-usc-gold focus:outline-none text-center"
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val > 0 && val !== activeSemester.installments.length) {
+                        onUpdateInstallmentCount(activeSemester.id, val);
+                      }
+                    }}
+                  />
+                </div>
+                <p className="mt-6 text-[9px] font-mono opacity-40 italic max-w-[200px]">Note: Changing count will re-calculate all unpaid vouchers.</p>
               </div>
             </div>
+          </div>
 
-            <div className="space-y-3">
-              {activeSemester.installments.map((installment) => (
-                <div key={installment.id} className={`p-3 rounded-md flex items-center justify-between ${installment.status === 'paid' ? 'bg-green-100/50 dark:bg-green-900/20' : 'bg-base-100 dark:bg-dark-200'}`}>
-                  <div>
-                    <p className="font-semibold text-base-content dark:text-base-100">Installment #{installment.id}</p>
-                    {installment.status === 'paid' && installment.paidDate ? (
-                        <div className="flex items-center mt-1">
-                            <span className="text-sm text-base-content-secondary dark:text-base-300 mr-2">Paid on:</span>
-                            <input
-                                type="date"
-                                value={installment.paidDate}
-                                onChange={(e) => onUpdateDate(activeSemester.id, installment.id, e.target.value)}
-                                className="bg-transparent text-sm text-base-content dark:text-base-200 border-b border-dashed border-gray-400 focus:outline-none focus:border-brand-primary"
-                            />
-                        </div>
-                    ) : null}
+            {/* Installment Voucher List */}
+            <div className="space-y-4">
+              <p className="font-loud text-xs opacity-30 border-b-2 border-ink/10 pb-2">PAYMENT_SCHEDULE_VOUCHERS</p>
+              {activeSemester.installments.map((inst, index) => (
+                <div key={inst.id} className="relative flex items-stretch border-4 border-ink bg-white shadow-neo active:translate-y-1 transition-all min-h-[80px]">
+                  
+                  <div className={`w-8 md:w-12 flex items-center justify-center border-r-4 border-ink font-loud text-[8px] md:text-xs ${inst.status === 'paid' ? 'bg-green-600 text-bone' : 'bg-usc-gold text-ink'}`}>
+                    <span className="-rotate-90 whitespace-nowrap">VCHR_{index + 1}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-base-content dark:text-base-100">{formatCurrency(installment.amount, displayCurrency, conversionRate)}</p>
-                    {installment.status === 'paid' ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-200 text-green-800 dark:bg-green-700 dark:text-green-100">
-                        <CheckIcon className="h-4 w-4 mr-1" />
-                        Paid
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => onMarkAsPaid(activeSemester.id, installment.id)}
-                        disabled={installment.amount <= 0}
-                        className="mt-1 px-3 py-1 bg-brand-primary text-white text-sm font-semibold rounded-md shadow-sm hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+
+                  <div className="p-3 md:p-4 flex-grow flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-loud text-lg md:text-xl text-ink leading-none truncate">
+                        {formatCurrency(inst.amount, displayCurrency, conversionRate)}
+                      </p>
+                      {inst.status === 'paid' ? (
+                        <div className="flex items-center mt-2 text-green-600 font-bold text-[10px]">
+                          <TagIcon className="h-3 w-3 mr-1" /> PROCESSED: {inst.paidDate}
+                        </div>
+                      ) : (
+                        <div className="flex items-center mt-2 text-ink/40 font-mono text-[9px]">
+                          <CalendarDaysIcon className="h-3 w-3 mr-1" /> AWAITING_SETTLEMENT
+                        </div>
+                      )}
+                    </div>
+
+                    {inst.status !== 'paid' && inst.amount > 0 && (
+                      <button 
+                        onClick={() => onMarkAsPaid(activeSemester.id, inst.id)}
+                        className="bg-usc-cardinal text-bone font-loud text-[9px] md:text-[10px] px-3 md:px-4 py-2 border-2 md:border-4 border-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[4px_4px_0px_0px_#111111] active:shadow-none active:translate-y-0.5 transition-all flex-shrink-0 uppercase"
                       >
-                        Mark as Paid
+                        PAY_INST
                       </button>
                     )}
                   </div>
+                  <div className="hidden sm:block absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 bg-bone border-l-4 border-ink rounded-full" />
                 </div>
               ))}
             </div>
           </div>
-        ) : (
-            <div className="text-center py-10">
-                <p className="text-base-content-secondary dark:text-base-300">No semester data to display.</p>
+
+          {/* Footer Ledger */}
+          <div className="p-6 bg-ink text-bone border-t-4 border-ink flex justify-between items-center">
+            <div>
+              <p className="text-[10px] font-mono opacity-50 uppercase">Settled_Sum</p>
+              <p className="font-loud text-2xl text-usc-gold">
+                {formatCurrency(
+                  activeSemester.installments.reduce((acc, i) => i.status === 'paid' ? acc + i.amount : acc, 0), 
+                  displayCurrency, 
+                  conversionRate
+                )}
+              </p>
             </div>
-        )}
-      </div>
+            <div className="text-right">
+              <p className="text-[10px] font-mono opacity-50 uppercase">Remaining_Balance</p>
+              <p className="font-loud text-2xl text-usc-cardinal">
+                {formatCurrency(
+                  activeSemester.totalTuition - activeSemester.installments.reduce((acc, i) => i.status === 'paid' ? acc + i.amount : acc, 0),
+                  displayCurrency,
+                  conversionRate
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="border-4 border-ink border-dashed p-20 text-center bg-bone/50">
+          <p className="font-loud text-2xl text-ink/20">NO_SEMESTER_DATA_FOUND</p>
+        </div>
+      )}
     </div>
   );
 };

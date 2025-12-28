@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { WalletIcon, GoogleIcon } from './Icons';
-import { registerUser, loginUser } from '../services/api'; // Import our new functions
+import { WalletIcon, GoogleIcon, ExclamationTriangleIcon } from './Icons';
+import { registerUser, loginUser } from '../services/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -22,32 +22,21 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
     try {
       if (isLoginView) {
-        // --- Login ---
         const data = await loginUser(email, password);
-        // Save the token to localStorage. This is our new "isAuthenticated"
         localStorage.setItem('authToken', data.token);
         onLoginSuccess();
       } else {
-        // --- Sign Up ---
         await registerUser(email, password);
-        // After successful sign-up, show a success message and switch to login view
-        setError('Registration successful! Please sign in.');
+        setError('REGISTRATION_SUCCESSFUL // PLEASE_SIGN_IN');
         setIsLoginView(true);
-        setEmail(''); // Clear email for login
-        setPassword(''); // Clear password for login
+        setEmail('');
+        setPassword('');
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      setError(err.message || 'AUTHENTICATION_FAILURE');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Mock Google login (we can wire this up later)
-  const handleGoogleLogin = () => {
-    setError('Google login is not implemented yet.');
-    // In a real app, this would trigger the Google OAuth flow.
-    // onLoginSuccess();
   };
 
   const toggleView = (e: React.MouseEvent) => {
@@ -58,82 +47,117 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     setError(null);
   };
 
+  const inputClasses = "w-full bg-white border-4 border-ink p-3 md:p-4 font-loud text-base md:text-lg focus:ring-4 md:ring-8 focus:ring-usc-gold focus:outline-none transition-all placeholder:text-ink/50 text-ink";
+  const labelClasses = "font-loud text-[10px] uppercase tracking-widest text-ink/40 mb-2 block";
+
   return (
-    <div className="min-h-screen bg-base-200 dark:bg-dark-100 flex items-center justify-center p-4 antialiased">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-            <WalletIcon className="h-12 w-12 text-brand-primary mx-auto" />
-            <h1 className="text-3xl font-bold text-base-content dark:text-base-100 mt-4 tracking-tight">
-                {isLoginView ? 'Welcome Back' : 'Create an Account'}
-            </h1>
-            <p className="text-base-content-secondary dark:text-base-300 mt-2">
-                {isLoginView ? 'Sign in to manage your expenses.' : 'Get started by creating your account.'}
-            </p>
+    <div className="min-h-screen graph-grid flex items-center justify-center p-4 antialiased relative overflow-hidden">
+      <div className="noise-overlay" />
+
+      <div className="w-full max-w-md md:max-w-lg bg-bone border-4 md:border-8 border-ink shadow-neo relative z-10 transition-all mx-auto">
+        
+        {/* HEADER STAMP: USC CARDINAL */}
+        <div className="bg-usc-cardinal p-6 md:p-8 border-b-4 md:border-b-8 border-ink">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="font-loud text-3xl md:text-5xl text-bone leading-none tracking-tighter uppercase">
+                {isLoginView ? 'SECURE_LOGIN' : 'CREATE_ID'}
+              </h1>
+              <p className="font-mono text-[10px] text-bone/60 mt-2 uppercase tracking-[0.3em]">
+                System_Access // Log_v4.0
+              </p>
+            </div>
+            <WalletIcon className="h-8 w-8 md:h-10 md:w-10 text-usc-gold shrink-0" />
+          </div>
         </div>
         
-        <div className="bg-base-100 dark:bg-dark-200 p-8 rounded-2xl shadow-lg">
-            <form onSubmit={handleFormSubmit} className="space-y-6">
-                <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Email address</label>
-                    <input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        className="mt-1 block w-full bg-base-200 dark:bg-dark-300 border-transparent focus:border-brand-primary focus:ring-brand-primary rounded-md shadow-sm text-base-content dark:text-base-200 px-4 py-3"
-                        required
-                        placeholder="you@example.com"
-                        autoComplete="email"
-                        disabled={loading}
-                    />
-                </div>
-                 <div>
-                    <label htmlFor="password"className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Password</label>
-                    <input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        className="mt-1 block w-full bg-base-200 dark:bg-dark-300 border-transparent focus:border-brand-primary focus:ring-brand-primary rounded-md shadow-sm text-base-content dark:text-base-200 px-4 py-3"
-                        required
-                        placeholder="••••••••"
-                        autoComplete={isLoginView ? "current-password" : "new-password"}
-                        disabled={loading}
-                    />
-                </div>
+        <div className="p-6 md:p-10">
+          <form onSubmit={handleFormSubmit} className="space-y-6 md:space-y-8">
+            {/* ALERT BOX */}
+            {error && (
+              <div className="bg-ink text-usc-cardinal p-4 border-4 border-usc-cardinal flex items-center font-loud text-xs italic uppercase">
+                <ExclamationTriangleIcon className="h-5 w-5 mr-3" />
+                {error}
+              </div>
+            )}
 
-                {/* --- Error Message Display --- */}
-                {error && (
-                  <div className="text-center text-sm text-red-500">
-                    {error}
-                  </div>
-                )}
-
-                <button type="submit" className="w-full py-3 px-4 bg-brand-primary text-white font-semibold rounded-lg shadow-md hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors disabled:bg-gray-400" disabled={loading}>
-                    {loading ? (isLoginView ? 'Signing In...' : 'Creating Account...') : (isLoginView ? 'Sign In' : 'Sign Up')}
-                </button>
-            </form>
-            
-            <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div className="w-full border-t border-base-300 dark:border-dark-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-base-100 dark:bg-dark-200 text-base-content-secondary dark:text-base-300">Or continue with</span>
-                </div>
+            <div className="space-y-6">
+              <div>
+                <label htmlFor="email" className={labelClasses}>CREDENTIAL_EMAIL</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className={inputClasses}
+                  required
+                  placeholder="USER@USC.EDU"
+                  autoComplete="email"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className={labelClasses}>SECURE_PASSCODE</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className={inputClasses}
+                  required
+                  placeholder="••••••••"
+                  autoComplete={isLoginView ? "current-password" : "new-password"}
+                  disabled={loading}
+                />
+              </div>
             </div>
-            
-            <a href={`${API_BASE_URL}/auth/google`} className="w-full flex items-center justify-center py-3 px-4 bg-base-100 dark:bg-dark-200 border border-base-300 dark:border-dark-300 text-base-content dark:text-base-100 font-medium rounded-lg shadow-sm hover:bg-base-200 dark:hover:bg-dark-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors">
-            <GoogleIcon className="h-5 w-5 mr-3" />
-            <span>Sign in with Google</span>
-            </a>
 
-            <p className="text-center text-sm text-base-content-secondary dark:text-base-300 mt-8">
-                {isLoginView ? "Don't have an account?" : "Already have an account?"}{' '}
-                <a href="#" onClick={toggleView} className="font-medium text-brand-primary hover:text-brand-secondary">
-                    {isLoginView ? 'Sign up' : 'Sign in'}
-                </a>
-            </p>
+            <button 
+              type="submit" 
+              className="w-full bg-usc-gold text-ink font-loud text-lg md:text-2xl py-4 md:py-5 border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
+              disabled={loading}
+            >
+              {loading 
+                ? (isLoginView ? 'SYNCING...' : 'INITIALIZING...') 
+                : (isLoginView ? 'INITIALIZE_SESSION' : 'GENERATE_CREDENTIALS')}
+            </button>
+          </form>
+          
+          {/* VISUAL DIVIDER */}
+          <div className="relative my-10 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t-4 border-dashed border-ink/20" />
+            </div>
+            <span className="relative bg-bone px-4 font-loud text-[10px] text-ink/40 uppercase">
+              Auth_Gateway_Switch
+            </span>
+          </div>
+
+          {/* GOOGLE SSO BUTTON */}
+          <a 
+            href={`${API_BASE_URL}/auth/google`} 
+            className="w-full flex items-center justify-center py-4 md:py-5 px-4 bg-white border-4 border-ink text-ink font-loud text-base md:text-lg shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all"
+          >
+            <GoogleIcon className="h-5 w-5 md:h-6 md:w-6 mr-3 md:mr-4" />
+            <span>GOOGLE_SSO_ACCESS</span>
+          </a>
+
+          {/* VIEW TOGGLE */}
+          <p className="text-center mt-8 md:mt-10">
+            <a 
+              href="#" 
+              onClick={toggleView} 
+              className="font-loud text-[10px] md:text-xs uppercase tracking-widest text-ink hover:text-usc-cardinal transition-colors underline decoration-2 md:decoration-4 decoration-usc-gold underline-offset-4"
+            >
+              {isLoginView ? 'Switch to [Account_Registration]' : 'Switch to [Secure_Login]'}
+            </a>
+          </p>
+        </div>
+
+        {/* FOOTER TECHNICAL STAMP */}
+        <div className="p-4 bg-ink text-white font-mono text-[8px] flex justify-between uppercase select-none tracking-[0.2em]">
+          <span>Fight_On_Security_Shield</span>
+          <span>© TROJAN_FIN_SYSTEM_2025</span>
         </div>
       </div>
     </div>

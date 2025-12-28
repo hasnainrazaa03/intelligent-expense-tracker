@@ -7,6 +7,7 @@ import IncomeList from './components/IncomeList';
 import ExpenseModal from './components/ExpenseModal';
 import IncomeModal from './components/IncomeModal';
 import BudgetManagerModal from './components/BudgetManagerModal';
+import CategoryManagerModal from './components/CategoryManagerModal';
 import DataModal from './components/ExportModal';
 import AiAnalyst from './components/AiAnalyst';
 import Auth from './components/Auth';
@@ -22,23 +23,30 @@ import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome
 
 type ActiveView = 'expenses' | 'income' | 'pivot' | 'usc' | 'reports';
 
-// ... (TabButton component remains the same) ...
-const TabButton = ({ icon, label, isActive, onClick }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void }) => {
-    const activeClasses = 'border-brand-primary text-brand-primary';
-    const inactiveClasses = 'border-transparent text-base-content-secondary dark:text-base-300 hover:text-base-content hover:dark:text-base-200 hover:border-gray-300 dark:hover:border-gray-700';
-    
+const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, colorClass: string }) => {
     return (
         <button
             onClick={onClick}
-            className={`flex items-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${isActive ? activeClasses : inactiveClasses}`}
+            // Changed w-20 to w-16 on mobile, w-20 on md+
+            className={`flex-1 flex flex-col items-center justify-center w-16 md:w-20 border-b-4 border-r-4 border-ink transition-all relative overflow-hidden flex-shrink-0
+                ${isActive 
+                    ? `${colorClass} text-bone shadow-[inset_4px_0px_0px_0px_#111111]` 
+                    : 'bg-white text-ink/40 hover:text-ink hover:bg-bone'
+                }`}
         >
-            {icon} {label}
+            {/* Desktop: Rotated Sticker | Mobile: Simple Stack */}
+            <div className="flex flex-col items-center gap-1 md:gap-4 md:transform md:-rotate-90 whitespace-nowrap">
+                <span className="font-loud text-[8px] md:text-[9px] tracking-[0.1em]">{label}</span>
+                <div className="md:rotate-90 scale-90 md:scale-100">{icon}</div>
+            </div>
+            
+            {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 md:w-2 bg-ink" />}
         </button>
     );
 }
 
 const App: React.FC = () => {
-  useTheme();
+  const { theme, toggleTheme } = useTheme();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -48,6 +56,7 @@ const App: React.FC = () => {
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
@@ -384,6 +393,35 @@ const handleDeleteIncome = async (id: string) => {
       if (expenseToUpdateId) { const expenseId = expenseToUpdateId; setExpenses(prevExpenses => prevExpenses.map(exp => exp.id === expenseId ? { ...exp, date: newDate } : exp)); }
   };
 
+  const handleUpdateInstallmentCount = (semesterId: string, count: number) => {
+  setSemesters(prevSemesters =>
+    prevSemesters.map(semester => {
+      if (semester.id === semesterId) {
+        // 1. Calculate the new split amount
+        const newAmount = semester.totalTuition > 0 ? semester.totalTuition / count : 0;
+        
+        // 2. Build the new dynamic array
+        const newInstallments = Array.from({ length: count }, (_, i) => {
+          const existing = semester.installments[i];
+          return {
+            id: i + 1,
+            amount: newAmount,
+            status: existing ? existing.status : 'unpaid',
+            expenseId: existing ? existing.expenseId : undefined,
+            paidDate: existing ? existing.paidDate : undefined,
+          };
+        });
+
+        return { ...semester, installments: newInstallments };
+      }
+      return semester;
+    })
+  );
+  
+  // 3. Mark as dirty so the Auto-Save logic sends it to your database
+  setIsSemestersDirty(true);
+};
+
   // ... (useMemo for filteredExpenses, filteredIncomes, etc. remains the same) ...
   const { filteredExpenses, filteredIncomes, previousPeriodExpenses } = useMemo(() => {
     const now = new Date();
@@ -449,15 +487,26 @@ const handleDeleteIncome = async (id: string) => {
 
   // --- NEW: Loading Spinner ---
   if (isLoadingData) {
-    return (
-      <div className="min-h-screen bg-base-200 dark:bg-dark-100 flex items-center justify-center">
-        <svg className="animate-spin h-10 w-10 text-brand-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+  return (
+    <div className="min-h-screen bg-bone flex flex-col items-center justify-center p-8 graph-grid overflow-hidden">
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.05]">
+          <h1 className="font-loud text-[20vw] leading-none text-ink select-none">LOADING</h1>
+        </div>
+        
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-24 h-24 border-8 border-ink border-t-usc-gold animate-spin mb-8 shadow-neo" />
+          <div className="bg-ink text-bone px-8 py-3 border-4 border-ink shadow-neo">
+            <span className="font-loud text-2xl tracking-[0.2em] animate-pulse">BOOTING_CORE_SYSTEM...</span>
+          </div>
+          <p className="font-mono text-[10px] mt-6 text-ink/40 uppercase tracking-[0.4em] font-bold">
+            Establishing_Secure_Link // USC_FIN_v4.0
+          </p>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // ... (renderActiveView function remains the same) ...
   const renderActiveView = () => {
@@ -498,19 +547,22 @@ const handleDeleteIncome = async (id: string) => {
         case 'pivot':
             return <PivotAnalysis expenses={expenses} {...commonProps} />;
         case 'usc':
-            return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} {...commonProps} />;
+            return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onUpdateInstallmentCount={handleUpdateInstallmentCount} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} {...commonProps} />;
         case 'reports':
             return <Reports allExpenses={expenses} budgets={budgets} {...commonProps} />;
         default: return null;
     }
   };
 
-  // ... (The rest of the file (return statement) remains exactly the same) ...
   return (
-    <div className="min-h-screen bg-base-200 dark:bg-dark-100 text-base-content dark:text-base-200 font-sans antialiased">
+    <div className="h-screen bg-bone flex flex-col overflow-hidden text-ink font-mono">
+      <div className="noise-overlay" />
+      
+      {/* 1. HEADER (Fixed at top) */}
       <Header 
         onLogout={handleLogout} 
         onManageBudgets={() => setIsBudgetModalOpen(true)}
+        onManageCategories={() => setIsCategoryModalOpen(true)}
         onDataAction={() => setIsDataModalOpen(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -518,9 +570,25 @@ const handleDeleteIncome = async (id: string) => {
         displayCurrency={displayCurrency}
         onCurrencyChange={setDisplayCurrency}
       />
-      <main className="container mx-auto p-4 md:p-8">
-        {activeView !== 'reports' && (
-            <Dashboard 
+
+      {/* 2. BODY WRAPPER */}
+      <div className="flex flex-1 overflow-hidden">
+        
+        {/* SIDE NAVIGATION (Vertical Sticker Tabs) */}
+        <nav className="w-16 md:w-20 flex flex-col border-r-4 border-ink bg-bone z-30 flex-shrink-0 overflow-hidden no-scrollbar h-full">
+          <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="TXNS" colorClass="bg-usc-cardinal" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
+          <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="REVENUE" colorClass="bg-green-600" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
+          <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="MATRIX" colorClass="bg-ink" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
+          <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="AUDIT" colorClass="bg-ink" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
+          <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="BURSAR" colorClass="bg-usc-gold text-ink" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
+        </nav>
+
+        {/* 3. MAIN SCROLLABLE VIEWPORT */}
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-bone">
+          <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-40">
+            
+            {(activeView === 'expenses' || activeView === 'income') && (
+              <Dashboard 
                 expenses={filteredExpenses} 
                 incomes={filteredIncomes}
                 allExpenses={expenses}
@@ -530,48 +598,71 @@ const handleDeleteIncome = async (id: string) => {
                 budgets={budgets}
                 displayCurrency={displayCurrency}
                 conversionRate={usdToInrRate}
-            />
-        )}
-        
-        <div className="my-8">
-            <div className="border-b border-base-300 dark:border-dark-300">
-                <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
-                    <TabButton icon={<ClipboardDocumentListIcon className="h-5 w-5 mr-2" />} label="Transactions" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
-                    <TabButton icon={<BanknotesIcon className="h-5 w-5 mr-2" />} label="Income" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
-                    <TabButton icon={<TableCellsIcon className="h-5 w-5 mr-2" />} label="Pivot Analysis" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
-                    <TabButton icon={<ChartPieIcon className="h-5 w-5 mr-2" />} label="Reports" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
-                    <TabButton icon={<AcademicCapIcon className="h-5 w-5 mr-2" />} label="USC Tracker" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
-                </nav>
+              />
+            )}
+
+            <div className="border-t-8 border-ink pt-8 md:pt-12">
+              {renderActiveView()}
             </div>
+          </div>
+
+        {/* 4. FLOATING ACTION BUTTON (Now truly floating) */}
+        <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 flex flex-col items-center z-50 group">
+            <button
+              onClick={handleOpenModal}
+              className="bg-usc-gold text-ink border-4 border-ink p-3 md:p-4 shadow-neo hover:bg-white hover:text-usc-cardinal hover:shadow-neo-hover transition-all flex flex-col items-center active:scale-95"
+            >
+              <PlusCircleIcon className="h-8 w-8 md:h-10 md:w-10" />
+              <span className="font-loud text-[8px] md:text-[10px] mt-1 md:mt-2 leading-none uppercase tracking-tighter">
+                ADD_{activeView === 'income' ? 'INFLOW' : 'OUTFLOW'}
+              </span>
+            </button>
         </div>
-
-        {renderActiveView()}
       </main>
+    </div>
 
-      <button
-        onClick={handleOpenModal}
-        className="fixed bottom-8 right-8 bg-brand-primary hover:bg-brand-secondary text-white rounded-full p-4 shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary"
-        aria-label={activeView === 'income' ? 'Add new income' : 'Add new expense'}
-      >
-        <PlusCircleIcon className="h-8 w-8" />
-      </button>
-
+      {/* 5. MODALS (Global Overlays) */}
       {isExpenseModalOpen && (
-        <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} onSave={editingExpense ? handleUpdateExpense : handleAddExpense} expense={editingExpense} displayCurrency={displayCurrency} />
+        <ExpenseModal 
+          isOpen={isExpenseModalOpen} 
+          onClose={() => setIsExpenseModalOpen(false)} 
+          onSave={editingExpense ? handleUpdateExpense : handleAddExpense} 
+          expense={editingExpense} 
+          displayCurrency={displayCurrency} 
+        />
       )}
       {isIncomeModalOpen && (
-        <IncomeModal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} onSave={editingIncome ? handleUpdateIncome : handleAddIncome} income={editingIncome} displayCurrency={displayCurrency} />
+        <IncomeModal 
+          isOpen={isIncomeModalOpen} 
+          onClose={() => setIsIncomeModalOpen(false)} 
+          onSave={editingIncome ? handleUpdateIncome : handleAddIncome} 
+          income={editingIncome} 
+          displayCurrency={displayCurrency} 
+        />
       )}
       {isBudgetModalOpen && (
-        <BudgetManagerModal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} onSave={handleSaveBudgets} currentBudgets={budgets} displayCurrency={displayCurrency} conversionRate={usdToInrRate} />
+        <BudgetManagerModal 
+          isOpen={isBudgetModalOpen} 
+          onClose={() => setIsBudgetModalOpen(false)} 
+          onSave={handleSaveBudgets} 
+          currentBudgets={budgets} 
+          displayCurrency={displayCurrency} 
+          conversionRate={usdToInrRate} 
+        />
       )}
       {isDataModalOpen && (
         <DataModal 
           isOpen={isDataModalOpen} 
           onClose={() => setIsDataModalOpen(false)} 
           allExpenses={expenses} 
-          budgets={budgets}
-          onImport={handleImportExpenses}
+          budgets={budgets} 
+          onImport={handleImportExpenses} 
+        />
+      )}
+      {isCategoryModalOpen && (
+        <CategoryManagerModal 
+          isOpen={isCategoryModalOpen} 
+          onClose={() => setIsCategoryModalOpen(false)} 
         />
       )}
     </div>

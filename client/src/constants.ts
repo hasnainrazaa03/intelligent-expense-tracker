@@ -31,14 +31,14 @@ export const INCOME_CATEGORIES = [
 ];
 
 export const CATEGORY_COLORS: { [key: string]: string } = {
-  'Education': '#ef4444',
-  'Housing': '#f97316',
-  'Food': '#eab308',
-  'Healthcare': '#84cc16',
-  'Transportation': '#22c55e',
-  'Personal': '#3b82f6',
-  'Travel': '#8b5cf6',
-  'Miscellaneous': '#a8a29e',
+  'Education': '#990000',      // Cardinal
+  'Housing': '#FFCC00',        // Gold
+  'Food': '#767676',           // Gray
+  'Healthcare': '#540115',     // Darker Cardinal
+  'Transportation': '#E1C27A', // Muted Gold
+  'Personal': '#000000',       // Black
+  'Travel': '#B2B2B2',         // Light Gray
+  'Miscellaneous': '#666666', 
 };
 
 export const PAYMENT_METHODS = [

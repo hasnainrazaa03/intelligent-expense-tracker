@@ -1,104 +1,87 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
-// --- Authentication ---
 model User {
-  id        String     @id @default(cuid())
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
   email     String     @unique
-  password  String // We will store a hashed password
-
-  // --- User Data ---
+  password  String
   expenses  Expense[]
   incomes   Income[]
   budgets   Budget[]
   semesters Semester[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
-// --- Your Application Data ---
-
 model Expense {
-  id        String  @id @default(cuid())
-  title     String
-  amount    Float
-  category  String
-  date      DateTime @db.Date // Store as YYYY-MM-DD
-
-  paymentMethod   String?
-  notes           String?
-  originalAmount  Float?
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  title            String
+  amount           Float
+  category         String
+  date             DateTime @db.Date
+  paymentMethod    String?
+  notes            String?
+  originalAmount   Float?
   originalCurrency String?
-  isRecurring     Boolean? @default(false)
-
-  // Relation to the User
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  isRecurring      Boolean? @default(false)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String   @db.ObjectId
 }
 
 model Income {
-  id        String  @id @default(cuid())
-  title     String
-  amount    Float
-  category  String
-  date      DateTime @db.Date // Store as YYYY-MM-DD
-
-  notes           String?
-  originalAmount  Float?
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  title            String
+  amount           Float
+  category         String
+  date             DateTime @db.Date
+  notes            String?
+  originalAmount   Float?
   originalCurrency String?
-
-  // Relation to the User
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String   @db.ObjectId
 }
 
 model Budget {
-  id        String  @id @default(cuid())
-  category  String
-  amount    Float
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  category String
+  amount   Float
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String @db.ObjectId
 
-  // Relation to the User
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-
-  // Ensure a user can only have one budget per category
   @@unique([userId, category])
 }
 
 model Semester {
-      id            String  // e.g., 'fall-2025'
-      name          String
-      totalTuition  Float
-      
-      // Relation to the User
-      user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-      userId        String
-      
-      installments  TuitionInstallment[]
+  // MongoDB MUST have a single _id primary key
+  id_internal  String @id @default(auto()) @map("_id") @db.ObjectId
+  
+  id           String // This is your 'fall-2025' string
+  name         String
+  totalTuition Float
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String @db.ObjectId
+  installments TuitionInstallment[]
 
-      @@id([id, userId]) // <-- FIX 1: This is now a composite PRIMARY KEY
-    }
+  // Use @@unique instead of @@id for composite uniqueness in MongoDB
+  @@unique([id, userId]) 
+}
 
-    model TuitionInstallment {
-      id          Int     @id @default(autoincrement())
-      amount      Float
-      status      String  // "paid" or "unpaid"
-      expenseId   String? // Link to the generated expense
-      paidDate    DateTime? @db.Date
-      
-      // Relation to the Semester
-      // FIX 2: We must relate to BOTH parts of the Semester's composite key
-      semester    Semester @relation(fields: [semesterId, semesterUserId], references: [id, userId], onDelete: Cascade)
-      semesterId  String
-      semesterUserId String // <-- FIX 3: Add this new field
-    }
+model TuitionInstallment {
+  // autoincrement() is not supported in MongoDB
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  amount         Float
+  status         String
+  expenseId      String?
+  paidDate       DateTime? @db.Date
+  
+  // Relating to Semester's custom unique constraint
+  semester       Semester  @relation(fields: [semesterId, semesterUserId], references: [id, userId], onDelete: Cascade)
+  semesterId     String
+  semesterUserId String    @db.ObjectId
+}

@@ -1,8 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Expense } from '../types';
-import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
-import { TableCellsIcon } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
+import { TableCellsIcon, ClipboardDocumentListIcon } from './Icons'; // Swapped to icons you have
 
 interface PivotAnalysisProps {
   expenses: Expense[];
@@ -11,105 +10,128 @@ interface PivotAnalysisProps {
 }
 
 const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses, displayCurrency, conversionRate }) => {
+  const [groupBy, setGroupBy] = useState<'category' | 'month' | 'paymentMethod'>('category');
+
   const pivotData = useMemo(() => {
-    const data: { [category: string]: { [month: string]: number } } = {};
-    const monthSet = new Set<string>();
+    const groups: Record<string, { total: number; count: number; avg: number }> = {};
 
-    expenses.forEach(exp => {
-      const mainCategory = SUBCATEGORY_TO_CATEGORY_MAP[exp.category] || 'Miscellaneous';
-      const date = new Date(exp.date);
-      const monthKey = date.toLocaleString('default', { month: 'short', year: '2-digit', timeZone: 'UTC' });
-      
-      monthSet.add(monthKey);
-      
-      if (!data[mainCategory]) {
-        data[mainCategory] = {};
+    expenses.forEach((exp) => {
+      let key = exp.category;
+      if (groupBy === 'month') key = exp.date.substring(0, 7); // YYYY-MM
+      if (groupBy === 'paymentMethod') key = exp.paymentMethod || 'UNSPECIFIED';
+
+      if (!groups[key]) {
+        groups[key] = { total: 0, count: 0, avg: 0 };
       }
-      data[mainCategory][monthKey] = (data[mainCategory][monthKey] || 0) + exp.amount;
+      groups[key].total += exp.amount;
+      groups[key].count += 1;
     });
 
-    const sortedMonths = Array.from(monthSet).sort((a, b) => {
-        const dateA = new Date(`01 ${a}`);
-        const dateB = new Date(`01 ${b}`);
-        return dateA.getTime() - dateB.getTime();
-    });
+    return Object.entries(groups)
+      .map(([name, data]) => ({
+        name,
+        ...data,
+        avg: data.total / data.count,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [expenses, groupBy]);
 
-    return { data, sortedMonths };
-  }, [expenses]);
-
-  const categoryTotals: { [key: string]: number } = useMemo(() => {
-      const totals: { [key: string]: number } = {};
-      for (const category in pivotData.data) {
-          // FIX: Use Number(amount) to ensure the value is a number before the arithmetic operation.
-          totals[category] = Object.values(pivotData.data[category]).reduce((sum, amount) => sum + Number(amount), 0);
-      }
-      return totals;
-  }, [pivotData.data]);
-
-  const monthTotals: { [key: string]: number } = useMemo(() => {
-      const totals: { [key: string]: number } = {};
-      pivotData.sortedMonths.forEach(month => {
-          let monthTotal = 0;
-          for (const category in pivotData.data) {
-              monthTotal += pivotData.data[category][month] || 0;
-          }
-          totals[month] = monthTotal;
-      });
-      return totals;
-  }, [pivotData.data, pivotData.sortedMonths]);
-
-  const grandTotal = useMemo(() => Object.values(monthTotals).reduce((sum, amount) => sum + amount, 0), [monthTotals]);
-
-  if (expenses.length === 0) {
-    return (
-       <div className="bg-base-100 dark:bg-dark-200 p-6 rounded-2xl shadow-lg text-center">
-            <h2 className="text-2xl font-bold mb-2 text-base-content dark:text-base-100">Pivot Analysis</h2>
-            <p className="text-base-content-secondary dark:text-base-300">No expense data available to create an analysis.</p>
-       </div>
-    );
-  }
+  const totalVolume = pivotData.reduce((sum, d) => sum + d.total, 0);
 
   return (
-    <div className="bg-base-100 dark:bg-dark-200 p-6 rounded-2xl shadow-lg">
-      <div className="flex items-center mb-6">
-        <TableCellsIcon className="h-6 w-6 text-brand-primary" />
-        <h2 className="text-2xl font-bold ml-3 text-base-content dark:text-base-100">Pivot Analysis</h2>
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* 1. TECHNICAL HEADER */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 border-b-4 md:border-b-8 border-ink pb-6 overflow-hidden">
+        <div className="min-w-0">
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="bg-usc-gold text-ink px-1.5 py-0.5 font-loud text-[8px] md:text-[10px] border-2 border-ink shadow-[2px_2px_0px_0px_#111111]">
+              ENGINE_v4.0
+            </span>
+            <span className="font-mono text-[8px] md:text-[10px] opacity-40 uppercase tracking-widest text-ink truncate">Data_Pivot_Processing</span>
+          </div>
+          <h2 className="font-loud text-4xl sm:text-5xl md:text-7xl text-ink leading-none tracking-tighter uppercase break-words">
+            MATRIX_ANALYSIS
+          </h2>
+        </div>
+
+        {/* 2. MODE SELECTOR */}
+        <div className="flex bg-ink p-1 border-4 border-ink shadow-neo w-full lg:w-auto overflow-x-auto no-scrollbar">
+          {(['category', 'month', 'paymentMethod'] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setGroupBy(mode)}
+              className={`px-4 md:px-6 py-2 font-loud text-[10px] md:text-xs transition-all whitespace-nowrap flex-1 ${
+                groupBy === mode ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'
+              }`}
+            >
+              {mode.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left text-base-content-secondary dark:text-base-300">
-          <thead className="text-xs text-base-content dark:text-base-200 uppercase bg-base-200 dark:bg-dark-300">
-            <tr>
-              <th scope="col" className="px-6 py-3 rounded-tl-lg">Category</th>
-              {pivotData.sortedMonths.map(month => (
-                <th key={month} scope="col" className="px-6 py-3 text-right">{month}</th>
-              ))}
-              <th scope="col" className="px-6 py-3 rounded-tr-lg text-right font-bold">Category Total</th>
+
+      {/* 3. THE LEDGER TABLE */}
+      <div className="bg-white border-4 border-ink shadow-neo overflow-hidden relative">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none">
+          <TableCellsIcon className="h-96 w-96 text-ink" />
+        </div>
+
+        <table className="w-full text-left relative z-10 border-collapse">
+          <thead>
+            <tr className="bg-ink text-bone border-b-4 border-ink">
+              <th className="p-3 md:p-6 font-loud text-[10px] md:text-sm tracking-widest text-bone">DATA_POINT</th>
+              <th className="p-3 md:p-6 font-loud text-[10px] md:text-sm tracking-widest text-right text-bone">VOLUME_SUM</th>
+              <th className="hidden md:table-cell p-6 font-loud text-sm tracking-widest text-right text-bone">FREQ_COUNT</th>
+              <th className="hidden md:table-cell p-6 font-loud text-sm tracking-widest text-right text-bone whitespace-nowrap">MEAN_VAL</th>
             </tr>
           </thead>
-          <tbody>
-            {Object.keys(pivotData.data).sort().map((category, index) => (
-              <tr key={category} className="border-b border-base-200 dark:border-dark-300 hover:bg-base-200/50 dark:hover:bg-dark-300/50">
-                <th scope="row" className="px-6 py-4 font-medium text-base-content dark:text-base-100 whitespace-nowrap">{category}</th>
-                {pivotData.sortedMonths.map(month => (
-                  <td key={`${category}-${month}`} className="px-6 py-4 text-right">
-                    {pivotData.data[category][month] ? formatCurrency(pivotData.data[category][month], displayCurrency, conversionRate) : '-'}
-                  </td>
-                ))}
-                <td className="px-6 py-4 text-right font-bold text-base-content dark:text-base-200">{formatCurrency(categoryTotals[category], displayCurrency, conversionRate)}</td>
+          <tbody className="divide-y-2 md:divide-y-4 divide-ink/10">
+            {pivotData.map((row) => (
+              <tr key={row.name} className="hover:bg-usc-gold/5 transition-colors group">
+                <td className="p-3 md:p-6 font-loud text-sm md:text-xl text-ink uppercase border-r-2 md:border-r-4 border-ink/5 truncate max-w-[120px] md:max-w-none">
+                  {row.name.replace('-', '/')}
+                </td>
+                <td className="p-3 md:p-6 text-right border-r-0 md:border-r-4 md:border-ink/5">
+                  <span className="font-loud text-base md:text-2xl text-usc-cardinal block">
+                    {formatCurrency(row.total, displayCurrency, conversionRate)}
+                  </span>
+                  <div className="h-1 bg-ink/10 mt-1 relative w-full">
+                    <div 
+                      className="h-full bg-usc-gold absolute top-0 left-0" 
+                      style={{ width: `${(row.total / totalVolume) * 100}%` }}
+                  />
+                </div>
+                </td>
+                <td className="hidden md:table-cell p-6 text-right font-mono text-sm font-bold opacity-60 text-ink border-r-4 border-ink/5">
+                  {row.count.toString().padStart(3, '0')}
+                </td>
+                <td className="hidden md:table-cell p-6 text-right font-loud text-lg opacity-80 text-ink">
+                  {formatCurrency(row.avg, displayCurrency, conversionRate)}
+                </td>
               </tr>
             ))}
           </tbody>
-          <tfoot className="font-bold text-base-content dark:text-base-200 bg-base-200 dark:bg-dark-300">
-            <tr>
-              <th scope="row" className="px-6 py-3 rounded-bl-lg">Monthly Total</th>
-              {pivotData.sortedMonths.map(month => (
-                  <td key={`total-${month}`} className="px-6 py-3 text-right">{formatCurrency(monthTotals[month], displayCurrency, conversionRate)}</td>
-              ))}
-              <td className="px-6 py-3 rounded-br-lg text-right text-lg">{formatCurrency(grandTotal, displayCurrency, conversionRate)}</td>
+          <tfoot>
+            <tr className="bg-bone border-t-4 border-ink">
+              <td className="p-3 md:p-6 font-loud text-sm md:text-2xl uppercase text-ink">AGGREGATE_TOTAL</td>
+              <td className="p-3 md:p-6 text-right font-loud text-lg md:text-3xl text-ink">
+                {formatCurrency(totalVolume, displayCurrency, conversionRate)}
+              </td>
+              <td colSpan={2} className="hidden md:table-cell p-6 text-right italic font-mono text-[10px] opacity-40 text-ink">
+                EOF // USC_FIN_ANALYSIS_STAMP
+              </td>
             </tr>
           </tfoot>
         </table>
       </div>
+
+      {/* 4. EXPORT CALLOUT */}
+      <div className="flex justify-end pt-4">
+        <button className="w-full md:w-auto flex items-center justify-center space-x-2 bg-bone border-4 border-ink px-6 py-4 font-loud text-xs md:text-sm text-ink shadow-neo active:translate-y-1 transition-all uppercase">
+          <ClipboardDocumentListIcon className="h-5 w-5" />
+          <span>DOWNLOAD_CSV_MANIFEST</span>
+        </button>
+    </div>
     </div>
   );
 };

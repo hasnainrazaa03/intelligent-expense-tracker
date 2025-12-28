@@ -6,19 +6,34 @@ interface CurrencyToggleProps {
 }
 
 const CurrencyToggle: React.FC<CurrencyToggleProps> = ({ currency, onCurrencyChange }) => {
-  const handleToggle = () => {
-    onCurrencyChange(currency === 'USD' ? 'INR' : 'USD');
-  };
-
   return (
-    <button
-      onClick={handleToggle}
-      className="flex items-center space-x-2 px-3 py-2 text-sm font-semibold text-brand-primary bg-brand-primary/10 dark:bg-brand-primary/20 rounded-md hover:bg-brand-primary/20 dark:hover:bg-brand-primary/30 transition-colors"
-      aria-label="Toggle currency"
-    >
-      <span>{currency}</span>
-      <span className="font-normal">{currency === 'USD' ? '$' : '₹'}</span>
-    </button>
+    <div className="flex bg-ink border-[3px] md:border-4 border-ink p-1 shadow-neo flex-shrink-0">
+      {/* USD Button */}
+      <button 
+        onClick={() => onCurrencyChange('USD')}
+        className={`px-3 md:px-4 py-1.5 md:py-1 font-loud text-[10px] md:text-xs transition-all duration-200 ${
+          currency === 'USD' 
+            ? 'bg-usc-gold text-ink' 
+            : 'text-bone hover:bg-white/10'
+        }`}
+      >
+        <span className="md:hidden">USD</span>
+        <span className="hidden md:inline">USD$</span>
+      </button>
+
+      {/* INR Button */}
+      <button 
+        onClick={() => onCurrencyChange('INR')}
+        className={`px-3 md:px-4 py-1.5 md:py-1 font-loud text-[10px] md:text-xs transition-all duration-200 ${
+          currency === 'INR' 
+            ? 'bg-usc-gold text-ink' 
+            : 'text-bone hover:bg-white/10'
+        }`}
+      >
+        <span className="md:hidden">INR</span>
+        <span className="hidden md:inline">INR₹</span>
+      </button>
+    </div>
   );
 };
 

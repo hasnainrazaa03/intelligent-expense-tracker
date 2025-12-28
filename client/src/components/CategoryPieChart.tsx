@@ -19,9 +19,11 @@ interface CategoryPieChartProps {
 const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-base-100 dark:bg-dark-300 p-2 border border-base-300 dark:border-dark-100 rounded-md shadow-lg">
-        <p className="font-bold">{`${payload[0].name}`}</p>
-        <p style={{ color: payload[0].payload.fill }}>{`Amount: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}</p>
+      <div className="bg-white border-2 md:border-4 border-ink p-2 md:p-3 shadow-neo z-50">
+        <p className="font-loud text-[10px] md:text-xs mb-1 border-b-2 border-ink pb-1">{payload[0].name}</p>
+        <p className="font-bold text-[10px] md:text-sm" style={{ color: payload[0].payload.fill }}>
+          {formatCurrency(payload[0].value, displayCurrency, conversionRate)}
+        </p>
       </div>
     );
   }
@@ -30,7 +32,11 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
 
 const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurrency, conversionRate }) => {
     if (data.length === 0) {
-        return <div className="flex items-center justify-center h-full text-base-content-secondary dark:text-gray-400">No data to display.</div>;
+        return (
+          <div className="flex items-center justify-center h-full font-loud text-xs text-ink/30 italic">
+            NO_DATA_AVAILABLE
+          </div>
+        );
     }
 
   return (
@@ -38,27 +44,45 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurren
       <PieChart>
         <Pie
           data={data}
-          cx="50%"
-          cy="45%"
-          labelLine={false}
-          outerRadius={80}
-          fill="#8884d8"
+          innerRadius={window.innerWidth < 768 ? 45 : 60}
+          outerRadius={window.innerWidth < 768 ? 65 : 80}
+          paddingAngle={5}
+          strokeWidth={window.innerWidth < 768 ? 2 : 4}
+          stroke="#111111"
           dataKey="value"
-          nameKey="name"
+          isAnimationActive={true}
         >
           {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.fill} />
+            <Cell 
+              key={`cell-${index}`} 
+              // USC Palette Cycle: Cardinal, Gold, Ink, and a Darkened Bone
+              fill={[ '#990000', '#FFCC00', '#111111', '#CCCCCC' ][index % 4]} 
+            />
           ))}
         </Pie>
         <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate} />} />
         <Legend 
-            iconSize={10} 
-            wrapperStyle={{
-                paddingTop: '15px', 
-                fontSize: '12px', 
-                lineHeight: '20px',
-                bottom: 0,
-            }} 
+          iconType="rect"
+          iconSize={window.innerWidth < 768 ? 8 : 10} 
+          layout={window.innerWidth < 768 ? 'horizontal' : 'vertical'}
+          align="center"
+          verticalAlign={window.innerWidth < 768 ? 'bottom' : 'middle'}
+          wrapperStyle={
+            window.innerWidth < 768 
+              ? {
+                  paddingTop: '10px',
+                  fontSize: '8px',
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  width: '100%'
+                }
+              : {
+                  paddingLeft: '20px',
+                  fontSize: '10px',
+                  fontWeight: 900,
+                  textTransform: 'uppercase'
+                }
+          } 
         />
       </PieChart>
     </ResponsiveContainer>

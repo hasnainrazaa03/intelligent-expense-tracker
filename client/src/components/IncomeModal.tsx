@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Income } from '../types';
 import { INCOME_CATEGORIES } from '../constants';
 import { XMarkIcon } from './Icons';
@@ -27,6 +27,11 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   
   const isAmountUSDReadOnly = selectedCurrency === 'INR';
 
+  const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(false);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const categoryDropdownRef = React.useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (income) {
       setTitle(income.title);
@@ -42,17 +47,16 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
         setOriginalAmount('');
       }
     } else {
-      setTitle('');
-      setAmount('');
+      setTitle(''); 
+      setAmount(''); 
       setCategory(INCOME_CATEGORIES[0]);
       setDate(new Date().toISOString().split('T')[0]);
-      setNotes('');
-      setSelectedCurrency(displayCurrency);
+      setNotes(''); 
+      setSelectedCurrency(displayCurrency); 
       setOriginalAmount('');
     }
-     setConversionRate(null);
-     setConversionLoading(false);
-     setConversionError(null);
+    setConversionRate(null); 
+    setConversionError(null);
   }, [income, isOpen, displayCurrency]);
 
   useEffect(() => {
@@ -60,133 +64,205 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
         if (selectedCurrency === 'INR' && originalAmount && parseFloat(originalAmount) > 0) {
             setConversionLoading(true);
             setConversionError(null);
-            setConversionRate(null);
             try {
                 const response = await fetch(`https://api.frankfurter.app/latest?from=INR&to=USD`);
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Could not fetch rate.');
-                }
+                if (!response.ok) throw new Error('SYNC_ERROR');
                 const data = await response.json();
                 if (data.rates && data.rates.USD) {
                     const rate = data.rates.USD;
                     setConversionRate(rate);
-                    const usdAmount = parseFloat(originalAmount) * rate;
-                    setAmount(usdAmount.toFixed(2));
-                } else {
-                    throw new Error(`Invalid currency code: INR`);
+                    setAmount((parseFloat(originalAmount) * rate).toFixed(2));
                 }
             } catch (err: any) {
-                setConversionError(err.message);
-                setAmount('');
+                setConversionError("CONVERSION_FAILED");
             } finally {
                 setConversionLoading(false);
             }
-        } else if (selectedCurrency === 'USD') {
-            setConversionError(null);
-            setConversionRate(null);
         }
     };
-    
     const debounce = setTimeout(convert, 500);
     return () => clearTimeout(debounce);
   }, [selectedCurrency, originalAmount]);
 
+  // Filter logic for the advanced dropdown
+  const filteredCategories = useMemo(() => {
+    if (!categorySearchTerm.trim()) return INCOME_CATEGORIES;
+    return INCOME_CATEGORIES.filter(cat => 
+      cat.toLowerCase().includes(categorySearchTerm.toLowerCase())
+    );
+  }, [categorySearchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleCategorySelect = (selectedCategory: string) => {
+    setCategory(selectedCategory);
+    setHasManuallySelectedCategory(true);
+    setIsCategoryDropdownOpen(false);
+    setCategorySearchTerm('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const primaryAmount = selectedCurrency === 'INR' ? originalAmount : amount;
-    if (!title || !primaryAmount || parseFloat(primaryAmount) <= 0 || (isAmountUSDReadOnly && !amount)) {
-      return;
-    }
+    if (!title || !primaryAmount || parseFloat(primaryAmount) <= 0 || (isAmountUSDReadOnly && !amount)) return;
 
     const incomeData = {
-      title,
+      title: title.trim(),
       amount: parseFloat(amount),
       category,
       date,
       notes: notes.trim() || undefined,
       originalAmount: selectedCurrency === 'INR' && originalAmount ? parseFloat(originalAmount) : undefined,
-      originalCurrency: selectedCurrency === 'INR' ? 'INR' : undefined,
+      originalCurrency: selectedCurrency === 'INR' ? 'INR' : 'USD',
     };
     
-    if (income) {
-      onSave({ ...incomeData, id: income.id });
-    } else {
-      onSave(incomeData);
-    }
+    onSave(income ? { ...incomeData, id: income.id } : incomeData);
     onClose();
   };
 
   if (!isOpen) return null;
 
-  const inputClasses = "mt-1 block w-full bg-base-200 dark:bg-dark-300 border border-base-300 dark:border-dark-100 rounded-md shadow-sm focus:ring-brand-primary focus:border-brand-primary sm:text-sm text-base-content dark:text-base-200 px-3 py-2.5";
-  
-  const renderConversionStatus = () => {
-    if (conversionLoading) return <p className="text-xs text-blue-500 mt-1">Converting...</p>;
-    if (conversionError) return <p className="text-xs text-red-500 mt-1">{conversionError}</p>;
-    if (conversionRate && selectedCurrency === 'INR') return <p className="text-xs text-green-600 dark:text-green-400 mt-1">Rate: 1 INR = {conversionRate.toFixed(4)} USD</p>;
-    return null;
-  };
+  const inputBase = "w-full bg-white border-4 border-ink p-4 font-loud text-base text-ink focus:outline-none focus:ring-4 focus:ring-usc-gold transition-all placeholder:text-ink/10 min-h-[56px]";
+  const labelBase = "font-loud text-[10px] tracking-widest text-ink/40 mb-2 block uppercase leading-none antialiased";
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-base-100 dark:bg-dark-200 rounded-lg shadow-xl w-full max-w-md m-4 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-5 border-b border-base-200 dark:border-dark-300 flex-shrink-0">
-            <h2 className="text-xl font-bold text-base-content dark:text-base-100">{income ? 'Edit Income' : 'Add Income'}</h2>
-            <button onClick={onClose} className="p-1 rounded-full text-base-content-secondary dark:text-base-300 hover:bg-base-200 dark:hover:bg-dark-300 transition-colors">
-                <XMarkIcon className="h-6 w-6" />
-            </button>
-        </div>
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto">
-          <div className="p-6 grid grid-cols-2 gap-x-4 gap-y-5">
-              <div className="col-span-2">
-                <label htmlFor="title" className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Title</label>
-                <input id="title" type="text" value={title} onChange={e => setTitle(e.target.value)} className={inputClasses} required />
-              </div>
-
-              <div className="col-span-2">
-                  <label className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Currency</label>
-                  <div className="mt-1 grid grid-cols-2 gap-2 rounded-md bg-base-200 dark:bg-dark-300 p-1">
-                      <button type="button" onClick={() => setSelectedCurrency('USD')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${selectedCurrency === 'USD' ? 'bg-brand-primary text-white shadow' : 'text-base-content-secondary dark:text-base-300'}`}>USD</button>
-                      <button type="button" onClick={() => setSelectedCurrency('INR')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${selectedCurrency === 'INR' ? 'bg-brand-primary text-white shadow' : 'text-base-content-secondary dark:text-base-300'}`}>INR</button>
-                  </div>
-              </div>
-
-              {selectedCurrency === 'INR' && (
-                  <div className="col-span-2">
-                      <label htmlFor="originalAmount" className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Amount (INR)</label>
-                      <input id="originalAmount" type="number" value={originalAmount} onChange={e => setOriginalAmount(e.target.value)} className={inputClasses} required min="0.01" step="0.01" placeholder='Amount in ₹' />
-                  </div>
-              )}
-              
-              <div>
-                <label htmlFor="amount" className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Amount (USD)</label>
-                <input id="amount" type="number" value={amount} onChange={e => setAmount(e.target.value)} className={`${inputClasses} ${isAmountUSDReadOnly ? 'bg-base-300/50 dark:bg-dark-100/50 cursor-not-allowed' : ''}`} required readOnly={isAmountUSDReadOnly} min="0.01" step="0.01" placeholder='Amount in $' />
-              </div>
-
-              <div>
-                <label htmlFor="date" className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Date</label>
-                <input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} className={inputClasses} required />
-              </div>
-              
-              <div className="col-span-2 -mt-3">{renderConversionStatus()}</div>
-
-              <div className="col-span-2">
-                <label htmlFor="category" className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Category</label>
-                <select id="category" value={category} onChange={e => setCategory(e.target.value)} className={inputClasses}>
-                    {INCOME_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-              </div>
-
-              <div className="col-span-2">
-                <label htmlFor="notes" className="block text-sm font-medium text-base-content-secondary dark:text-base-300">Notes (Optional)</label>
-                <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} className={`${inputClasses} min-h-[80px]`} rows={3} />
-              </div>
+    <div className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-4">
+      <div className="bg-bone border-4 border-ink shadow-neo-gold w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+        
+        {/* HEADER STAMP: REVENUE CONTROL */}
+        <div className="bg-usc-gold p-6 border-b-4 border-ink flex justify-between items-center flex-shrink-0">
+          <div>
+            <h2 className="font-loud text-3xl text-ink leading-none uppercase">
+                {income ? 'ADJUST_REVENUE' : 'LOG_INFLOW'}
+            </h2>
+            <div className="flex items-center mt-2">
+                <span className="bg-ink text-usc-gold px-2 py-0.5 text-[8px] font-bold border border-ink uppercase tracking-widest">Revenue_Control_v4.0</span>
+                <span className="ml-2 text-[8px] font-mono text-ink/40 uppercase tracking-widest leading-none">Status: Connected</span>
+            </div>
           </div>
-          <div className="flex justify-end p-5 bg-base-200 dark:bg-dark-300 rounded-b-lg space-x-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-base-100 dark:bg-dark-200 text-base-content dark:text-base-200 rounded-md hover:bg-base-300/70 dark:hover:bg-dark-100 border border-base-300 dark:border-dark-100 transition-colors">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">{income ? 'Save Changes' : 'Add Income'}</button>
+          <button onClick={onClose} className="bg-ink text-bone p-1 border-2 border-bone hover:bg-bone hover:text-ink transition-colors">
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-4 sm:p-8">
+          <div className="flex flex-col space-y-8">
+            
+            <div>
+              <label className={labelBase}>REVENUE_SOURCE</label>
+              <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="E.G. USC_TA_STIPEND" className={inputBase} required />
+            </div>
+
+            <div>
+                <label className={labelBase}>CURRENCY_SELECT</label>
+                <div className="grid grid-cols-2 bg-ink border-4 border-ink p-1">
+                    <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-3 font-loud text-[10px] sm:text-xs transition-all ${selectedCurrency === 'USD' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}>USD_($)</button>
+                    <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-3 font-loud text-[10px] sm:text-xs transition-all ${selectedCurrency === 'INR' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}>INR_(₹)</button>
+                </div>
+            </div>
+
+            {/* CURRENCY VOUCHER FOR INR */}
+            {selectedCurrency === 'INR' && (
+                <div className="bg-usc-gold border-4 border-ink p-4 relative overflow-hidden">
+                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-bone border-r-4 border-ink rounded-full" />
+                    <label className={`${labelBase} text-ink`}>FOREIGN_INFLOW_VALUE (INR)</label>
+                    <div className="flex items-center gap-4">
+                        <span className="font-loud text-3xl text-ink">₹</span>
+                        <input 
+                          type="number" 
+                          value={originalAmount} 
+                          onChange={e => setOriginalAmount(e.target.value)} 
+                          placeholder="0.00" 
+                          className={`${inputBase} w-full bg-bone border-4 border-ink p-3 font-loud text-lg focus:outline-none`} 
+                          required step="0.01" 
+                        />
+                    </div>
+                </div>
+            )}
+
+            <div>
+              <label className={labelBase}>VALUATION_USD</label>
+              <div className="relative">
+                  <input 
+                    type="number" value={amount} onChange={e => setAmount(e.target.value)} 
+                    placeholder="$ 0.00" 
+                    className={`${inputBase} ${isAmountUSDReadOnly ? 'bg-ink/5' : ''}`} 
+                    required readOnly={isAmountUSDReadOnly} step="0.01" 
+                  />
+                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-usc-gold border-t-transparent rounded-full" />}
+              </div>
+              {conversionError && <p className="text-[10px] text-usc-cardinal font-bold mt-1 uppercase italic">{conversionError}</p>}
+            </div>
+
+            <div>
+              <label className={labelBase}>DATE_STAMP</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputBase} required />
+            </div>
+
+            <div className="relative" ref={categoryDropdownRef}>
+          <label className={labelBase}>ASSET_CLASS</label>
+          <button
+            type="button"
+            onClick={() => { setIsCategoryDropdownOpen(!isCategoryDropdownOpen); setCategorySearchTerm(''); }}
+            className={`${inputBase} flex justify-between items-center text-left`}
+          >
+            <span className="truncate">{category.toUpperCase()}</span>
+            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-ink opacity-30"></div>
+          </button>
+          
+          {isCategoryDropdownOpen && (
+            <div className="absolute z-50 mt-2 w-full bg-white border-4 border-ink shadow-neo overflow-hidden flex flex-col max-h-64">
+              <div className="p-3 border-b-4 border-ink bg-bone sticky top-0">
+                <input
+                  type="text" placeholder="SEARCH_ASSETS..." value={categorySearchTerm}
+                  onChange={(e) => setCategorySearchTerm(e.target.value)}
+                  className="w-full bg-white border-2 border-ink p-2 text-xs font-loud focus:outline-none"
+                  autoFocus
+                />
+              </div>
+              <div className="overflow-y-auto">
+                {filteredCategories.map(cat => (
+                  <div
+                    key={cat} onClick={() => handleCategorySelect(cat)}
+                    className="px-4 py-3 text-xs font-bold text-ink hover:bg-usc-gold cursor-pointer transition-colors border-b border-ink/5 uppercase"
+                  >
+                    {cat}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+            <div className="col-span-2">
+              <label className={labelBase}>ADDITIONAL_METADATA</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="SOURCE_DETAILS..." className={`${inputBase} h-24 resize-none`} />
+            </div>
+          </div>
+
+          {/* ACTION BUTTONS */}
+          <div className="mt-10 pt-8 border-t-4 border-dashed border-ink/10 flex flex-col sm:flex-row gap-4">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="w-full sm:flex-1 py-4 font-loud text-sm border-4 border-ink bg-white text-ink shadow-neo active:translate-y-1 transition-all order-2 sm:order-1"
+            >
+              TERMINATE
+            </button>
+            <button 
+              type="submit" 
+              className="w-full sm:flex-1 py-4 font-loud text-sm border-4 border-ink bg-usc-gold text-ink shadow-neo active:translate-y-1 transition-all order-1 sm:order-2"
+            >
+              COMMIT_ASSET
+            </button>
           </div>
         </form>
       </div>

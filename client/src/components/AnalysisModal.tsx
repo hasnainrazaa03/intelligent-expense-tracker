@@ -16,49 +16,47 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, analysis
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity duration-300" 
+      className="fixed inset-0 bg-ink/90 backdrop-blur-sm z-[100] flex justify-center items-center p-4" 
       onClick={onClose}
     >
       <div 
-        className="bg-base-100 dark:bg-dark-200 rounded-2xl shadow-xl w-full max-w-2xl m-4 transform transition-all duration-300" 
+        className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-2xl mx-auto transform transition-all duration-200 overflow-hidden" 
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-base-200 dark:border-dark-300">
-            <h2 className="text-2xl font-bold text-base-content dark:text-base-100">AI Spending Analysis</h2>
+        <div className="bg-ink p-4 md:p-6 border-b-4 md:border-b-8 border-ink flex justify-between items-center">
+            <h2 className="font-loud text-lg md:text-2xl text-bone tracking-tighter truncate pr-4">AI_FINANCIAL_AUDIT_REPORT</h2>
+            <button onClick={onClose} className="text-bone hover:text-usc-gold font-mono text-xl flex-shrink-0"> [X] </button>
         </div>
         
-        <div className="p-6 h-[50vh] overflow-y-auto">
+        <div className="p-4 md:p-8 h-[70vh] md:h-[60vh] overflow-y-auto bg-white custom-scrollbar">
             {isLoading && (
-              <div className="flex flex-col items-center justify-center h-full">
-                <svg className="animate-spin h-10 w-10 text-brand-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p className="mt-4 text-base-content-secondary dark:text-base-300">Generating insights...</p>
+              <div className="flex flex-col items-center justify-center h-full space-y-4">
+                <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-ink border-t-usc-gold animate-spin" />
+                <p className="font-loud text-xs md:text-sm text-ink animate-pulse tracking-widest text-center">INGESTING_DATA_STREAM...</p>
               </div>
             )}
             
             {error && (
-               <div className="flex flex-col items-center justify-center h-full text-center">
-                <p className="text-red-500 font-semibold">An Error Occurred</p>
-                <p className="text-base-content-secondary dark:text-base-300 mt-2">{error}</p>
+              <div className="bg-usc-cardinal text-bone p-4 md:p-6 border-4 border-ink shadow-neo flex flex-col items-center text-center">
+                <p className="font-loud text-base md:text-lg mb-2">CRITICAL_SYSTEM_ERROR</p>
+                <p className="font-mono text-[10px] md:text-xs opacity-80 uppercase italic leading-tight">{error}</p>
               </div>
             )}
 
             {!isLoading && !error && analysis && (
               <div 
-                className="prose prose-sm sm:prose-base dark:prose-invert max-w-none"
+                className="prose prose-sm md:prose-base prose-ink max-w-none font-medium leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: parsedAnalysis }}
               />
             )}
         </div>
         
-        <div className="flex justify-end p-4 bg-base-200/50 dark:bg-dark-300/50 rounded-b-2xl">
+        <div className="p-4 md:p-6 border-t-4 md:border-t-8 border-ink bg-bone flex justify-center md:justify-end">
           <button 
             onClick={onClose} 
-            className="px-5 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary"
+            className="w-full md:w-auto px-6 md:px-10 py-3 bg-usc-gold text-ink font-loud text-base md:text-lg border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all"
           >
-            Close
+            TERMINATE_SESSION
           </button>
         </div>
       </div>
