@@ -11,6 +11,7 @@ import CategoryManagerModal from './components/CategoryManagerModal';
 import DataModal from './components/ExportModal';
 import AiAnalyst from './components/AiAnalyst';
 import Auth from './components/Auth';
+import VerifyOTP from './components/VerifyOTP';
 import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon } from './components/Icons';
 import { useTheme } from './hooks/useTheme';
 import { USC_SEMESTERS } from './constants';
@@ -20,6 +21,7 @@ import Reports from './components/Reports';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { getAllData } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses } from './services/api';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 type ActiveView = 'expenses' | 'income' | 'pivot' | 'usc' | 'reports';
 
@@ -480,14 +482,8 @@ const handleDeleteIncome = async (id: string) => {
     return results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [filteredExpenses, filteredIncomes, searchQuery, activeView]);
 
-
-  if (!isAuthenticated) {
-    return <Auth onLoginSuccess={handleLoginSuccess} />;
-  }
-
   // --- NEW: Loading Spinner ---
-  if (isLoadingData) {
-  return (
+  const LoadingSpinner = (
     <div className="min-h-screen bg-bone flex flex-col items-center justify-center p-8 graph-grid overflow-hidden">
       <div className="relative">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.05]">
@@ -506,7 +502,6 @@ const handleDeleteIncome = async (id: string) => {
       </div>
     </div>
   );
-}
 
   // ... (renderActiveView function remains the same) ...
   const renderActiveView = () => {
@@ -553,119 +548,143 @@ const handleDeleteIncome = async (id: string) => {
         default: return null;
     }
   };
-
-  return (
-    <div className="h-screen bg-bone flex flex-col overflow-hidden text-ink font-mono">
-      <div className="noise-overlay" />
-      
-      {/* 1. HEADER (Fixed at top) */}
-      <Header 
-        onLogout={handleLogout} 
-        onManageBudgets={() => setIsBudgetModalOpen(true)}
-        onManageCategories={() => setIsCategoryModalOpen(true)}
-        onDataAction={() => setIsDataModalOpen(true)}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        activeView={activeView}
-        displayCurrency={displayCurrency}
-        onCurrencyChange={setDisplayCurrency}
-      />
-
-      {/* 2. BODY WRAPPER */}
-      <div className="flex flex-1 overflow-hidden">
-        
-        {/* SIDE NAVIGATION (Vertical Sticker Tabs) */}
-        <nav className="w-16 md:w-20 flex flex-col border-r-4 border-ink bg-bone z-30 flex-shrink-0 overflow-hidden no-scrollbar h-full">
-          <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="TXNS" colorClass="bg-usc-cardinal" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
-          <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="REVENUE" colorClass="bg-green-600" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
-          <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="MATRIX" colorClass="bg-ink" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
-          <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="AUDIT" colorClass="bg-ink" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
-          <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="BURSAR" colorClass="bg-usc-gold text-ink" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
-        </nav>
-
-        {/* 3. MAIN SCROLLABLE VIEWPORT */}
-        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-bone">
-          <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-40">
+        const DashboardLayout = (
+          <div className="h-screen bg-bone flex flex-col overflow-hidden text-ink font-mono">
+            <div className="noise-overlay" />
             
-            {(activeView === 'expenses' || activeView === 'income') && (
-              <Dashboard 
-                expenses={filteredExpenses} 
-                incomes={filteredIncomes}
-                allExpenses={expenses}
-                previousPeriodExpenses={previousPeriodExpenses}
-                selectedRange={dateRange}
-                onDateRangeChange={setDateRange}
-                budgets={budgets}
-                displayCurrency={displayCurrency}
-                conversionRate={usdToInrRate}
-              />
-            )}
+            {/* 1. HEADER (Fixed at top) */}
+            <Header 
+              onLogout={handleLogout} 
+              onManageBudgets={() => setIsBudgetModalOpen(true)}
+              onManageCategories={() => setIsCategoryModalOpen(true)}
+              onDataAction={() => setIsDataModalOpen(true)}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              activeView={activeView}
+              displayCurrency={displayCurrency}
+              onCurrencyChange={setDisplayCurrency}
+            />
 
-            <div className="border-t-8 border-ink pt-8 md:pt-12">
-              {renderActiveView()}
-            </div>
+            {/* 2. BODY WRAPPER */}
+            <div className="flex flex-1 overflow-hidden">
+              
+              {/* SIDE NAVIGATION (Vertical Sticker Tabs) */}
+              <nav className="w-16 md:w-20 flex flex-col border-r-4 border-ink bg-bone z-30 flex-shrink-0 overflow-hidden no-scrollbar h-full">
+                <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="TXNS" colorClass="bg-usc-cardinal" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
+                <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="REVENUE" colorClass="bg-green-600" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
+                <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="MATRIX" colorClass="bg-ink" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
+                <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="AUDIT" colorClass="bg-ink" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
+                <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="BURSAR" colorClass="bg-usc-gold text-ink" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
+              </nav>
+
+              {/* 3. MAIN SCROLLABLE VIEWPORT */}
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-bone">
+                <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-40">
+                  
+                  {(activeView === 'expenses' || activeView === 'income') && (
+                    <Dashboard 
+                      expenses={filteredExpenses} 
+                      incomes={filteredIncomes}
+                      allExpenses={expenses}
+                      previousPeriodExpenses={previousPeriodExpenses}
+                      selectedRange={dateRange}
+                      onDateRangeChange={setDateRange}
+                      budgets={budgets}
+                      displayCurrency={displayCurrency}
+                      conversionRate={usdToInrRate}
+                    />
+                  )}
+
+                  <div className="border-t-8 border-ink pt-8 md:pt-12">
+                    {renderActiveView()}
+                  </div>
+                </div>
+
+              {/* 4. FLOATING ACTION BUTTON */}
+              <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 flex flex-col items-center z-50 group">
+                  <button
+                    onClick={handleOpenModal}
+                    className="bg-usc-gold text-ink border-4 border-ink p-3 md:p-4 shadow-neo hover:bg-white hover:text-usc-cardinal hover:shadow-neo-hover transition-all flex flex-col items-center active:scale-95"
+                  >
+                    <PlusCircleIcon className="h-8 w-8 md:h-10 md:w-10" />
+                    <span className="font-loud text-[8px] md:text-[10px] mt-1 md:mt-2 leading-none uppercase tracking-tighter">
+                      ADD_{activeView === 'income' ? 'INFLOW' : 'OUTFLOW'}
+                    </span>
+                  </button>
+              </div>
+            </main>
           </div>
 
-        {/* 4. FLOATING ACTION BUTTON (Now truly floating) */}
-        <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 flex flex-col items-center z-50 group">
-            <button
-              onClick={handleOpenModal}
-              className="bg-usc-gold text-ink border-4 border-ink p-3 md:p-4 shadow-neo hover:bg-white hover:text-usc-cardinal hover:shadow-neo-hover transition-all flex flex-col items-center active:scale-95"
-            >
-              <PlusCircleIcon className="h-8 w-8 md:h-10 md:w-10" />
-              <span className="font-loud text-[8px] md:text-[10px] mt-1 md:mt-2 leading-none uppercase tracking-tighter">
-                ADD_{activeView === 'income' ? 'INFLOW' : 'OUTFLOW'}
-              </span>
-            </button>
-        </div>
-      </main>
-    </div>
+            {/* 5. MODALS */}
+            {isExpenseModalOpen && (
+              <ExpenseModal 
+                isOpen={isExpenseModalOpen} 
+                onClose={() => setIsExpenseModalOpen(false)} 
+                onSave={editingExpense ? handleUpdateExpense : handleAddExpense} 
+                expense={editingExpense} 
+                displayCurrency={displayCurrency} 
+              />
+            )}
+            {isIncomeModalOpen && (
+              <IncomeModal 
+                isOpen={isIncomeModalOpen} 
+                onClose={() => setIsIncomeModalOpen(false)} 
+                onSave={editingIncome ? handleUpdateIncome : handleAddIncome} 
+                income={editingIncome} 
+                displayCurrency={displayCurrency} 
+              />
+            )}
+            {isBudgetModalOpen && (
+              <BudgetManagerModal 
+                isOpen={isBudgetModalOpen} 
+                onClose={() => setIsBudgetModalOpen(false)} 
+                onSave={handleSaveBudgets} 
+                currentBudgets={budgets} 
+                displayCurrency={displayCurrency} 
+                conversionRate={usdToInrRate} 
+              />
+            )}
+            {isDataModalOpen && (
+              <DataModal 
+                isOpen={isDataModalOpen} 
+                onClose={() => setIsDataModalOpen(false)} 
+                allExpenses={expenses} 
+                budgets={budgets} 
+                onImport={handleImportExpenses} 
+              />
+            )}
+            {isCategoryModalOpen && (
+              <CategoryManagerModal 
+                isOpen={isCategoryModalOpen} 
+                onClose={() => setIsCategoryModalOpen(false)} 
+              />
+            )}
+          </div>
+        );
 
-      {/* 5. MODALS (Global Overlays) */}
-      {isExpenseModalOpen && (
-        <ExpenseModal 
-          isOpen={isExpenseModalOpen} 
-          onClose={() => setIsExpenseModalOpen(false)} 
-          onSave={editingExpense ? handleUpdateExpense : handleAddExpense} 
-          expense={editingExpense} 
-          displayCurrency={displayCurrency} 
-        />
-      )}
-      {isIncomeModalOpen && (
-        <IncomeModal 
-          isOpen={isIncomeModalOpen} 
-          onClose={() => setIsIncomeModalOpen(false)} 
-          onSave={editingIncome ? handleUpdateIncome : handleAddIncome} 
-          income={editingIncome} 
-          displayCurrency={displayCurrency} 
-        />
-      )}
-      {isBudgetModalOpen && (
-        <BudgetManagerModal 
-          isOpen={isBudgetModalOpen} 
-          onClose={() => setIsBudgetModalOpen(false)} 
-          onSave={handleSaveBudgets} 
-          currentBudgets={budgets} 
-          displayCurrency={displayCurrency} 
-          conversionRate={usdToInrRate} 
-        />
-      )}
-      {isDataModalOpen && (
-        <DataModal 
-          isOpen={isDataModalOpen} 
-          onClose={() => setIsDataModalOpen(false)} 
-          allExpenses={expenses} 
-          budgets={budgets} 
-          onImport={handleImportExpenses} 
-        />
-      )}
-      {isCategoryModalOpen && (
-        <CategoryManagerModal 
-          isOpen={isCategoryModalOpen} 
-          onClose={() => setIsCategoryModalOpen(false)} 
-        />
-      )}
-    </div>
+        // --- THE NEW MAIN ROUTER RETURN ---
+        return (
+          <Router>
+            <Routes>
+              {/* 1. Auth Page */}
+              <Route 
+                path="/login" 
+                element={!isAuthenticated ? <Auth onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" />} 
+              />
+              
+              {/* 2. Verification Page */}
+              <Route path="/verify" element={<VerifyOTP />} />
+
+              {/* 3. The Main App (Protected) */}
+              <Route 
+                path="/" 
+                element={isAuthenticated ? (isLoadingData ? LoadingSpinner : DashboardLayout) : <Navigate to="/login" />}
+              />
+
+              {/* Catch-all: Redirect unknown paths to home */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Router>
   );
 };
 

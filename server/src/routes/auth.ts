@@ -3,15 +3,16 @@ import { prisma } from '../db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
+import otpGenerator from 'otp-generator';
+import { transporter } from '../utils/mailer';
 
 const router = Router();
 
 // --- 1. Sign Up (Register) ---
-// POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    
     // Basic validation
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
@@ -23,6 +24,14 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
+    // Generate OTP
+    const otp = otpGenerator.generate(6, { 
+      upperCaseAlphabets: false, 
+      specialChars: false,
+      lowerCaseAlphabets: false // Generate a numeric 6-digit code
+    });
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -31,11 +40,27 @@ router.post('/register', async (req, res) => {
       data: {
         email: email,
         password: hashedPassword,
+        verificationOtp: otp,
+        otpExpires: expires,
+        isVerified: false // Explicitly set to false until OTP is verified
       },
     });
 
-    // Don't send the password back
-    res.status(201).json({ message: 'User created successfully', userId: user.id });
+    // --- MOVE EMAIL LOGIC INSIDE THE ROUTE ---
+    try {
+      await transporter.sendMail({
+        from: '"USC Ledger Security" <your-email@gmail.com>',
+        to: email,
+        subject: "YOUR_VERIFICATION_CODE",
+        text: `Your code is: ${otp}. It expires in 10 minutes.`
+      });
+    } catch (mailError) {
+      console.error('Failed to send verification email:', mailError);
+      // We don't return an error here because the user is created, 
+      // but you might want to handle this in your UI.
+    }
+
+    res.status(201).json({ message: 'User created successfully. Please check your email.', userId: user.id });
 
   } catch (error) {
     console.error('Registration error:', error);
@@ -43,76 +68,86 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// --- 2. Sign In (Login) ---
-// POST /api/auth/login
+// --- 2. Verify OTP ---
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user || user.verificationOtp !== otp || (user.otpExpires && new Date() > user.otpExpires)) {
+      return res.status(400).json({ message: "INVALID_OR_EXPIRED_CODE" });
+    }
+
+    await prisma.user.update({
+      where: { email },
+      data: { isVerified: true, verificationOtp: null, otpExpires: null }
+    });
+
+    res.json({ message: "ACCOUNT_VERIFIED_SUCCESSFULLY" });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// --- 3. Sign In (Login) ---
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find the user
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // Check the password
+    // Check if verified
+    if (!user.isVerified) {
+      return res.status(401).json({ message: 'Please verify your email before logging in' });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // Create a JSON Web Token (JWT)
-    // This token is the "pass" the client will use for future requests
+    // Use 'id' to match your authMiddleware payload expectation
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET as string,
       { expiresIn: '7d' }
     );
 
-    // Send the token to the client
     res.json({ message: 'Login successful', token: token });
-
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
 
-// --- 3. Google Auth - Step 1: Start the process ---
-// GET /api/auth/google
-// This route is called when the user clicks the "Sign in with Google" button.
+// --- 4. Google Auth ---
 router.get('/google', 
   passport.authenticate('google', { 
-    scope: ['profile', 'email'], // Request email and profile
-    session: false // We are using JWTs, not sessions
+    scope: ['profile', 'email'],
+    session: false 
   })
 );
 
-// --- 4. Google Auth - Step 2: The Callback ---
-// GET /api/auth/google/callback
-// Google redirects the user here after they log in.
 router.get('/google/callback', 
   passport.authenticate('google', { 
-    failureRedirect: 'http://localhost:3000/login', // Redirect to login on fail
+    failureRedirect: `${process.env.FRONTEND_URL}/login`,
     session: false 
   }),
   (req, res) => {
-    // --- THIS IS THE KEY ---
-    // The user is authenticated! `req.user` is now the user from our database.
-    // We will now create a JWT and send it back to the client.
-
-    const user = req.user as any; // Cast from passport's user
+    const user = req.user as any; 
     
-    // Create the JWT
+    // FIX: Changed 'userId' to 'id' to stay consistent with authMiddleware
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { id: user.id, email: user.email },
       process.env.JWT_SECRET as string,
       { expiresIn: '7d' }
     );
 
-    // Redirect the user back to the React app with the token
-    // Our React app will look for this token in the URL.
-    res.redirect(`http://localhost:3000?token=${token}`);
+    // FIX: Used Environment Variable for the redirect URL
+    res.redirect(`${process.env.FRONTEND_URL}?token=${token}`);
   }
 );
 

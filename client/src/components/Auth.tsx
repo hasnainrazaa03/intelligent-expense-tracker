@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { WalletIcon, GoogleIcon, ExclamationTriangleIcon } from './Icons';
 import { registerUser, loginUser } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -14,6 +15,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [isLoginView, setIsLoginView] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +29,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         onLoginSuccess();
       } else {
         await registerUser(email, password);
+        navigate('/verify', { state: { email: email } });
         setError('REGISTRATION_SUCCESSFUL // PLEASE_SIGN_IN');
         setIsLoginView(true);
         setEmail('');
