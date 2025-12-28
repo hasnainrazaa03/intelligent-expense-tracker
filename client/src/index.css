@@ -1,11 +1,70 @@
 @import "tailwindcss";
-@config "../tailwind.config.js"; /* Adjusted path assuming index.css is in src/ */
+@config "../tailwind.config.js";
 
-/* Custom global styles */
 @layer base {
+  /* 1. SELECTION COLOR (USC GOLD) */
+  ::selection {
+    background: #FFCC00;
+    color: #111111;
+  }
+
+  /* 2. GLOBAL BRUTALIST SCROLLBARS */
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #F2F2F2;
+    border-left: 4px solid #111111;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #111111;
+    border: 2px solid #F2F2F2;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #990000;
+  }
+
   body {
-    @apply bg-bone text-ink;
+    @apply bg-bone antialiased;
     margin: 0;
-    font-family: 'Archivo Black', sans-serif; /* Link to your 'loud' font */
+  }
+}
+
+@layer components {
+  /* 3. CINEMATIC NOISE OVERLAY */
+  .noise-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* 4. TECHNICAL GRAPH GRID */
+  .graph-grid {
+    background-color: #F2F2F2;
+    background-image: 
+      linear-gradient(#e5e5e5 1px, transparent 1px),
+      linear-gradient(90deg, #e5e5e5 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* 5. LOUD TYPOGRAPHY CLASS */
+  .font-loud {
+    font-family: 'Inter', sans-serif;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.05em;
+    line-height: 0.95;
+  }
+
+  /* 6. HIDE SCROLLBARS */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
