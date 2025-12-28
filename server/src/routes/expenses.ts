@@ -133,7 +133,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
     // createMany is highly efficient for bulk inserts
     await prisma.expense.createMany({
       data: dataToCreate,
-      skipDuplicates: true, // In case of a re-upload, skip duplicates
+      // skipDuplicates: true, // In case of a re-upload, skip duplicates
     });
     
     res.status(201).json({ message: `${expenses.length} expenses imported successfully` });
