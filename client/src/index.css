@@ -1,9 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js"; /* Adjusted path assuming index.css is in src/ */
 
-/* Global reset to match your Neo-Brutalist theme */
-body {
-  @apply bg-bone text-ink;
-  margin: 0;
+/* Custom global styles */
+@layer base {
+  body {
+    @apply bg-bone text-ink;
+    margin: 0;
+    font-family: 'Archivo Black', sans-serif; /* Link to your 'loud' font */
+  }
 }

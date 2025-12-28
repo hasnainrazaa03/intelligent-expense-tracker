@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
     "axios": "^1.13.2",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
