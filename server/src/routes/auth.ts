@@ -48,7 +48,7 @@ router.post('/register', async (req, res) => {
 
     // --- MOVE EMAIL LOGIC INSIDE THE ROUTE ---
     try {
-      await transporter.sendMail({
+      transporter.sendMail({
         from: '"USC Ledger Security" <hasnainrazaa03@gmail.com>',
         to: email,
         subject: "YOUR_VERIFICATION_CODE",
