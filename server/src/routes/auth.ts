@@ -49,7 +49,7 @@ router.post('/register', async (req, res) => {
     // --- MOVE EMAIL LOGIC INSIDE THE ROUTE ---
     try {
       await transporter.sendMail({
-        from: '"USC Ledger Security" <your-email@gmail.com>',
+        from: '"USC Ledger Security" <hasnainrazaa03@gmail.com>',
         to: email,
         subject: "YOUR_VERIFICATION_CODE",
         text: `Your code is: ${otp}. It expires in 10 minutes.`
