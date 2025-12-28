@@ -12,7 +12,7 @@ passport.use(
       callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback',
       scope: ['profile', 'email'],
     },
-    async (accessToken, refreshToken, profile, done) => {
+    async (accessToken: string, refreshToken: string, profile: any, done: any) => {
       try {
         const email = profile.emails?.[0]?.value;
         if (!email) {
