@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global reset to match your Neo-Brutalist theme */
+body {
+  @apply bg-bone text-ink;
+  margin: 0;
+}
