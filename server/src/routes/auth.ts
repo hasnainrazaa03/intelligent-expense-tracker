@@ -48,16 +48,15 @@ router.post('/register', async (req: Request, res: Response) => {
 
     // --- MOVE EMAIL LOGIC INSIDE THE ROUTE ---
     try {
-      transporter.sendMail({
-        from: '"USC Ledger Security" <hasnainrazaa03@gmail.com>',
+      await transporter.sendMail({
+        from: `"USC Ledger Security" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "YOUR_VERIFICATION_CODE",
         text: `Your code is: ${otp}. It expires in 10 minutes.`
       });
-    } catch (mailError) {
-      console.error('Failed to send verification email:', mailError);
-      // We don't return an error here because the user is created, 
-      // but you might want to handle this in your UI.
+      console.log(`✅ OTP sent successfully to ${email}`);
+    } catch (mailError: any) {
+      console.error('❌ Mailer Error:', mailError.message);
     }
 
     res.status(201).json({ message: 'User created successfully. Please check your email.', userId: user.id });
