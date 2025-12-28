@@ -138,15 +138,12 @@ router.get('/google/callback',
   }),
   (req, res) => {
     const user = req.user as any; 
-    
-    // FIX: Changed 'userId' to 'id' to stay consistent with authMiddleware
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET as string,
       { expiresIn: '7d' }
     );
-
-    // FIX: Used Environment Variable for the redirect URL
+    
     res.redirect(`${process.env.FRONTEND_URL}?token=${token}`);
   }
 );

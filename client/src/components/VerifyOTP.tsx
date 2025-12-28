@@ -8,17 +8,23 @@ const VerifyOTP: React.FC = () => {
   const [error, setError] = useState("");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
-  const navigate = useNavigate();
   const location = useLocation();
-  
-  // Retrieve email passed from the Register component
-  const email = location.state?.email || "";
+  const navigate = useNavigate();
+
+  const [email] = useState(() => {
+    return location.state?.email || sessionStorage.getItem('pending_verification_email') || "";
+  });
 
   useEffect(() => {
-    if (!email) {
-      navigate('/register'); // Kick back if no email context exists
+    if (location.state?.email) {
+      sessionStorage.setItem('pending_verification_email', location.state.email);
     }
-  }, [email, navigate]);
+    
+    // If no email is found in state OR storage, send them back
+    if (!email) {
+      navigate('/login');
+    }
+  }, [email, navigate, location.state]);
 
   const handleChange = (element: HTMLInputElement, index: number) => {
     if (isNaN(Number(element.value))) return false;
@@ -44,12 +50,14 @@ const VerifyOTP: React.FC = () => {
 
     try {
       const otpString = otp.join("");
-      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/verify-otp`, {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+      await axios.post(`${baseUrl}/auth/verify-otp`, {
         email,
         otp: otpString
       });
       
       // Success: Redirect to login
+      sessionStorage.removeItem('pending_verification_email');
       navigate('/login', { state: { message: "ACCOUNT_VERIFIED_ACCESS_GRANTED" } });
     } catch (err: any) {
       setError(err.response?.data?.message || "INVALID_VERIFICATION_CODE");

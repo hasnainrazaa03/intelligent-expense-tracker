@@ -26,6 +26,7 @@ passport.use(
             email: email,
             // This hash is for a random string, it will never be used
             password: await bcrypt.hash(Math.random().toString(36), 10),
+            isVerified: true,
           },
         });
 
