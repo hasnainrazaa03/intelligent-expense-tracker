@@ -349,9 +349,12 @@ const handleDeleteIncome = async (id: string) => {
     
     if (!semester || !installment || installment.status === 'paid' || installment.amount <= 0) return;
 
+    const baseSemesterName = semester.name.split('USC TUITION')[0].trim();
+    const cleanTitle = `USC Tuition - ${baseSemesterName} (Inst #${installment.id})`;
+
     // 1. Define the new expense data
     const newExpenseData: Omit<Expense, 'id'> = {
-      title: `USC Tuition - ${semester.name} #${installment.id}`,
+      title: cleanTitle,
       amount: installment.amount,
       category: 'Tuition',
       date: new Date().toISOString().split('T')[0],
