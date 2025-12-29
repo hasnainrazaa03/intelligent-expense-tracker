@@ -97,7 +97,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       },
     });
 
-    res.status(204).send(); // 204 No Content
+    res.status(200).json({ success: true, message: 'Expense deleted successfully' });
   } catch (error) {
     console.error('Failed to delete expense:', error);
     res.status(404).json({ message: 'Expense not found or failed to delete' });

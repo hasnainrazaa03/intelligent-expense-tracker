@@ -48,7 +48,6 @@ router.post('/', async (req: Request, res: Response) => {
                 status: inst.status,
                 expenseId: inst.expenseId,
                 paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
-                semesterUserId: userId // Crucial for the composite relation
               }))
             }
           }
