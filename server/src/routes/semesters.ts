@@ -65,23 +65,32 @@ router.post('/', async (req: Request, res: Response) => {
 
           // SURGICAL INSTALLMENT SYNC
           const existingInstIds = existing.installments.map(i => i.id);
-          const incomingInstIds = incoming.installments.filter(i => i.id).map(i => i.id as any);
 
-          // Delete removed installments
+          /**
+           * We must only include IDs that are STRINGS (ObjectIDs from the DB).
+           * Temporary numeric IDs (1, 2, 3...) from the frontend must be ignored 
+           * during the deletion phase because they don't exist in the DB yet.
+           */
+          const incomingDbIds = incoming.installments
+            .map(i => i.id)
+            .filter(id => typeof id === 'string') as string[];
+
+          // 1. Delete removed installments (only comparing actual DB Strings)
           await tx.tuitionInstallment.deleteMany({
             where: {
               semesterId: incoming.id,
               semesterUserId: userId,
-              id: { notIn: incomingInstIds }
+              id: { notIn: incomingDbIds }
             }
           });
 
-          // Upsert current installments
+          // 2. Upsert current installments
           for (const inst of incoming.installments) {
-            if (inst.id && existingInstIds.includes(inst.id as any)) {
-              // Update
+            // Check if it's an existing record (String ID) vs a new record (Number ID)
+            if (typeof inst.id === 'string' && existingInstIds.includes(inst.id)) {
+              // Update existing database record
               await tx.tuitionInstallment.update({
-                where: { id: inst.id as any },
+                where: { id: inst.id },
                 data: {
                   amount: toFinPrecision(inst.amount),
                   status: inst.status,
@@ -90,7 +99,7 @@ router.post('/', async (req: Request, res: Response) => {
                 }
               });
             } else {
-              // Create new installment for existing semester
+              // Create new record (it's either a number ID or null)
               await tx.tuitionInstallment.create({
                 data: {
                   amount: toFinPrecision(inst.amount),
