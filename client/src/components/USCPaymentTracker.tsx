@@ -13,8 +13,6 @@ interface USCPaymentTrackerProps {
   conversionRate: number | null;
 }
 
-const [selectedDates, setSelectedDates] = useState<Record<number, string>>({});
-
 // --- INTELLIGENT SEMESTER DETECTOR ---
 const detectCurrentSemesterId = () => {
   const now = new Date();
@@ -32,6 +30,9 @@ const detectCurrentSemesterId = () => {
 const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({ 
   semesters, onUpdateTuition, onUpdateInstallmentCount, onMarkAsPaid, onUpdateDate, displayCurrency, conversionRate 
 }) => {
+  
+  const [selectedDates, setSelectedDates] = useState<Record<number, string>>({});
+  
   // Initialize with the detected current semester
   const [activeSemesterId, setActiveSemesterId] = useState<string>(detectCurrentSemesterId());
 
