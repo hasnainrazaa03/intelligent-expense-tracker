@@ -1,4 +1,5 @@
-import "dotenv/config"; // This line MUST be first
+import * as dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
@@ -38,10 +39,13 @@ app.use(express.json()); // Allow the server to read JSON bodies
 // --- PASSPORT MIDDLEWARE ---
 // This must be added for Passport to work
 app.use(session({
-    secret: process.env.JWT_SECRET!, // Re-use our JWT secret
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: false } // Use 'true' in production (HTTPS)
+    secret: process.env.JWT_SECRET || 'fallback_secret', 
+    resave: true, // Changed to true to help with some session persistence issues
+    saveUninitialized: true,
+    cookie: { 
+      secure: process.env.NODE_ENV === 'production', // true if HTTPS (Render)
+      sameSite: 'lax' 
+    }
 }));
 app.use(passport.initialize());
 app.use(passport.session());
