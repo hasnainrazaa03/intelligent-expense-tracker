@@ -35,7 +35,7 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json()); // Allow the server to read JSON bodies
+app.use(express.json({ limit: '1mb' }));
 
 // --- PASSPORT MIDDLEWARE ---
 // This must be added for Passport to work
@@ -55,7 +55,6 @@ app.use(session({
     }
 }));
 app.use(passport.initialize());
-app.use(passport.session());
 
 // --- Routes ---
 app.use('/api/auth', authRoutes); // All auth routes will start with /api/auth

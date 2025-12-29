@@ -5,25 +5,18 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const router = Router();
 
-// --- Initialize the AI Client ---
 let genAI: GoogleGenerativeAI;
 try {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not set in the .env file.");
   }
-  // --- THE CORRECT FIX ---
-  // The constructor just takes the API key string directly.
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 } catch (error) {
   console.error("Failed to initialize GoogleGenAI:", error);
 }
 
-// --- Protect the route ---
 router.use(authMiddleware);
 
-// --- 1. Post AI Analysis ---
-// POST /api/ai/analyze
 router.post('/analyze', async (req: Request, res: Response) => {
   if (!genAI) {
     return res.status(500).json({ message: "AI service is not configured." });
@@ -32,27 +25,46 @@ router.post('/analyze', async (req: Request, res: Response) => {
   const userId = req.user!.id;
 
   try {
-    // 1. Fetch all expenses and incomes for this user
     const [expenses, incomes] = await Promise.all([
       prisma.expense.findMany({ where: { userId } }),
       prisma.income.findMany({ where: { userId } }),
     ]);
-    
-    // 2. Check if there is data
+
     if (expenses.length === 0 && incomes.length === 0) {
       return res.json({ analysis: "No financial data available. Start by adding some income or expenses to get an analysis." });
     }
 
-    // 3. This is the exact prompt from your old geminiService.ts file
+    // --- FIX #1: DATA MINIMIZATION ---
+    // We filter out database IDs and timestamps to save context window space 
+    // while keeping all fields required by your specific prompt.
+    const cleanIncomes = incomes.map(i => ({
+      title: i.title,
+      amount: i.amount,
+      category: i.category,
+      date: i.date.toISOString().split('T')[0],
+      notes: i.notes
+    }));
+
+    const cleanExpenses = expenses.map(e => ({
+      title: e.title,
+      amount: e.amount,
+      category: e.category,
+      date: e.date.toISOString().split('T')[0],
+      paymentMethod: e.paymentMethod,
+      isRecurring: e.isRecurring,
+      notes: e.notes
+    }));
+
+    // --- YOUR DETAILED PROMPT (RETAINED) ---
     const prompt = `
       You are a friendly and insightful financial advisor for an international student in the US. Your goal is to provide helpful, actionable advice based on their financial data.
 
       Here is the student's income and expense data in JSON format. Note that the data provided covers all time, but focus your trend analysis on the last year.
       Income:
-      ${JSON.stringify(incomes, null, 2)}
+      ${JSON.stringify(cleanIncomes, null, 2)}
       
       Expenses (the 'isRecurring' field indicates if an expense is a monthly recurring charge):
-      ${JSON.stringify(expenses, null, 2)}
+      ${JSON.stringify(cleanExpenses, null, 2)}
 
       Please analyze this data and provide a comprehensive financial report with five sections: "Cash Flow Summary", "Income vs. Expense Trends", "Spending Analysis", "Future Spending Prediction", and "Savings Opportunities".
 
@@ -86,24 +98,30 @@ router.post('/analyze', async (req: Request, res: Response) => {
       Format your entire response in Markdown with clear headings and bullet points.
     `;
 
-    // 4. Call the API from the server
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    // --- FIX #2: ROBUST MODEL CALL WITH FALLBACK ---
+    let text: string;
+    try {
+      // Primary attempt with your working version
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const result = await model.generateContent(prompt);
+      text = (await result.response).text();
+    } catch (modelError) {
+      console.warn("Gemini 2.5-flash failed or is unavailable. Attempting fallback to 1.5-flash...");
+      // Fallback attempt with the stable production model
+      const fallbackModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const result = await fallbackModel.generateContent(prompt);
+      text = (await result.response).text();
+    }
 
-    // 5. Send the text back to the client
     res.json({ analysis: text });
 
   } catch (error: any) {
     console.error('AI analysis error:', error);
-    // Handle specific Gemini API errors if they exist
     if (error.status === 400 || error.code === 400) {
       return res.status(400).json({ message: "The request to the AI was malformed. This might be a prompt issue." });
     }
-    // Handle auth errors (e.g., bad API key)
     if (error.status === 401 || error.status === 403) {
-      return res.status(500).json({ message: "Could not authenticate with the AI service. Check the server's API key." });
+      return res.status(500).json({ message: "Could not authenticate with the AI service." });
     }
     res.status(500).json({ message: 'Failed to generate AI analysis' });
   }

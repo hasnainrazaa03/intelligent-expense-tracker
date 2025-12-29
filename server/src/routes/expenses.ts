@@ -114,33 +114,38 @@ router.post('/bulk', async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Request body must be a non-empty array of expenses' });
   }
 
-  // --- FIX #2: Be explicit with all properties ---
-  // This prevents the TypeScript/Prisma type error.
-  const dataToCreate = expenses.map(expense => ({
-    title: expense.title,
-    category: expense.category,
-    amount: parseFloat(expense.amount as any),
-    date: new Date(expense.date),
-    paymentMethod: expense.paymentMethod,
-    notes: expense.notes,
-    originalAmount: expense.originalAmount ? parseFloat(expense.originalAmount as any) : undefined,
-    originalCurrency: expense.originalCurrency,
-    isRecurring: expense.isRecurring || false,
-    userId: userId, // Link to the logged-in user
-  }));
-
   try {
-    // createMany is highly efficient for bulk inserts
+    const dataToCreate = expenses.map((expense, index) => {
+      // Robust Date Check for each item in the bulk array
+      const parsedDate = new Date(expense.date);
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error(`Invalid date at row ${index + 1}: "${expense.date}"`);
+      }
+
+      return {
+        title: expense.title,
+        category: expense.category,
+        amount: parseFloat(expense.amount as any),
+        date: parsedDate,
+        paymentMethod: expense.paymentMethod,
+        notes: expense.notes,
+        originalAmount: expense.originalAmount ? parseFloat(expense.originalAmount as any) : undefined,
+        originalCurrency: expense.originalCurrency,
+        isRecurring: expense.isRecurring || false,
+        userId: userId, 
+      };
+    });
+
     await prisma.expense.createMany({
       data: dataToCreate,
-      // skipDuplicates: true, // In case of a re-upload, skip duplicates
     });
     
     res.status(201).json({ message: `${expenses.length} expenses imported successfully` });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to bulk create expenses:', error);
-    res.status(500).json({ message: 'Failed to import expenses' });
+    // Return the specific validation error message if one was thrown
+    res.status(400).json({ message: error.message || 'Failed to import expenses' });
   }
 });
 

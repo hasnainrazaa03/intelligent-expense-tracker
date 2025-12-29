@@ -18,77 +18,56 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   try {
-    const transactionOperations = [];
+    // We use an Interactive Transaction ($transaction function)
+    // This is more robust for MongoDB than an array of promises.
+    await prisma.$transaction(async (tx) => {
+      
+      // 1. Delete ALL installments for this user first
+      // This prevents "orphaned" installments if a semester ID changes
+      await tx.tuitionInstallment.deleteMany({
+        where: { semesterUserId: userId }
+      });
 
-    // Loop over each semester sent from the client
-    for (const semester of semesters) {
-      // 1: Upsert the Semester itself (the main object)
-      const upsertSemester = prisma.semester.upsert({
-        where: {
-          id_userId: { // <-- FIX: This composite key now exists!
-            id: semester.id,
+      // 2. Delete ALL semesters for this user
+      await tx.semester.deleteMany({
+        where: { userId: userId }
+      });
+
+      // 3. Re-create everything fresh
+      // This avoids "Upsert" logic which is prone to race conditions in Mongo
+      for (const sem of semesters) {
+        await tx.semester.create({
+          data: {
+            id: sem.id,
+            name: sem.name,
+            totalTuition: sem.totalTuition,
             userId: userId,
-          },
-        },
-        update: {
-          name: semester.name,
-          totalTuition: semester.totalTuition,
-        },
-        create: {
-          id: semester.id,
-          name: semester.name,
-          totalTuition: semester.totalTuition,
-          userId: userId,
-        },
-      });
-      transactionOperations.push(upsertSemester);
+            installments: {
+              create: sem.installments.map((inst) => ({
+                amount: inst.amount,
+                status: inst.status,
+                expenseId: inst.expenseId,
+                paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
+                semesterUserId: userId // Crucial for the composite relation
+              }))
+            }
+          }
+        });
+      }
+    }, {
+      timeout: 10000 // Give Mongo 10s to finish the bulk write
+    });
 
-      // 2: Delete all *existing* installments for this semester
-      const deleteInstallments = prisma.tuitionInstallment.deleteMany({
-        where: {
-          semesterId: semester.id,
-          semesterUserId: userId, // <-- FIX: Use the new relation field
-        },
-      });
-      transactionOperations.push(deleteInstallments);
-
-      // 3: Re-create all installments from the client
-      const createInstallments = prisma.tuitionInstallment.createMany({
-        data: semester.installments.map((inst: TuitionInstallment) => ({
-          amount: inst.amount,
-          status: inst.status,
-          expenseId: inst.expenseId,
-          paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
-          semesterId: semester.id, // Link to the parent semester
-          semesterUserId: userId, // <-- FIX: Add the new relation field
-        })),
-      });
-      transactionOperations.push(createInstallments);
-    }
-
-    // Run all operations in a single, all-or-nothing transaction
-    await prisma.$transaction(transactionOperations);
-
-    // After saving, fetch the final state back from the DB to send to the client
-    const finalSemesters = await prisma.semester.findMany({
+    // Fetch the clean, updated state to return to frontend
+    const updatedData = await prisma.semester.findMany({
       where: { userId },
-      include: { installments: true },
-    });
-    
-    // Clean up dates for the client
-    const cleanPaidDate = (semester: any) => ({
-      ...semester,
-      installments: semester.installments.map((inst: any) => ({
-        ...inst,
-        paidDate: inst.paidDate ? inst.paidDate.toISOString().split('T')[0] : null
-      }))
+      include: { installments: true }
     });
 
-    res.status(200).json(finalSemesters.map(cleanPaidDate));
-
+    res.status(200).json(updatedData);
   } catch (error) {
-    console.error('Failed to save semesters:', error);
-    res.status(500).json({ message: 'Failed to save semesters' });
+    console.error('CRITICAL_DATABASE_FAILURE:', error);
+    res.status(500).json({ message: 'Failed to synchronize semester data' });
   }
 });
 

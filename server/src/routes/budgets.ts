@@ -16,66 +16,58 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   try {
-    // This is a complex but powerful Prisma transaction.
-    // It loops through all the budgets you sent.
-    // For each one, it tries to "upsert" it.
-    
-    // 1. Connect to the user
-    // 2. Find a budget with the same userId AND category
-    // 3. If it finds one (update), it changes the amount.
-    // 4. If it doesn't (create), it makes a new budget.
-    
-    const upsertTransactions = budgets.map(budget =>
-      prisma.budget.upsert({
+    // We use an Interactive Transaction (async tx) for maximum reliability on MongoDB
+    const savedBudgets = await prisma.$transaction(async (tx) => {
+      // 1. Validation & Formatting
+      const formattedBudgets = budgets.map(b => ({
+        category: b.category?.trim(),
+        amount: parseFloat(b.amount as any) || 0
+      })).filter(b => b.category); // Remove any empty category names
+
+      const activeCategories = formattedBudgets.map(b => b.category);
+
+      // 2. Delete budgets no longer in the list FIRST
+      // This "clears the path" for any potential category renames or shifts
+      await tx.budget.deleteMany({
         where: {
-          // This special '@@unique' index is from our schema
-          userId_category: {
-            userId: userId,
-            category: budget.category,
+          userId: userId,
+          category: {
+            notIn: activeCategories,
           },
         },
-        update: {
-          amount: budget.amount,
-        },
-        create: {
-          category: budget.category,
-          amount: budget.amount,
-          userId: userId,
-        },
-      })
-    );
+      });
 
-    // We also need to delete budgets that are no longer in the list
-    // Get all categories that were just sent
-    const activeCategories = budgets.map(b => b.category);
-    
-    // Delete any budget for this user where the category is NOT in the new list
-    const deleteTransaction = prisma.budget.deleteMany({
-      where: {
-        userId: userId,
-        category: {
-          notIn: activeCategories,
-        },
-      },
+      // 3. Upsert the current list
+      // We use a loop inside the transaction to ensure each one is processed
+      const upsertPromises = formattedBudgets.map(budget =>
+        tx.budget.upsert({
+          where: {
+            userId_category: {
+              userId: userId,
+              category: budget.category,
+            },
+          },
+          update: {
+            amount: budget.amount,
+          },
+          create: {
+            category: budget.category,
+            amount: budget.amount,
+            userId: userId,
+          },
+        })
+      );
+
+      return Promise.all(upsertPromises);
+    }, {
+      timeout: 10000 // Give the transaction 10s to complete
     });
-
-    // --- THIS IS THE FIX ---
-    // We spread the array of upsert promises and add the single delete promise.
-    // Do NOT wrap upsertTransactions in Promise.all()
-    const transactionResults = await prisma.$transaction([
-      ...upsertTransactions,
-      deleteTransaction
-    ]);
-
-    // The results are an array. The upsert results are first, followed by the delete result.
-    // We only care about the upsert results (which are all but the last item) to send back.
-    const savedBudgets = transactionResults.slice(0, -1);
 
     res.status(200).json(savedBudgets);
 
-  } catch (error) {
-    console.error('Failed to save budgets:', error);
-    res.status(500).json({ message: 'Failed to save budgets' });
+  } catch (error: any) {
+    console.error('Failed to sync budgets:', error);
+    res.status(500).json({ message: 'Failed to synchronize budgets' });
   }
 });
 

@@ -59,7 +59,7 @@ model Budget {
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId   String @db.ObjectId
 
-  @@unique([userId, category])
+  @@unique([userId, category], name: "userId_category")
   @@index([userId])
 }
 
@@ -75,7 +75,7 @@ model Semester {
   installments TuitionInstallment[]
 
   // Use @@unique instead of @@id for composite uniqueness in MongoDB
-  @@unique([id, userId])
+  @@unique([id, userId], name: "id_userId")
   @@index([userId])
 }
 

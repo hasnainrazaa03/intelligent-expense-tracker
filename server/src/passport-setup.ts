@@ -2,14 +2,14 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { prisma } from './db';
 import "dotenv/config";
-import bcrypt from 'bcryptjs'; // <-- THIS WAS THE MISSING IMPORT
+import bcrypt from 'bcryptjs';
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback',
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
       scope: ['profile', 'email'],
     },
     async (accessToken: string, refreshToken: string, profile: any, done: any) => {
@@ -39,15 +39,3 @@ passport.use(
     }
   )
 );
-
-// We're not using sessions, so these are just boilerplate
-passport.serializeUser((user: any, done: (err: any, id?: any) => void) => {
-  done(null, user.id);
-});
-
-// Add 'string' type to the id parameter
-passport.deserializeUser((id: string, done: (err: any, user?: any) => void) => {
-  // This won't really be used in our JWT flow,
-  // so we just pass a minimal user object back.
-  done(null, { id: id, email: "" });
-});
