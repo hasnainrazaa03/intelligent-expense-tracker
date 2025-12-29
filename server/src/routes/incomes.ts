@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { toFinPrecision } from '../utils/math';
 
 const router = Router();
 
@@ -21,11 +22,11 @@ router.post('/', async (req: Request, res: Response) => {
     const newIncome = await prisma.income.create({
       data: {
         title,
-        amount: parseFloat(amount),
+        amount: toFinPrecision(parseFloat(amount)),
         category,
         date: new Date(date), // Convert ISO string to Date
         notes,
-        originalAmount: originalAmount ? parseFloat(originalAmount) : undefined,
+        originalAmount: originalAmount ? toFinPrecision(parseFloat(originalAmount)) : undefined,
         originalCurrency,
         userId: userId, // Link to the logged-in user
       },
@@ -57,11 +58,11 @@ router.put('/:id', async (req: Request, res: Response) => {
       },
       data: {
         title,
-        amount: parseFloat(amount),
+        amount: toFinPrecision(parseFloat(amount)),
         category,
         date: new Date(date),
         notes,
-        originalAmount: originalAmount ? parseFloat(originalAmount) : undefined,
+        originalAmount: originalAmount ? toFinPrecision(parseFloat(originalAmount)) : undefined,
         originalCurrency,
       },
     });

@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware} from '../middleware/auth';
-import { Expense } from '../types'; // <-- FIX #1: Import the Expense type
+import { Expense } from '../types';
+import { toFinPrecision } from '../utils/math';
 
 const router = Router();
 
@@ -23,12 +24,12 @@ router.post('/', async (req: Request, res: Response) => {
     const newExpense = await prisma.expense.create({
       data: {
         title,
-        amount: parseFloat(amount),
+        amount: toFinPrecision(parseFloat(amount)),
         category,
         date: new Date(date), // Convert ISO string to Date
         paymentMethod,
         notes,
-        originalAmount: originalAmount ? parseFloat(originalAmount) : undefined,
+        originalAmount: originalAmount ? toFinPrecision(parseFloat(originalAmount)) : undefined,
         originalCurrency,
         isRecurring: isRecurring || false,
         userId: userId, // Link to the logged-in user
@@ -61,12 +62,12 @@ router.put('/:id', async (req: Request, res: Response) => {
       },
       data: {
         title,
-        amount: parseFloat(amount),
+        amount: toFinPrecision(parseFloat(amount)),
         category,
         date: new Date(date),
         paymentMethod,
         notes,
-        originalAmount: originalAmount ? parseFloat(originalAmount) : undefined,
+        originalAmount: originalAmount ? toFinPrecision(parseFloat(originalAmount)) : undefined,
         originalCurrency,
         isRecurring: isRecurring || false,
       },
@@ -125,11 +126,11 @@ router.post('/bulk', async (req: Request, res: Response) => {
       return {
         title: expense.title,
         category: expense.category,
-        amount: parseFloat(expense.amount as any),
+        amount: toFinPrecision(parseFloat(expense.amount as any)),
         date: parsedDate,
         paymentMethod: expense.paymentMethod,
         notes: expense.notes,
-        originalAmount: expense.originalAmount ? parseFloat(expense.originalAmount as any) : undefined,
+        originalAmount: expense.originalAmount ? toFinPrecision(parseFloat(expense.originalAmount as any)) : undefined,
         originalCurrency: expense.originalCurrency,
         isRecurring: expense.isRecurring || false,
         userId: userId, 

@@ -13,6 +13,8 @@ interface USCPaymentTrackerProps {
   conversionRate: number | null;
 }
 
+const [selectedDates, setSelectedDates] = useState<Record<number, string>>({});
+
 // --- INTELLIGENT SEMESTER DETECTOR ---
 const detectCurrentSemesterId = () => {
   const now = new Date();
@@ -134,13 +136,25 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                   </span>
                   <input 
                     type="number" 
-                    min="1"
+                    // Calculate the minimum allowed count based on the last paid installment index
+                    min={activeSemester.installments.reduce((max, inst, idx) => 
+                      inst.status === 'paid' ? Math.max(max, idx + 1) : max, 1
+                    )}
                     max="12"
-                    // Use the actual length from state so it stays in sync
                     defaultValue={activeSemester.installments.length} 
                     className="w-24 bg-bone border-4 border-ink p-2 font-loud text-xs focus:ring-4 focus:ring-usc-gold focus:outline-none text-center"
                     onBlur={(e) => {
                       const val = parseInt(e.target.value);
+                      const minRequired = activeSemester.installments.reduce((max, inst, idx) => 
+                        inst.status === 'paid' ? Math.max(max, idx + 1) : max, 1
+                      );
+
+                      if (val < minRequired) {
+                        alert(`Cannot reduce count to ${val}. Installment #${minRequired} is already paid.`);
+                        e.target.value = activeSemester.installments.length.toString();
+                        return;
+                      }
+                      
                       if (val > 0 && val !== activeSemester.installments.length) {
                         onUpdateInstallmentCount(activeSemester.id, val);
                       }
@@ -179,12 +193,28 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                     </div>
 
                     {inst.status !== 'paid' && inst.amount > 0 && (
-                      <button 
-                        onClick={() => onMarkAsPaid(activeSemester.id, inst.id)}
-                        className="bg-usc-cardinal text-bone font-loud text-[9px] md:text-[10px] px-3 md:px-4 py-2 border-2 md:border-4 border-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[4px_4px_0px_0px_#111111] active:shadow-none active:translate-y-0.5 transition-all flex-shrink-0 uppercase"
-                      >
-                        PAY_INST
-                      </button>
+                      <div className="flex flex-col md:flex-row items-center gap-3">
+                        <div className="flex flex-col">
+                          <label className="font-mono text-[8px] opacity-40 uppercase mb-1">Payment_Date</label>
+                          <input 
+                            type="date" 
+                            // Default to today if no date is selected yet
+                            value={selectedDates[inst.id] || new Date().toISOString().split('T')[0]}
+                            onChange={(e) => setSelectedDates(prev => ({ ...prev, [inst.id]: e.target.value }))}
+                            className="bg-bone border-2 border-ink p-1 font-loud text-[10px] focus:ring-2 focus:ring-usc-gold focus:outline-none"
+                          />
+                        </div>
+                        
+                        <button 
+                          onClick={() => {
+                            const dateToUse = selectedDates[inst.id] || new Date().toISOString().split('T')[0];
+                            onMarkAsPaid(activeSemester.id, inst.id, dateToUse);
+                          }}
+                          className="bg-usc-cardinal text-bone font-loud text-[9px] md:text-[10px] px-3 md:px-4 py-2 border-2 md:border-4 border-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[4px_4px_0px_0px_#111111] active:shadow-none active:translate-y-0.5 transition-all flex-shrink-0 uppercase"
+                        >
+                          PAY_INST
+                        </button>
+                      </div>
                     )}
                   </div>
                   <div className="hidden sm:block absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 bg-bone border-l-4 border-ink rounded-full" />

@@ -30,7 +30,7 @@ export interface Budget {
 }
 
 export interface TuitionInstallment {
-  id: number;
+  id: string | number;
   amount: number;
   status: 'paid' | 'unpaid';
   expenseId?: string;

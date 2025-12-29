@@ -224,8 +224,18 @@ const App: React.FC = () => {
 const handleUpdateExpense = async (updatedExpense: Expense) => {
   try {
     const returnedExpense = await updateExpense(updatedExpense);
-    setExpenses(expenses.map(exp => exp.id === returnedExpense.id ? returnedExpense : exp));
+    setExpenses(prev => prev.map(exp => exp.id === returnedExpense.id ? returnedExpense : exp));
+    setSemesters(prev => prev.map(sem => ({
+      ...sem,
+      installments: sem.installments.map(inst => 
+        inst.expenseId === returnedExpense.id 
+          ? { ...inst, paidDate: returnedExpense.date, amount: returnedExpense.amount } 
+          : inst
+      )
+    })));
+    setIsSemestersDirty(true);
     setEditingExpense(null);
+    setIsExpenseModalOpen(false);
   } catch (error) {
     console.error("Failed to update expense:", error);
     alert("Error: Could not update expense.");
@@ -234,20 +244,50 @@ const handleUpdateExpense = async (updatedExpense: Expense) => {
 
 const handleDeleteExpense = async (id: string) => {
   try {
-    // 1. First, update the local semester state, which might rely on the expense
-    setSemesters(prevSemesters =>
-        prevSemesters.map(semester => ({ ...semester, installments: semester.installments.map(inst => inst.expenseId === id ? { ...inst, status: 'unpaid', expenseId: undefined, paidDate: undefined } : inst ) }))
-    );
-    
-    // 2. Then, call the API
+    // 1. SCAN AND RESET BURSAR STATE
+    // We look through all semesters and installments to see if any are linked to this ID
+    let wasTuitionPayment = false;
+
+    setSemesters(prevSemesters => {
+      return prevSemesters.map(semester => {
+        let semesterModified = false;
+        
+        const updatedInstallments = semester.installments.map(inst => {
+          if (inst.expenseId === id) {
+            wasTuitionPayment = true;
+            semesterModified = true;
+            // Reset the installment to its original 'unpaid' state
+            return { 
+              ...inst, 
+              status: 'unpaid', 
+              expenseId: undefined, 
+              paidDate: undefined 
+            };
+          }
+          return inst;
+        });
+
+        if (semesterModified) return { ...semester, installments: updatedInstallments };
+        return semester;
+      });
+    });
+
+    // 2. MARK BURSAR AS DIRTY
+    // If we found a link, we must tell the auto-save useEffect to sync with the DB
+    if (wasTuitionPayment) {
+      setIsSemestersDirty(true);
+    }
+
+    // 3. EXECUTE API DELETE
     await deleteExpense(id);
-    
-    // 3. Finally, remove the expense from the main local state
-    setExpenses(expenses.filter(exp => exp.id !== id));
+
+    // 4. UPDATE LOCAL EXPENSE LIST
+    // We use a functional update to ensure we don't have stale state issues
+    setExpenses(prevExpenses => prevExpenses.filter(exp => exp.id !== id));
 
   } catch (error) {
-    console.error("Failed to delete expense:", error);
-    alert("Error: Could not delete expense.");
+    console.error("CRITICAL_SYNC_ERROR: Failed to delete expense and sync Bursar:", error);
+    alert("Error: The transaction was deleted, but we could not update the Bursar tab. Please refresh.");
   }
 };
   const handleEditExpenseClick = (expense: Expense) => { setEditingExpense(expense); setIsExpenseModalOpen(true); };
@@ -343,7 +383,7 @@ const handleDeleteIncome = async (id: string) => {
     );
     setIsSemestersDirty(true);
   };
-  const handleMarkInstallmentAsPaid = async (semesterId: string, installmentId: number) => {
+  const handleMarkInstallmentAsPaid = async (semesterId: string, installmentId: number, paymentDate: string) => {
     const semester = semesters.find(s => s.id === semesterId);
     const installment = semester?.installments.find(i => i.id === installmentId);
     
@@ -357,7 +397,8 @@ const handleDeleteIncome = async (id: string) => {
       title: cleanTitle,
       amount: installment.amount,
       category: 'Tuition',
-      date: new Date().toISOString().split('T')[0],
+      date: paymentDate,
+      paymentMethod: 'Bank Transfer',
       isRecurring: false // Tuition is not a monthly recurring expense
     };
 

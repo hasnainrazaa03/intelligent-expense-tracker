@@ -2,70 +2,119 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { Semester, TuitionInstallment } from '../types';
+import { toFinPrecision } from '../utils/math';
 
 const router = Router();
 router.use(authMiddleware);
 
-// --- 1. Save All Semesters (Upsert) ---
-// POST /api/semesters
 router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  // We expect an array of Semester objects from the client
-  const semesters: Semester[] = req.body;
-
-  if (!Array.isArray(semesters)) {
-    return res.status(400).json({ message: 'Request body must be an array of semesters' });
-  }
+  const incomingSemesters: Semester[] = req.body;
 
   try {
-    // We use an Interactive Transaction ($transaction function)
-    // This is more robust for MongoDB than an array of promises.
-    await prisma.$transaction(async (tx) => {
+    const updatedData = await prisma.$transaction(async (tx) => {
+      // 1. Fetch current state to compare
+      const existingSemesters = await tx.semester.findMany({
+        where: { userId },
+        include: { installments: true }
+      });
+
+      const incomingIds = incomingSemesters.map(s => s.id);
+
+      // 2. Identify semesters to DELETE
+      // These exist in DB but NOT in the incoming request
+      const semestersToDelete = existingSemesters.filter(
+        ex => !incomingIds.includes(ex.id)
+      );
       
-      // 1. Delete ALL installments for this user first
-      // This prevents "orphaned" installments if a semester ID changes
-      await tx.tuitionInstallment.deleteMany({
-        where: { semesterUserId: userId }
-      });
+      for (const sem of semestersToDelete) {
+        await tx.semester.delete({ where: { id_internal: sem.id_internal } });
+      }
 
-      // 2. Delete ALL semesters for this user
-      await tx.semester.deleteMany({
-        where: { userId: userId }
-      });
+      // 3. Reconcile remaining and new semesters
+      for (const incoming of incomingSemesters) {
+        const existing = existingSemesters.find(ex => ex.id === incoming.id);
 
-      // 3. Re-create everything fresh
-      // This avoids "Upsert" logic which is prone to race conditions in Mongo
-      for (const sem of semesters) {
-        await tx.semester.create({
-          data: {
-            id: sem.id,
-            name: sem.name,
-            totalTuition: sem.totalTuition,
-            userId: userId,
-            installments: {
-              create: sem.installments.map((inst) => ({
-                amount: inst.amount,
-                status: inst.status,
-                expenseId: inst.expenseId,
-                paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
-              }))
+        if (!existing) {
+          // CREATE new semester with installments
+          await tx.semester.create({
+            data: {
+              id: incoming.id,
+              name: incoming.name,
+              totalTuition: incoming.totalTuition,
+              userId: userId,
+              installments: {
+                create: incoming.installments.map(inst => ({
+                  amount: toFinPrecision(inst.amount),
+                  status: inst.status,
+                  expenseId: inst.expenseId,
+                  paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
+                }))
+              }
+            }
+          });
+        } else {
+          // UPDATE existing semester metadata
+          await tx.semester.update({
+            where: { id_internal: existing.id_internal },
+            data: {
+              name: incoming.name,
+              totalTuition: incoming.totalTuition
+            }
+          });
+
+          // SURGICAL INSTALLMENT SYNC
+          const existingInstIds = existing.installments.map(i => i.id);
+          const incomingInstIds = incoming.installments.filter(i => i.id).map(i => i.id as any);
+
+          // Delete removed installments
+          await tx.tuitionInstallment.deleteMany({
+            where: {
+              semesterId: incoming.id,
+              semesterUserId: userId,
+              id: { notIn: incomingInstIds }
+            }
+          });
+
+          // Upsert current installments
+          for (const inst of incoming.installments) {
+            if (inst.id && existingInstIds.includes(inst.id as any)) {
+              // Update
+              await tx.tuitionInstallment.update({
+                where: { id: inst.id as any },
+                data: {
+                  amount: toFinPrecision(inst.amount),
+                  status: inst.status,
+                  expenseId: inst.expenseId,
+                  paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
+                }
+              });
+            } else {
+              // Create new installment for existing semester
+              await tx.tuitionInstallment.create({
+                data: {
+                  amount: toFinPrecision(inst.amount),
+                  status: inst.status,
+                  expenseId: inst.expenseId,
+                  paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
+                  semester: { connect: { id_userId: { id: incoming.id, userId } } }
+                }
+              });
             }
           }
-        });
+        }
       }
-    }, {
-      timeout: 10000 // Give Mongo 10s to finish the bulk write
-    });
 
-    // Fetch the clean, updated state to return to frontend
-    const updatedData = await prisma.semester.findMany({
-      where: { userId },
-      include: { installments: true }
-    });
+      // Return clean state
+      return tx.semester.findMany({
+        where: { userId },
+        include: { installments: true }
+      });
+    }, { timeout: 15000 });
 
     res.status(200).json(updatedData);
   } catch (error) {
-    console.error('CRITICAL_DATABASE_FAILURE:', error);
+    console.error('DIFFERENTIAL_SYNC_FAILURE:', error);
     res.status(500).json({ message: 'Failed to synchronize semester data' });
   }
 });

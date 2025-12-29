@@ -35,7 +35,7 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json());
 
 // --- PASSPORT MIDDLEWARE ---
 // This must be added for Passport to work
