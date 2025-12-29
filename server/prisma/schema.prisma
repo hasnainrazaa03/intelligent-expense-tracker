@@ -35,6 +35,7 @@ model Expense {
   isRecurring      Boolean? @default(false)
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId           String   @db.ObjectId
+  @@index([userId])
 }
 
 model Income {
@@ -48,6 +49,7 @@ model Income {
   originalCurrency String?
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId           String   @db.ObjectId
+  @@index([userId])
 }
 
 model Budget {
@@ -58,6 +60,7 @@ model Budget {
   userId   String @db.ObjectId
 
   @@unique([userId, category])
+  @@index([userId])
 }
 
 model Semester {
@@ -72,7 +75,8 @@ model Semester {
   installments TuitionInstallment[]
 
   // Use @@unique instead of @@id for composite uniqueness in MongoDB
-  @@unique([id, userId]) 
+  @@unique([id, userId])
+  @@index([userId])
 }
 
 model TuitionInstallment {
@@ -87,4 +91,5 @@ model TuitionInstallment {
   semester       Semester  @relation(fields: [semesterId, semesterUserId], references: [id, userId], onDelete: Cascade)
   semesterId     String
   semesterUserId String    @db.ObjectId
+  @@index([semesterId, semesterUserId])
 }

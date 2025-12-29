@@ -22,9 +22,9 @@ try {
 // --- Protect the route ---
 router.use(authMiddleware);
 
-// --- 1. Get AI Analysis ---
-// GET /api/ai/analyze
-router.get('/analyze', async (req: Request, res: Response) => {
+// --- 1. Post AI Analysis ---
+// POST /api/ai/analyze
+router.post('/analyze', async (req: Request, res: Response) => {
   if (!genAI) {
     return res.status(500).json({ message: "AI service is not configured." });
   }

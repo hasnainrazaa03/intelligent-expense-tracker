@@ -166,7 +166,7 @@ export const saveSemesters = (semesters: Semester[]): Promise<Semester[]> => {
  */
 export const getAiAnalysis = (): Promise<{ analysis: string }> => {
   return fetchApi('/ai/analyze', {
-    method: 'GET',
+    method: 'POST',
   });
 };
 
