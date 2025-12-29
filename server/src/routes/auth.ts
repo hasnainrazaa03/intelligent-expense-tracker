@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import otpGenerator from 'otp-generator';
-import { transporter } from '../utils/mailer';
+import { sendVerificationEmail } from '../utils/mailer';
 
 const router = Router();
 
@@ -13,53 +13,44 @@ router.post('/register', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     
-    // Basic validation
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
 
-    // Generate OTP
     const otp = otpGenerator.generate(6, { 
       upperCaseAlphabets: false, 
       specialChars: false,
-      lowerCaseAlphabets: false // Generate a numeric 6-digit code
+      lowerCaseAlphabets: false 
     });
-    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    // Hash the password
+    const expires = new Date(Date.now() + 10 * 60 * 1000); 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create the new user in the database
     const user = await prisma.user.create({
       data: {
         email: email,
         password: hashedPassword,
         verificationOtp: otp,
         otpExpires: expires,
-        isVerified: false // Explicitly set to false until OTP is verified
+        isVerified: false 
       },
     });
 
-    // --- MOVE EMAIL LOGIC INSIDE THE ROUTE ---
-    try {
-      await transporter.sendMail({
-        from: `"USC Ledger Security" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "YOUR_VERIFICATION_CODE",
-        text: `Your code is: ${otp}. It expires in 10 minutes.`
-      });
-      console.log(`✅ OTP sent successfully to ${email}`);
-    } catch (mailError: any) {
-      console.error('❌ Mailer Error:', mailError.message);
+    const emailResult = await sendVerificationEmail(email, otp);
+    
+    if (!emailResult.success) {
+      // Logic for developers: seeing OTP in logs if email fails
+      console.warn(`[DEV_MODE] Email failed. OTP for ${email} is: ${otp}`);
     }
 
-    res.status(201).json({ message: 'User created successfully. Please check your email.', userId: user.id });
+    res.status(201).json({ 
+      message: 'User created successfully. Please check your email.', 
+      userId: user.id 
+    });
 
   } catch (error) {
     console.error('Registration error:', error);

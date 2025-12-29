@@ -1,20 +1,23 @@
-import nodemailer from 'nodemailer';
+// server/src/utils/mailer.ts
+import { Resend } from 'resend';
 
-export const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Must be false for 587
-  requireTLS: true, // Force STARTTLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    // This prevents the connection from hanging if the certificate 
-    // validation takes too long in the Render container
-    rejectUnauthorized: false,
-    minVersion: 'TLSv1.2'
-  },
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,
-});
+export const resend = new Resend(process.env.RESEND_API_KEY);
+
+export const sendVerificationEmail = async (email: string, otp: string) => {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM as string, // Force TypeScript to treat it as a string
+      to: email,
+      subject: 'YOUR_VERIFICATION_CODE',
+      text: `Your code is: ${otp}. It expires in 10 minutes.`,
+    });
+
+    if (error) {
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err };
+  }
+};

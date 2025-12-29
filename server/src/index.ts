@@ -11,7 +11,6 @@ import incomeRoutes from './routes/incomes';
 import budgetRoutes from './routes/budgets';
 import semesterRoutes from './routes/semesters';
 import aiRoutes from './routes/ai';
-import { transporter } from './utils/mailer';
 
 const app = express();
 const PORT = process.env.PORT || 3001; // Use 3001 for the server
@@ -57,18 +56,6 @@ app.use('/api/semesters', semesterRoutes);
 app.use('/api/ai', aiRoutes);
 
 // --- Start the server ---
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-});
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.warn('⚠️ Mailer configuration warning:', error.message);
-  } else {
-    console.log('📧 Mailer is ready to dispatch codes');
-  }
-});
-
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
