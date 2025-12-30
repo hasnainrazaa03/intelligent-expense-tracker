@@ -178,21 +178,27 @@ const App: React.FC = () => {
 
   // Auto-save semesters to the database whenever they change
   useEffect(() => {
-    // --- THIS IS THE FIX ---
     // Only save if we're logged in AND the user has actually made a change
     if (!isAuthenticated || !isSemestersDirty) {
       return;
     }
-    
-    saveSemesters(semesters)
-      .then(() => {
-        setIsSemestersDirty(false); // Reset the flag after a successful save
-      })
-      .catch(err => {
-        console.error("Failed to auto-save semesters:", err);
-        alert("Error: Could not save semester changes to the database.");
-      });
-  
+
+    // Set a timer to wait 800ms after the last change before triggering the API
+    const saveTimer = setTimeout(() => {
+      console.log("Saving semesters to database...");
+      saveSemesters(semesters)
+        .then(() => {
+          setIsSemestersDirty(false); // Reset the flag after a successful save
+        })
+        .catch(err => {
+          console.error("Failed to auto-save semesters:", err);
+          // We removed the alert here to prevent interrupting the user experience
+        });
+    }, 800);
+
+    // CLEANUP: If the user makes another change within 800ms, this clears the previous timer
+    return () => clearTimeout(saveTimer);
+
   }, [semesters, isAuthenticated, isSemestersDirty]);
   
   // --- MODIFIED ---
@@ -443,18 +449,38 @@ const handleDeleteIncome = async (id: string) => {
   setSemesters(prevSemesters =>
     prevSemesters.map(semester => {
       if (semester.id === semesterId) {
-        // 1. Calculate the new split amount
-        const newAmount = semester.totalTuition > 0 ? semester.totalTuition / count : 0;
+        // 1. Identify what has already been settled
+        const paidInstallments = semester.installments.filter(i => i.status === 'paid');
+        const paidSum = paidInstallments.reduce((sum, i) => sum + i.amount, 0);
         
-        // 2. Build the new dynamic array
+        // 2. Calculate the remaining balance to be distributed
+        const remainingToPay = semester.totalTuition - paidSum;
+        const unpaidSlotsNeeded = count - paidInstallments.length;
+
+        // 3. Prevent logic errors if count is reduced below paid installments
+        if (unpaidSlotsNeeded < 0) return semester; 
+
+        // 4. Calculate the new per-installment amount for the remaining slots
+        const newSplitAmount = unpaidSlotsNeeded > 0 
+          ? Math.round(((remainingToPay / unpaidSlotsNeeded) + Number.EPSILON) * 100) / 100
+          : 0;
+
+        // 5. Build the new dynamic array
         const newInstallments = Array.from({ length: count }, (_, i) => {
           const existing = semester.installments[i];
+          
+          // LOCK: If this slot was already paid, keep it EXACTLY as is (amount, ID, date)
+          if (existing && existing.status === 'paid') {
+            return existing;
+          }
+
+          // REDISTRIBUTE: Otherwise, assign the new split amount to the unpaid slot
           return {
             id: i + 1,
-            amount: newAmount,
-            status: existing ? existing.status : 'unpaid',
-            expenseId: existing ? existing.expenseId : undefined,
-            paidDate: existing ? existing.paidDate : undefined,
+            amount: newSplitAmount,
+            status: 'unpaid',
+            expenseId: undefined,
+            paidDate: undefined,
           };
         });
 
@@ -464,7 +490,6 @@ const handleDeleteIncome = async (id: string) => {
     })
   );
   
-  // 3. Mark as dirty so the Auto-Save logic sends it to your database
   setIsSemestersDirty(true);
 };
 

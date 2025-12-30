@@ -4,35 +4,25 @@ export const formatCurrency = (
   conversionRate: number | null,
   isCompact: boolean = false
 ): string => {
-  const optionsUSD: Intl.NumberFormatOptions = {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  };
+  // 1. CLEAN FLOAT ARTIFACTS: Rounds to 2 decimal places immediately
+  // This prevents 10.099999999 from appearing as $10.09
+  const cleanUSD = Math.round((amountInUSD + Number.EPSILON) * 100) / 100;
 
-  const optionsINR: Intl.NumberFormatOptions = {
+  const options: Intl.NumberFormatOptions = {
     style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency: displayCurrency,
+    minimumFractionDigits: isCompact ? 0 : 2,
+    maximumFractionDigits: isCompact ? 1 : 2,
+    notation: isCompact ? 'compact' : 'standard',
   };
-
-  if (isCompact) {
-    optionsUSD.notation = 'compact';
-    optionsINR.notation = 'compact';
-    optionsUSD.minimumFractionDigits = 0;
-    optionsINR.minimumFractionDigits = 0;
-    optionsUSD.maximumFractionDigits = 1;
-    optionsINR.maximumFractionDigits = 1;
-  }
 
   if (displayCurrency === 'INR') {
-    if (conversionRate === null) return '...'; // Loading or error state
-    const amountInINR = amountInUSD * conversionRate;
-    return new Intl.NumberFormat('en-IN', optionsINR).format(amountInINR);
+    if (conversionRate === null) return '...';
+    // Convert USD to INR only for display purposes
+    const amountInINR = cleanUSD * conversionRate;
+    return new Intl.NumberFormat('en-IN', options).format(amountInINR);
   }
 
-  // Default to USD
-  return new Intl.NumberFormat('en-US', optionsUSD).format(amountInUSD);
+  // 2. PURE PASSTHROUGH: No math is performed for USD to avoid conversion leaks
+  return new Intl.NumberFormat('en-US', options).format(cleanUSD);
 };

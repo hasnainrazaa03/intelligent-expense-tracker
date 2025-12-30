@@ -25,9 +25,10 @@ router.post('/analyze', async (req: Request, res: Response) => {
   const userId = req.user!.id;
 
   try {
-    const [expenses, incomes] = await Promise.all([
+    const [expenses, incomes, budgets] = await Promise.all([
       prisma.expense.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
       prisma.income.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
+      prisma.budget.findMany({ where: { userId } }),
     ]);
 
     if (expenses.length === 0 && incomes.length === 0) {
@@ -44,6 +45,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
         totalExpenses: expenses.reduce((sum, e) => sum + e.amount, 0),
         netCashFlow: incomes.reduce((sum, i) => sum + i.amount, 0) - expenses.reduce((sum, e) => sum + e.amount, 0),
       },
+      budgets: budgets.map(b => ({ category: b.category, limit: b.amount })),
       // Aggregated totals by category for the Spending Analysis
       categoryBreakdown: expenses.reduce((acc: any, e) => {
         acc[e.category] = (acc[e.category] || 0) + e.amount;
@@ -78,6 +80,10 @@ router.post('/analyze', async (req: Request, res: Response) => {
       - Determine the net cash flow ($${manifest.summary.netCashFlow}).
       - Briefly comment on their overall cash flow situation.
 
+      ### Spending vs. Budget Analysis
+      - Compare 'categoryBreakdown' against the 'budgets' limits provided.
+      - Identify any category where they have exceeded their budget.
+      
       ### Income vs. Expense Trends
       - Analyze the historical data to identify trends.
       - Point out months or patterns with significant deficits or savings.
@@ -97,6 +103,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
       - Identify at least 3 specific and actionable areas where they could save money.
       - For each opportunity, mention the category, recent amount, and a suggested action.
       - **Specifically review all expenses in 'recurringFixedCosts'.** Suggest that the user re-evaluate if they still need these subscriptions.
+      - **CRITICAL**: Include at least one USC-specific tip (Fryft, Meal Plans, or local cheap eats near Jefferson Blvd/Figueroa St).
 
       Keep the tone encouraging and not judgmental.
       Format your entire response in Markdown with clear headings and bullet points.
