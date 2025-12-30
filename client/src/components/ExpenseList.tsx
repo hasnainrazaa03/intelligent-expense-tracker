@@ -75,7 +75,7 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onDelete, di
                       <TagIcon className="h-4 w-4 md:h-6 md:w-6 text-white" />
                   </div>
                   <div className="min-w-0">
-                      <h4 className="font-loud text-base md:text-xl leading-none text-ink truncate uppercase">{expense.title}{expense.title.toUpperCase()}</h4>
+                      <h4 className="font-loud text-base md:text-xl leading-none text-ink truncate uppercase">{expense.title}</h4>
                       <div className="flex flex-wrap gap-1.5 md:gap-2 mt-2">
                           <span className="bg-ink text-bone px-1.5 py-0.5 text-[8px] md:text-[10px] font-bold border border-ink uppercase">
                               {expense.category.toUpperCase()}
