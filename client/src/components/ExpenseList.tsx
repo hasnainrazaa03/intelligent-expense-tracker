@@ -6,6 +6,7 @@ import {
   CreditCardIcon, ChatBubbleBottomCenterTextIcon, ExclamationTriangleIcon 
 } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
+import Pagination from './Pagination';
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -126,8 +127,21 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onDelete, di
     );
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, displayCurrency, conversionRate }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [expenses.length]);
+
+  const totalPages = Math.ceil(expenses.length / ITEMS_PER_PAGE);
+  const paginatedExpenses = expenses.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const handleConfirmDelete = () => {
     if (expenseToDeleteId) {
@@ -144,8 +158,9 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, d
       </div>
 
       {expenses.length > 0 ? (
+        <>
         <ul className="space-y-4 md:space-y-6">
-          {expenses.map(expense => (
+          {paginatedExpenses.map(expense => (
             <ExpenseItem 
               key={expense.id} 
               expense={expense} 
@@ -156,6 +171,15 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, d
             />
           ))}
         </ul>
+
+        <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={expenses.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        </>
       ) : (
         <div className="border-4 border-ink border-dashed p-8 md:p-16 text-center bg-bone/50">
           <p className="font-loud text-lg md:text-2xl text-ink/20 uppercase">NO_TXNS_DETECTED</p>

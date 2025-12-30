@@ -5,6 +5,7 @@ import {
   ChatBubbleBottomCenterTextIcon, ExclamationTriangleIcon, BanknotesIcon 
 } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
+import Pagination from './Pagination';
 
 interface IncomeListProps {
   incomes: Income[];
@@ -108,8 +109,21 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onDelete, displ
   );
 };
 
+const ITEMS_PER_PAGE = 10;
+
 const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, displayCurrency, conversionRate }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [incomes.length]);
+
+  const totalPages = Math.ceil(incomes.length / ITEMS_PER_PAGE);
+  const paginatedIncomes = incomes.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const handleConfirmDelete = () => {
     if (incomeToDeleteId) {
@@ -128,8 +142,9 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, disp
       </div>
 
       {incomes.length > 0 ? (
+        <>
         <ul className="space-y-4 md:space-y-6">
-          {incomes.map(income => (
+          {paginatedIncomes.map(income => (
             <IncomeItem 
               key={income.id} 
               income={income} 
@@ -140,6 +155,14 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, disp
             />
           ))}
         </ul>
+        <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={incomes.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        </>
       ) : (
         <div className="border-4 border-ink border-dashed p-8 md:p-16 text-center bg-bone/50">
           <p className="font-loud text-lg md:text-2xl text-ink/20 uppercase">AWAITING_REVENUE_DATA</p>
