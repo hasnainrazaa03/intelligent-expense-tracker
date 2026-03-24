@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import trojanLogo from '../../public/trojan-logo.png';
 import { ExpenseTrackerLogo } from './Branding';
-import ThemeToggle from './ThemeToggle';
 import { 
   WalletIcon, 
   MagnifyingGlassIcon, 
@@ -127,7 +126,6 @@ const Header: React.FC<HeaderProps> = ({
 
               {/* Action Buttons Group */}
               <div className="flex items-center gap-2">
-                <ThemeToggle />
                 <button 
                   onClick={onManageBudgets}
                   aria-label="Manage budgets"

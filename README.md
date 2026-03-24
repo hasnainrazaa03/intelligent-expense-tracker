@@ -154,7 +154,6 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Interactive category pie chart filtering via clickable legend/slices
 - Confirmation flows now support undo window before destructive deletes
 - Inline quick edit for list rows (double-click amount/title fields) with instant save hooks
-- Persistent theme toggle with refined dark-mode contrast for core dashboard surfaces
 - Expense split assistant with participant-based equal-share calculations
 - Receipt upload with in-browser OCR extraction to prefill notes and amounts
 - Custom tags and metadata fields on expenses and incomes for richer filtering

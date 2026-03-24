@@ -80,7 +80,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Inline edit for amount/notes in list rows.
 - Notes: Save-on-blur with validation.
 
-7. [x] Dark mode refinement
+7. [ ] Dark mode refinement
 - Opportunity: Contrast and consistency can improve.
 - Solution: Adjust tokens and check readability.
 - Notes: Validate with WCAG checks.

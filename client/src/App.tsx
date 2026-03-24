@@ -4,7 +4,6 @@ import { Expense, Budget, Semester, Income } from './types';
 import Header from './components/Header';
 import type { DateRange } from './components/Dashboard';
 import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon } from './components/Icons';
-import { useTheme } from './hooks/useTheme';
 import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { getAllData, getSession, logoutUser, toggleTwoFactor } from './services/api';
@@ -68,7 +67,6 @@ const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: Rea
 }
 
 const App: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
   const navRef = useRef<HTMLElement | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
