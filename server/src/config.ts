@@ -15,6 +15,7 @@ export function validateServerEnv(): void {
 }
 
 export const SERVER_CONFIG = {
+  host: process.env.HOST || '0.0.0.0',
   port: Number(process.env.PORT || 3001),
   bodyLimit: '1mb',
   limits: {

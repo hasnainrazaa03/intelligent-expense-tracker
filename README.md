@@ -218,6 +218,11 @@ cd ../client && npx tsc --noEmit
 
 Both should complete without TypeScript errors.
 
+### 5. Deployment Notes (Vercel + Render)
+- Vercel (frontend): set Root Directory to `client`, build command `npm run build`, output directory `dist`.
+- Render (backend): set Root Directory to `server`, build command `npm install --include=dev && npm run build`, start command `npm run start`.
+- Backend now binds to `0.0.0.0` via `HOST` (defaults safely), and uses `PORT` from environment.
+
 ---
 
 ## 🎨 Design Philosophy

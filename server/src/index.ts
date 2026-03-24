@@ -22,6 +22,7 @@ import { swaggerSpec } from './swagger';
 validateServerEnv();
 
 const app = express();
+const HOST = SERVER_CONFIG.host;
 const PORT = SERVER_CONFIG.port;
 
 // --- Security Middleware ---
@@ -100,6 +101,6 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 // --- Start the server ---
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Server is running on http://${HOST}:${PORT}`);
 });
