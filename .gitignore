@@ -23,3 +23,6 @@ yarn-error.log*
 # Local backups and exported data
 server/backups/
 **/backup-*.json
+
+# Runtime logs
+server/logs/

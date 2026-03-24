@@ -80,6 +80,18 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 
 ## 🚀 Feature Overview
 
+### 🆕 Latest Release Notes (March 2026)
+- Dedicated **AI tab** in navigation (desktop + mobile), separate from transaction views.
+- Refactored AI from one-shot analysis to **interactive account-aware chat**.
+- Added quick-prompt chips and reset flow for faster, focused prompts.
+- AI responses now render as sanitized markdown with concise sections for faster reading.
+- Production auth session hardening for cross-origin deploys:
+  - cookie `SameSite=None` + `Secure` in production
+  - normalized multi-origin CORS matching
+  - temporary login response token compatibility for staggered deploys
+- Replaced external texture asset that caused `noise.svg` 403 with local CSS texture.
+- Removed image preload hints that were generating preload warnings.
+
 ### 🎓 Bursar Management
 - Built specifically for USC’s **4‑installment tuition plans**
 - **Lock and Redistribute** algorithm:
@@ -104,7 +116,7 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Debounced search to reduce expensive filtering during typing
 - API request deduplication + short TTL read cache to reduce duplicate network calls
 - Additional memoization for frequently re-computed view props and summaries
-- Optimized asset delivery with image preload hints for critical USC branding assets
+- Optimized asset delivery with local static assets and reduced external visual dependencies
 - Basic offline resilience with service worker app-shell caching
 
 ### 🧱 Architecture and Reliability

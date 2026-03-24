@@ -2,6 +2,14 @@
 
 This document tracks all 74 proposed improvements for Intelligent Expense Tracker.
 
+## Post-Roadmap Release Notes (March 2026)
+
+- [x] AI module moved to a dedicated navigation tab (desktop + mobile) instead of embedded side panels.
+- [x] AI upgraded to conversational mode with account-context-aware responses.
+- [x] AI response format standardized for concise scanning (`Quick read` + `What to do next`).
+- [x] Deploy auth/session hardening completed for cross-origin cookie usage and normalized CORS origin matching.
+- [x] Runtime UI noise reduced by replacing external `noise.svg` dependency and removing non-essential image preloads.
+
 ## Quick Wins (Execution Plan)
 
 These are selected because they are high impact with low-to-moderate effort and limited architectural risk.

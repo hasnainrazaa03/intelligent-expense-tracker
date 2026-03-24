@@ -55,7 +55,7 @@ const LOCKOUT_DURATION_MS = SERVER_CONFIG.auth.lockoutDurationMs;
 const buildCookieOptions = (httpOnly: boolean) => ({
   httpOnly,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
   maxAge: SERVER_CONFIG.auth.cookieMaxAgeMs,
   path: '/',
 });
@@ -68,8 +68,13 @@ const issueSessionCookies = (res: Response, token: string): string => {
 };
 
 const clearSessionCookies = (res: Response): void => {
-  res.clearCookie(SERVER_CONFIG.auth.cookieName, { path: '/' });
-  res.clearCookie(SERVER_CONFIG.auth.csrfCookieName, { path: '/' });
+  const baseOptions = {
+    path: '/',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: (process.env.NODE_ENV === 'production' ? 'none' : 'lax') as 'none' | 'lax',
+  };
+  res.clearCookie(SERVER_CONFIG.auth.cookieName, baseOptions);
+  res.clearCookie(SERVER_CONFIG.auth.csrfCookieName, baseOptions);
 };
 
 // --- 1. Sign Up (Register) ---
@@ -359,7 +364,13 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       metadata: { email },
     });
 
-    res.json({ message: 'Login successful', csrfToken, requiresTwoFactor: false, twoFactorEnabled: user.twoFactorEnabled });
+    res.json({
+      message: 'Login successful',
+      csrfToken,
+      token,
+      requiresTwoFactor: false,
+      twoFactorEnabled: user.twoFactorEnabled,
+    });
   } catch (error) {
     console.error('Login error:', error);
 
@@ -408,7 +419,13 @@ router.post('/verify-login-otp', otpLimiter, async (req: Request, res: Response)
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     const csrfToken = issueSessionCookies(res, token);
 
-    return res.json({ message: 'Login successful', csrfToken, requiresTwoFactor: false, twoFactorEnabled: true });
+    return res.json({
+      message: 'Login successful',
+      csrfToken,
+      token,
+      requiresTwoFactor: false,
+      twoFactorEnabled: true,
+    });
   } catch (error) {
     console.error('Verify login OTP error:', error);
     return res.status(500).json({ message: 'Internal server error' });

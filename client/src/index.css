@@ -40,10 +40,46 @@
   .noise-overlay {
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
-    background-image: url("https://grainy-gradients.vercel.app/noise.svg");
-    opacity: 0.05;
+    background-image:
+      radial-gradient(rgba(17, 17, 17, 0.08) 0.5px, transparent 0.5px),
+      radial-gradient(rgba(17, 17, 17, 0.04) 0.5px, transparent 0.5px);
+    background-position: 0 0, 3px 3px;
+    background-size: 6px 6px;
+    opacity: 0.03;
     pointer-events: none;
     z-index: 9999;
+  }
+
+  .ai-markdown h1,
+  .ai-markdown h2,
+  .ai-markdown h3,
+  .ai-markdown h4 {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0 0 0.35rem 0;
+    line-height: 1.05;
+  }
+
+  .ai-markdown h3,
+  .ai-markdown h4 {
+    font-size: 0.8rem;
+  }
+
+  .ai-markdown ul {
+    margin: 0;
+    padding-left: 1rem;
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .ai-markdown p {
+    margin: 0 0 0.3rem 0;
+    line-height: 1.3;
+  }
+
+  .ai-markdown li {
+    line-height: 1.25;
   }
 
   /* 4. TECHNICAL GRAPH GRID */

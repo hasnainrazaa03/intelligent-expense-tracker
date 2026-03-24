@@ -46,16 +46,25 @@ app.use(
 );
 
 // --- CORS ---
+const normalizeOrigin = (value: string) => value.trim().replace(/\/$/, '');
+
+const configuredOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+  .map(normalizeOrigin);
+
 const allowedOrigins = [
-  'http://localhost:5173', // Local development
-  process.env.FRONTEND_URL  // Your Vercel domain
-].filter(Boolean) as string[];
+  normalizeOrigin('http://localhost:5173'),
+  ...configuredOrigins,
+];
 
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
+    const normalized = normalizeOrigin(origin);
+    if (!allowedOrigins.includes(normalized)) {
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
       return callback(new Error(msg), false);
     }

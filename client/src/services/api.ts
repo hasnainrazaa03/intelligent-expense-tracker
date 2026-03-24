@@ -327,6 +327,16 @@ export const getAiAnalysis = (): Promise<{ analysis: string }> => {
   });
 };
 
+export const chatWithAi = (
+  message: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>
+): Promise<{ reply: string }> => {
+  return fetchApi<{ reply: string }>('/ai/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, history }),
+  });
+};
+
 /**
  * Creates a batch of new expenses from a CSV import.
  */

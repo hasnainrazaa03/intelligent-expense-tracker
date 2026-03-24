@@ -3,7 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import { Expense, Budget, Semester, Income } from './types';
 import Header from './components/Header';
 import type { DateRange } from './components/Dashboard';
-import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon } from './components/Icons';
+import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon, ChatBubbleBottomCenterTextIcon } from './components/Icons';
 import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { getAllData, getSession, logoutUser, toggleTwoFactor } from './services/api';
@@ -33,7 +33,7 @@ const USCPaymentTracker = lazy(() => import('./components/USCPaymentTracker'));
 const PivotAnalysis = lazy(() => import('./components/PivotAnalysis'));
 const Reports = lazy(() => import('./components/Reports'));
 
-type ActiveView = 'expenses' | 'income' | 'pivot' | 'usc' | 'reports';
+type ActiveView = 'expenses' | 'income' | 'ai' | 'pivot' | 'usc' | 'reports';
 
 const RECURRING_SNOOZE_KEY = 'recurringReminderSnoozeUntil';
 const ONBOARDING_DISMISSED_KEY = 'onboardingDismissed';
@@ -861,42 +861,34 @@ const handleDeleteIncome = async (id: string) => {
     switch (activeView) {
         case 'expenses':
             return (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2">
-                        <ExpenseList 
-                        expenses={searchedAndSortedItems as Expense[]} 
-                        onEdit={handleEditExpenseClick}
-                        onQuickSave={handleQuickSaveExpense}
-                        onDelete={handleDeleteExpense}
-                        onCreate={handleOpenModal}
-                        isLoading={isLoadingData}
-                        {...commonCurrencyProps}
-                        />
-                    </div>
-                    <div className="lg:col-span-1">
-                        <AiAnalyst expenses={expenses} incomes={incomes} />
-                    </div>
+            <div>
+              <ExpenseList 
+              expenses={searchedAndSortedItems as Expense[]} 
+              onEdit={handleEditExpenseClick}
+              onQuickSave={handleQuickSaveExpense}
+              onDelete={handleDeleteExpense}
+              onCreate={handleOpenModal}
+              isLoading={isLoadingData}
+              {...commonCurrencyProps}
+              />
                 </div>
             );
         case 'income':
             return (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2">
-                        <IncomeList 
-                          incomes={searchedAndSortedItems as Income[]} 
-                          onEdit={handleEditIncomeClick}
-                          onQuickSave={handleQuickSaveIncome}
-                          onDelete={handleDeleteIncome}
-                          onCreate={handleOpenModal}
-                          isLoading={isLoadingData}
-                           {...commonCurrencyProps}
-                        />
-                    </div>
-                    <div className="lg:col-span-1">
-                        <AiAnalyst expenses={expenses} incomes={incomes} />
-                    </div>
+            <div>
+              <IncomeList 
+                incomes={searchedAndSortedItems as Income[]} 
+                onEdit={handleEditIncomeClick}
+                onQuickSave={handleQuickSaveIncome}
+                onDelete={handleDeleteIncome}
+                onCreate={handleOpenModal}
+                isLoading={isLoadingData}
+                 {...commonCurrencyProps}
+              />
                 </div>
             );
+        case 'ai':
+          return <AiAnalyst expenses={expenses} incomes={incomes} />;
         case 'pivot':
             return <PivotAnalysis expenses={expenses} {...commonCurrencyProps} />;
         case 'usc':
@@ -959,6 +951,7 @@ const handleDeleteIncome = async (id: string) => {
               >
                 <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="TXNS" colorClass="bg-usc-cardinal" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
                 <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="REVENUE" colorClass="bg-green-600" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
+                <VerticalTab icon={<ChatBubbleBottomCenterTextIcon className="h-5 w-5" />} label="AI" colorClass="bg-usc-gold text-ink" isActive={activeView === 'ai'} onClick={() => setActiveView('ai')} />
                 <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="MATRIX" colorClass="bg-ink" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
                 <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="AUDIT" colorClass="bg-ink" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
                 <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="BURSAR" colorClass="bg-usc-gold text-ink" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
@@ -1099,7 +1092,7 @@ const handleDeleteIncome = async (id: string) => {
                   </button>
               </div>
 
-              <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t-4 border-ink bg-bone grid grid-cols-5">
+              <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t-4 border-ink bg-bone grid grid-cols-6">
                 <button
                   onClick={() => setActiveView('expenses')}
                   className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'expenses' ? 'bg-usc-cardinal text-bone' : 'bg-white text-ink'}`}
@@ -1117,6 +1110,12 @@ const handleDeleteIncome = async (id: string) => {
                   className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'pivot' ? 'bg-ink text-bone' : 'bg-white text-ink'}`}
                 >
                   MATRIX
+                </button>
+                <button
+                  onClick={() => setActiveView('ai')}
+                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'ai' ? 'bg-usc-gold text-ink' : 'bg-white text-ink'}`}
+                >
+                  AI
                 </button>
                 <button
                   onClick={() => setActiveView('reports')}
