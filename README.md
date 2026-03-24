@@ -153,6 +153,18 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Recurring reminder controls now support snooze (24h) in addition to dismiss/add
 - Interactive category pie chart filtering via clickable legend/slices
 - Confirmation flows now support undo window before destructive deletes
+- Inline quick edit for list rows (double-click amount/title fields) with instant save hooks
+- Persistent theme toggle with refined dark-mode contrast for core dashboard surfaces
+
+### 📈 Planning and Forecasting
+- Financial planning panel with monthly savings goal progress tracking
+- Calendar-style grouped expense timeline for day-level review
+- Recurring management center with status snapshots and quick visibility
+- Upcoming bills/subscriptions block with due-soon highlighting
+- Proactive behavior-based insight cards generated from spending and recurring patterns
+- 30-day cash-flow projection based on recent inflow/outflow trends
+- One-click budget templates (student, frugal, balanced) for faster setup
+- Merchant auto-categorization learning loop from manual category corrections
 
 ### 🛡️ Dependency Safety
 - Added Dependabot configuration for weekly client/server dependency updates

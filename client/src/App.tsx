@@ -452,6 +452,29 @@ const handleUpdateExpense = async (updatedExpense: Expense) => {
   }
 };
 
+const handleQuickSaveExpense = async (updatedExpense: Expense) => {
+  try {
+    const returnedExpense = await updateExpense(updatedExpense);
+    setExpenses(prev => {
+      const updated = prev.map(exp => exp.id === returnedExpense.id ? returnedExpense : exp);
+      checkBudgetAlert(returnedExpense.category, updated);
+      return updated;
+    });
+    setSemesters(prev => prev.map(sem => ({
+      ...sem,
+      installments: sem.installments.map(inst =>
+        inst.expenseId === returnedExpense.id
+          ? { ...inst, paidDate: returnedExpense.date, amount: returnedExpense.amount }
+          : inst
+      )
+    })));
+    setIsSemestersDirty(true);
+  } catch (error) {
+    console.error('Failed to quick update expense:', error);
+    notify.error('Could not quick update expense.');
+  }
+};
+
 const handleDeleteExpense = async (id: string) => {
   try {
     // 1. EXECUTE API DELETE FIRST (before mutating state)
@@ -517,6 +540,16 @@ const handleUpdateIncome = async (updatedIncome: Income) => {
   } catch (error) {
     console.error("Failed to update income:", error);
     notify.error('Could not update income.');
+  }
+};
+
+const handleQuickSaveIncome = async (updatedIncome: Income) => {
+  try {
+    const returnedIncome = await updateIncome(updatedIncome);
+    setIncomes(prev => prev.map(inc => inc.id === returnedIncome.id ? returnedIncome : inc));
+  } catch (error) {
+    console.error('Failed to quick update income:', error);
+    notify.error('Could not quick update income.');
   }
 };
 
@@ -808,6 +841,7 @@ const handleDeleteIncome = async (id: string) => {
                         <ExpenseList 
                         expenses={searchedAndSortedItems as Expense[]} 
                         onEdit={handleEditExpenseClick}
+                        onQuickSave={handleQuickSaveExpense}
                         onDelete={handleDeleteExpense}
                         onCreate={handleOpenModal}
                         isLoading={isLoadingData}
@@ -826,6 +860,7 @@ const handleDeleteIncome = async (id: string) => {
                         <IncomeList 
                           incomes={searchedAndSortedItems as Income[]} 
                           onEdit={handleEditIncomeClick}
+                          onQuickSave={handleQuickSaveIncome}
                           onDelete={handleDeleteIncome}
                           onCreate={handleOpenModal}
                           isLoading={isLoadingData}
@@ -975,6 +1010,7 @@ const handleDeleteIncome = async (id: string) => {
                       <Dashboard 
                         expenses={filteredExpenses} 
                         incomes={filteredIncomes}
+                        allIncomes={incomes}
                         allExpenses={expenses}
                         previousPeriodExpenses={previousPeriodExpenses}
                         selectedRange={dateRange}

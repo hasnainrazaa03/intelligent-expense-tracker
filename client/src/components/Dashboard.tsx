@@ -5,6 +5,7 @@ import CategoryPieChart from './CategoryPieChart';
 import SpendingBarChart from './SpendingBarChart';
 import BudgetTracker from './BudgetTracker';
 import BudgetPerformanceChart from './BudgetPerformanceChart';
+import FinancialPlanningPanel from './FinancialPlanningPanel';
 import { getCategoryColor } from '../utils/colorUtils';
 import { CalendarDaysIcon, TagIcon, ReceiptPercentIcon, TrendingUpIcon, BanknotesIcon } from './Icons';
 import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
@@ -47,6 +48,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ selectedRange, onChan
 interface DashboardProps {
   expenses: Expense[];
   incomes: Income[];
+  allIncomes: Income[];
   allExpenses: Expense[];
   previousPeriodExpenses: Expense[];
   selectedRange: DateRange;
@@ -58,7 +60,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  expenses, incomes, allExpenses, previousPeriodExpenses, 
+  expenses, incomes, allIncomes, allExpenses, previousPeriodExpenses, 
   selectedRange, onDateRangeChange, budgets, displayCurrency, conversionRate, isLoading = false
 }) => {
 
@@ -303,6 +305,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
         </div>
       </div>
+
+      <FinancialPlanningPanel
+        expenses={allExpenses}
+        incomes={allIncomes}
+        displayCurrency={displayCurrency}
+        conversionRate={conversionRate}
+      />
 
         {/* 5. FOOTER STAMP */}
         <div className="flex justify-center pt-8">

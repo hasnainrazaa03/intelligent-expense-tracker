@@ -14,6 +14,33 @@ interface BudgetManagerModalProps {
 const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose, onSave, currentBudgets, displayCurrency, conversionRate }) => {
   const [budgets, setBudgets] = useState<{ [key: string]: string }>({});
 
+  const budgetTemplates: Record<string, Record<string, number>> = {
+    student_essential: {
+      Housing: 800,
+      Groceries: 350,
+      Dining_Out: 180,
+      Transportation: 160,
+      Tuition: 1200,
+      Subscriptions: 40,
+    },
+    balanced_growth: {
+      Housing: 950,
+      Groceries: 420,
+      Dining_Out: 220,
+      Transportation: 180,
+      Savings: 400,
+      Entertainment: 120,
+    },
+    cost_control: {
+      Housing: 780,
+      Groceries: 320,
+      Dining_Out: 120,
+      Transportation: 130,
+      Utilities: 120,
+      Subscriptions: 25,
+    },
+  };
+
   // 1. Group subcategories under their parents
   const groupedCategories = useMemo(() => {
     const groups: Record<string, string[]> = {};
@@ -61,6 +88,17 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
     setBudgets(prev => ({...prev, [category]: amount }));
   };
 
+  const handleApplyTemplate = (templateKey: keyof typeof budgetTemplates) => {
+    const template = budgetTemplates[templateKey];
+    const mapped = Object.entries(template).reduce((acc, [category, amount]) => {
+      const categoryName = category.replace(/_/g, ' ');
+      const displayAmount = displayCurrency === 'INR' && conversionRate ? amount * conversionRate : amount;
+      acc[categoryName] = displayAmount.toFixed(2);
+      return acc;
+    }, {} as Record<string, string>);
+    setBudgets((prev) => ({ ...prev, ...mapped }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formattedBudgets: Budget[] = Object.entries(budgets)
@@ -95,6 +133,15 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
         
         <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
             <div className="p-4 md:p-8 h-[60vh] md:h-[50vh] overflow-y-auto bg-white custom-scrollbar space-y-12">
+              <div className="border-4 border-ink bg-usc-gold/20 p-4">
+                <h3 className="font-loud text-sm md:text-base uppercase mb-3">TEMPLATE_LIBRARY</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => handleApplyTemplate('student_essential')} className="bg-bone border-2 border-ink px-3 py-1 font-loud text-[10px] uppercase">STUDENT_ESSENTIAL</button>
+                  <button type="button" onClick={() => handleApplyTemplate('balanced_growth')} className="bg-bone border-2 border-ink px-3 py-1 font-loud text-[10px] uppercase">BALANCED_GROWTH</button>
+                  <button type="button" onClick={() => handleApplyTemplate('cost_control')} className="bg-bone border-2 border-ink px-3 py-1 font-loud text-[10px] uppercase">COST_CONTROL</button>
+                </div>
+              </div>
+
               {Object.keys(groupedCategories).sort().map(parent => (
                 <div key={parent} className="border-4 border-ink p-4 md:p-6 bg-bone shadow-neo">
                   {/* CATEGORY HEADER */}

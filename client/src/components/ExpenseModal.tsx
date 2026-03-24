@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Expense, Category } from '../types';
-import { suggestCategory } from '../services/categorySuggestionService';
+import { suggestCategory, recordCategorySelection } from '../services/categorySuggestionService';
 import { CATEGORIES, PAYMENT_METHODS } from '../constants';
 import { XMarkIcon, ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
@@ -184,6 +184,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const handleCategorySelect = (selectedCategory: Category) => {
     setCategory(selectedCategory);
     setHasManuallySelectedCategory(true);
+    if (title.trim()) {
+      recordCategorySelection(title, selectedCategory);
+    }
     setIsCategoryDropdownOpen(false);
     setCategorySearchTerm('');
   };

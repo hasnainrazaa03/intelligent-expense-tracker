@@ -17,6 +17,7 @@ import ConfirmationDialog from './ConfirmationDialog';
 interface ExpenseListProps {
   expenses: Expense[];
   onEdit: (expense: Expense) => void;
+  onQuickSave?: (expense: Expense) => Promise<void> | void;
   onDelete: (id: string) => Promise<void> | void;
   onCreate?: () => void;
   isLoading?: boolean;
@@ -28,14 +29,33 @@ interface ExpenseListProps {
 interface ExpenseItemProps {
     expense: Expense;
     onEdit: (e: Expense) => void;
+  onQuickSave?: (expense: Expense) => Promise<void> | void;
     onDelete: (id: string) => void;
     displayCurrency: 'USD' | 'INR';
     conversionRate: number | null;
 }
 
 // --- NEO-BRUTALIST EXPENSE ITEM ---
-const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onDelete, displayCurrency, conversionRate }) => {
+const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave, onDelete, displayCurrency, conversionRate }) => {
     const categoryColor = getCategoryColor(expense.category);
+    const [isInlineEditing, setIsInlineEditing] = useState(false);
+    const [draftAmount, setDraftAmount] = useState(expense.amount.toString());
+    const [draftNotes, setDraftNotes] = useState(expense.notes || '');
+
+    React.useEffect(() => {
+      setDraftAmount(expense.amount.toString());
+      setDraftNotes(expense.notes || '');
+    }, [expense.amount, expense.notes]);
+
+    const saveInlineChanges = async () => {
+      const parsed = Number.parseFloat(draftAmount);
+      if (!Number.isFinite(parsed) || parsed <= 0 || !onQuickSave) {
+        setIsInlineEditing(false);
+        return;
+      }
+      await onQuickSave({ ...expense, amount: parsed, notes: draftNotes.trim() || undefined });
+      setIsInlineEditing(false);
+    };
 
     return (
         <li className="relative group">
@@ -63,13 +83,30 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onDelete, di
 
               <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 border-t-2 md:border-t-0 border-ink/10 pt-3 md:pt-0">
                   <div className="text-left md:text-right">
-                      <p className="font-loud text-xl md:text-2xl text-ink leading-none">
-                          {formatCurrency(expense.amount, displayCurrency, conversionRate)}
-                      </p>
+                      {isInlineEditing ? (
+                        <input
+                          type="number"
+                          value={draftAmount}
+                          onChange={(e) => setDraftAmount(e.target.value)}
+                          className="w-28 border-2 border-ink px-2 py-1 font-loud text-sm bg-white"
+                        />
+                      ) : (
+                        <p className="font-loud text-xl md:text-2xl text-ink leading-none" onDoubleClick={() => setIsInlineEditing(true)}>
+                            {formatCurrency(expense.amount, displayCurrency, conversionRate)}
+                        </p>
+                      )}
                       {expense.paymentMethod && (
                           <p className="text-[8px] md:text-[10px] font-mono text-ink/60 flex items-center md:justify-end font-bold uppercase mt-1">
                               <CreditCardIcon className="h-2.5 w-2.5 md:h-3 md:w-3 mr-1" /> {expense.paymentMethod}
                           </p>
+                      )}
+                      {isInlineEditing && (
+                        <textarea
+                          value={draftNotes}
+                          onChange={(e) => setDraftNotes(e.target.value)}
+                          className="mt-2 w-40 border-2 border-ink p-1 text-[10px] font-mono bg-white"
+                          placeholder="Quick note"
+                        />
                       )}
                   </div>
 
@@ -81,6 +118,15 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onDelete, di
                       >
                           <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
                       </button>
+                      {isInlineEditing && (
+                        <button
+                          onClick={saveInlineChanges}
+                          aria-label={`Save quick edit for ${expense.title}`}
+                          className="p-2 border-2 border-ink bg-ink text-bone shadow-[2px_2px_0px_0px_#111111]"
+                        >
+                          SAVE
+                        </button>
+                      )}
                       <button 
                           onClick={() => onDelete(expense.id)}
                           aria-label={`Delete expense ${expense.title}`}
@@ -105,18 +151,20 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onDelete, di
 interface VirtualRowData {
   expenses: Expense[];
   onEdit: (expense: Expense) => void;
+  onQuickSave?: (expense: Expense) => Promise<void> | void;
   onDelete: (id: string) => void;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
 }
 
-const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, expenses, onEdit, onDelete, displayCurrency, conversionRate }) => {
+const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, expenses, onEdit, onQuickSave, onDelete, displayCurrency, conversionRate }) => {
   const expense = expenses[index];
   return (
     <div style={style} className="pr-2 pb-4">
       <ExpenseItem
         expense={expense}
         onEdit={onEdit}
+        onQuickSave={onQuickSave}
         onDelete={onDelete}
         displayCurrency={displayCurrency}
         conversionRate={conversionRate}
@@ -125,7 +173,7 @@ const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index,
   );
 };
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -214,6 +262,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, o
               rowProps={{
                 expenses,
                 onEdit,
+                onQuickSave,
                 onDelete: (id: string) => setExpenseToDeleteId(id),
                 displayCurrency,
                 conversionRate,
@@ -229,6 +278,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, o
                 key={expense.id} 
                 expense={expense} 
                 onEdit={onEdit} 
+                onQuickSave={onQuickSave}
                 onDelete={(id) => setExpenseToDeleteId(id)}
                 displayCurrency={displayCurrency}
                 conversionRate={conversionRate}

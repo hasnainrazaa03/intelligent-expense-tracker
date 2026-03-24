@@ -75,12 +75,12 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Expandable FAB with action shortcuts.
 - Notes: Expense, income, budget shortcuts.
 
-6. [ ] Inline quick edit
+6. [x] Inline quick edit
 - Opportunity: Small edits require full modal flow.
 - Solution: Inline edit for amount/notes in list rows.
 - Notes: Save-on-blur with validation.
 
-7. [ ] Dark mode refinement
+7. [x] Dark mode refinement
 - Opportunity: Contrast and consistency can improve.
 - Solution: Adjust tokens and check readability.
 - Notes: Validate with WCAG checks.
@@ -164,17 +164,17 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Reminders, snooze, skip, auto-create options.
 - Notes: Notification preferences.
 
-23. [ ] Goal setting and tracking
+23. [x] Goal setting and tracking
 - Opportunity: Drive outcomes, not only logging.
 - Solution: Savings/spending goals with progress.
 - Notes: Goal cards in dashboard.
 
-24. [ ] Calendar expense view
+24. [x] Calendar expense view
 - Opportunity: Date-first insight view.
 - Solution: Calendar with day totals and details.
 - Notes: Month/week toggle.
 
-25. [ ] Recurring expense management center
+25. [x] Recurring expense management center
 - Opportunity: Manage recurring entries in one place.
 - Solution: Dedicated recurring management view.
 - Notes: Pause/resume controls.
@@ -184,7 +184,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Accounts + portfolio snapshots.
 - Notes: Manual first, integrations later.
 
-27. [ ] Bills and subscription tracker
+27. [x] Bills and subscription tracker
 - Opportunity: Better fixed-cost awareness.
 - Solution: Bill due dates and subscription dashboard.
 - Notes: Upcoming due reminders.
@@ -194,7 +194,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Split transactions and track balances.
 - Notes: Settled/unsettled states.
 
-29. [ ] Proactive financial insights
+29. [x] Proactive financial insights
 - Opportunity: Move from reactive to proactive guidance.
 - Solution: Triggered insights based on behavior.
 - Notes: Explainable recommendations.
@@ -214,17 +214,17 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Receipt image parsing to draft transaction.
 - Notes: Confidence score + manual review.
 
-33. [ ] Budget templates
+33. [x] Budget templates
 - Opportunity: Faster setup for new users.
 - Solution: Starter templates by profile.
 - Notes: Student, family, minimalist.
 
-34. [ ] Merchant auto-categorization
+34. [x] Merchant auto-categorization
 - Opportunity: Less manual category work.
 - Solution: Learn merchant-category mappings.
 - Notes: Correct-and-learn loop.
 
-35. [ ] Cash-flow forecast
+35. [x] Cash-flow forecast
 - Opportunity: Predict future runway.
 - Solution: Projection based on trends and recurring items.
 - Notes: Best/worst/base scenarios.

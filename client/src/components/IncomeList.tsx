@@ -16,6 +16,7 @@ import ConfirmationDialog from './ConfirmationDialog';
 interface IncomeListProps {
   incomes: Income[];
   onEdit: (income: Income) => void;
+  onQuickSave?: (income: Income) => Promise<void> | void;
   onDelete: (id: string) => Promise<void> | void;
   onCreate?: () => void;
   isLoading?: boolean;
@@ -26,13 +27,33 @@ interface IncomeListProps {
 interface IncomeItemProps {
   income: Income;
   onEdit: (i: Income) => void;
+  onQuickSave?: (income: Income) => Promise<void> | void;
   onDelete: (id: string) => void;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
 }
 
 // --- NEO-BRUTALIST INCOME ITEM ---
-const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onDelete, displayCurrency, conversionRate }) => {
+const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, onDelete, displayCurrency, conversionRate }) => {
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [draftAmount, setDraftAmount] = useState(income.amount.toString());
+  const [draftSource, setDraftSource] = useState(income.title);
+
+  React.useEffect(() => {
+    setDraftAmount(income.amount.toString());
+    setDraftSource(income.title);
+  }, [income.amount, income.title]);
+
+  const saveInlineChanges = async () => {
+    const parsed = Number.parseFloat(draftAmount);
+    if (!Number.isFinite(parsed) || parsed <= 0 || !onQuickSave) {
+      setIsInlineEditing(false);
+      return;
+    }
+    await onQuickSave({ ...income, amount: parsed, title: draftSource.trim() || income.title });
+    setIsInlineEditing(false);
+  };
+
   return (
     <li className="relative group">
       <div className="bg-white border-4 border-ink p-4 md:p-6 shadow-neo-gold hover:shadow-neo-hover active:translate-y-0.5 md:hover:-translate-y-1 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 overflow-hidden">
@@ -42,7 +63,16 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onDelete, displ
             <BanknotesIcon className="h-4 w-4 md:h-6 md:w-6" />
           </div>
           <div className="min-w-0">
-            <h4 className="font-loud text-base md:text-xl leading-none text-ink uppercase truncate">{income.title}</h4>
+            {isInlineEditing ? (
+              <input
+                type="text"
+                value={draftSource}
+                onChange={(e) => setDraftSource(e.target.value)}
+                className="border-2 border-ink px-2 py-1 font-loud text-sm bg-white"
+              />
+            ) : (
+              <h4 className="font-loud text-base md:text-xl leading-none text-ink uppercase truncate" onDoubleClick={() => setIsInlineEditing(true)}>{income.title}</h4>
+            )}
             <div className="flex flex-wrap gap-1.5 md:gap-2 mt-2">
               <span className="bg-ink text-usc-gold px-1.5 py-0.5 text-[8px] md:text-[10px] font-bold border border-ink uppercase">
                 {income.category.toUpperCase()}
@@ -56,13 +86,27 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onDelete, displ
 
         <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 border-t-2 md:border-t-0 border-ink/10 pt-3 md:pt-0">
           <div className="text-left md:text-right">
-            <p className="font-loud text-xl md:text-2xl text-green-600 leading-none">
-              +{formatCurrency(income.amount, displayCurrency, conversionRate)}
-            </p>
+            {isInlineEditing ? (
+              <input
+                type="number"
+                value={draftAmount}
+                onChange={(e) => setDraftAmount(e.target.value)}
+                className="w-28 border-2 border-ink px-2 py-1 font-loud text-sm bg-white"
+              />
+            ) : (
+              <p className="font-loud text-xl md:text-2xl text-green-600 leading-none" onDoubleClick={() => setIsInlineEditing(true)}>
+                +{formatCurrency(income.amount, displayCurrency, conversionRate)}
+              </p>
+            )}
             <p className="text-[8px] md:text-[9px] font-mono opacity-50 uppercase tracking-tighter text-ink mt-1">Verified_Inflow</p>
           </div>
 
           <div className="flex space-x-2 flex-shrink-0">
+            {isInlineEditing && (
+              <button onClick={saveInlineChanges} aria-label={`Save quick edit for ${income.title}`} className="px-2 py-1 border-2 border-ink bg-ink text-bone text-xs font-bold shadow-[2px_2px_0px_0px_#111111]">
+                SAVE
+              </button>
+            )}
             <button onClick={() => onEdit(income)} aria-label={`Edit income ${income.title}`} className="p-2 border-2 border-ink bg-usc-gold text-ink shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 transition-all">
               <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
@@ -86,18 +130,20 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onDelete, displ
 interface VirtualRowData {
   incomes: Income[];
   onEdit: (income: Income) => void;
+  onQuickSave?: (income: Income) => Promise<void> | void;
   onDelete: (id: string) => void;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
 }
 
-const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, incomes, onEdit, onDelete, displayCurrency, conversionRate }) => {
+const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, incomes, onEdit, onQuickSave, onDelete, displayCurrency, conversionRate }) => {
   const income = incomes[index];
   return (
     <div style={style} className="pr-2 pb-4">
       <IncomeItem
         income={income}
         onEdit={onEdit}
+        onQuickSave={onQuickSave}
         onDelete={onDelete}
         displayCurrency={displayCurrency}
         conversionRate={conversionRate}
@@ -106,7 +152,7 @@ const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, 
   );
 };
 
-const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
+const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -197,6 +243,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, onCr
               rowProps={{
                 incomes,
                 onEdit,
+                onQuickSave,
                 onDelete: (id: string) => setIncomeToDeleteId(id),
                 displayCurrency,
                 conversionRate,
@@ -213,6 +260,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, onCr
                   key={income.id} 
                   income={income} 
                   onEdit={onEdit} 
+                  onQuickSave={onQuickSave}
                   onDelete={(id) => setIncomeToDeleteId(id)}
                   displayCurrency={displayCurrency}
                   conversionRate={conversionRate}

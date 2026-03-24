@@ -1,5 +1,37 @@
 import { Category } from '../types';
 
+const MERCHANT_MAP_KEY = 'merchantCategoryMap';
+
+const normalizeMerchantKey = (title: string): string => {
+    return title
+        .toLowerCase()
+        .replace(/[^a-z\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .slice(0, 3)
+        .join(' ');
+};
+
+const getLearnedMap = (): Record<string, Category> => {
+    try {
+        const raw = localStorage.getItem(MERCHANT_MAP_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw) as Record<string, Category>;
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+        return {};
+    }
+};
+
+export const recordCategorySelection = (title: string, category: Category): void => {
+    const key = normalizeMerchantKey(title);
+    if (!key || !category) return;
+    const learned = getLearnedMap();
+    learned[key] = category;
+    localStorage.setItem(MERCHANT_MAP_KEY, JSON.stringify(learned));
+};
+
 /**
  * USC_RULES: Priority campus-specific mapping.
  * These are checked FIRST to ensure "Village" doesn't get confused 
@@ -63,6 +95,14 @@ const RULES = [...USC_RULES, ...GENERAL_RULES];
  */
 export const suggestCategory = (title: string): Category | null => {
     if (!title) return null;
+
+        const merchantKey = normalizeMerchantKey(title);
+        if (merchantKey) {
+            const learned = getLearnedMap();
+            if (learned[merchantKey]) {
+                return learned[merchantKey];
+            }
+        }
     
     // Iterate through the array. First match wins.
     for (const [category, regex] of RULES) {
