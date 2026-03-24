@@ -10,6 +10,10 @@ import {
 } from '../types/api';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
+const GET_CACHE_TTL_MS = 15000;
+const responseCache = new Map<string, { expiresAt: number; data: unknown }>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
 /**
  * A helper function for making API requests.
  * It handles setting headers and parsing the JSON response.
@@ -31,35 +35,74 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  // Build the request
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  // Handle empty responses (204 No Content)
-  if (response.status === 204) {
-    return null as T;
-  }
-
-  // Try to parse JSON, but handle non-JSON responses gracefully
-  let data: unknown;
-  try {
-    data = await response.json();
-  } catch {
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
+  const cacheKey = `${method}:${endpoint}:${token || 'anonymous'}`;
+  if (method === 'GET') {
+    const cached = responseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data as T;
     }
-    return null as T;
+
+    const inFlight = inFlightRequests.get(cacheKey);
+    if (inFlight) {
+      return inFlight as Promise<T>;
+    }
   }
 
-  if (!response.ok) {
-    // If the server returned an error, throw it
-    const errorPayload = data as ApiErrorResponse;
-    throw new Error(errorPayload.message || errorPayload.error?.message || 'API request failed');
+  const runRequest = async (): Promise<T> => {
+    // Build the request
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    // Handle empty responses (204 No Content)
+    if (response.status === 204) {
+      return null as T;
+    }
+
+    // Try to parse JSON, but handle non-JSON responses gracefully
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      return null as T;
+    }
+
+    if (!response.ok) {
+      // If the server returned an error, throw it
+      const errorPayload = data as ApiErrorResponse;
+      throw new Error(errorPayload.message || errorPayload.error?.message || 'API request failed');
+    }
+
+    if (method === 'GET') {
+      responseCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + GET_CACHE_TTL_MS,
+      });
+    } else {
+      // Invalidate all GET cache entries after mutations to avoid stale UI state.
+      responseCache.clear();
+    }
+
+    return data as T;
+  };
+
+  const requestPromise = runRequest();
+
+  if (method === 'GET') {
+    inFlightRequests.set(cacheKey, requestPromise as Promise<unknown>);
+    try {
+      const result = await requestPromise;
+      return result;
+    } finally {
+      inFlightRequests.delete(cacheKey);
+    }
   }
 
-  return data as T;
+  return requestPromise;
 }
 
 // --- Authentication Functions ---

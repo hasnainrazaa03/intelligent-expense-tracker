@@ -28,6 +28,11 @@
     @apply bg-bone antialiased;
     margin: 0;
   }
+
+  :focus-visible {
+    outline: 3px solid #FFCC00;
+    outline-offset: 2px;
+  }
 }
 
 @layer components {

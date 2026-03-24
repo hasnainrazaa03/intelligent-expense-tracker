@@ -102,12 +102,15 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Lazy-loaded heavy modals and analytics sections
 - Section-level skeleton loaders for perceived speed
 - Debounced search to reduce expensive filtering during typing
+- API request deduplication + short TTL read cache to reduce duplicate network calls
+- Additional memoization for frequently re-computed view props and summaries
 
 ### 🧱 Architecture and Reliability
 - Root-level React error boundary with graceful recovery UI
 - Shared hooks for reusable filtering and debounce logic
 - Strongly typed API client responses for safer frontend integration
 - Centralized client and server configuration constants
+- OpenAPI docs exposed at `/api/docs` with machine-readable spec at `/api/openapi.json`
 
 ### 🔎 Observability and Security Ops
 - Structured request logging with request IDs and latency
@@ -118,6 +121,17 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 ### ♿ Accessibility
 - Improved ARIA labels on high-traffic UI controls
 - Better form labeling and error announcements in auth and modal flows
+- Focus-visible styling and improved keyboard navigation for vertical tab controls
+- Modal focus trap with return-focus behavior on close
+- Live-region announcements for loading and modal error/status updates
+
+### 🌐 Discoverability
+- Robots and sitemap files for crawl strategy (`client/public/robots.txt`, `client/public/sitemap.xml`)
+- Structured data (Schema.org `SoftwareApplication`) embedded in app HTML
+
+### 🔐 Security Hardening
+- Tightened Helmet Content Security Policy defaults on server responses
+- Route-specific auth hardening with stricter OTP and password-reset rate limits
 
 ### 🔁 Data Portability
 - Import / export in **JSON** and **CSV** formats

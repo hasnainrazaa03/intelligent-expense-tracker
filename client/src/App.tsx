@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { Expense, Budget, Semester, Income } from './types';
 import Header from './components/Header';
@@ -37,7 +37,10 @@ const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: Rea
     return (
         <button
             onClick={onClick}
-          aria-label={label}
+      role="tab"
+      aria-selected={isActive}
+      aria-current={isActive ? 'page' : undefined}
+      aria-label={label}
             // Changed w-20 to w-16 on mobile, w-20 on md+
             className={`flex-1 flex flex-col items-center justify-center w-16 md:w-20 border-b-4 border-r-4 border-ink transition-all relative overflow-hidden flex-shrink-0
                 ${isActive 
@@ -58,6 +61,7 @@ const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: Rea
 
 const App: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
+  const navRef = useRef<HTMLElement | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -694,9 +698,28 @@ const handleDeleteIncome = async (id: string) => {
     return results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [filteredExpenses, filteredIncomes, debouncedSearchQuery, activeView]);
 
+  const recurringSummary = useMemo(
+    () => pendingRecurring.map(e => `${e.title} ($${e.amount})`).join(', '),
+    [pendingRecurring]
+  );
+
+  const liveRegionMessage = useMemo(() => {
+    if (isLoadingData) {
+      return 'Loading your financial data.';
+    }
+    if (pendingRecurring.length > 0) {
+      return `${pendingRecurring.length} recurring expense suggestion${pendingRecurring.length > 1 ? 's are' : ' is'} ready to review.`;
+    }
+    return `Viewing ${activeView}.`;
+  }, [isLoadingData, pendingRecurring.length, activeView]);
+
+  const commonCurrencyProps = useMemo(
+    () => ({ displayCurrency, conversionRate: usdToInrRate }),
+    [displayCurrency, usdToInrRate]
+  );
+
   // ... (renderActiveView function remains the same) ...
   const renderActiveView = () => {
-    const commonProps = { displayCurrency, conversionRate: usdToInrRate };
     switch (activeView) {
         case 'expenses':
             return (
@@ -708,7 +731,7 @@ const handleDeleteIncome = async (id: string) => {
                         onDelete={handleDeleteExpense}
                         onCreate={handleOpenModal}
                         isLoading={isLoadingData}
-                        {...commonProps}
+                        {...commonCurrencyProps}
                         />
                     </div>
                     <div className="lg:col-span-1">
@@ -726,7 +749,7 @@ const handleDeleteIncome = async (id: string) => {
                           onDelete={handleDeleteIncome}
                           onCreate={handleOpenModal}
                           isLoading={isLoadingData}
-                           {...commonProps}
+                           {...commonCurrencyProps}
                         />
                     </div>
                     <div className="lg:col-span-1">
@@ -735,17 +758,18 @@ const handleDeleteIncome = async (id: string) => {
                 </div>
             );
         case 'pivot':
-            return <PivotAnalysis expenses={expenses} {...commonProps} />;
+            return <PivotAnalysis expenses={expenses} {...commonCurrencyProps} />;
         case 'usc':
-            return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onUpdateInstallmentCount={handleUpdateInstallmentCount} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} {...commonProps} />;
+            return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onUpdateInstallmentCount={handleUpdateInstallmentCount} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} {...commonCurrencyProps} />;
         case 'reports':
-          return <Reports allExpenses={expenses} budgets={budgets} isLoading={isLoadingData} {...commonProps} />;
+          return <Reports allExpenses={expenses} budgets={budgets} isLoading={isLoadingData} {...commonCurrencyProps} />;
         default: return null;
     }
   };
         const DashboardLayout = (
           <div className="h-screen bg-bone flex flex-col overflow-hidden text-ink font-mono">
             <div className="noise-overlay" />
+            <p className="sr-only" aria-live="polite" aria-atomic="true">{liveRegionMessage}</p>
             
             {/* 1. HEADER (Fixed at top) */}
             <Header 
@@ -764,7 +788,33 @@ const handleDeleteIncome = async (id: string) => {
             <div className="flex flex-1 overflow-hidden">
               
               {/* SIDE NAVIGATION (Vertical Sticker Tabs) */}
-              <nav className="w-16 md:w-20 flex flex-col border-r-4 border-ink bg-bone z-30 flex-shrink-0 overflow-hidden no-scrollbar h-full">
+              <nav
+                ref={navRef}
+                role="tablist"
+                aria-orientation="vertical"
+                onKeyDown={(e) => {
+                  const keys = ['ArrowUp', 'ArrowDown', 'Home', 'End'];
+                  if (!keys.includes(e.key) || !navRef.current) return;
+                  const tabs = Array.from(navRef.current.querySelectorAll<HTMLButtonElement>('button'));
+                  const currentIndex = tabs.indexOf(document.activeElement as HTMLButtonElement);
+                  if (tabs.length === 0 || currentIndex === -1) return;
+
+                  e.preventDefault();
+                  if (e.key === 'Home') {
+                    tabs[0].focus();
+                    return;
+                  }
+                  if (e.key === 'End') {
+                    tabs[tabs.length - 1].focus();
+                    return;
+                  }
+
+                  const delta = e.key === 'ArrowDown' ? 1 : -1;
+                  const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
+                  tabs[nextIndex].focus();
+                }}
+                className="w-16 md:w-20 flex flex-col border-r-4 border-ink bg-bone z-30 flex-shrink-0 overflow-hidden no-scrollbar h-full"
+              >
                 <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="TXNS" colorClass="bg-usc-cardinal" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
                 <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="REVENUE" colorClass="bg-green-600" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
                 <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="MATRIX" colorClass="bg-ink" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
@@ -783,7 +833,7 @@ const handleDeleteIncome = async (id: string) => {
                         🔁 {pendingRecurring.length} recurring expense{pendingRecurring.length > 1 ? 's' : ''} from last month
                       </p>
                       <p className="font-mono text-[10px] text-ink/70 mb-3">
-                        {pendingRecurring.map(e => `${e.title} ($${e.amount})`).join(', ')}
+                        {recurringSummary}
                       </p>
                       <div className="flex gap-3">
                         <button

@@ -112,7 +112,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Virtualize rows for constant-time rendering.
 - Notes: react-window/react-virtual.
 
-13. [ ] Request deduplication and caching
+13. [x] Request deduplication and caching
 - Opportunity: Repeated API calls for same data.
 - Solution: In-memory request cache + dedupe.
 - Notes: TTL and invalidation on writes.
@@ -137,7 +137,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Add indexes and tighten selects.
 - Notes: Profile by route latency.
 
-18. [ ] Memoization of expensive computations
+18. [x] Memoization of expensive computations
 - Opportunity: Repeated aggregates in charts/stats.
 - Solution: Memoize derived data.
 - Notes: Verify dependency accuracy.
@@ -281,7 +281,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Strengthen schema constraints + route validation.
 - Notes: Guard rails at multiple layers.
 
-46. [ ] OpenAPI/Swagger documentation
+46. [x] OpenAPI/Swagger documentation
 - Opportunity: API discoverability.
 - Solution: Auto-generated docs endpoint.
 - Notes: Keep examples current.
@@ -313,7 +313,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Add labels/roles and semantic tags.
 - Notes: Prioritize icon-only controls.
 
-52. [ ] Keyboard navigation polish
+52. [x] Keyboard navigation polish
 - Opportunity: Improve non-pointer workflows.
 - Solution: Focus-visible styling and shortcuts.
 - Notes: Validate full keyboard path.
@@ -328,12 +328,12 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Adjust failing color pairs.
 - Notes: Test both themes.
 
-55. [ ] Modal focus trapping and return focus
+55. [x] Modal focus trapping and return focus
 - Opportunity: Better modal accessibility.
 - Solution: Trap focus and restore origin focus on close.
 - Notes: Escape + tab cycle.
 
-56. [ ] Accessible loading and live regions
+56. [x] Accessible loading and live regions
 - Opportunity: Announce dynamic state changes.
 - Solution: aria-live for notifications/loading text.
 - Notes: polite for info, assertive for errors.
@@ -345,12 +345,12 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Add title, description, OG/Twitter tags.
 - Notes: Include canonical URL when known.
 
-58. [ ] Sitemap and robots strategy
+58. [x] Sitemap and robots strategy
 - Opportunity: Better crawl control.
 - Solution: Add robots and sitemap.
 - Notes: Auth app can expose landing pages.
 
-59. [ ] Structured data (Schema.org)
+59. [x] Structured data (Schema.org)
 - Opportunity: Richer search presentation.
 - Solution: Add SoftwareApplication schema.
 - Notes: Keep accurate metadata.
@@ -377,7 +377,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Add CSRF middleware and token flow.
 - Notes: Pair with cookie auth.
 
-64. [ ] Content Security Policy tightening
+64. [x] Content Security Policy tightening
 - Opportunity: Mitigate injection vectors.
 - Solution: strict CSP via Helmet config.
 - Notes: Add report-only rollout first.
@@ -387,7 +387,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Redact secrets and PII fields.
 - Notes: Central log sanitizer.
 
-66. [ ] Auth endpoint rate-limit hardening
+66. [x] Auth endpoint rate-limit hardening
 - Opportunity: Slow brute-force attempts.
 - Solution: Tight, route-specific auth limits.
 - Notes: Include lockout telemetry.

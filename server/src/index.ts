@@ -4,6 +4,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import passport from 'passport';
 import helmet from 'helmet';
+import swaggerUi from 'swagger-ui-express';
 import './passport-setup';
 import { apiLimiter, aiLimiter } from './middleware/rateLimiter';
 import { requestLogger } from './middleware/requestLogger';
@@ -16,6 +17,7 @@ import semesterRoutes from './routes/semesters';
 import aiRoutes from './routes/ai';
 import { sendError } from './utils/http';
 import { SERVER_CONFIG, validateServerEnv } from './config';
+import { swaggerSpec } from './swagger';
 
 validateServerEnv();
 
@@ -23,7 +25,22 @@ const app = express();
 const PORT = SERVER_CONFIG.port;
 
 // --- Security Middleware ---
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:'],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // --- CORS ---
 const allowedOrigins = [
@@ -54,6 +71,12 @@ app.use(requestLogger);
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+app.get('/api/openapi.json', (_req: Request, res: Response) => {
+  res.status(200).json(swaggerSpec);
+});
+
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
 // --- Passport (no session — Google OAuth uses session: false) ---
 app.use(passport.initialize());

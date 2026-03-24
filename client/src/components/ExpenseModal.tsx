@@ -4,6 +4,7 @@ import { suggestCategory } from '../services/categorySuggestionService';
 import { CATEGORIES, PAYMENT_METHODS } from '../constants';
 import { XMarkIcon, ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ const TrojanEyes = () => {
 };
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, displayCurrency, parentConversionRate }) => {
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   // --- CORE STATE (PRESERVED) ---
   const [title, setTitle] = useState(expense?.title || '');
   const [amount, setAmount] = useState(''); 
@@ -235,13 +237,20 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const labelBase = "font-loud text-[10px] tracking-widest text-ink/40 mb-2 block uppercase leading-none antialiased";
   
   return (
-    <div className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-4">
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="expense-modal-title"
+      tabIndex={-1}
+      className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+    >
       <div className="bg-bone border-4 border-ink shadow-neo-gold w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
         
         {/* HEADER STAMP */}
         <div className="bg-usc-cardinal p-4 sm:p-6 border-b-4 border-ink flex justify-between items-center flex-shrink-0">
           <div className="min-w-0 pr-2">
-            <h2 className="font-loud text-xl sm:text-3xl text-bone leading-none uppercase truncate">
+            <h2 id="expense-modal-title" className="font-loud text-xl sm:text-3xl text-bone leading-none uppercase truncate">
                 {expense ? 'UPDATE_MANIFEST' : 'INITIALIZE_ENTRY'}
             </h2>
             <div className="flex items-center mt-1 sm:mt-2">
@@ -253,7 +262,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             <div className="scale-75 sm:scale-100 origin-right">
               <TrojanEyes />
             </div>
-            <button onClick={onClose} className="bg-ink text-bone p-1 border-2 border-bone hover:bg-bone hover:text-ink transition-colors">
+            <button onClick={onClose} aria-label="Close expense modal" className="bg-ink text-bone p-1 border-2 border-bone hover:bg-bone hover:text-ink transition-colors">
               <XMarkIcon className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           </div>
@@ -314,9 +323,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                   />
                   {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-usc-gold border-t-transparent rounded-full" />}
               </div>
-              {conversionError && <p className="text-[10px] text-usc-cardinal font-bold mt-1 uppercase italic">{conversionError}</p>}
+                {conversionError && <p role="alert" aria-live="assertive" className="text-[10px] text-usc-cardinal font-bold mt-1 uppercase italic">{conversionError}</p>}
               {conversionRate && selectedCurrency === 'INR' && (
-                  <p className="text-[9px] font-mono mt-1 opacity-50">FX: 1 INR = {conversionRate.toFixed(4)} USD</p>
+                  <p aria-live="polite" className="text-[9px] font-mono mt-1 opacity-50">FX: 1 INR = {conversionRate.toFixed(4)} USD</p>
               )}
             </div>
 

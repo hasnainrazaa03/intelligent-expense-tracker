@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Income } from '../types';
 import { INCOME_CATEGORIES } from '../constants';
 import { XMarkIcon } from './Icons';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface IncomeModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface IncomeModalProps {
 }
 
 const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, displayCurrency, parentConversionRate }) => {
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
@@ -139,13 +141,20 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   const labelBase = "font-loud text-[10px] tracking-widest text-ink/40 mb-2 block uppercase leading-none antialiased";
 
   return (
-    <div className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-4">
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="income-modal-title"
+      tabIndex={-1}
+      className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+    >
       <div className="bg-bone border-4 border-ink shadow-neo-gold w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
         
         {/* HEADER STAMP: REVENUE CONTROL */}
         <div className="bg-usc-gold p-6 border-b-4 border-ink flex justify-between items-center flex-shrink-0">
           <div>
-            <h2 className="font-loud text-3xl text-ink leading-none uppercase">
+            <h2 id="income-modal-title" className="font-loud text-3xl text-ink leading-none uppercase">
                 {income ? 'ADJUST_REVENUE' : 'LOG_INFLOW'}
             </h2>
             <div className="flex items-center mt-2">
@@ -153,7 +162,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
                 <span className="ml-2 text-[8px] font-mono text-ink/40 uppercase tracking-widest leading-none">Status: Connected</span>
             </div>
           </div>
-          <button onClick={onClose} className="bg-ink text-bone p-1 border-2 border-bone hover:bg-bone hover:text-ink transition-colors">
+          <button onClick={onClose} aria-label="Close income modal" className="bg-ink text-bone p-1 border-2 border-bone hover:bg-bone hover:text-ink transition-colors">
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>

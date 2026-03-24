@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Expense, Budget, Income, Semester } from '../types';
 import { exportData } from '../utils/exportUtils';
 import { logAuditEvent } from '../services/api';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { 
   XMarkIcon, 
   TableCellsIcon, 
@@ -36,6 +37,7 @@ const ranges: { id: DateRange; label: string }[] = [
 ];
 
 const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onRestoreBackup }) => {
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [includeExpenses, setIncludeExpenses] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
@@ -267,16 +269,23 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-2 sm:p-4">
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="data-modal-title"
+      tabIndex={-1}
+      className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-2 sm:p-4"
+    >
       <div className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-xl overflow-hidden flex flex-col max-h-[95vh]">
         
         {/* HEADER */}
         <div className="bg-usc-cardinal p-4 md:p-6 border-b-4 md:border-b-8 border-ink flex justify-between items-center flex-shrink-0">
           <div className="min-w-0">
-            <h2 className="font-loud text-xl md:text-3xl text-bone leading-none uppercase truncate">DATA_TRANSFER_HUB</h2>
+            <h2 id="data-modal-title" className="font-loud text-xl md:text-3xl text-bone leading-none uppercase truncate">DATA_TRANSFER_HUB</h2>
             <p className="text-[8px] md:text-[10px] font-mono text-bone/60 mt-1 uppercase">Link: Secure_Active</p>
           </div>
-          <button onClick={onClose} className="bg-ink text-bone p-1 border-2 border-bone">
+          <button onClick={onClose} aria-label="Close data modal" className="bg-ink text-bone p-1 border-2 border-bone">
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
@@ -364,7 +373,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             </button>
 
             {importError && (
-              <div className="bg-ink text-usc-cardinal p-3 border-2 border-ink shadow-neo flex items-center font-bold text-[10px] uppercase italic">
+              <div role="alert" aria-live="assertive" className="bg-ink text-usc-cardinal p-3 border-2 border-ink shadow-neo flex items-center font-bold text-[10px] uppercase italic">
                 <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
                 Error: {importError}
               </div>
@@ -392,7 +401,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             </button>
 
             {backupError && (
-              <div className="bg-ink text-usc-cardinal p-3 border-2 border-ink shadow-neo flex items-center font-bold text-[10px] uppercase italic">
+              <div role="alert" aria-live="assertive" className="bg-ink text-usc-cardinal p-3 border-2 border-ink shadow-neo flex items-center font-bold text-[10px] uppercase italic">
                 <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
                 Restore Error: {backupError}
               </div>

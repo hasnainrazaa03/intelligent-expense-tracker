@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import otpGenerator from 'otp-generator';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/mailer';
-import { authLimiter, loginLimiter } from '../middleware/rateLimiter';
+import { authLimiter, loginLimiter, otpLimiter, passwordResetLimiter } from '../middleware/rateLimiter';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
@@ -109,7 +109,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 });
 
 // --- 2. Verify OTP ---
-router.post('/verify-otp', authLimiter, async (req: Request, res: Response) => {
+router.post('/verify-otp', otpLimiter, async (req: Request, res: Response) => {
   try {
     const { email: rawEmail, otp } = req.body;
     
@@ -142,7 +142,7 @@ router.post('/verify-otp', authLimiter, async (req: Request, res: Response) => {
 });
 
 // --- 3. Resend OTP ---
-router.post('/resend-otp', authLimiter, async (req: Request, res: Response) => {
+router.post('/resend-otp', otpLimiter, async (req: Request, res: Response) => {
   try {
     const { email: rawEmail } = req.body;
 
@@ -312,7 +312,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 });
 
 // --- 5. Forgot Password ---
-router.post('/forgot-password', authLimiter, async (req: Request, res: Response) => {
+router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
     const { email: rawEmail } = req.body;
     if (!rawEmail) {
