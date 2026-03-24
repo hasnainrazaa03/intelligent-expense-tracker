@@ -162,8 +162,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
           <div className="flex flex-col space-y-8">
             
             <div>
-              <label className={labelBase}>REVENUE_SOURCE</label>
-              <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="E.G. USC_TA_STIPEND" className={inputBase} required />
+              <label htmlFor="income-title" className={labelBase}>REVENUE_SOURCE</label>
+              <input id="income-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="E.G. USC_TA_STIPEND" className={inputBase} required />
             </div>
 
             <div>
@@ -194,9 +194,10 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             )}
 
             <div>
-              <label className={labelBase}>VALUATION_USD</label>
+              <label htmlFor="income-amount-usd" className={labelBase}>VALUATION_USD</label>
               <div className="relative">
                   <input 
+                    id="income-amount-usd"
                     type="number" value={amount} onChange={e => setAmount(e.target.value)} 
                     placeholder="$ 0.00" 
                     className={`${inputBase} ${isAmountUSDReadOnly ? 'bg-ink/5' : ''}`} 
@@ -204,17 +205,18 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
                   />
                   {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-usc-gold border-t-transparent rounded-full" />}
               </div>
-              {conversionError && <p className="text-[10px] text-usc-cardinal font-bold mt-1 uppercase italic">{conversionError}</p>}
+              {conversionError && <p role="alert" aria-live="assertive" className="text-[10px] text-usc-cardinal font-bold mt-1 uppercase italic">{conversionError}</p>}
             </div>
 
             <div>
-              <label className={labelBase}>DATE_STAMP</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputBase} required />
+              <label htmlFor="income-date" className={labelBase}>DATE_STAMP</label>
+              <input id="income-date" type="date" value={date} onChange={e => setDate(e.target.value)} className={inputBase} required />
             </div>
 
             <div className="relative" ref={categoryDropdownRef}>
-          <label className={labelBase}>ASSET_CLASS</label>
+          <label htmlFor="income-category-toggle" className={labelBase}>ASSET_CLASS</label>
           <button
+            id="income-category-toggle"
             type="button"
             onClick={() => { setIsCategoryDropdownOpen(!isCategoryDropdownOpen); setCategorySearchTerm(''); }}
             className={`${inputBase} flex justify-between items-center text-left`}
@@ -248,8 +250,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
         </div>
 
             <div className="col-span-2">
-              <label className={labelBase}>ADDITIONAL_METADATA</label>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="SOURCE_DETAILS..." className={`${inputBase} h-24 resize-none`} />
+              <label htmlFor="income-notes" className={labelBase}>ADDITIONAL_METADATA</label>
+              <textarea id="income-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="SOURCE_DETAILS..." className={`${inputBase} h-24 resize-none`} />
             </div>
           </div>
 

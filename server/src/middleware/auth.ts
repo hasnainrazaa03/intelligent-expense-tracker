@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { SERVER_CONFIG } from '../config';
 
 // Fail-fast: ensure JWT_SECRET is set at startup
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = SERVER_CONFIG.jwtSecret;
 if (!JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set. Exiting.');
   process.exit(1);

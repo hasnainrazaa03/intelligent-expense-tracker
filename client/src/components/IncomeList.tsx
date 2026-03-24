@@ -6,11 +6,17 @@ import {
 } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
 import Pagination from './Pagination';
+import EmptyState from './EmptyState';
+import SectionSkeleton from './SectionSkeleton';
+import { List, RowComponentProps } from 'react-window';
+import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
 
 interface IncomeListProps {
   incomes: Income[];
   onEdit: (income: Income) => void;
   onDelete: (id: string) => Promise<void> | void;
+  onCreate?: () => void;
+  isLoading?: boolean;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
 }
@@ -90,10 +96,10 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onDelete, displ
           </div>
 
           <div className="flex space-x-2 flex-shrink-0">
-            <button onClick={() => onEdit(income)} className="p-2 border-2 border-ink bg-usc-gold text-ink shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 transition-all">
+            <button onClick={() => onEdit(income)} aria-label={`Edit income ${income.title}`} className="p-2 border-2 border-ink bg-usc-gold text-ink shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 transition-all">
               <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
-            <button onClick={() => onDelete(income.id)} className="p-2 border-2 border-ink bg-usc-cardinal text-bone shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 transition-all">
+            <button onClick={() => onDelete(income.id)} aria-label={`Delete income ${income.title}`} className="p-2 border-2 border-ink bg-usc-cardinal text-bone shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 transition-all">
               <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
             </button>
           </div>
@@ -110,21 +116,45 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onDelete, displ
   );
 };
 
-const ITEMS_PER_PAGE = 10;
+interface VirtualRowData {
+  incomes: Income[];
+  onEdit: (income: Income) => void;
+  onDelete: (id: string) => void;
+  displayCurrency: 'USD' | 'INR';
+  conversionRate: number | null;
+}
 
-const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, displayCurrency, conversionRate }) => {
+const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, incomes, onEdit, onDelete, displayCurrency, conversionRate }) => {
+  const income = incomes[index];
+  return (
+    <div style={style} className="pr-2 pb-4">
+      <IncomeItem
+        income={income}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        displayCurrency={displayCurrency}
+        conversionRate={conversionRate}
+      />
+    </div>
+  );
+};
+
+const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
+
+  const shouldVirtualize = incomes.length >= APP_CONFIG.maxVirtualizedItemsThreshold;
 
   React.useEffect(() => {
     setCurrentPage(1);
   }, [incomes.length]);
 
-  const totalPages = Math.ceil(incomes.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(incomes.length / itemsPerPage);
   const paginatedIncomes = incomes.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const handleConfirmDelete = async () => {
@@ -143,38 +173,82 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, disp
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-4 border-ink pb-2 gap-2">
         <h2 className="font-loud text-2xl md:text-4xl text-ink uppercase truncate">INCOME_STREAM</h2>
-        <span className="bg-usc-gold text-ink px-2 md:px-3 py-1 font-loud text-[10px] md:text-xs border-2 border-ink w-fit">
-          TOTAL_SOURCES: {incomes.length}
-        </span>
+        <div className="flex items-center gap-2">
+          {!shouldVirtualize && (
+            <select
+              aria-label="Income rows per page"
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value) as PageSizeOption);
+                setCurrentPage(1);
+              }}
+              className="border-2 border-ink bg-white px-2 py-1 font-mono text-[10px] md:text-xs"
+            >
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}/page</option>
+              ))}
+            </select>
+          )}
+          <span className="bg-usc-gold text-ink px-2 md:px-3 py-1 font-loud text-[10px] md:text-xs border-2 border-ink w-fit">
+            TOTAL_SOURCES: {incomes.length}
+          </span>
+        </div>
       </div>
 
-      {incomes.length > 0 ? (
+      {isLoading ? (
+        <SectionSkeleton title="Loading income" rows={4} />
+      ) : incomes.length > 0 ? (
         <>
-        <ul className="space-y-4 md:space-y-6">
-          {paginatedIncomes.map(income => (
-            <IncomeItem 
-              key={income.id} 
-              income={income} 
-              onEdit={onEdit} 
-              onDelete={(id) => setIncomeToDeleteId(id)}
-              displayCurrency={displayCurrency}
-              conversionRate={conversionRate}
-            />
-          ))}
-        </ul>
-        <Pagination 
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            totalItems={incomes.length}
-            itemsPerPage={ITEMS_PER_PAGE}
-          />
+        {shouldVirtualize ? (
+          <div className="border-4 border-ink bg-white">
+            <List
+              defaultHeight={APP_CONFIG.virtualListHeight}
+              style={{ height: APP_CONFIG.virtualListHeight }}
+              rowCount={incomes.length}
+              rowHeight={APP_CONFIG.virtualRowHeight}
+              rowComponent={VirtualIncomeRow}
+              rowProps={{
+                incomes,
+                onEdit,
+                onDelete: (id: string) => setIncomeToDeleteId(id),
+                displayCurrency,
+                conversionRate,
+              }}
+            >
+              {null}
+            </List>
+          </div>
+        ) : (
+          <>
+            <ul className="space-y-4 md:space-y-6">
+              {paginatedIncomes.map(income => (
+                <IncomeItem 
+                  key={income.id} 
+                  income={income} 
+                  onEdit={onEdit} 
+                  onDelete={(id) => setIncomeToDeleteId(id)}
+                  displayCurrency={displayCurrency}
+                  conversionRate={conversionRate}
+                />
+              ))}
+            </ul>
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={incomes.length}
+                itemsPerPage={itemsPerPage}
+              />
+          </>
+        )}
         </>
       ) : (
-        <div className="border-4 border-ink border-dashed p-8 md:p-16 text-center bg-bone/50">
-          <p className="font-loud text-lg md:text-2xl text-ink/20 uppercase">AWAITING_REVENUE_DATA</p>
-          <p className="text-[9px] md:text-xs font-mono text-ink/40 mt-2 italic uppercase">STATUS: ZERO_INFLOW_DETECTED</p>
-        </div>
+        <EmptyState
+          title="AWAITING_REVENUE_DATA"
+          subtitle="STATUS: ZERO_INFLOW_DETECTED. START BY ADDING YOUR FIRST INCOME ENTRY."
+          ctaLabel="ADD_FIRST_INCOME"
+          onCta={onCreate}
+        />
       )}
       
       <ConfirmationDialog

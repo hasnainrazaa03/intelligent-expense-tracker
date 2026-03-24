@@ -7,11 +7,17 @@ import {
 } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
 import Pagination from './Pagination';
+import EmptyState from './EmptyState';
+import SectionSkeleton from './SectionSkeleton';
+import { List, RowComponentProps } from 'react-window';
+import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
 
 interface ExpenseListProps {
   expenses: Expense[];
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => Promise<void> | void;
+  onCreate?: () => void;
+  isLoading?: boolean;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
 }
@@ -104,12 +110,14 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onDelete, di
                   <div className="flex space-x-2 flex-shrink-0">
                       <button 
                           onClick={() => onEdit(expense)}
+                          aria-label={`Edit expense ${expense.title}`}
                           className="p-2 border-2 border-ink bg-usc-gold text-ink shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
                       >
                           <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
                       </button>
                       <button 
                           onClick={() => onDelete(expense.id)}
+                          aria-label={`Delete expense ${expense.title}`}
                           className="p-2 border-2 border-ink bg-usc-cardinal text-bone shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
                       >
                           <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
@@ -128,21 +136,45 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onDelete, di
     );
 }
 
-const ITEMS_PER_PAGE = 10;
+interface VirtualRowData {
+  expenses: Expense[];
+  onEdit: (expense: Expense) => void;
+  onDelete: (id: string) => void;
+  displayCurrency: 'USD' | 'INR';
+  conversionRate: number | null;
+}
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, displayCurrency, conversionRate }) => {
+const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, expenses, onEdit, onDelete, displayCurrency, conversionRate }) => {
+  const expense = expenses[index];
+  return (
+    <div style={style} className="pr-2 pb-4">
+      <ExpenseItem
+        expense={expense}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        displayCurrency={displayCurrency}
+        conversionRate={conversionRate}
+      />
+    </div>
+  );
+};
+
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
+
+  const shouldVirtualize = expenses.length >= APP_CONFIG.maxVirtualizedItemsThreshold;
 
   React.useEffect(() => {
     setCurrentPage(1);
   }, [expenses.length]);
 
-  const totalPages = Math.ceil(expenses.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(expenses.length / itemsPerPage);
   const paginatedExpenses = expenses.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const handleConfirmDelete = async () => {
@@ -161,37 +193,81 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, d
     <div className="space-y-4 md:space-y-6">
       <div className="flex items-center justify-between border-b-4 border-ink pb-2">
         <h2 className="font-loud text-2xl md:text-4xl text-ink uppercase truncate pr-4">RECENT_EXPENSES</h2>
-        <span className="bg-ink text-usc-gold px-2 md:px-3 py-1 font-loud text-[10px] md:text-xs whitespace-nowrap">COUNT: {expenses.length}</span>
+        <div className="flex items-center gap-2">
+          {!shouldVirtualize && (
+            <select
+              aria-label="Expenses per page"
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value) as PageSizeOption);
+                setCurrentPage(1);
+              }}
+              className="border-2 border-ink bg-white px-2 py-1 font-mono text-[10px] md:text-xs"
+            >
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}/page</option>
+              ))}
+            </select>
+          )}
+          <span className="bg-ink text-usc-gold px-2 md:px-3 py-1 font-loud text-[10px] md:text-xs whitespace-nowrap">COUNT: {expenses.length}</span>
+        </div>
       </div>
 
-      {expenses.length > 0 ? (
+      {isLoading ? (
+        <SectionSkeleton title="Loading expenses" rows={4} />
+      ) : expenses.length > 0 ? (
         <>
-        <ul className="space-y-4 md:space-y-6">
-          {paginatedExpenses.map(expense => (
-            <ExpenseItem 
-              key={expense.id} 
-              expense={expense} 
-              onEdit={onEdit} 
-              onDelete={(id) => setExpenseToDeleteId(id)}
-              displayCurrency={displayCurrency}
-              conversionRate={conversionRate}
-            />
-          ))}
-        </ul>
+        {shouldVirtualize ? (
+          <div className="border-4 border-ink bg-white">
+            <List
+              defaultHeight={APP_CONFIG.virtualListHeight}
+              style={{ height: APP_CONFIG.virtualListHeight }}
+              rowCount={expenses.length}
+              rowHeight={APP_CONFIG.virtualRowHeight}
+              rowComponent={VirtualExpenseRow}
+              rowProps={{
+                expenses,
+                onEdit,
+                onDelete: (id: string) => setExpenseToDeleteId(id),
+                displayCurrency,
+                conversionRate,
+              }}
+            >
+              {null}
+            </List>
+          </div>
+        ) : (
+          <ul className="space-y-4 md:space-y-6">
+            {paginatedExpenses.map(expense => (
+              <ExpenseItem 
+                key={expense.id} 
+                expense={expense} 
+                onEdit={onEdit} 
+                onDelete={(id) => setExpenseToDeleteId(id)}
+                displayCurrency={displayCurrency}
+                conversionRate={conversionRate}
+              />
+            ))}
+          </ul>
+        )}
 
-        <Pagination 
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            totalItems={expenses.length}
-            itemsPerPage={ITEMS_PER_PAGE}
-          />
+        {!shouldVirtualize && (
+          <Pagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={expenses.length}
+              itemsPerPage={itemsPerPage}
+            />
+        )}
         </>
       ) : (
-        <div className="border-4 border-ink border-dashed p-8 md:p-16 text-center bg-bone/50">
-          <p className="font-loud text-lg md:text-2xl text-ink/20 uppercase">NO_TXNS_DETECTED</p>
-          <p className="text-[9px] md:text-xs font-mono text-ink/40 mt-2 italic uppercase">STATUS: AWAITING_INPUT...</p>
-        </div>
+        <EmptyState
+          title="NO_TXNS_DETECTED"
+          subtitle="STATUS: AWAITING_INPUT... START BY LOGGING YOUR FIRST EXPENSE."
+          ctaLabel="ADD_FIRST_EXPENSE"
+          onCta={onCreate}
+        />
       )}
       
       <ConfirmationDialog

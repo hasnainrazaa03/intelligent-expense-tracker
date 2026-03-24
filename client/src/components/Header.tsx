@@ -74,6 +74,7 @@ const Header: React.FC<HeaderProps> = ({
             {/* Mobile-Only Logout Button to save space in the bottom row */}
             <button 
               onClick={onLogout}
+              aria-label="Logout"
               className="lg:hidden bg-usc-cardinal border-2 border-ink p-2 shadow-neo text-bone active:translate-y-0.5 transition-all"
               title="LOGOUT"
             >
@@ -89,6 +90,7 @@ const Header: React.FC<HeaderProps> = ({
             <input
               type="text"
               placeholder="SEARCH_MANIFEST..."
+              aria-label="Search transactions"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white border-2 md:border-4 border-ink p-3 md:p-4 pl-10 md:pl-12 font-loud text-xs md:text-sm text-ink focus:outline-none focus:ring-4 focus:ring-usc-gold shadow-neo-gold placeholder:text-ink/40"
@@ -102,12 +104,14 @@ const Header: React.FC<HeaderProps> = ({
               <div className="flex bg-ink border-2 md:border-4 border-ink p-0.5 md:p-1 shadow-neo-gold">
                 <button 
                   onClick={() => onCurrencyChange('USD')}
+                  aria-label="Display currency USD"
                   className={`px-3 py-1 font-loud text-[10px] transition-all ${displayCurrency === 'USD' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}
                 >
                   USD$
                 </button>
                 <button 
                   onClick={() => onCurrencyChange('INR')}
+                  aria-label="Display currency INR"
                   className={`px-3 py-1 font-loud text-[10px] transition-all ${displayCurrency === 'INR' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}
                 >
                   INR₹
@@ -118,6 +122,7 @@ const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-2">
                 <button 
                   onClick={onManageBudgets}
+                  aria-label="Manage budgets"
                   className="bg-bone border-2 md:border-4 border-ink p-2 shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
                   title="MANAGE_BUDGETS"
                 >
@@ -125,6 +130,7 @@ const Header: React.FC<HeaderProps> = ({
                 </button>
                 <button 
                   onClick={onManageCategories}
+                  aria-label="Manage categories"
                   className="bg-bone border-2 md:border-4 border-ink p-2 shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
                   title="MANAGE_CATEGORIES"
                 >
@@ -132,6 +138,7 @@ const Header: React.FC<HeaderProps> = ({
                 </button>
                 <button 
                   onClick={onDataAction}
+                  aria-label="Open data import and export"
                   className="bg-bone border-2 md:border-4 border-ink p-2 shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
                   title="DATA_TERMINAL"
                 >
@@ -141,6 +148,7 @@ const Header: React.FC<HeaderProps> = ({
                 {/* Desktop-Only Logout Button */}
                 <button 
                   onClick={onLogout}
+                  aria-label="Logout"
                   className="hidden lg:block bg-usc-cardinal border-2 md:border-4 border-ink p-2 shadow-neo text-bone hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
                   title="LOGOUT"
                 >

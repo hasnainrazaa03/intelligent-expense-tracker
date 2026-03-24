@@ -6,11 +6,14 @@ import passport from 'passport';
 import otpGenerator from 'otp-generator';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/mailer';
 import { authLimiter, loginLimiter } from '../middleware/rateLimiter';
+import { writeAuditLog } from '../utils/audit';
+import { SERVER_CONFIG } from '../config';
+import { sendError } from '../utils/http';
 
 const router = Router();
 
 // Fail-fast: ensure JWT_SECRET is set
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = SERVER_CONFIG.jwtSecret;
 if (!JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set.');
   process.exit(1);
@@ -20,12 +23,13 @@ if (!JWT_SECRET) {
 const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 // S4: Input length limits
-const MAX_EMAIL_LENGTH = 254;
-const MAX_PASSWORD_LENGTH = 128;
+const MAX_EMAIL_LENGTH = SERVER_CONFIG.limits.maxEmailLength;
+const MAX_PASSWORD_LENGTH = SERVER_CONFIG.limits.maxPasswordLength;
+const MIN_PASSWORD_LENGTH = SERVER_CONFIG.limits.minPasswordLength;
 
 // S5: Account lockout constants
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_LOGIN_ATTEMPTS = SERVER_CONFIG.auth.maxLoginAttempts;
+const LOCKOUT_DURATION_MS = SERVER_CONFIG.auth.lockoutDurationMs;
 
 // --- 1. Sign Up (Register) ---
 router.post('/register', authLimiter, async (req: Request, res: Response) => {
@@ -33,24 +37,24 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
     const { email: rawEmail, password } = req.body;
     
     if (!rawEmail || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Email and password are required');
     }
 
     const email = rawEmail.toLowerCase().trim();
 
     if (!isValidEmail(email) || email.length > MAX_EMAIL_LENGTH) {
-      return res.status(400).json({ message: 'Invalid email format' });
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid email format');
     }
 
-    if (password.length < 6 || password.length > MAX_PASSWORD_LENGTH) {
-      return res.status(400).json({ message: 'Password must be between 6 and 128 characters' });
+    if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+      return sendError(res, 400, 'VALIDATION_ERROR', `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters`);
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     
     // If user exists but is NOT verified, allow re-registration (resend OTP)
     if (existingUser && existingUser.isVerified) {
-      return res.status(400).json({ message: 'User with this email already exists' });
+      return sendError(res, 400, 'CONFLICT', 'User with this email already exists');
     }
 
     const otp = otpGenerator.generate(6, { 
@@ -100,7 +104,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error');
   }
 });
 
@@ -176,7 +180,7 @@ router.post('/resend-otp', authLimiter, async (req: Request, res: Response) => {
     res.json({ message: 'If an account exists, a new code has been sent.' });
   } catch (error) {
     console.error('Resend OTP error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error');
   }
 });
 
@@ -197,6 +201,15 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
+      await writeAuditLog({
+        action: 'login',
+        userId: 'unknown',
+        success: false,
+        route: '/api/auth/login',
+        ip: req.ip,
+        userAgent: req.get('user-agent') || undefined,
+        metadata: { email, reason: 'user_not_found' },
+      });
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
@@ -204,6 +217,15 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
     if (user.lockUntil && new Date() < user.lockUntil) {
       const remainingMs = user.lockUntil.getTime() - Date.now();
       const remainingMin = Math.ceil(remainingMs / 60000);
+      await writeAuditLog({
+        action: 'login',
+        userId: user.id,
+        success: false,
+        route: '/api/auth/login',
+        ip: req.ip,
+        userAgent: req.get('user-agent') || undefined,
+        metadata: { email, reason: 'account_locked', remainingMin },
+      });
       return res.status(429).json({ message: `Account locked. Try again in ${remainingMin} minute${remainingMin > 1 ? 's' : ''}.` });
     }
 
@@ -225,8 +247,27 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       await prisma.user.update({ where: { email }, data: updateData });
       
       if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        await writeAuditLog({
+          action: 'login',
+          userId: user.id,
+          success: false,
+          route: '/api/auth/login',
+          ip: req.ip,
+          userAgent: req.get('user-agent') || undefined,
+          metadata: { email, reason: 'too_many_attempts' },
+        });
         return res.status(429).json({ message: 'Too many failed attempts. Account locked for 15 minutes.' });
       }
+
+      await writeAuditLog({
+        action: 'login',
+        userId: user.id,
+        success: false,
+        route: '/api/auth/login',
+        ip: req.ip,
+        userAgent: req.get('user-agent') || undefined,
+        metadata: { email, reason: 'invalid_password' },
+      });
       
       return res.status(400).json({ message: 'Invalid email or password' });
     }
@@ -242,9 +283,30 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       { expiresIn: '7d' }
     );
 
+    await writeAuditLog({
+      action: 'login',
+      userId: user.id,
+      success: true,
+      route: '/api/auth/login',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { email },
+    });
+
     res.json({ message: 'Login successful', token });
   } catch (error) {
     console.error('Login error:', error);
+
+    await writeAuditLog({
+      action: 'login',
+      userId: 'unknown',
+      success: false,
+      route: '/api/auth/login',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { reason: 'server_error' },
+    });
+
     res.status(500).json({ message: 'Internal server error' });
   }
 });

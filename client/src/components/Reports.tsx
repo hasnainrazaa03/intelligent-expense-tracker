@@ -12,15 +12,17 @@ import PaymentMethodChart from './reports/PaymentMethodChart';
 import RecurringVsOneTimeChart from './reports/RecurringVsOneTimeChart';
 import TimePeriodSummaries from './reports/TimePeriodSummaries';
 import YearOverYearChart from './reports/YearOverYearChart';
+import SectionSkeleton from './SectionSkeleton';
 
 interface ReportsProps {
   allExpenses: Expense[];
   budgets: Budget[];
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
+  isLoading?: boolean;
 }
 
-const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency, conversionRate }) => {
+const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency, conversionRate, isLoading = false }) => {
   const stats = useMemo(() => {
     const totalSpent = allExpenses.reduce((sum, e) => sum + e.amount, 0);
     const categoryTotals: Record<string, number> = {};
@@ -50,6 +52,10 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
   }, [allExpenses, budgets]);
 
   const currencyProps = { displayCurrency, conversionRate };
+
+  if (isLoading) {
+    return <SectionSkeleton title="Loading reports" rows={5} />;
+  }
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF();

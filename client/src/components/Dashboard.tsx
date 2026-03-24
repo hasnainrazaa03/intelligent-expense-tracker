@@ -8,6 +8,7 @@ import BudgetPerformanceChart from './BudgetPerformanceChart';
 import { getCategoryColor } from '../utils/colorUtils';
 import { CalendarDaysIcon, TagIcon, ReceiptPercentIcon, TrendingUpIcon, BanknotesIcon } from './Icons';
 import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
+import SectionSkeleton from './SectionSkeleton';
 
 export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
 
@@ -53,12 +54,39 @@ interface DashboardProps {
   budgets: Budget[];
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
+  isLoading?: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   expenses, incomes, allExpenses, previousPeriodExpenses, 
-  selectedRange, onDateRangeChange, budgets, displayCurrency, conversionRate 
+  selectedRange, onDateRangeChange, budgets, displayCurrency, conversionRate, isLoading = false
 }) => {
+
+  const budgetAlerts = useMemo(() => {
+    if (budgets.length === 0) return [] as Array<{ category: string; spent: number; budget: number; pct: number; severity: 'warning' | 'danger' }>;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+    return budgets
+      .map((budget) => {
+        const spent = allExpenses
+          .filter((e) => e.category === budget.category && e.date >= monthStart && e.date <= monthEnd)
+          .reduce((sum, e) => sum + e.amount, 0);
+        const pct = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+        if (pct < 80) return null;
+        return {
+          category: budget.category,
+          spent,
+          budget: budget.amount,
+          pct,
+          severity: pct >= 100 ? 'danger' as const : 'warning' as const,
+        };
+      })
+      .filter((item): item is { category: string; spent: number; budget: number; pct: number; severity: 'warning' | 'danger' } => item !== null)
+      .sort((a, b) => b.pct - a.pct);
+  }, [budgets, allExpenses]);
   
   const { periodTotalExpense, periodTotalIncome, topCategory, periodChange, netFlow } = useMemo(() => {
     const periodTotalExpense = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
@@ -169,6 +197,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   const barChartTitle = (selectedRange === 'this_month' || selectedRange === 'last_month') ? 'DAILY_SPENDING_TREND' : 'MONTHLY_SPENDING_TREND';
   const currencyProps = { displayCurrency, conversionRate };
 
+  if (isLoading) {
+    return <SectionSkeleton title="Loading dashboard" rows={5} />;
+  }
+
   return (
     <div className="space-y-12">
         {/* 1. LOUD HEADER SECTION */}
@@ -183,6 +215,22 @@ const Dashboard: React.FC<DashboardProps> = ({
             <DateRangeFilter selectedRange={selectedRange} onChange={onDateRangeChange} />
           </div>
       </div>
+
+      {budgetAlerts.length > 0 && (
+        <section className="border-4 border-ink bg-white p-4 md:p-6 shadow-neo" aria-live="polite">
+          <h3 className="font-loud text-lg md:text-xl uppercase text-ink mb-3">Budget Alerts</h3>
+          <div className="space-y-2">
+            {budgetAlerts.map((alert) => (
+              <div
+                key={alert.category}
+                className={`border-2 border-ink px-3 py-2 font-bold text-xs md:text-sm uppercase ${alert.severity === 'danger' ? 'bg-usc-cardinal text-bone' : 'bg-usc-gold text-ink'}`}
+              >
+                {alert.category}: {alert.spent.toFixed(0)} / {alert.budget.toFixed(0)} ({alert.pct.toFixed(0)}%)
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
         {/* 2. BENTO GRID: SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

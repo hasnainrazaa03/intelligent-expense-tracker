@@ -26,6 +26,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [resetStep, setResetStep] = useState<'email' | 'code'>('email');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+  const authErrorId = 'auth-error';
+  const resetErrorId = 'reset-error';
 
   const closeForgotPasswordModal = () => {
     setShowForgotPassword(false);
@@ -115,7 +117,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           <form onSubmit={handleFormSubmit} className="space-y-6 md:space-y-8">
             {/* ALERT BOX */}
             {error && (
-              <div className="bg-ink text-usc-cardinal p-4 border-4 border-usc-cardinal flex items-center font-loud text-xs italic uppercase">
+              <div id={authErrorId} role="alert" aria-live="assertive" className="bg-ink text-usc-cardinal p-4 border-4 border-usc-cardinal flex items-center font-loud text-xs italic uppercase">
                 <ExclamationTriangleIcon className="h-5 w-5 mr-3" />
                 {error}
               </div>
@@ -135,6 +137,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className={inputClasses}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? authErrorId : undefined}
                   required
                   placeholder="USER@USC.EDU"
                   autoComplete="email"
@@ -149,6 +153,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className={inputClasses}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? authErrorId : undefined}
                   required
                   placeholder="••••••••"
                   autoComplete={isLoginView ? "current-password" : "new-password"}
@@ -241,7 +247,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             </div>
             <div className="p-6 space-y-5">
               {resetError && (
-                <div className="bg-ink text-usc-cardinal p-3 border-4 border-usc-cardinal font-loud text-xs italic uppercase flex items-center">
+                <div id={resetErrorId} role="alert" aria-live="assertive" className="bg-ink text-usc-cardinal p-3 border-4 border-usc-cardinal font-loud text-xs italic uppercase flex items-center">
                   <ExclamationTriangleIcon className="h-4 w-4 mr-2 shrink-0" />
                   {resetError}
                 </div>
@@ -253,12 +259,15 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     Enter your registered email to receive a reset code.
                   </p>
                   <div>
-                    <label className={labelClasses}>EMAIL_ADDRESS</label>
+                    <label htmlFor="reset-email" className={labelClasses}>EMAIL_ADDRESS</label>
                     <input
+                      id="reset-email"
                       type="email"
                       value={resetEmail}
                       onChange={e => setResetEmail(e.target.value)}
                       className={inputClasses}
+                      aria-invalid={!!resetError}
+                      aria-describedby={resetError ? resetErrorId : undefined}
                       required
                       placeholder="USER@USC.EDU"
                       disabled={resetLoading}
@@ -278,12 +287,15 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     Enter the 6-digit code sent to {resetEmail}.
                   </p>
                   <div>
-                    <label className={labelClasses}>RESET_CODE</label>
+                    <label htmlFor="reset-code" className={labelClasses}>RESET_CODE</label>
                     <input
+                      id="reset-code"
                       type="text"
                       value={resetCode}
                       onChange={e => setResetCode(e.target.value)}
                       className={inputClasses}
+                      aria-invalid={!!resetError}
+                      aria-describedby={resetError ? resetErrorId : undefined}
                       required
                       placeholder="000000"
                       maxLength={6}
@@ -291,12 +303,15 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     />
                   </div>
                   <div>
-                    <label className={labelClasses}>NEW_PASSCODE</label>
+                    <label htmlFor="new-password" className={labelClasses}>NEW_PASSCODE</label>
                     <input
+                      id="new-password"
                       type="password"
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       className={inputClasses}
+                      aria-invalid={!!resetError}
+                      aria-describedby={resetError ? resetErrorId : undefined}
                       required
                       placeholder="••••••••"
                       disabled={resetLoading}

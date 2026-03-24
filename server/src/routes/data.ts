@@ -2,13 +2,38 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { parseFiniteFloat, parseValidDate, toFinPrecision } from '../utils/math';
+import { writeAuditLog } from '../utils/audit';
+import { SERVER_CONFIG } from '../config';
+import { sendError } from '../utils/http';
 
 const router = Router();
 
 router.use(authMiddleware);
 
-const MAX_TEXT_LENGTH = 500;
-const MAX_ITEMS = 5000;
+const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
+const MAX_ITEMS = SERVER_CONFIG.limits.maxRestoreItemsPerSection;
+
+// --- Audit Event from Client ---
+router.post('/audit', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { action, metadata } = req.body || {};
+
+  if (!action || typeof action !== 'string') {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Action is required');
+  }
+
+  await writeAuditLog({
+    action,
+    userId,
+    success: true,
+    route: '/api/data/audit',
+    ip: req.ip,
+    userAgent: req.get('user-agent') || undefined,
+    metadata: typeof metadata === 'object' && metadata !== null ? metadata : undefined,
+  });
+
+  return res.status(200).json({ success: true });
+});
 
 // --- Get All User Data ---
 // GET /api/data/all
@@ -60,11 +85,11 @@ router.post('/restore', async (req: Request, res: Response) => {
   const { expenses = [], incomes = [], budgets = [], semesters = [] } = req.body || {};
 
   if (!Array.isArray(expenses) || !Array.isArray(incomes) || !Array.isArray(budgets) || !Array.isArray(semesters)) {
-    return res.status(400).json({ message: 'Invalid backup format: expenses, incomes, budgets, semesters must be arrays.' });
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid backup format: expenses, incomes, budgets, semesters must be arrays.');
   }
 
   if (expenses.length > MAX_ITEMS || incomes.length > MAX_ITEMS || budgets.length > MAX_ITEMS || semesters.length > MAX_ITEMS) {
-    return res.status(400).json({ message: `Backup is too large. Maximum ${MAX_ITEMS} entries per section.` });
+    return sendError(res, 400, 'VALIDATION_ERROR', `Backup is too large. Maximum ${MAX_ITEMS} entries per section.`);
   }
 
   try {
@@ -205,9 +230,35 @@ router.post('/restore', async (req: Request, res: Response) => {
       budgets: restoredBudgets,
       semesters: restoredSemesters.map(cleanPaidDate),
     });
+
+    await writeAuditLog({
+      action: 'backup_restore',
+      userId,
+      success: true,
+      route: '/api/data/restore',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: {
+        expenseCount: restoredExpenses.length,
+        incomeCount: restoredIncomes.length,
+        budgetCount: restoredBudgets.length,
+        semesterCount: restoredSemesters.length,
+      },
+    });
   } catch (error: any) {
     console.error('Backup restore failed:', error);
-    res.status(400).json({ message: error.message || 'Failed to restore backup.' });
+
+    await writeAuditLog({
+      action: 'backup_restore',
+      userId,
+      success: false,
+      route: '/api/data/restore',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { error: error?.message || 'unknown' },
+    });
+
+    return sendError(res, 400, 'RESTORE_FAILED', error.message || 'Failed to restore backup.');
   }
 });
 

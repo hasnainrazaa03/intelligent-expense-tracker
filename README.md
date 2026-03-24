@@ -93,8 +93,31 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 
 ### 📄 Modular Pagination
 - Reusable frontend component
-- 10‑item data slicing
+- Configurable page size (10 / 25 / 50)
+- Auto-virtualized rendering for very large lists
 - Maintains UI performance even with thousands of transactions
+
+### ⚡ Performance and Loading
+- Route-level code splitting with lazy loading
+- Lazy-loaded heavy modals and analytics sections
+- Section-level skeleton loaders for perceived speed
+- Debounced search to reduce expensive filtering during typing
+
+### 🧱 Architecture and Reliability
+- Root-level React error boundary with graceful recovery UI
+- Shared hooks for reusable filtering and debounce logic
+- Strongly typed API client responses for safer frontend integration
+- Centralized client and server configuration constants
+
+### 🔎 Observability and Security Ops
+- Structured request logging with request IDs and latency
+- Standardized server error response shape
+- Environment validation at server startup (fail-fast)
+- Audit logging for sensitive actions (login, delete, import/export, restore)
+
+### ♿ Accessibility
+- Improved ARIA labels on high-traffic UI controls
+- Better form labeling and error announcements in auth and modal flows
 
 ### 🔁 Data Portability
 - Import / export in **JSON** and **CSV** formats
@@ -131,6 +154,7 @@ npm install
 # DATABASE_URL="your_mongodb_uri"
 # GEMINI_API_KEY="your_api_key"
 # JWT_SECRET="your_secret"
+# FRONTEND_URL="http://localhost:5173"   # recommended for OAuth redirect consistency
 
 npx prisma generate
 npm run dev
@@ -144,6 +168,16 @@ npm run dev
 ```
 
 Open: **http://localhost:5173**
+
+### 4. Build Validation
+Run these checks after pulling updates:
+
+```bash
+cd server && npx tsc --noEmit
+cd ../client && npx tsc --noEmit
+```
+
+Both should complete without TypeScript errors.
 
 ---
 

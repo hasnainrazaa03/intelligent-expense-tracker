@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Expense, Budget, Income, Semester } from '../types';
 import { exportData } from '../utils/exportUtils';
+import { logAuditEvent } from '../services/api';
 import { 
   XMarkIcon, 
   TableCellsIcon, 
@@ -75,6 +76,14 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   const handleDownload = () => {
     const dateRangeLabel = ranges.find(r => r.id === dateRange)?.label || 'All Time';
     exportData(format, includeExpenses, filteredExpenses, includeBudgets, budgets, dateRangeLabel);
+    logAuditEvent('data_export', {
+      format,
+      dateRange: dateRangeLabel,
+      includeExpenses,
+      includeBudgets,
+      expenseCount: filteredExpenses.length,
+      budgetCount: budgets.length,
+    }).catch(() => undefined);
     onClose();
   };
 
@@ -103,6 +112,12 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     link.download = `expense_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+    logAuditEvent('backup_export', {
+      expenses: allExpenses.length,
+      incomes: allIncomes.length,
+      budgets: budgets.length,
+      semesters: semesters.length,
+    }).catch(() => undefined);
   };
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,6 +199,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             }).filter((item): item is Omit<Expense, 'id'> => item !== null);
 
             onImport(importedExpenses);
+            logAuditEvent('expense_csv_import', { importedCount: importedExpenses.length }).catch(() => undefined);
             onClose();
         } catch (error: any) {
             setImportError(error.message || "PARSING_FAILURE");
@@ -220,6 +236,12 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
           budgets: backupData.budgets,
           semesters: backupData.semesters,
         });
+        logAuditEvent('backup_restore', {
+          expenses: backupData.expenses.length,
+          incomes: backupData.incomes.length,
+          budgets: backupData.budgets.length,
+          semesters: backupData.semesters.length,
+        }).catch(() => undefined);
 
         const prefs = parsed?.preferences;
         if (prefs?.displayCurrency === 'USD' || prefs?.displayCurrency === 'INR') {

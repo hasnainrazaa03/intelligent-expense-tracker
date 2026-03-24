@@ -6,6 +6,7 @@ import passport from 'passport';
 import helmet from 'helmet';
 import './passport-setup';
 import { apiLimiter, aiLimiter } from './middleware/rateLimiter';
+import { requestLogger } from './middleware/requestLogger';
 import authRoutes from './routes/auth';
 import dataRoutes from './routes/data';
 import expenseRoutes from './routes/expenses';
@@ -13,9 +14,13 @@ import incomeRoutes from './routes/incomes';
 import budgetRoutes from './routes/budgets';
 import semesterRoutes from './routes/semesters';
 import aiRoutes from './routes/ai';
+import { sendError } from './utils/http';
+import { SERVER_CONFIG, validateServerEnv } from './config';
+
+validateServerEnv();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = SERVER_CONFIG.port;
 
 // --- Security Middleware ---
 app.use(helmet());
@@ -40,7 +45,10 @@ app.use(cors({
 }));
 
 // --- Body parsing with size limit ---
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: SERVER_CONFIG.bodyLimit }));
+
+// --- Structured request logging with request id ---
+app.use(requestLogger);
 
 // --- Health Check (before auth) ---
 app.get('/health', (_req: Request, res: Response) => {
@@ -65,7 +73,7 @@ app.use('/api/ai', aiLimiter, aiRoutes);
 // --- Global Error Handler ---
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ message: 'Internal server error' });
+  sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error');
 });
 
 // --- Start the server ---

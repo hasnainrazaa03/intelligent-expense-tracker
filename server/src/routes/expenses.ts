@@ -3,6 +3,8 @@ import { prisma } from '../db';
 import { authMiddleware} from '../middleware/auth';
 import { Expense } from '../types';
 import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math';
+import { writeAuditLog } from '../utils/audit';
+import { SERVER_CONFIG } from '../config';
 
 const router = Router();
 
@@ -10,9 +12,9 @@ const router = Router();
 router.use(authMiddleware);
 
 // Maximum bulk import size
-const MAX_BULK_SIZE = 500;
+const MAX_BULK_SIZE = SERVER_CONFIG.limits.maxBulkImportSize;
 // S4: Input length limits
-const MAX_TEXT_LENGTH = 500;
+const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
 
 // --- 1. Create new Expense ---
 // POST /api/expenses
@@ -135,9 +137,30 @@ router.delete('/:id', async (req: Request, res: Response) => {
       },
     });
 
+    await writeAuditLog({
+      action: 'expense_delete',
+      userId,
+      success: true,
+      route: '/api/expenses/:id',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { expenseId },
+    });
+
     res.status(200).json({ success: true, message: 'Expense deleted successfully' });
   } catch (error: any) {
     console.error('Failed to delete expense:', error);
+
+    await writeAuditLog({
+      action: 'expense_delete',
+      userId,
+      success: false,
+      route: '/api/expenses/:id',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { expenseId, error: error?.message || 'unknown' },
+    });
+
     if (error.code === 'P2025') {
       return res.status(404).json({ message: 'Expense not found' });
     }

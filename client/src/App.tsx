@@ -1,28 +1,35 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import { Toaster } from 'react-hot-toast';
 import { Expense, Budget, Semester, Income } from './types';
 import Header from './components/Header';
-import Dashboard, { DateRange } from './components/Dashboard';
-import ExpenseList from './components/ExpenseList';
-import IncomeList from './components/IncomeList';
-import ExpenseModal from './components/ExpenseModal';
-import IncomeModal from './components/IncomeModal';
-import BudgetManagerModal from './components/BudgetManagerModal';
-import CategoryManagerModal from './components/CategoryManagerModal';
-import DataModal from './components/ExportModal';
-import AiAnalyst from './components/AiAnalyst';
-import Auth from './components/Auth';
-import VerifyOTP from './components/VerifyOTP';
+import type { DateRange } from './components/Dashboard';
 import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon } from './components/Icons';
 import { useTheme } from './hooks/useTheme';
 import { USC_SEMESTERS } from './constants';
-import USCPaymentTracker from './components/USCPaymentTracker';
-import PivotAnalysis from './components/PivotAnalysis';
-import Reports from './components/Reports';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { getAllData } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import useDebouncedValue from './hooks/useDebouncedValue';
+import useDateRangeFilter from './hooks/useDateRangeFilter';
+import { notify } from './utils/notifications';
+import SectionSkeleton from './components/SectionSkeleton';
+import { APP_CONFIG } from './config';
+
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const ExpenseList = lazy(() => import('./components/ExpenseList'));
+const IncomeList = lazy(() => import('./components/IncomeList'));
+const ExpenseModal = lazy(() => import('./components/ExpenseModal'));
+const IncomeModal = lazy(() => import('./components/IncomeModal'));
+const BudgetManagerModal = lazy(() => import('./components/BudgetManagerModal'));
+const CategoryManagerModal = lazy(() => import('./components/CategoryManagerModal'));
+const DataModal = lazy(() => import('./components/ExportModal'));
+const AiAnalyst = lazy(() => import('./components/AiAnalyst'));
+const Auth = lazy(() => import('./components/Auth'));
+const VerifyOTP = lazy(() => import('./components/VerifyOTP'));
+const USCPaymentTracker = lazy(() => import('./components/USCPaymentTracker'));
+const PivotAnalysis = lazy(() => import('./components/PivotAnalysis'));
+const Reports = lazy(() => import('./components/Reports'));
 
 type ActiveView = 'expenses' | 'income' | 'pivot' | 'usc' | 'reports';
 
@@ -30,6 +37,7 @@ const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: Rea
     return (
         <button
             onClick={onClick}
+          aria-label={label}
             // Changed w-20 to w-16 on mobile, w-20 on md+
             className={`flex-1 flex flex-col items-center justify-center w-16 md:w-20 border-b-4 border-r-4 border-ink transition-all relative overflow-hidden flex-shrink-0
                 ${isActive 
@@ -67,6 +75,7 @@ const App: React.FC = () => {
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [activeView, setActiveView] = useState<ActiveView>('expenses');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, APP_CONFIG.searchDebounceMs);
   
   const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'INR'>('USD');
   const [usdToInrRate, setUsdToInrRate] = useState<number | null>(null);
@@ -151,14 +160,14 @@ const App: React.FC = () => {
       setIsLoadingData(true);
       getAllData()
         .then(data => {
-          const loadedExpenses = data.expenses as Expense[];
+          const loadedExpenses = data.expenses;
           setExpenses(loadedExpenses);
-          setIncomes(data.incomes as Income[]);
-          setBudgets(data.budgets as Budget[]);
+          setIncomes(data.incomes);
+          setBudgets(data.budgets);
 
           // Set initial semesters if user has none
           if (data.semesters.length > 0) {
-            setSemesters(data.semesters as Semester[]);
+            setSemesters(data.semesters);
           } else {
             const initialSemesters: Semester[] = USC_SEMESTERS.map(s => ({
                 ...s,
@@ -317,9 +326,9 @@ const App: React.FC = () => {
 
     const pct = (monthlySpent / budget.amount) * 100;
     if (pct >= 100) {
-      toast.error(`🚨 Budget EXCEEDED for ${category}! $${monthlySpent.toFixed(0)} / $${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`, { duration: 5000 });
+      notify.error(`Budget exceeded: ${category} ${monthlySpent.toFixed(0)} / ${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`);
     } else if (pct >= 80) {
-      toast(`⚠️ Budget warning for ${category}: $${monthlySpent.toFixed(0)} / $${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`, { duration: 4000 });
+      notify.warning(`Budget warning: ${category} ${monthlySpent.toFixed(0)} / ${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`);
     }
   }, [budgets]);
 
@@ -330,12 +339,12 @@ const App: React.FC = () => {
       const addedCount = pendingRecurring.length;
       await createBulkExpenses(pendingRecurring);
       const refreshed = await getAllData();
-      setExpenses(refreshed.expenses as Expense[]);
+      setExpenses(refreshed.expenses);
       setPendingRecurring([]);
-      toast.success(`${addedCount} recurring expense(s) added for this month!`);
+      notify.success(`${addedCount} recurring expense(s) added for this month.`);
     } catch (error) {
       console.error("Failed to create recurring expenses:", error);
-      toast.error("Could not create recurring expenses.");
+      notify.error('Could not create recurring expenses.');
     }
   };
 
@@ -353,7 +362,7 @@ const App: React.FC = () => {
     });
   } catch (error) {
     console.error("Failed to add expense:", error);
-    toast.error("Could not add expense.");
+    notify.error('Could not add expense.');
   }
 };
 
@@ -378,7 +387,7 @@ const handleUpdateExpense = async (updatedExpense: Expense) => {
     setIsExpenseModalOpen(false);
   } catch (error) {
     console.error("Failed to update expense:", error);
-    toast.error("Could not update expense.");
+    notify.error('Could not update expense.');
   }
 };
 
@@ -423,7 +432,7 @@ const handleDeleteExpense = async (id: string) => {
 
   } catch (error) {
     console.error("CRITICAL_SYNC_ERROR: Failed to delete expense:", error);
-    toast.error("Could not delete expense. Please try again.");
+    notify.error('Could not delete expense. Please try again.');
   }
 };
   const handleEditExpenseClick = (expense: Expense) => { setEditingExpense(expense); setIsExpenseModalOpen(true); };
@@ -435,7 +444,7 @@ const handleAddIncome = async (income: Omit<Income, 'id'>) => {
     setIncomes(prev => [...prev, newIncome]);
   } catch (error) {
     console.error("Failed to add income:", error);
-    toast.error("Could not add income.");
+    notify.error('Could not add income.');
   }
 };
 
@@ -446,7 +455,7 @@ const handleUpdateIncome = async (updatedIncome: Income) => {
     setEditingIncome(null);
   } catch (error) {
     console.error("Failed to update income:", error);
-    toast.error("Could not update income.");
+    notify.error('Could not update income.');
   }
 };
 
@@ -456,7 +465,7 @@ const handleDeleteIncome = async (id: string) => {
     setIncomes(prev => prev.filter(inc => inc.id !== id));
   } catch (error) {
     console.error("Failed to delete income:", error);
-    toast.error("Could not delete income.");
+    notify.error('Could not delete income.');
   }
 };
   const handleEditIncomeClick = (income: Income) => { setEditingIncome(income); setIsIncomeModalOpen(true); };
@@ -478,7 +487,7 @@ const handleDeleteIncome = async (id: string) => {
     setIsBudgetModalOpen(false);
   } catch (error) {
     console.error("Failed to save budgets:", error);
-    toast.error("Could not save budgets.");
+    notify.error('Could not save budgets.');
   }
 };
   const handleImportExpenses = async (importedExpenses: Omit<Expense, 'id'>[]) => {
@@ -487,18 +496,18 @@ const handleDeleteIncome = async (id: string) => {
       await createBulkExpenses(importedExpenses);
       
       // 2. The import was successful, show an alert
-      toast.success(`${importedExpenses.length} expenses successfully imported!`);
+      notify.success(`${importedExpenses.length} expenses successfully imported.`);
 
       // 3. Easiest way to get all the new IDs is to just re-fetch all data
       // This ensures our local state is in sync with the database.
       setIsLoadingData(true);
       getAllData()
         .then(data => {
-          setExpenses(data.expenses as Expense[]);
-          setIncomes(data.incomes as Income[]);
-          setBudgets(data.budgets as Budget[]);
+          setExpenses(data.expenses);
+          setIncomes(data.incomes);
+          setBudgets(data.budgets);
           if (data.semesters?.length > 0) {
-            setSemesters(data.semesters as Semester[]);
+            setSemesters(data.semesters);
           }
         })
         .catch(err => console.error("Failed to refetch data:", err))
@@ -506,7 +515,7 @@ const handleDeleteIncome = async (id: string) => {
       
     } catch (error) {
       console.error("Failed to import expenses:", error);
-      toast.error("Could not import expenses.");
+      notify.error('Could not import expenses.');
     }
   };
 
@@ -519,15 +528,15 @@ const handleDeleteIncome = async (id: string) => {
     try {
       setIsLoadingData(true);
       const restored = await restoreAllData(payload);
-      setExpenses(restored.expenses as Expense[]);
-      setIncomes(restored.incomes as Income[]);
-      setBudgets(restored.budgets as Budget[]);
-      setSemesters(restored.semesters as Semester[]);
+      setExpenses(restored.expenses);
+      setIncomes(restored.incomes);
+      setBudgets(restored.budgets);
+      setSemesters(restored.semesters);
       setPendingRecurring([]);
-      toast.success('Backup restored successfully.');
+      notify.success('Backup restored successfully.');
     } catch (error) {
       console.error('Failed to restore backup:', error);
-      toast.error('Could not restore backup. Please verify the file format.');
+      notify.error('Could not restore backup. Please verify the file format.');
       throw error;
     } finally {
       setIsLoadingData(false);
@@ -587,7 +596,7 @@ const handleDeleteIncome = async (id: string) => {
       setIsSemestersDirty(true);
     } catch (error) {
       console.error("Failed to mark installment as paid:", error);
-      toast.error("Could not create the tuition expense.");
+      notify.error('Could not create the tuition expense.');
     }
   };
   const handleUpdateInstallmentDate = async (semesterId: string, installmentId: number, newDate: string) => {
@@ -666,52 +675,14 @@ const handleDeleteIncome = async (id: string) => {
 };
 
   // ... (useMemo for filteredExpenses, filteredIncomes, etc. remains the same) ...
-  const { filteredExpenses, filteredIncomes, previousPeriodExpenses } = useMemo(() => {
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const getUTCDate = (dateString: string) => new Date(dateString);
-
-    let start, end, prevStart, prevEnd;
-
-    switch (dateRange) {
-        case 'this_month':
-            start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-            end = today;
-            prevStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
-            prevEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
-            break;
-        case 'last_month':
-            start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
-            end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
-            prevStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 2, 1));
-            prevEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 0));
-            break;
-        case 'last_90_days':
-            start = new Date(today);
-            start.setUTCDate(today.getUTCDate() - 90);
-            end = today;
-            prevStart = new Date(start);
-            prevStart.setUTCDate(start.getUTCDate() - 90);
-            prevEnd = new Date(start);
-            prevEnd.setUTCDate(start.getUTCDate() - 1);
-            break;
-        case 'all_time':
-        default:
-            return { filteredExpenses: expenses, filteredIncomes: incomes, previousPeriodExpenses: [] };
-    }
-    const currentExpenses = expenses.filter(exp => { const d = getUTCDate(exp.date); return d >= start && d <= end; });
-    const currentIncomes = incomes.filter(inc => { const d = getUTCDate(inc.date); return d >= start && d <= end; });
-    const previousExpenses = expenses.filter(exp => { const d = getUTCDate(exp.date); return d >= prevStart && d <= prevEnd; });
-    
-    return { filteredExpenses: currentExpenses, filteredIncomes: currentIncomes, previousPeriodExpenses: previousExpenses };
-  }, [expenses, incomes, dateRange]);
+    const { filteredExpenses, filteredIncomes, previousPeriodExpenses } = useDateRangeFilter(expenses, incomes, dateRange);
 
   const searchedAndSortedItems = useMemo(() => {
     const itemsToFilter = activeView === 'income' ? [...filteredIncomes] : [...filteredExpenses];
 
-    const results = searchQuery
+    const results = debouncedSearchQuery
       ? itemsToFilter.filter(item => {
-          const query = searchQuery;
+          const query = debouncedSearchQuery;
           const threshold = query.length > 5 ? 2 : 1;
           const titleMatch = fuzzyMatch(query, item.title, threshold);
           const categoryMatch = fuzzyMatch(query, item.category, threshold);
@@ -721,28 +692,7 @@ const handleDeleteIncome = async (id: string) => {
       : itemsToFilter;
 
     return results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredExpenses, filteredIncomes, searchQuery, activeView]);
-
-  // --- NEW: Loading Spinner ---
-  const LoadingSpinner = (
-    <div className="min-h-screen bg-bone flex flex-col items-center justify-center p-8 graph-grid overflow-hidden">
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.05]">
-          <h1 className="font-loud text-[20vw] leading-none text-ink select-none">LOADING</h1>
-        </div>
-        
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="w-24 h-24 border-8 border-ink border-t-usc-gold animate-spin mb-8 shadow-neo" />
-          <div className="bg-ink text-bone px-8 py-3 border-4 border-ink shadow-neo">
-            <span className="font-loud text-2xl tracking-[0.2em] animate-pulse">BOOTING_CORE_SYSTEM...</span>
-          </div>
-          <p className="font-mono text-[10px] mt-6 text-ink/40 uppercase tracking-[0.4em] font-bold">
-            Establishing_Secure_Link // USC_FIN_v4.0
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  }, [filteredExpenses, filteredIncomes, debouncedSearchQuery, activeView]);
 
   // ... (renderActiveView function remains the same) ...
   const renderActiveView = () => {
@@ -756,6 +706,8 @@ const handleDeleteIncome = async (id: string) => {
                         expenses={searchedAndSortedItems as Expense[]} 
                         onEdit={handleEditExpenseClick}
                         onDelete={handleDeleteExpense}
+                        onCreate={handleOpenModal}
+                        isLoading={isLoadingData}
                         {...commonProps}
                         />
                     </div>
@@ -772,6 +724,8 @@ const handleDeleteIncome = async (id: string) => {
                           incomes={searchedAndSortedItems as Income[]} 
                           onEdit={handleEditIncomeClick}
                           onDelete={handleDeleteIncome}
+                          onCreate={handleOpenModal}
+                          isLoading={isLoadingData}
                            {...commonProps}
                         />
                     </div>
@@ -785,7 +739,7 @@ const handleDeleteIncome = async (id: string) => {
         case 'usc':
             return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onUpdateInstallmentCount={handleUpdateInstallmentCount} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} {...commonProps} />;
         case 'reports':
-            return <Reports allExpenses={expenses} budgets={budgets} {...commonProps} />;
+          return <Reports allExpenses={expenses} budgets={budgets} isLoading={isLoadingData} {...commonProps} />;
         default: return null;
     }
   };
@@ -849,21 +803,26 @@ const handleDeleteIncome = async (id: string) => {
                   )}
 
                   {(activeView === 'expenses' || activeView === 'income') && (
-                    <Dashboard 
-                      expenses={filteredExpenses} 
-                      incomes={filteredIncomes}
-                      allExpenses={expenses}
-                      previousPeriodExpenses={previousPeriodExpenses}
-                      selectedRange={dateRange}
-                      onDateRangeChange={setDateRange}
-                      budgets={budgets}
-                      displayCurrency={displayCurrency}
-                      conversionRate={usdToInrRate}
-                    />
+                    <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>
+                      <Dashboard 
+                        expenses={filteredExpenses} 
+                        incomes={filteredIncomes}
+                        allExpenses={expenses}
+                        previousPeriodExpenses={previousPeriodExpenses}
+                        selectedRange={dateRange}
+                        onDateRangeChange={setDateRange}
+                        budgets={budgets}
+                        displayCurrency={displayCurrency}
+                        conversionRate={usdToInrRate}
+                        isLoading={isLoadingData}
+                      />
+                    </Suspense>
                   )}
 
                   <div className="border-t-8 border-ink pt-8 md:pt-12">
-                    {renderActiveView()}
+                    <Suspense fallback={<SectionSkeleton title="Loading section" rows={4} />}>
+                      {renderActiveView()}
+                    </Suspense>
                   </div>
                 </div>
 
@@ -871,6 +830,7 @@ const handleDeleteIncome = async (id: string) => {
               <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 flex flex-col items-center z-50 group">
                   <button
                     onClick={handleOpenModal}
+                    aria-label={`Add ${activeView === 'income' ? 'income' : 'expense'}`}
                     className="bg-usc-gold text-ink border-4 border-ink p-3 md:p-4 shadow-neo hover:bg-white hover:text-usc-cardinal hover:shadow-neo-hover transition-all flex flex-col items-center active:scale-95"
                   >
                     <PlusCircleIcon className="h-8 w-8 md:h-10 md:w-10" />
@@ -884,52 +844,62 @@ const handleDeleteIncome = async (id: string) => {
 
             {/* 5. MODALS */}
             {isExpenseModalOpen && (
-              <ExpenseModal 
-                isOpen={isExpenseModalOpen} 
-                onClose={() => setIsExpenseModalOpen(false)} 
-                onSave={editingExpense ? handleUpdateExpense : handleAddExpense} 
-                expense={editingExpense} 
-                displayCurrency={displayCurrency}
-                parentConversionRate={usdToInrRate}
-              />
+              <Suspense fallback={null}>
+                <ExpenseModal 
+                  isOpen={isExpenseModalOpen} 
+                  onClose={() => setIsExpenseModalOpen(false)} 
+                  onSave={editingExpense ? handleUpdateExpense : handleAddExpense} 
+                  expense={editingExpense} 
+                  displayCurrency={displayCurrency}
+                  parentConversionRate={usdToInrRate}
+                />
+              </Suspense>
             )}
             {isIncomeModalOpen && (
-              <IncomeModal 
-                isOpen={isIncomeModalOpen} 
-                onClose={() => setIsIncomeModalOpen(false)} 
-                onSave={editingIncome ? handleUpdateIncome : handleAddIncome} 
-                income={editingIncome} 
-                displayCurrency={displayCurrency}
-                parentConversionRate={usdToInrRate}
-              />
+              <Suspense fallback={null}>
+                <IncomeModal 
+                  isOpen={isIncomeModalOpen} 
+                  onClose={() => setIsIncomeModalOpen(false)} 
+                  onSave={editingIncome ? handleUpdateIncome : handleAddIncome} 
+                  income={editingIncome} 
+                  displayCurrency={displayCurrency}
+                  parentConversionRate={usdToInrRate}
+                />
+              </Suspense>
             )}
             {isBudgetModalOpen && (
-              <BudgetManagerModal 
-                isOpen={isBudgetModalOpen} 
-                onClose={() => setIsBudgetModalOpen(false)} 
-                onSave={handleSaveBudgets} 
-                currentBudgets={budgets} 
-                displayCurrency={displayCurrency} 
-                conversionRate={usdToInrRate} 
-              />
+              <Suspense fallback={null}>
+                <BudgetManagerModal 
+                  isOpen={isBudgetModalOpen} 
+                  onClose={() => setIsBudgetModalOpen(false)} 
+                  onSave={handleSaveBudgets} 
+                  currentBudgets={budgets} 
+                  displayCurrency={displayCurrency} 
+                  conversionRate={usdToInrRate} 
+                />
+              </Suspense>
             )}
             {isDataModalOpen && (
-              <DataModal 
-                isOpen={isDataModalOpen} 
-                onClose={() => setIsDataModalOpen(false)} 
-                allExpenses={expenses} 
-                allIncomes={incomes}
-                budgets={budgets} 
-                semesters={semesters}
-                onImport={handleImportExpenses} 
-                onRestoreBackup={handleRestoreBackup}
-              />
+              <Suspense fallback={null}>
+                <DataModal 
+                  isOpen={isDataModalOpen} 
+                  onClose={() => setIsDataModalOpen(false)} 
+                  allExpenses={expenses} 
+                  allIncomes={incomes}
+                  budgets={budgets} 
+                  semesters={semesters}
+                  onImport={handleImportExpenses} 
+                  onRestoreBackup={handleRestoreBackup}
+                />
+              </Suspense>
             )}
             {isCategoryModalOpen && (
-              <CategoryManagerModal 
-                isOpen={isCategoryModalOpen} 
-                onClose={() => setIsCategoryModalOpen(false)} 
-              />
+              <Suspense fallback={null}>
+                <CategoryManagerModal 
+                  isOpen={isCategoryModalOpen} 
+                  onClose={() => setIsCategoryModalOpen(false)} 
+                />
+              </Suspense>
             )}
           </div>
         );
@@ -958,16 +928,20 @@ const handleDeleteIncome = async (id: string) => {
               {/* 1. Auth Page */}
               <Route 
                 path="/login" 
-                element={!isAuthenticated ? <Auth onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" />} 
+                element={!isAuthenticated ? (
+                  <Suspense fallback={<SectionSkeleton title="Loading login" rows={2} />}>
+                    <Auth onLoginSuccess={handleLoginSuccess} />
+                  </Suspense>
+                ) : <Navigate to="/" />} 
               />
               
               {/* 2. Verification Page */}
-              <Route path="/verify" element={<VerifyOTP />} />
+              <Route path="/verify" element={<Suspense fallback={<SectionSkeleton title="Loading verification" rows={2} />}><VerifyOTP /></Suspense>} />
 
               {/* 3. The Main App (Protected) */}
               <Route 
                 path="/" 
-                element={isAuthenticated ? (isLoadingData ? LoadingSpinner : DashboardLayout) : <Navigate to="/login" />}
+                element={isAuthenticated ? DashboardLayout : <Navigate to="/login" />}
               />
 
               {/* Catch-all: Redirect unknown paths to home */}

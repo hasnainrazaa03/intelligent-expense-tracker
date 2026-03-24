@@ -1,12 +1,20 @@
 // Define the base URL for our server
 import { Expense, Income, Budget, Semester } from '../types';
+import {
+  AllDataResponse,
+  ApiErrorResponse,
+  AuditEventResponse,
+  AuthLoginResponse,
+  BulkCreateResponse,
+  RestoreDataResponse,
+} from '../types/api';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 /**
  * A helper function for making API requests.
  * It handles setting headers and parsing the JSON response.
  */
-async function fetchApi(endpoint: string, options: RequestInit = {}) {
+async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
 
   // Only set Content-Type for requests with a body
@@ -31,26 +39,27 @@ async function fetchApi(endpoint: string, options: RequestInit = {}) {
 
   // Handle empty responses (204 No Content)
   if (response.status === 204) {
-    return null;
+    return null as T;
   }
 
   // Try to parse JSON, but handle non-JSON responses gracefully
-  let data: any;
+  let data: unknown;
   try {
     data = await response.json();
   } catch {
     if (!response.ok) {
       throw new Error(`Request failed with status ${response.status}`);
     }
-    return null;
+    return null as T;
   }
 
   if (!response.ok) {
     // If the server returned an error, throw it
-    throw new Error(data.message || 'API request failed');
+    const errorPayload = data as ApiErrorResponse;
+    throw new Error(errorPayload.message || errorPayload.error?.message || 'API request failed');
   }
 
-  return data;
+  return data as T;
 }
 
 // --- Authentication Functions ---
@@ -59,7 +68,7 @@ async function fetchApi(endpoint: string, options: RequestInit = {}) {
  * Registers a new user.
  */
 export const registerUser = (email: string, password: string) => {
-  return fetchApi('/auth/register', {
+  return fetchApi<{ message: string }>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
@@ -69,7 +78,7 @@ export const registerUser = (email: string, password: string) => {
  * Verifies OTP for a registered user.
  */
 export const verifyOtp = (email: string, otp: string) => {
-  return fetchApi('/auth/verify-otp', {
+  return fetchApi<{ message: string }>('/auth/verify-otp', {
     method: 'POST',
     body: JSON.stringify({ email, otp }),
   });
@@ -79,7 +88,7 @@ export const verifyOtp = (email: string, otp: string) => {
  * Resends OTP for a registered user.
  */
 export const resendOtp = (email: string) => {
-  return fetchApi('/auth/resend-otp', {
+  return fetchApi<{ message: string }>('/auth/resend-otp', {
     method: 'POST',
     body: JSON.stringify({ email }),
   });
@@ -88,8 +97,8 @@ export const resendOtp = (email: string) => {
 /**
  * Logs in a user and returns a token.
  */
-export const loginUser = (email: string, password: string): Promise<{ message: string, token: string }> => {
-  return fetchApi('/auth/login', {
+export const loginUser = (email: string, password: string): Promise<AuthLoginResponse> => {
+  return fetchApi<AuthLoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
@@ -99,7 +108,7 @@ export const loginUser = (email: string, password: string): Promise<{ message: s
  * Sends a password reset code to the user's email.
  */
 export const forgotPassword = (email: string) => {
-  return fetchApi('/auth/forgot-password', {
+  return fetchApi<{ message: string }>('/auth/forgot-password', {
     method: 'POST',
     body: JSON.stringify({ email }),
   });
@@ -109,7 +118,7 @@ export const forgotPassword = (email: string) => {
  * Resets the user's password with the provided code.
  */
 export const resetPassword = (email: string, code: string, newPassword: string) => {
-  return fetchApi('/auth/reset-password', {
+  return fetchApi<{ message: string }>('/auth/reset-password', {
     method: 'POST',
     body: JSON.stringify({ email, code, newPassword }),
   });
@@ -120,13 +129,8 @@ export const resetPassword = (email: string, code: string, newPassword: string) 
 /**
  * Fetches all of the logged-in user's data (expenses, incomes, etc.)
  */
-export const getAllData = (): Promise<{
-  expenses: any[];
-  incomes: any[];
-  budgets: any[];
-  semesters: any[];
-}> => {
-  return fetchApi('/data/all', {
+export const getAllData = (): Promise<AllDataResponse> => {
+  return fetchApi<AllDataResponse>('/data/all', {
     method: 'GET',
   });
 };
@@ -139,16 +143,20 @@ export const restoreAllData = (payload: {
   incomes: Omit<Income, 'id'>[];
   budgets: Budget[];
   semesters: Semester[];
-}): Promise<{
-  message: string;
-  expenses: any[];
-  incomes: any[];
-  budgets: any[];
-  semesters: any[];
-}> => {
-  return fetchApi('/data/restore', {
+}): Promise<RestoreDataResponse> => {
+  return fetchApi<RestoreDataResponse>('/data/restore', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+};
+
+/**
+ * Sends an audit event to the server for sensitive UI actions.
+ */
+export const logAuditEvent = (action: string, metadata?: Record<string, unknown>): Promise<AuditEventResponse> => {
+  return fetchApi<AuditEventResponse>('/data/audit', {
+    method: 'POST',
+    body: JSON.stringify({ action, metadata }),
   });
 };
 
@@ -157,7 +165,7 @@ export const restoreAllData = (payload: {
  * The 'expenseData' is the Omit<Expense, 'id'> from your form.
  */
 export const createExpense = (expenseData: Omit<Expense, 'id'>): Promise<Expense> => {
-  return fetchApi('/expenses', {
+  return fetchApi<Expense>('/expenses', {
     method: 'POST',
     body: JSON.stringify(expenseData),
   });
@@ -167,7 +175,7 @@ export const createExpense = (expenseData: Omit<Expense, 'id'>): Promise<Expense
  * Updates an existing expense.
  */
 export const updateExpense = (expenseData: Expense): Promise<Expense> => {
-  return fetchApi(`/expenses/${expenseData.id}`, {
+  return fetchApi<Expense>(`/expenses/${expenseData.id}`, {
     method: 'PUT',
     body: JSON.stringify(expenseData),
   });
@@ -177,7 +185,7 @@ export const updateExpense = (expenseData: Expense): Promise<Expense> => {
  * Deletes an expense.
  */
 export const deleteExpense = (id: string): Promise<void> => {
-  return fetchApi(`/expenses/${id}`, {
+  return fetchApi<void>(`/expenses/${id}`, {
     method: 'DELETE',
   });
 };
@@ -188,7 +196,7 @@ export const deleteExpense = (id: string): Promise<void> => {
  * Creates a new income.
  */
 export const createIncome = (incomeData: Omit<Income, 'id'>): Promise<Income> => {
-  return fetchApi('/incomes', {
+  return fetchApi<Income>('/incomes', {
     method: 'POST',
     body: JSON.stringify(incomeData),
   });
@@ -198,7 +206,7 @@ export const createIncome = (incomeData: Omit<Income, 'id'>): Promise<Income> =>
  * Updates an existing income.
  */
 export const updateIncome = (incomeData: Income): Promise<Income> => {
-  return fetchApi(`/incomes/${incomeData.id}`, {
+  return fetchApi<Income>(`/incomes/${incomeData.id}`, {
     method: 'PUT',
     body: JSON.stringify(incomeData),
   });
@@ -208,7 +216,7 @@ export const updateIncome = (incomeData: Income): Promise<Income> => {
  * Deletes an income.
  */
 export const deleteIncome = (id: string): Promise<void> => {
-  return fetchApi(`/incomes/${id}`, {
+  return fetchApi<void>(`/incomes/${id}`, {
     method: 'DELETE',
   });
 };
@@ -219,7 +227,7 @@ export const deleteIncome = (id: string): Promise<void> => {
  * Saves the user's entire budget list.
  */
 export const saveBudgets = (budgets: Budget[]): Promise<Budget[]> => {
-  return fetchApi('/budgets', {
+  return fetchApi<Budget[]>('/budgets', {
     method: 'POST',
     body: JSON.stringify(budgets),
   });
@@ -231,7 +239,7 @@ export const saveBudgets = (budgets: Budget[]): Promise<Budget[]> => {
  * Saves the user's entire list of semesters and installments.
  */
 export const saveSemesters = (semesters: Semester[]): Promise<Semester[]> => {
-  return fetchApi('/semesters', {
+  return fetchApi<Semester[]>('/semesters', {
     method: 'POST',
     body: JSON.stringify(semesters),
   });
@@ -243,7 +251,7 @@ export const saveSemesters = (semesters: Semester[]): Promise<Semester[]> => {
  * Gets a financial analysis from the server.
  */
 export const getAiAnalysis = (): Promise<{ analysis: string }> => {
-  return fetchApi('/ai/analyze', {
+  return fetchApi<{ analysis: string }>('/ai/analyze', {
     method: 'POST',
   });
 };
@@ -251,8 +259,8 @@ export const getAiAnalysis = (): Promise<{ analysis: string }> => {
 /**
  * Creates a batch of new expenses from a CSV import.
  */
-export const createBulkExpenses = (expenses: Omit<Expense, 'id'>[]): Promise<{ message: string }> => {
-  return fetchApi('/expenses/bulk', {
+export const createBulkExpenses = (expenses: Omit<Expense, 'id'>[]): Promise<BulkCreateResponse> => {
+  return fetchApi<BulkCreateResponse>('/expenses/bulk', {
     method: 'POST',
     body: JSON.stringify(expenses),
   });

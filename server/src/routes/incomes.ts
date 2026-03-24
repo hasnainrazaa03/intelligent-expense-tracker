@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math';
+import { writeAuditLog } from '../utils/audit';
+import { SERVER_CONFIG } from '../config';
 
 const router = Router();
 
@@ -9,7 +11,7 @@ const router = Router();
 router.use(authMiddleware);
 
 // S4: Input length limits
-const MAX_TEXT_LENGTH = 500;
+const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
 
 // --- 1. Create new Income ---
 // POST /api/incomes
@@ -126,9 +128,30 @@ router.delete('/:id', async (req: Request, res: Response) => {
       },
     });
 
+    await writeAuditLog({
+      action: 'income_delete',
+      userId,
+      success: true,
+      route: '/api/incomes/:id',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { incomeId },
+    });
+
     res.status(200).json({ success: true, message: 'Income deleted successfully' });
   } catch (error: any) {
     console.error('Failed to delete income:', error);
+
+    await writeAuditLog({
+      action: 'income_delete',
+      userId,
+      success: false,
+      route: '/api/incomes/:id',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { incomeId, error: error?.message || 'unknown' },
+    });
+
     if (error.code === 'P2025') {
       return res.status(404).json({ message: 'Income not found' });
     }
