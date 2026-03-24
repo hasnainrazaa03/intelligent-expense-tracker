@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import trojanLogo from '../../public/trojan-logo.png';
 import { ExpenseTrackerLogo } from './Branding';
 import { 
@@ -26,6 +26,13 @@ const Header: React.FC<HeaderProps> = ({
   onLogout, onManageBudgets, onManageCategories, onDataAction, searchQuery, 
   setSearchQuery, displayCurrency, onCurrencyChange
 }) => {
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <header className="border-b-4 md:border-b-8 border-ink bg-bone sticky top-0 z-40 overflow-hidden">
       {/* 1. STATUS BAR (Hidden on Mobile for vertical space) */}
@@ -36,7 +43,7 @@ const Header: React.FC<HeaderProps> = ({
           <span className="hidden md:inline">STATUS: LOGGED_IN</span>
         </div>
         <div className="font-mono text-[8px] tracking-[0.3em] text-usc-gold">
-          {new Date().toLocaleTimeString()}
+          {currentTime}
         </div>
       </div>
 

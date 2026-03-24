@@ -2,7 +2,7 @@ export type Category = string;
 
 export interface Expense {
   id: string;
-  title:string;
+  title: string;
   amount: number;
   category: Category;
   date: string; // ISO string format: YYYY-MM-DD
@@ -11,6 +11,7 @@ export interface Expense {
   originalAmount?: number;
   originalCurrency?: string;
   isRecurring?: boolean;
+  userId?: string;
 }
 
 export interface Income {
@@ -22,6 +23,7 @@ export interface Income {
   notes?: string;
   originalAmount?: number;
   originalCurrency?: string;
+  userId?: string;
 }
 
 export interface Budget {
@@ -30,7 +32,7 @@ export interface Budget {
 }
 
 export interface TuitionInstallment {
-  id: string | number;
+  id: string | number; // string = DB ObjectId, number = temporary client-side ID
   amount: number;
   status: 'paid' | 'unpaid';
   expenseId?: string;

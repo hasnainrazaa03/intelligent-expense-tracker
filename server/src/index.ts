@@ -1,23 +1,26 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import session from 'express-session';
 import passport from 'passport';
+import helmet from 'helmet';
 import './passport-setup';
-import authRoutes from './routes/auth'; // Import our new routes
+import { apiLimiter, aiLimiter } from './middleware/rateLimiter';
+import authRoutes from './routes/auth';
 import dataRoutes from './routes/data';
 import expenseRoutes from './routes/expenses';
 import incomeRoutes from './routes/incomes';
 import budgetRoutes from './routes/budgets';
 import semesterRoutes from './routes/semesters';
 import aiRoutes from './routes/ai';
-import MongoStore from 'connect-mongo';
 
 const app = express();
-const PORT = process.env.PORT || 3001; // Use 3001 for the server
+const PORT = process.env.PORT || 3001;
 
-// --- Middleware ---
+// --- Security Middleware ---
+app.use(helmet());
+
+// --- CORS ---
 const allowedOrigins = [
   'http://localhost:5173', // Local development
   process.env.FRONTEND_URL  // Your Vercel domain
@@ -35,37 +38,37 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
 
-// --- PASSPORT MIDDLEWARE ---
-// This must be added for Passport to work
-app.use(session({
-    secret: process.env.JWT_SECRET || 'fallback_secret', 
-    resave: false, // Set to false when using a database store like MongoStore
-    saveUninitialized: false, // Set to false to comply with GDPR/privacy laws
-    store: MongoStore.create({
-      mongoUrl: process.env.DATABASE_URL,
-      collectionName: 'sessions',
-      ttl: 14 * 24 * 60 * 60 // 14 days
-    }),
-    cookie: { 
-      secure: process.env.NODE_ENV === 'production', 
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24 * 14 // 14 days
-    }
-}));
+// --- Body parsing with size limit ---
+app.use(express.json({ limit: '1mb' }));
+
+// --- Health Check (before auth) ---
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// --- Passport (no session — Google OAuth uses session: false) ---
 app.use(passport.initialize());
 
+// --- General API Rate Limiting ---
+app.use('/api/', apiLimiter);
+
 // --- Routes ---
-app.use('/api/auth', authRoutes); // All auth routes will start with /api/auth
+app.use('/api/auth', authRoutes);
 app.use('/api/data', dataRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/incomes', incomeRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/semesters', semesterRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api/ai', aiLimiter, aiRoutes);
+
+// --- Global Error Handler ---
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Internal server error' });
+});
 
 // --- Start the server ---
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });

@@ -2,12 +2,17 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware} from '../middleware/auth';
 import { Expense } from '../types';
-import { toFinPrecision } from '../utils/math';
+import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math';
 
 const router = Router();
 
 // --- Protect all routes in this file ---
 router.use(authMiddleware);
+
+// Maximum bulk import size
+const MAX_BULK_SIZE = 500;
+// S4: Input length limits
+const MAX_TEXT_LENGTH = 500;
 
 // --- 1. Create new Expense ---
 // POST /api/expenses
@@ -20,23 +25,37 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
+  // S4: Input length limits
+  if (title.length > MAX_TEXT_LENGTH || category.length > MAX_TEXT_LENGTH || (notes && notes.length > MAX_TEXT_LENGTH)) {
+    return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
+  }
+
+  const parsedAmount = parseFiniteFloat(amount);
+  if (parsedAmount === null || parsedAmount < 0) {
+    return res.status(400).json({ message: 'Invalid amount' });
+  }
+
+  const parsedDate = parseValidDate(date);
+  if (!parsedDate) {
+    return res.status(400).json({ message: 'Invalid date' });
+  }
+
   try {
     const newExpense = await prisma.expense.create({
       data: {
-        title,
-        amount: toFinPrecision(parseFloat(amount)),
-        category,
-        date: new Date(date), // Convert ISO string to Date
-        paymentMethod,
-        notes,
-        originalAmount: originalAmount ? toFinPrecision(parseFloat(originalAmount)) : undefined,
-        originalCurrency,
-        isRecurring: isRecurring || false,
-        userId: userId, // Link to the logged-in user
+        title: title.trim(),
+        amount: toFinPrecision(parsedAmount),
+        category: category.trim(),
+        date: parsedDate,
+        paymentMethod: paymentMethod?.trim() || undefined,
+        notes: notes?.trim() || undefined,
+        originalAmount: originalAmount ? toFinPrecision(parseFiniteFloat(originalAmount) ?? 0) : undefined,
+        originalCurrency: originalCurrency || undefined,
+        isRecurring: Boolean(isRecurring),
+        userId: userId,
       },
     });
     
-    // Return the new expense (with the correct date format)
     res.status(201).json({
       ...newExpense,
       date: newExpense.date.toISOString().split('T')[0]
@@ -54,22 +73,37 @@ router.put('/:id', async (req: Request, res: Response) => {
   const expenseId = req.params.id;
   const { title, amount, category, date, paymentMethod, notes, originalAmount, originalCurrency, isRecurring } = req.body;
 
+  // Required-field validation (same as POST)
+  if (!title || !amount || !category || !date) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  const parsedAmount = parseFiniteFloat(amount);
+  if (parsedAmount === null || parsedAmount < 0) {
+    return res.status(400).json({ message: 'Invalid amount' });
+  }
+
+  const parsedDate = parseValidDate(date);
+  if (!parsedDate) {
+    return res.status(400).json({ message: 'Invalid date' });
+  }
+
   try {
     const updatedExpense = await prisma.expense.update({
       where: {
         id: expenseId,
-        userId: userId, // Ensures user can only update their *own* expense
+        userId: userId,
       },
       data: {
-        title,
-        amount: toFinPrecision(parseFloat(amount)),
-        category,
-        date: new Date(date),
-        paymentMethod,
-        notes,
-        originalAmount: originalAmount ? toFinPrecision(parseFloat(originalAmount)) : undefined,
-        originalCurrency,
-        isRecurring: isRecurring || false,
+        title: title?.trim(),
+        amount: toFinPrecision(parsedAmount),
+        category: category?.trim(),
+        date: parsedDate,
+        paymentMethod: paymentMethod?.trim() || undefined,
+        notes: notes?.trim() || undefined,
+        originalAmount: originalAmount ? toFinPrecision(parseFiniteFloat(originalAmount) ?? 0) : undefined,
+        originalCurrency: originalCurrency || undefined,
+        isRecurring: Boolean(isRecurring),
       },
     });
 
@@ -77,9 +111,12 @@ router.put('/:id', async (req: Request, res: Response) => {
       ...updatedExpense,
       date: updatedExpense.date.toISOString().split('T')[0]
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update expense:', error);
-    res.status(404).json({ message: 'Expense not found or failed to update' });
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Expense not found' });
+    }
+    res.status(500).json({ message: 'Failed to update expense' });
   }
 });
 
@@ -94,14 +131,17 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await prisma.expense.delete({
       where: {
         id: expenseId,
-        userId: userId, // Ensures user can only delete their *own* expense
+        userId: userId,
       },
     });
 
     res.status(200).json({ success: true, message: 'Expense deleted successfully' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to delete expense:', error);
-    res.status(404).json({ message: 'Expense not found or failed to delete' });
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Expense not found' });
+    }
+    res.status(500).json({ message: 'Failed to delete expense' });
   }
 });
 
@@ -109,30 +149,38 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // POST /api/expenses/bulk
 router.post('/bulk', async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const expenses = req.body as Omit<Expense, 'id'>[]; // Expect an array
+  const expenses = req.body as Omit<Expense, 'id'>[];
 
   if (!Array.isArray(expenses) || expenses.length === 0) {
     return res.status(400).json({ message: 'Request body must be a non-empty array of expenses' });
   }
 
+  if (expenses.length > MAX_BULK_SIZE) {
+    return res.status(400).json({ message: `Maximum bulk import size is ${MAX_BULK_SIZE} records` });
+  }
+
   try {
     const dataToCreate = expenses.map((expense, index) => {
-      // Robust Date Check for each item in the bulk array
-      const parsedDate = new Date(expense.date);
-      if (isNaN(parsedDate.getTime())) {
+      const parsedDate = parseValidDate(expense.date);
+      if (!parsedDate) {
         throw new Error(`Invalid date at row ${index + 1}: "${expense.date}"`);
       }
 
+      const parsedAmount = parseFiniteFloat(expense.amount as any);
+      if (parsedAmount === null) {
+        throw new Error(`Invalid amount at row ${index + 1}: "${expense.amount}"`);
+      }
+
       return {
-        title: expense.title,
-        category: expense.category,
-        amount: toFinPrecision(parseFloat(expense.amount as any)),
+        title: (expense.title || '').trim(),
+        category: (expense.category || '').trim(),
+        amount: toFinPrecision(parsedAmount),
         date: parsedDate,
-        paymentMethod: expense.paymentMethod,
-        notes: expense.notes,
-        originalAmount: expense.originalAmount ? toFinPrecision(parseFloat(expense.originalAmount as any)) : undefined,
-        originalCurrency: expense.originalCurrency,
-        isRecurring: expense.isRecurring || false,
+        paymentMethod: expense.paymentMethod?.trim() || undefined,
+        notes: expense.notes?.trim() || undefined,
+        originalAmount: expense.originalAmount ? toFinPrecision(parseFiniteFloat(expense.originalAmount as any) ?? 0) : undefined,
+        originalCurrency: expense.originalCurrency || undefined,
+        isRecurring: Boolean(expense.isRecurring),
         userId: userId, 
       };
     });
@@ -145,7 +193,6 @@ router.post('/bulk', async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('Failed to bulk create expenses:', error);
-    // Return the specific validation error message if one was thrown
     res.status(400).json({ message: error.message || 'Failed to import expenses' });
   }
 });

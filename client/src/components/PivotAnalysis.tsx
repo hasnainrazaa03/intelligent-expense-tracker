@@ -127,7 +127,27 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses, displayCurrency
 
       {/* 4. EXPORT CALLOUT */}
       <div className="flex justify-end pt-4">
-        <button className="w-full md:w-auto flex items-center justify-center space-x-2 bg-bone border-4 border-ink px-6 py-4 font-loud text-xs md:text-sm text-ink shadow-neo active:translate-y-1 transition-all uppercase">
+        <button 
+          onClick={() => {
+            // Generate CSV from pivot data
+            const headers = ['Data Point', 'Total', 'Count', 'Average'];
+            const rows = pivotData.map(row => [
+              row.name,
+              row.total.toFixed(2),
+              row.count.toString(),
+              row.avg.toFixed(2),
+            ]);
+            const csvContent = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `pivot_analysis_${groupBy}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="w-full md:w-auto flex items-center justify-center space-x-2 bg-bone border-4 border-ink px-6 py-4 font-loud text-xs md:text-sm text-ink shadow-neo active:translate-y-1 transition-all uppercase"
+        >
           <ClipboardDocumentListIcon className="h-5 w-5" />
           <span>DOWNLOAD_CSV_MANIFEST</span>
         </button>

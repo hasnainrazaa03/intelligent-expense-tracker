@@ -111,8 +111,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         });
 
         const now = new Date();
-        const year = (selectedRange === 'this_month' || now.getUTCMonth() !== 0) ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
-        const month = selectedRange === 'this_month' ? now.getUTCMonth() : now.getUTCMonth() - 1;
+        const year = selectedRange === 'this_month' ? now.getUTCFullYear() : 
+          (now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear());
+        const month = selectedRange === 'this_month' ? now.getUTCMonth() : 
+          (now.getUTCMonth() === 0 ? 11 : now.getUTCMonth() - 1);
         const daysInMonth = new Date(year, month + 1, 0).getUTCDate();
         
         return Array.from({ length: daysInMonth }, (_, i) => {

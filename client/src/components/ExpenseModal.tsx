@@ -11,6 +11,7 @@ interface ExpenseModalProps {
   onSave: (expense: any) => void;
   expense: Expense | null;
   displayCurrency: 'USD' | 'INR';
+  parentConversionRate?: number | null;
 }
 
 // --- WHIMSICAL COMPONENT: THE TRACKING EYES ---
@@ -18,13 +19,20 @@ const TrojanEyes = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   
   useEffect(() => {
+    let rafId: number;
     const handleMouseMove = (e: MouseEvent) => {
-      const x = (e.clientX / window.innerWidth - 0.5) * 12;
-      const y = (e.clientY / window.innerHeight - 0.5) * 12;
-      setMousePos({ x, y });
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 12;
+        const y = (e.clientY / window.innerHeight - 0.5) * 12;
+        setMousePos({ x, y });
+      });
     };
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return (
@@ -44,7 +52,7 @@ const TrojanEyes = () => {
   );
 };
 
-const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, displayCurrency }) => {
+const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, displayCurrency, parentConversionRate }) => {
   // --- CORE STATE (PRESERVED) ---
   const [title, setTitle] = useState(expense?.title || '');
   const [amount, setAmount] = useState(''); 
@@ -146,14 +154,18 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             setConversionLoading(true);
             setConversionError(null);
             try {
-                const response = await fetch(`https://api.frankfurter.app/latest?from=INR&to=USD`);
-                if (!response.ok) throw new Error('FETCH_ERROR');
-                const data = await response.json();
-                if (data.rates && data.rates.USD) {
-                    const rate = data.rates.USD;
-                    setConversionRate(rate);
-                    setAmount((parseFloat(originalAmount) * rate).toFixed(2));
+                // P2: Use parent rate if available (1/usdToInr = inrToUsd)
+                let rate: number;
+                if (parentConversionRate && parentConversionRate > 0) {
+                    rate = 1 / parentConversionRate;
+                } else {
+                    const response = await fetch(`https://api.frankfurter.app/latest?from=INR&to=USD`);
+                    if (!response.ok) throw new Error('FETCH_ERROR');
+                    const data = await response.json();
+                    rate = data.rates.USD;
                 }
+                setConversionRate(rate);
+                setAmount((parseFloat(originalAmount) * rate).toFixed(2));
             } catch (err: any) {
                 setConversionError("SYNC_FAILED");
                 setAmount('');
@@ -164,7 +176,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     };
     const debounce = setTimeout(convert, 500);
     return () => clearTimeout(debounce);
-  }, [selectedCurrency, originalAmount]);
+  }, [selectedCurrency, originalAmount, parentConversionRate]);
 
   // --- HANDLERS ---
   const handleCategorySelect = (selectedCategory: Category) => {

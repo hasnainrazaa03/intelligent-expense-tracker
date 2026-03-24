@@ -1,5 +1,6 @@
 import React from 'react';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ interface AnalysisModalProps {
 const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, analysis, isLoading, error }) => {
   if (!isOpen) return null;
 
-  const parsedAnalysis = analysis ? marked.parse(analysis) : '';
+  const parsedAnalysis = analysis ? DOMPurify.sanitize(marked.parse(analysis) as string) : '';
 
   return (
     <div 

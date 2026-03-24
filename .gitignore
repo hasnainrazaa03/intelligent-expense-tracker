@@ -19,3 +19,7 @@ server/dist
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Local backups and exported data
+server/backups/
+**/backup-*.json

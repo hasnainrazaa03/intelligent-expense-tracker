@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 
@@ -34,6 +34,14 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 
 
 const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data, displayCurrency, conversionRate }) => {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+      const handleResize = () => setIsMobile(window.innerWidth < 768);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     if (data.length === 0) {
         return (
           <div className="flex items-center justify-center h-full font-loud text-xs text-ink/30 italic uppercase">
@@ -84,7 +92,7 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data, d
           dataKey="spent" 
           name="Actual_Spent" 
           stroke="#990000" 
-          strokeWidth={window.innerWidth < 768 ? 2 : 4} 
+          strokeWidth={isMobile ? 2 : 4} 
           dot={{ r: 3, fill: '#990000', strokeWidth: 1, stroke: '#FFFFFF' }}
           activeDot={{ r: 6, stroke: '#111111', strokeWidth: 2 }}
         />

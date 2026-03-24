@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 
@@ -28,6 +28,14 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 };
 
 const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data, displayCurrency, conversionRate }) => {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+      const handleResize = () => setIsMobile(window.innerWidth < 768);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     if (data.length === 0) {
         return (
           <div className="flex items-center justify-center h-full font-loud text-xs text-ink/30 italic uppercase">
@@ -50,7 +58,7 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data, displayCurren
           tick={{ fill: '#111111', fontSize: 8, fontWeight: 900 }} 
           axisLine={{ stroke: '#111111', strokeWidth: 2 }}
           tickLine={{ stroke: '#111111', strokeWidth: 1 }}
-          interval={window.innerWidth < 768 ? (data.length > 10 ? 4 : 0) : 0}
+          interval={isMobile ? (data.length > 10 ? 4 : 0) : 0}
         />
         <YAxis 
           tick={{ fill: '#111111', fontSize: 8, fontWeight: 900 }} 
@@ -69,7 +77,7 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data, displayCurren
           dataKey="amount" 
           fill="#FFCC00" 
           stroke="#111111" 
-          strokeWidth={window.innerWidth < 768 ? 1.5 : 3}
+          strokeWidth={isMobile ? 1.5 : 3}
           radius={[0, 0, 0, 0]} 
         />
       </BarChart>

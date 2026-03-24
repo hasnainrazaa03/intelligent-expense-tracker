@@ -7,16 +7,20 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001
  * It handles setting headers and parsing the JSON response.
  */
 async function fetchApi(endpoint: string, options: RequestInit = {}) {
-  // Set default headers
-  const headers = new Headers({
-    'Content-Type': 'application/json',
-    ...options.headers,
-  });
+  const headers = new Headers(options.headers);
+
+  // Only set Content-Type for requests with a body
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'DELETE' && method !== 'HEAD') {
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+  }
 
   // Get the auth token from localStorage (if it exists)
   const token = localStorage.getItem('authToken');
   if (token) {
-    headers.append('Authorization', `Bearer ${token}`);
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   // Build the request
@@ -25,8 +29,21 @@ async function fetchApi(endpoint: string, options: RequestInit = {}) {
     headers,
   });
 
-  // Parse the JSON response
-  const data = await response.json();
+  // Handle empty responses (204 No Content)
+  if (response.status === 204) {
+    return null;
+  }
+
+  // Try to parse JSON, but handle non-JSON responses gracefully
+  let data: any;
+  try {
+    data = await response.json();
+  } catch {
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+    return null;
+  }
 
   if (!response.ok) {
     // If the server returned an error, throw it
@@ -49,12 +66,52 @@ export const registerUser = (email: string, password: string) => {
 };
 
 /**
+ * Verifies OTP for a registered user.
+ */
+export const verifyOtp = (email: string, otp: string) => {
+  return fetchApi('/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp }),
+  });
+};
+
+/**
+ * Resends OTP for a registered user.
+ */
+export const resendOtp = (email: string) => {
+  return fetchApi('/auth/resend-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+};
+
+/**
  * Logs in a user and returns a token.
  */
 export const loginUser = (email: string, password: string): Promise<{ message: string, token: string }> => {
   return fetchApi('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  });
+};
+
+/**
+ * Sends a password reset code to the user's email.
+ */
+export const forgotPassword = (email: string) => {
+  return fetchApi('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+};
+
+/**
+ * Resets the user's password with the provided code.
+ */
+export const resetPassword = (email: string, code: string, newPassword: string) => {
+  return fetchApi('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, newPassword }),
   });
 };
 
@@ -71,6 +128,27 @@ export const getAllData = (): Promise<{
 }> => {
   return fetchApi('/data/all', {
     method: 'GET',
+  });
+};
+
+/**
+ * Restores all user data from a backup payload.
+ */
+export const restoreAllData = (payload: {
+  expenses: Omit<Expense, 'id'>[];
+  incomes: Omit<Income, 'id'>[];
+  budgets: Budget[];
+  semesters: Semester[];
+}): Promise<{
+  message: string;
+  expenses: any[];
+  incomes: any[];
+  budgets: any[];
+  semesters: any[];
+}> => {
+  return fetchApi('/data/restore', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 };
 
@@ -173,7 +251,7 @@ export const getAiAnalysis = (): Promise<{ analysis: string }> => {
 /**
  * Creates a batch of new expenses from a CSV import.
  */
-export const createBulkExpenses = (expenses: Omit<Expense, 'id'>[]): Promise<any> => {
+export const createBulkExpenses = (expenses: Omit<Expense, 'id'>[]): Promise<{ message: string }> => {
   return fetchApi('/expenses/bulk', {
     method: 'POST',
     body: JSON.stringify(expenses),

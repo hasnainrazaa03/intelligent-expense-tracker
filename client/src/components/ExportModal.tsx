@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Expense, Budget } from '../types';
+import { Expense, Budget, Income, Semester } from '../types';
 import { exportData } from '../utils/exportUtils';
 import { 
   XMarkIcon, 
@@ -15,8 +15,16 @@ interface DataModalProps {
   isOpen: boolean;
   onClose: () => void;
   allExpenses: Expense[];
+  allIncomes: Income[];
   budgets: Budget[];
+  semesters: Semester[];
   onImport: (expenses: Omit<Expense, 'id'>[]) => void;
+  onRestoreBackup: (payload: {
+    expenses: Omit<Expense, 'id'>[];
+    incomes: Omit<Income, 'id'>[];
+    budgets: Budget[];
+    semesters: Semester[];
+  }) => Promise<void> | void;
 }
 
 const ranges: { id: DateRange; label: string }[] = [
@@ -26,7 +34,7 @@ const ranges: { id: DateRange; label: string }[] = [
   { id: 'all_time', label: 'ALL_TIME' },
 ];
 
-const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, budgets, onImport }) => {
+const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onRestoreBackup }) => {
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [includeExpenses, setIncludeExpenses] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
@@ -36,6 +44,10 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
   const [importError, setImportError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const backupFileInputRef = useRef<HTMLInputElement>(null);
+  const [backupFile, setBackupFile] = useState<File | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [isRestoringBackup, setIsRestoringBackup] = useState(false);
 
   const filteredExpenses = useMemo(() => {
     if (dateRange === 'all_time') return allExpenses;
@@ -65,11 +77,45 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
     exportData(format, includeExpenses, filteredExpenses, includeBudgets, budgets, dateRangeLabel);
     onClose();
   };
+
+  const handleExportFullBackup = () => {
+    const payload = {
+      version: '1.0.0',
+      exportedAt: new Date().toISOString(),
+      source: 'intelligent-expense-tracker',
+      data: {
+        expenses: allExpenses,
+        incomes: allIncomes,
+        budgets,
+        semesters,
+      },
+      preferences: {
+        displayCurrency: localStorage.getItem('displayCurrency') || 'USD',
+        customCategories: localStorage.getItem('customCategories'),
+        deletedSubcategories: localStorage.getItem('deletedSubcategories'),
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `expense_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
         setImportFile(event.target.files[0]);
         setImportError(null);
+    }
+  };
+
+  const handleBackupFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      setBackupFile(event.target.files[0]);
+      setBackupError(null);
     }
   };
 
@@ -93,12 +139,32 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
             if (!requiredHeaders.every(h => header.includes(h))) {
                 throw new Error(`MISSING_HEADERS: ${requiredHeaders.join(', ')}`);
             }
+
+            // Parse CSV line handling quoted fields (e.g., "value with, comma")
+            const parseCsvLine = (line: string): string[] => {
+                const result: string[] = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim());
+                return result;
+            };
             
             const importedExpenses = lines.slice(1).map((line) => {
                 if (!line.trim()) return null;
-                const values = line.split(',');
+                const values = parseCsvLine(line);
                 const entry: any = header.reduce((obj, key, i) => {
-                    obj[key] = values[i] ? values[i].replace(/"/g, '').trim() : undefined;
+                    obj[key] = values[i] ? values[i].replace(/^"|"$/g, '').trim() : undefined;
                     return obj;
                 }, {} as any);
 
@@ -126,6 +192,54 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
         }
     };
     reader.readAsText(importFile);
+  };
+
+  const handleRestoreBackup = () => {
+    if (!backupFile) {
+      setBackupError('BACKUP_FILE_REQUIRED');
+      return;
+    }
+
+    setIsRestoringBackup(true);
+    setBackupError(null);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const jsonText = event.target?.result as string;
+        const parsed = JSON.parse(jsonText);
+
+        const backupData = parsed?.data || parsed;
+        if (!backupData || !Array.isArray(backupData.expenses) || !Array.isArray(backupData.incomes) || !Array.isArray(backupData.budgets) || !Array.isArray(backupData.semesters)) {
+          throw new Error('INVALID_BACKUP_STRUCTURE');
+        }
+
+        await onRestoreBackup({
+          expenses: backupData.expenses,
+          incomes: backupData.incomes,
+          budgets: backupData.budgets,
+          semesters: backupData.semesters,
+        });
+
+        const prefs = parsed?.preferences;
+        if (prefs?.displayCurrency === 'USD' || prefs?.displayCurrency === 'INR') {
+          localStorage.setItem('displayCurrency', prefs.displayCurrency);
+        }
+        if (typeof prefs?.customCategories === 'string') {
+          localStorage.setItem('customCategories', prefs.customCategories);
+        }
+        if (typeof prefs?.deletedSubcategories === 'string') {
+          localStorage.setItem('deletedSubcategories', prefs.deletedSubcategories);
+        }
+
+        onClose();
+      } catch (error: any) {
+        setBackupError(error.message || 'BACKUP_RESTORE_FAILED');
+      } finally {
+        setIsRestoringBackup(false);
+      }
+    };
+    reader.readAsText(backupFile);
   };
 
   if (!isOpen) return null;
@@ -198,6 +312,13 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
             >
               DOWNLOAD_MANIFEST
             </button>
+
+            <button
+              onClick={handleExportFullBackup}
+              className="w-full bg-ink text-bone font-loud text-sm py-3 border-4 border-ink shadow-neo-gold hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+            >
+              EXPORT_FULL_BACKUP_(JSON)
+            </button>
           </div>
 
           <div className="relative flex items-center justify-center py-2">
@@ -233,6 +354,34 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, bud
               className="w-full bg-ink text-bone font-loud text-lg py-4 border-4 border-ink shadow-neo-gold hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30"
             >
               {isImporting ? 'INGESTING...' : 'INITIALIZE_IMPORT'}
+            </button>
+
+            <div className="relative flex items-center justify-center py-2">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t-4 border-dashed border-ink/10" /></div>
+              <span className="relative bg-bone px-4 font-loud text-[10px] opacity-30 uppercase">Backup_Restore</span>
+            </div>
+
+            <input type="file" ref={backupFileInputRef} accept=".json" onChange={handleBackupFileChange} className="hidden" />
+            <button
+              onClick={() => backupFileInputRef.current?.click()}
+              className="w-full bg-white border-4 border-ink border-dashed p-6 font-loud text-ink flex flex-col items-center text-center"
+            >
+              {backupFile ? <span className="text-usc-cardinal break-all">{backupFile.name.toUpperCase()}</span> : 'UPLOAD_BACKUP_JSON_FILE'}
+            </button>
+
+            {backupError && (
+              <div className="bg-ink text-usc-cardinal p-3 border-2 border-ink shadow-neo flex items-center font-bold text-[10px] uppercase italic">
+                <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
+                Restore Error: {backupError}
+              </div>
+            )}
+
+            <button
+              onClick={handleRestoreBackup}
+              disabled={isRestoringBackup || !backupFile}
+              className="w-full bg-usc-cardinal text-bone font-loud text-sm py-3 border-4 border-ink shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30"
+            >
+              {isRestoringBackup ? 'RESTORING_BACKUP...' : 'RESTORE_FULL_BACKUP'}
             </button>
           </div>
         </div>

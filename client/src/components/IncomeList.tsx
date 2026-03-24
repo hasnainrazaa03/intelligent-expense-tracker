@@ -10,7 +10,7 @@ import Pagination from './Pagination';
 interface IncomeListProps {
   incomes: Income[];
   onEdit: (income: Income) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<void> | void;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
 }
@@ -21,6 +21,7 @@ interface ConfirmationDialogProps {
   onConfirm: () => void;
   title: string;
   children: React.ReactNode;
+  loading?: boolean;
 }
 
 interface IncomeItemProps {
@@ -32,7 +33,7 @@ interface IncomeItemProps {
 }
 
 // --- NEO-BRUTALIST CONFIRMATION DIALOG ---
-const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, title, children }) => {
+const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, title, children, loading }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-ink/80 backdrop-blur-sm z-[110] flex justify-center items-center p-4" onClick={onClose}>
@@ -45,11 +46,11 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose
               {children}
           </div>
           <div className="flex p-3 md:p-4 border-t-4 border-ink gap-3 md:gap-4 bg-bone">
-              <button onClick={onClose} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-white text-ink shadow-neo active:translate-x-1 transition-all">
+              <button onClick={onClose} disabled={loading} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-white text-ink shadow-neo active:translate-x-1 transition-all disabled:opacity-50">
               CANCEL
               </button>
-              <button onClick={onConfirm} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-usc-cardinal text-bone shadow-neo active:translate-x-1 transition-all">
-              PURGE_DATA
+              <button onClick={onConfirm} disabled={loading} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-usc-cardinal text-bone shadow-neo active:translate-x-1 transition-all disabled:opacity-50">
+              {loading ? 'PURGING...' : 'PURGE_DATA'}
               </button>
           </div>
       </div>
@@ -113,6 +114,7 @@ const ITEMS_PER_PAGE = 10;
 
 const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, displayCurrency, conversionRate }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   React.useEffect(() => {
@@ -125,10 +127,15 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, disp
     currentPage * ITEMS_PER_PAGE
   );
 
-  const handleConfirmDelete = () => {
-    if (incomeToDeleteId) {
-      onDelete(incomeToDeleteId);
-      setIncomeToDeleteId(null);
+  const handleConfirmDelete = async () => {
+    if (incomeToDeleteId && !isDeleting) {
+      setIsDeleting(true);
+      try {
+        await onDelete(incomeToDeleteId);
+      } finally {
+        setIsDeleting(false);
+        setIncomeToDeleteId(null);
+      }
     }
   };
 
@@ -175,6 +182,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onDelete, disp
         onClose={() => setIncomeToDeleteId(null)}
         onConfirm={handleConfirmDelete}
         title="SYSTEM_ALERT"
+        loading={isDeleting}
       >
         IDENTIFIED RECORD WILL BE DELETED FROM THE CENTRAL DATABASE. PROCEED WITH PERMANENT ERASURE?
       </ConfirmationDialog>

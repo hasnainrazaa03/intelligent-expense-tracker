@@ -1,8 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-// This function now uses the standard types
-// It will find the global 'Express.User' type we just defined
+// Fail-fast: ensure JWT_SECRET is set at startup
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Exiting.');
+  process.exit(1);
+}
+
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -12,17 +17,20 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   }
 
   try {
-    // 1. Cast the verified payload to our new global type
-    const payload = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as Express.User;
+    const payload = jwt.verify(token, JWT_SECRET) as any;
 
-    // 2. This assignment is now 100% type-safe. No more conflicts.
-    req.user = payload;
-    
-    next(); // Continue to the next handler
-  } catch (err) {
+    // Validate that the payload contains the required fields
+    if (!payload || !payload.id || !payload.email) {
+      return res.status(403).json({ message: 'Invalid token payload' });
+    }
+
+    req.user = { id: payload.id, email: payload.email };
+    next();
+  } catch (err: any) {
+    // Differentiate expired vs malformed tokens
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired' });
+    }
     return res.status(403).json({ message: 'Invalid token' });
   }
 };

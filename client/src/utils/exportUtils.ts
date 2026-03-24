@@ -33,6 +33,7 @@ const generateCsv = (items: any[], filename: string) => {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 };
 
 const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, filename: string) => {

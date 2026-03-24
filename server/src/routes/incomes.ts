@@ -1,12 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { toFinPrecision } from '../utils/math';
+import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math';
 
 const router = Router();
 
 // --- Protect all routes in this file ---
 router.use(authMiddleware);
+
+// S4: Input length limits
+const MAX_TEXT_LENGTH = 500;
 
 // --- 1. Create new Income ---
 // POST /api/incomes
@@ -18,21 +21,35 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
+  // S4: Input length limits
+  if (title.length > MAX_TEXT_LENGTH || category.length > MAX_TEXT_LENGTH || (notes && notes.length > MAX_TEXT_LENGTH)) {
+    return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
+  }
+
+  const parsedAmount = parseFiniteFloat(amount);
+  if (parsedAmount === null || parsedAmount < 0) {
+    return res.status(400).json({ message: 'Invalid amount' });
+  }
+
+  const parsedDate = parseValidDate(date);
+  if (!parsedDate) {
+    return res.status(400).json({ message: 'Invalid date' });
+  }
+
   try {
     const newIncome = await prisma.income.create({
       data: {
-        title,
-        amount: toFinPrecision(parseFloat(amount)),
-        category,
-        date: new Date(date), // Convert ISO string to Date
-        notes,
-        originalAmount: originalAmount ? toFinPrecision(parseFloat(originalAmount)) : undefined,
-        originalCurrency,
-        userId: userId, // Link to the logged-in user
+        title: title.trim(),
+        amount: toFinPrecision(parsedAmount),
+        category: category.trim(),
+        date: parsedDate,
+        notes: notes?.trim() || undefined,
+        originalAmount: originalAmount ? toFinPrecision(parseFiniteFloat(originalAmount) ?? 0) : undefined,
+        originalCurrency: originalCurrency || undefined,
+        userId: userId,
       },
     });
     
-    // Return the new income (with the correct date format)
     res.status(201).json({
       ...newIncome,
       date: newIncome.date.toISOString().split('T')[0]
@@ -50,20 +67,34 @@ router.put('/:id', async (req: Request, res: Response) => {
   const incomeId = req.params.id;
   const { title, amount, category, date, notes, originalAmount, originalCurrency } = req.body;
 
+  if (!title || !amount || !category || !date) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  const parsedAmount = parseFiniteFloat(amount);
+  if (parsedAmount === null || parsedAmount < 0) {
+    return res.status(400).json({ message: 'Invalid amount' });
+  }
+
+  const parsedDate = parseValidDate(date);
+  if (!parsedDate) {
+    return res.status(400).json({ message: 'Invalid date' });
+  }
+
   try {
     const updatedIncome = await prisma.income.update({
       where: {
         id: incomeId,
-        userId: userId, // Ensures user can only update their *own* income
+        userId: userId,
       },
       data: {
-        title,
-        amount: toFinPrecision(parseFloat(amount)),
-        category,
-        date: new Date(date),
-        notes,
-        originalAmount: originalAmount ? toFinPrecision(parseFloat(originalAmount)) : undefined,
-        originalCurrency,
+        title: title?.trim(),
+        amount: toFinPrecision(parsedAmount),
+        category: category?.trim(),
+        date: parsedDate,
+        notes: notes?.trim() || undefined,
+        originalAmount: originalAmount ? toFinPrecision(parseFiniteFloat(originalAmount) ?? 0) : undefined,
+        originalCurrency: originalCurrency || undefined,
       },
     });
 
@@ -71,9 +102,12 @@ router.put('/:id', async (req: Request, res: Response) => {
       ...updatedIncome,
       date: updatedIncome.date.toISOString().split('T')[0]
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update income:', error);
-    res.status(404).json({ message: 'Income not found or failed to update' });
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Income not found' });
+    }
+    res.status(500).json({ message: 'Failed to update income' });
   }
 });
 
@@ -88,14 +122,17 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await prisma.income.delete({
       where: {
         id: incomeId,
-        userId: userId, // Ensures user can only delete their *own* income
+        userId: userId,
       },
     });
 
-    res.status(204).send(); // 204 No Content
-  } catch (error) {
+    res.status(200).json({ success: true, message: 'Income deleted successfully' });
+  } catch (error: any) {
     console.error('Failed to delete income:', error);
-    res.status(404).json({ message: 'Income not found or failed to delete' });
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Income not found' });
+    }
+    res.status(500).json({ message: 'Failed to delete income' });
   }
 });
 

@@ -5,12 +5,17 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const router = Router();
 
+// Configurable model names via environment variables
+const PRIMARY_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-2.5-flash';
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-1.5-flash';
+
 let genAI: GoogleGenerativeAI;
 try {
   if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not set in the .env file.");
+    console.warn("GEMINI_API_KEY is not set — AI analysis endpoint will be disabled.");
+  } else {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   }
-  genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 } catch (error) {
   console.error("Failed to initialize GoogleGenAI:", error);
 }
@@ -25,9 +30,13 @@ router.post('/analyze', async (req: Request, res: Response) => {
   const userId = req.user!.id;
 
   try {
+    // P5: Only fetch last 6 months of data to prevent context overflow
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
     const [expenses, incomes, budgets] = await Promise.all([
-      prisma.expense.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
-      prisma.income.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
+      prisma.expense.findMany({ where: { userId, date: { gte: sixMonthsAgo } }, orderBy: { date: 'desc' } }),
+      prisma.income.findMany({ where: { userId, date: { gte: sixMonthsAgo } }, orderBy: { date: 'desc' } }),
       prisma.budget.findMany({ where: { userId } }),
     ]);
 
@@ -112,12 +121,12 @@ router.post('/analyze', async (req: Request, res: Response) => {
     // --- ROBUST MODEL CALL WITH FALLBACK ---
     let text: string;
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL });
       const result = await model.generateContent(prompt);
       text = (await result.response).text();
     } catch (modelError) {
-      console.warn("Primary model failed. Attempting fallback to gemini-1.5-flash...");
-      const fallbackModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      console.warn(`Primary model (${PRIMARY_MODEL}) failed. Attempting fallback to ${FALLBACK_MODEL}...`);
+      const fallbackModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
       const result = await fallbackModel.generateContent(prompt);
       text = (await result.response).text();
     }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { WalletIcon, GoogleIcon, ExclamationTriangleIcon } from './Icons';
-import { registerUser, loginUser } from '../services/api';
+import { registerUser, loginUser, forgotPassword, resetPassword } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
@@ -15,7 +15,26 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [isLoginView, setIsLoginView] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // Forgot password state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetStep, setResetStep] = useState<'email' | 'code'>('email');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  const closeForgotPasswordModal = () => {
+    setShowForgotPassword(false);
+    setResetStep('email');
+    setResetCode('');
+    setNewPassword('');
+    setResetError(null);
+    setResetLoading(false);
+  };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,10 +49,6 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       } else {
         await registerUser(email, password);
         navigate('/verify', { state: { email: email } });
-        setError('REGISTRATION_SUCCESSFUL // PLEASE_SIGN_IN');
-        setIsLoginView(true);
-        setEmail('');
-        setPassword('');
       }
     } catch (err: any) {
       setError(err.message || 'AUTHENTICATION_FAILURE');
@@ -48,6 +63,28 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     setEmail('');
     setPassword('');
     setError(null);
+    setSuccessMsg(null);
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetError(null);
+    try {
+      if (resetStep === 'email') {
+        await forgotPassword(resetEmail);
+        setResetStep('code');
+      } else {
+        await resetPassword(resetEmail, resetCode, newPassword);
+        closeForgotPasswordModal();
+        setResetEmail('');
+        setSuccessMsg('Password reset successfully! You can now log in.');
+      }
+    } catch (err: any) {
+      setResetError(err.message || 'Something went wrong');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const inputClasses = "w-full bg-white border-4 border-ink p-3 md:p-4 font-loud text-base md:text-lg focus:ring-4 md:ring-8 focus:ring-usc-gold focus:outline-none transition-all placeholder:text-ink/50 text-ink";
@@ -83,6 +120,11 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 {error}
               </div>
             )}
+            {successMsg && (
+              <div className="bg-green-700 text-bone p-4 border-4 border-ink flex items-center font-loud text-xs uppercase">
+                {successMsg}
+              </div>
+            )}
 
             <div className="space-y-6">
               <div>
@@ -112,6 +154,22 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                   autoComplete={isLoginView ? "current-password" : "new-password"}
                   disabled={loading}
                 />
+                {isLoginView && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(true);
+                      setResetEmail(email);
+                      setResetError(null);
+                      setResetStep('email');
+                      setResetCode('');
+                      setNewPassword('');
+                    }}
+                    className="mt-2 font-loud text-[9px] uppercase tracking-widest text-usc-cardinal hover:text-ink transition-colors underline decoration-1 underline-offset-2"
+                  >
+                    FORGOT_PASSCODE?
+                  </button>
+                )}
               </div>
             </div>
 
@@ -163,6 +221,100 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           <span>© TROJAN_FIN_SYSTEM_2025</span>
         </div>
       </div>
+
+      {/* FORGOT PASSWORD MODAL */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={closeForgotPasswordModal} />
+          <div className="relative w-full max-w-md bg-bone border-4 border-ink shadow-neo z-10">
+            <div className="bg-usc-cardinal p-5 border-b-4 border-ink flex justify-between items-center">
+              <h2 className="font-loud text-xl text-bone uppercase tracking-tight">
+                {resetStep === 'email' ? 'RESET_PASSCODE' : 'ENTER_RESET_CODE'}
+              </h2>
+              <button
+                type="button"
+                onClick={closeForgotPasswordModal}
+                className="text-bone hover:text-usc-gold transition-colors font-loud text-2xl leading-none"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              {resetError && (
+                <div className="bg-ink text-usc-cardinal p-3 border-4 border-usc-cardinal font-loud text-xs italic uppercase flex items-center">
+                  <ExclamationTriangleIcon className="h-4 w-4 mr-2 shrink-0" />
+                  {resetError}
+                </div>
+              )}
+
+              {resetStep === 'email' ? (
+                <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-ink/60">
+                    Enter your registered email to receive a reset code.
+                  </p>
+                  <div>
+                    <label className={labelClasses}>EMAIL_ADDRESS</label>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={e => setResetEmail(e.target.value)}
+                      className={inputClasses}
+                      required
+                      placeholder="USER@USC.EDU"
+                      disabled={resetLoading}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full bg-usc-gold text-ink font-loud text-base py-3 border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 uppercase"
+                  >
+                    {resetLoading ? 'TRANSMITTING...' : 'SEND_RESET_CODE'}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-ink/60">
+                    Enter the 6-digit code sent to {resetEmail}.
+                  </p>
+                  <div>
+                    <label className={labelClasses}>RESET_CODE</label>
+                    <input
+                      type="text"
+                      value={resetCode}
+                      onChange={e => setResetCode(e.target.value)}
+                      className={inputClasses}
+                      required
+                      placeholder="000000"
+                      maxLength={6}
+                      disabled={resetLoading}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>NEW_PASSCODE</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      className={inputClasses}
+                      required
+                      placeholder="••••••••"
+                      disabled={resetLoading}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full bg-usc-gold text-ink font-loud text-base py-3 border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 uppercase"
+                  >
+                    {resetLoading ? 'RESETTING...' : 'RESET_PASSCODE'}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

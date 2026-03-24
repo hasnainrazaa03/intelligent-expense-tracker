@@ -32,7 +32,7 @@ const PaymentMethodChart: React.FC<PaymentMethodChartProps> = ({ expenses, displ
       return acc;
     }, {} as { [key: string]: number });
 
-    return Object.entries(paymentMethodTotals)
+    return (Object.entries(paymentMethodTotals) as [string, number][])
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [expenses]);

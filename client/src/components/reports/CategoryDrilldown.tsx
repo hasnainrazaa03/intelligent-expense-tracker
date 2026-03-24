@@ -34,7 +34,7 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses, display
       return acc;
     }, {} as { [key: string]: number });
 
-    return Object.entries(mainCategoryTotals)
+    return (Object.entries(mainCategoryTotals) as [string, number][])
       .map(([name, amount]) => ({
         name,
         amount,
@@ -54,7 +54,7 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses, display
         return acc;
       }, {} as { [key: string]: number });
     
-    return Object.entries(subCategoryTotals)
+    return (Object.entries(subCategoryTotals) as [string, number][])
       .map(([name, amount]) => ({
         name,
         amount,

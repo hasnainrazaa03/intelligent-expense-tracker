@@ -55,8 +55,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurren
           {data.map((entry, index) => (
             <Cell 
               key={`cell-${index}`} 
-              // USC Palette Cycle: Cardinal, Gold, Ink, and a Darkened Bone
-              fill={[ '#990000', '#FFCC00', '#111111', '#CCCCCC' ][index % 4]} 
+              fill={entry.fill}
             />
           ))}
         </Pie>

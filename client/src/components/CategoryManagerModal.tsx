@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { XMarkIcon, PlusCircleIcon, TrashIcon, TagIcon } from './Icons';
 import { CATEGORIES } from '../constants';
 
@@ -7,8 +7,89 @@ interface CategoryManagerModalProps {
   onClose: () => void;
 }
 
+// Merge default CATEGORIES with any custom ones from localStorage
+const loadCategories = (): Record<string, string[]> => {
+  const base = JSON.parse(JSON.stringify(CATEGORIES)) as Record<string, string[]>;
+  try {
+    const custom = localStorage.getItem('customCategories');
+    if (custom) {
+      const parsed = JSON.parse(custom) as Record<string, string[]>;
+      for (const cat in parsed) {
+        if (base[cat]) {
+          // Add custom subcategories that aren't already in the base
+          parsed[cat].forEach(sub => {
+            if (!base[cat].includes(sub)) base[cat].push(sub);
+          });
+        } else {
+          base[cat] = parsed[cat];
+        }
+      }
+      // Handle deletions
+      const deleted = localStorage.getItem('deletedSubcategories');
+      if (deleted) {
+        const deletedMap = JSON.parse(deleted) as Record<string, string[]>;
+        for (const cat in deletedMap) {
+          if (base[cat]) {
+            base[cat] = base[cat].filter(sub => !deletedMap[cat].includes(sub));
+          }
+        }
+      }
+    }
+  } catch { /* ignore corrupt data */ }
+  return base;
+};
+
 const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<string>(Object.keys(CATEGORIES)[0]);
+  const [categories, setCategories] = useState<Record<string, string[]>>(loadCategories);
+  const [newSubcategory, setNewSubcategory] = useState('');
+
+  // Save custom additions/deletions to localStorage
+  useEffect(() => {
+    if (!isOpen) return;
+    // Compute diff from defaults
+    const additions: Record<string, string[]> = {};
+    const deletions: Record<string, string[]> = {};
+    const defaultCats = CATEGORIES as Record<string, string[]>;
+
+    for (const cat in categories) {
+      const defaults = defaultCats[cat] || [];
+      const added = categories[cat].filter(s => !defaults.includes(s));
+      if (added.length > 0) additions[cat] = added;
+    }
+    for (const cat in defaultCats) {
+      const removed = defaultCats[cat].filter(s => !categories[cat]?.includes(s));
+      if (removed.length > 0) deletions[cat] = removed;
+    }
+
+    if (Object.keys(additions).length > 0) {
+      localStorage.setItem('customCategories', JSON.stringify(additions));
+    } else {
+      localStorage.removeItem('customCategories');
+    }
+    if (Object.keys(deletions).length > 0) {
+      localStorage.setItem('deletedSubcategories', JSON.stringify(deletions));
+    } else {
+      localStorage.removeItem('deletedSubcategories');
+    }
+  }, [categories, isOpen]);
+
+  const handleDeleteSubcategory = (cat: string, sub: string) => {
+    setCategories(prev => ({
+      ...prev,
+      [cat]: prev[cat].filter(s => s !== sub),
+    }));
+  };
+
+  const handleAddSubcategory = (cat: string) => {
+    const trimmed = newSubcategory.trim();
+    if (!trimmed || categories[cat].includes(trimmed)) return;
+    setCategories(prev => ({
+      ...prev,
+      [cat]: [...prev[cat], trimmed],
+    }));
+    setNewSubcategory('');
+  };
 
   if (!isOpen) return null;
 
@@ -48,25 +129,41 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
           <div className="w-full md:w-2/3 p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-6 flex-1 custom-scrollbar">
             <div className="flex justify-between items-end border-b-2 md:border-b-4 border-ink pb-2 md:pb-4">
               <h3 className="font-loud text-lg md:text-2xl text-ink uppercase truncate pr-2">{activeTab}_SUBSYSTEMS</h3>
-              <span className="font-mono text-[8px] md:text-[10px] opacity-40 uppercase tracking-tighter text-ink flex-shrink-0">Count: {CATEGORIES[activeTab as keyof typeof CATEGORIES].length}</span>
+              <span className="font-mono text-[8px] md:text-[10px] opacity-40 uppercase tracking-tighter text-ink flex-shrink-0">Count: {(categories[activeTab] || []).length}</span>
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:gap-4">
-              {CATEGORIES[activeTab as keyof typeof CATEGORIES].map((sub: string) => (
+              {(categories[activeTab] || []).map((sub: string) => (
                 <div key={sub} className="flex items-center justify-between bg-white border-2 md:border-4 border-ink p-3 md:p-4 shadow-neo">
                   <span className="font-loud text-xs md:text-sm text-ink uppercase tracking-tight truncate pr-4">{sub}</span>
                   <div className="flex gap-2">
-                    <button className="p-1 text-ink/20 hover:text-usc-cardinal transition-colors flex-shrink-0">
+                    <button 
+                      onClick={() => handleDeleteSubcategory(activeTab, sub)}
+                      className="p-1 text-ink/20 hover:text-usc-cardinal transition-colors flex-shrink-0"
+                    >
                       <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
                     </button>
                   </div>
                 </div>
               ))}
               
-              <button className="w-full border-2 md:border-4 border-dashed border-ink/20 p-3 md:p-4 font-loud text-[10px] md:text-sm text-ink/20 hover:border-usc-gold hover:text-usc-gold transition-all flex items-center justify-center gap-2 uppercase">
-                <PlusCircleIcon className="h-4 w-4 md:h-5 md:w-5" />
-                ADD_NEW_SUBCATEGORY
-              </button>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newSubcategory}
+                  onChange={(e) => setNewSubcategory(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddSubcategory(activeTab); }}
+                  placeholder="NEW_SUBCATEGORY_NAME"
+                  className="flex-1 border-2 md:border-4 border-dashed border-ink/20 p-3 md:p-4 font-loud text-[10px] md:text-sm text-ink focus:border-usc-gold focus:outline-none placeholder:text-ink/20 uppercase"
+                />
+                <button 
+                  onClick={() => handleAddSubcategory(activeTab)}
+                  className="border-2 md:border-4 border-dashed border-ink/20 p-3 md:p-4 font-loud text-[10px] md:text-sm text-ink/20 hover:border-usc-gold hover:text-usc-gold transition-all flex items-center justify-center gap-2 uppercase flex-shrink-0"
+                >
+                  <PlusCircleIcon className="h-4 w-4 md:h-5 md:w-5" />
+                  ADD
+                </button>
+              </div>
             </div>
           </div>
         </div>

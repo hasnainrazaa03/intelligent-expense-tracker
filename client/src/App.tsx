@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import { Expense, Budget, Semester, Income } from './types';
 import Header from './components/Header';
 import Dashboard, { DateRange } from './components/Dashboard';
@@ -20,7 +21,7 @@ import PivotAnalysis from './components/PivotAnalysis';
 import Reports from './components/Reports';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { getAllData } from './services/api';
-import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses } from './services/api';
+import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 type ActiveView = 'expenses' | 'income' | 'pivot' | 'usc' | 'reports';
@@ -77,11 +78,14 @@ const App: React.FC = () => {
   // We add a loading state
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
+  const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
 
   useEffect(() => {
     // Check if we've been redirected from the Google login
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
+    const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
+    const hashParams = new URLSearchParams(hash);
+    const token = hashParams.get('token') ?? params.get('token');
 
     if (token) {
       // 1. Save the token
@@ -90,21 +94,42 @@ const App: React.FC = () => {
       // 2. Update our auth state
       setIsAuthenticated(true);
       
-      // 3. Clean the URL (remove the token)
+      // 3. Clean the URL (remove token from query/hash)
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
-  // Fetch conversion rate
+  // Fetch conversion rate (P1: cached with 1hr TTL)
   useEffect(() => {
     const fetchRate = async () => {
       try {
+        // P1: Check localStorage cache first
+        const cached = localStorage.getItem('usdToInrRate');
+        if (cached) {
+          const { rate, timestamp } = JSON.parse(cached);
+          const ONE_HOUR = 60 * 60 * 1000;
+          if (Date.now() - timestamp < ONE_HOUR) {
+            setUsdToInrRate(rate);
+            return;
+          }
+        }
+
         const response = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR');
         if (!response.ok) throw new Error('Failed to fetch rate');
         const data = await response.json();
-        setUsdToInrRate(data.rates.INR);
+        const rate = data.rates.INR;
+        setUsdToInrRate(rate);
+        
+        // P1: Cache the rate
+        localStorage.setItem('usdToInrRate', JSON.stringify({ rate, timestamp: Date.now() }));
       } catch (error) {
         console.error("Could not fetch conversion rate:", error);
+        // Fallback: try to use cached rate even if expired
+        const cached = localStorage.getItem('usdToInrRate');
+        if (cached) {
+          const { rate } = JSON.parse(cached);
+          setUsdToInrRate(rate);
+        }
       }
     };
     fetchRate();
@@ -126,7 +151,8 @@ const App: React.FC = () => {
       setIsLoadingData(true);
       getAllData()
         .then(data => {
-          setExpenses(data.expenses as Expense[]);
+          const loadedExpenses = data.expenses as Expense[];
+          setExpenses(loadedExpenses);
           setIncomes(data.incomes as Income[]);
           setBudgets(data.budgets as Budget[]);
 
@@ -144,13 +170,53 @@ const App: React.FC = () => {
                 })),
             }));
             setSemesters(initialSemesters);
-            // We'll save these initial semesters to the DB later
+          }
+
+          // F3: Check for recurring expenses from last month not yet created this month
+          const now = new Date();
+          const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const lastMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+          const lastMonthRecurring = loadedExpenses.filter(
+            e => e.isRecurring && e.date.startsWith(lastMonth)
+          );
+          const thisMonthEntries = new Set(
+            loadedExpenses
+              .filter(e => e.date.startsWith(thisMonth))
+              .map(e => `${e.title.toLowerCase()}|${e.category.toLowerCase()}|${e.amount}`)
+          );
+          const missing = lastMonthRecurring.filter(
+            e => !thisMonthEntries.has(`${e.title.toLowerCase()}|${e.category.toLowerCase()}|${e.amount}`)
+          );
+
+          if (missing.length > 0) {
+            const daysInThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const newEntries: Omit<Expense, 'id'>[] = missing.map(e => ({
+              // Clamp day so 31st from prior month doesn't generate invalid dates like YYYY-MM-31 in shorter months
+              date: (() => {
+                const parsedDay = Number.parseInt(e.date.slice(8, 10), 10);
+                const safeDay = Number.isFinite(parsedDay) && parsedDay > 0 ? Math.min(parsedDay, daysInThisMonth) : 1;
+                return `${thisMonth}-${String(safeDay).padStart(2, '0')}`;
+              })(),
+              title: e.title,
+              amount: e.amount,
+              category: e.category,
+              paymentMethod: e.paymentMethod,
+              notes: e.notes,
+              originalAmount: e.originalAmount,
+              originalCurrency: e.originalCurrency,
+              isRecurring: true,
+            }));
+            setPendingRecurring(newEntries);
+          } else {
+            setPendingRecurring([]);
           }
         })
         .catch(err => {
           console.error("Failed to fetch data:", err);
           // If token is invalid, log out
-          if (err.message === 'Invalid token' || err.message === 'No token provided') {
+          if (err.message === 'Invalid token' || err.message === 'No token provided' || err.message === 'Token expired') {
             handleLogout();
           }
         })
@@ -176,6 +242,28 @@ const App: React.FC = () => {
     } 
   }, [displayCurrency, isAuthenticated]);
 
+  // U6: Keyboard shortcuts
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+N or Cmd+N: New expense/income
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        handleOpenModal();
+      }
+      // Escape: Close any open modal
+      if (e.key === 'Escape') {
+        if (isExpenseModalOpen) setIsExpenseModalOpen(false);
+        if (isIncomeModalOpen) setIsIncomeModalOpen(false);
+        if (isBudgetModalOpen) setIsBudgetModalOpen(false);
+        if (isDataModalOpen) setIsDataModalOpen(false);
+        if (isCategoryModalOpen) setIsCategoryModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAuthenticated, isExpenseModalOpen, isIncomeModalOpen, isBudgetModalOpen, isDataModalOpen, isCategoryModalOpen, activeView]);
+
   // Auto-save semesters to the database whenever they change
   useEffect(() => {
     // Only save if we're logged in AND the user has actually made a change
@@ -185,7 +273,6 @@ const App: React.FC = () => {
 
     // Set a timer to wait 800ms after the last change before triggering the API
     const saveTimer = setTimeout(() => {
-      console.log("Saving semesters to database...");
       saveSemesters(semesters)
         .then(() => {
           setIsSemestersDirty(false); // Reset the flag after a successful save
@@ -207,30 +294,77 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken'); // Remove the new token
+    localStorage.removeItem('authToken');
     setIsAuthenticated(false);
     setExpenses([]);
     setIncomes([]);
     setBudgets([]);
+    setSemesters([]);
   };
 
-  // --- NOTE: These functions are NOT YET connected to the API ---
-  // They will only update the app's *local* state.
-  // We will connect these one by one in the next step.
+  // Budget alert: check if a category is near or over its monthly budget
+  const checkBudgetAlert = useCallback((category: string, allExpenses: Expense[]) => {
+    const budget = budgets.find(b => b.category === category);
+    if (!budget || budget.amount <= 0) return;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+    const monthlySpent = allExpenses
+      .filter(e => e.category === category && e.date >= monthStart && e.date <= monthEnd)
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const pct = (monthlySpent / budget.amount) * 100;
+    if (pct >= 100) {
+      toast.error(`🚨 Budget EXCEEDED for ${category}! $${monthlySpent.toFixed(0)} / $${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`, { duration: 5000 });
+    } else if (pct >= 80) {
+      toast(`⚠️ Budget warning for ${category}: $${monthlySpent.toFixed(0)} / $${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`, { duration: 4000 });
+    }
+  }, [budgets]);
+
+  // F3: Accept pending recurring expenses
+  const handleAcceptRecurring = async () => {
+    if (pendingRecurring.length === 0) return;
+    try {
+      const addedCount = pendingRecurring.length;
+      await createBulkExpenses(pendingRecurring);
+      const refreshed = await getAllData();
+      setExpenses(refreshed.expenses as Expense[]);
+      setPendingRecurring([]);
+      toast.success(`${addedCount} recurring expense(s) added for this month!`);
+    } catch (error) {
+      console.error("Failed to create recurring expenses:", error);
+      toast.error("Could not create recurring expenses.");
+    }
+  };
+
+  const handleDismissRecurring = () => {
+    setPendingRecurring([]);
+  };
+
   const handleAddExpense = async (expense: Omit<Expense, 'id'>) => {
   try {
     const newExpense = await createExpense(expense);
-    setExpenses([...expenses, newExpense]);
+    setExpenses(prev => {
+      const updated = [...prev, newExpense];
+      checkBudgetAlert(newExpense.category, updated);
+      return updated;
+    });
   } catch (error) {
     console.error("Failed to add expense:", error);
-    alert("Error: Could not add expense.");
+    toast.error("Could not add expense.");
   }
 };
 
 const handleUpdateExpense = async (updatedExpense: Expense) => {
   try {
     const returnedExpense = await updateExpense(updatedExpense);
-    setExpenses(prev => prev.map(exp => exp.id === returnedExpense.id ? returnedExpense : exp));
+    setExpenses(prev => {
+      const updated = prev.map(exp => exp.id === returnedExpense.id ? returnedExpense : exp);
+      checkBudgetAlert(returnedExpense.category, updated);
+      return updated;
+    });
     setSemesters(prev => prev.map(sem => ({
       ...sem,
       installments: sem.installments.map(inst => 
@@ -244,14 +378,16 @@ const handleUpdateExpense = async (updatedExpense: Expense) => {
     setIsExpenseModalOpen(false);
   } catch (error) {
     console.error("Failed to update expense:", error);
-    alert("Error: Could not update expense.");
+    toast.error("Could not update expense.");
   }
 };
 
 const handleDeleteExpense = async (id: string) => {
   try {
-    // 1. SCAN AND RESET BURSAR STATE
-    // We look through all semesters and installments to see if any are linked to this ID
+    // 1. EXECUTE API DELETE FIRST (before mutating state)
+    await deleteExpense(id);
+
+    // 2. SCAN AND RESET BURSAR STATE
     let wasTuitionPayment = false;
 
     setSemesters(prevSemesters => {
@@ -262,10 +398,9 @@ const handleDeleteExpense = async (id: string) => {
           if (inst.expenseId === id) {
             wasTuitionPayment = true;
             semesterModified = true;
-            // Reset the installment to its original 'unpaid' state
             return { 
               ...inst, 
-              status: 'unpaid', 
+              status: 'unpaid' as const, 
               expenseId: undefined, 
               paidDate: undefined 
             };
@@ -278,22 +413,17 @@ const handleDeleteExpense = async (id: string) => {
       });
     });
 
-    // 2. MARK BURSAR AS DIRTY
-    // If we found a link, we must tell the auto-save useEffect to sync with the DB
+    // 3. MARK BURSAR AS DIRTY
     if (wasTuitionPayment) {
       setIsSemestersDirty(true);
     }
 
-    // 3. EXECUTE API DELETE
-    await deleteExpense(id);
-
     // 4. UPDATE LOCAL EXPENSE LIST
-    // We use a functional update to ensure we don't have stale state issues
     setExpenses(prevExpenses => prevExpenses.filter(exp => exp.id !== id));
 
   } catch (error) {
-    console.error("CRITICAL_SYNC_ERROR: Failed to delete expense and sync Bursar:", error);
-    alert("Error: The transaction was deleted, but we could not update the Bursar tab. Please refresh.");
+    console.error("CRITICAL_SYNC_ERROR: Failed to delete expense:", error);
+    toast.error("Could not delete expense. Please try again.");
   }
 };
   const handleEditExpenseClick = (expense: Expense) => { setEditingExpense(expense); setIsExpenseModalOpen(true); };
@@ -302,31 +432,31 @@ const handleDeleteExpense = async (id: string) => {
 const handleAddIncome = async (income: Omit<Income, 'id'>) => {
   try {
     const newIncome = await createIncome(income);
-    setIncomes([...incomes, newIncome]);
+    setIncomes(prev => [...prev, newIncome]);
   } catch (error) {
     console.error("Failed to add income:", error);
-    alert("Error: Could not add income.");
+    toast.error("Could not add income.");
   }
 };
 
 const handleUpdateIncome = async (updatedIncome: Income) => {
   try {
     const returnedIncome = await updateIncome(updatedIncome);
-    setIncomes(incomes.map(inc => inc.id === returnedIncome.id ? returnedIncome : inc));
+    setIncomes(prev => prev.map(inc => inc.id === returnedIncome.id ? returnedIncome : inc));
     setEditingIncome(null);
   } catch (error) {
     console.error("Failed to update income:", error);
-    alert("Error: Could not update income.");
+    toast.error("Could not update income.");
   }
 };
 
 const handleDeleteIncome = async (id: string) => {
   try {
     await deleteIncome(id);
-    setIncomes(incomes.filter(inc => inc.id !== id));
+    setIncomes(prev => prev.filter(inc => inc.id !== id));
   } catch (error) {
     console.error("Failed to delete income:", error);
-    alert("Error: Could not delete income.");
+    toast.error("Could not delete income.");
   }
 };
   const handleEditIncomeClick = (income: Income) => { setEditingIncome(income); setIsIncomeModalOpen(true); };
@@ -348,7 +478,7 @@ const handleDeleteIncome = async (id: string) => {
     setIsBudgetModalOpen(false);
   } catch (error) {
     console.error("Failed to save budgets:", error);
-    alert("Error: Could not save budgets.");
+    toast.error("Could not save budgets.");
   }
 };
   const handleImportExpenses = async (importedExpenses: Omit<Expense, 'id'>[]) => {
@@ -357,7 +487,7 @@ const handleDeleteIncome = async (id: string) => {
       await createBulkExpenses(importedExpenses);
       
       // 2. The import was successful, show an alert
-      alert(`${importedExpenses.length} expenses successfully imported!`);
+      toast.success(`${importedExpenses.length} expenses successfully imported!`);
 
       // 3. Easiest way to get all the new IDs is to just re-fetch all data
       // This ensures our local state is in sync with the database.
@@ -367,14 +497,40 @@ const handleDeleteIncome = async (id: string) => {
           setExpenses(data.expenses as Expense[]);
           setIncomes(data.incomes as Income[]);
           setBudgets(data.budgets as Budget[]);
-          // ... (rest of your getAllData logic)
+          if (data.semesters?.length > 0) {
+            setSemesters(data.semesters as Semester[]);
+          }
         })
         .catch(err => console.error("Failed to refetch data:", err))
         .finally(() => setIsLoadingData(false));
       
     } catch (error) {
       console.error("Failed to import expenses:", error);
-      alert("Error: Could not import expenses.");
+      toast.error("Could not import expenses.");
+    }
+  };
+
+  const handleRestoreBackup = async (payload: {
+    expenses: Omit<Expense, 'id'>[];
+    incomes: Omit<Income, 'id'>[];
+    budgets: Budget[];
+    semesters: Semester[];
+  }) => {
+    try {
+      setIsLoadingData(true);
+      const restored = await restoreAllData(payload);
+      setExpenses(restored.expenses as Expense[]);
+      setIncomes(restored.incomes as Income[]);
+      setBudgets(restored.budgets as Budget[]);
+      setSemesters(restored.semesters as Semester[]);
+      setPendingRecurring([]);
+      toast.success('Backup restored successfully.');
+    } catch (error) {
+      console.error('Failed to restore backup:', error);
+      toast.error('Could not restore backup. Please verify the file format.');
+      throw error;
+    } finally {
+      setIsLoadingData(false);
     }
   };
   const handleUpdateSemesterTuition = (semesterId: string, totalTuition: number) => {
@@ -431,10 +587,10 @@ const handleDeleteIncome = async (id: string) => {
       setIsSemestersDirty(true);
     } catch (error) {
       console.error("Failed to mark installment as paid:", error);
-      alert("Error: Could not create the tuition expense.");
+      toast.error("Could not create the tuition expense.");
     }
   };
-  const handleUpdateInstallmentDate = (semesterId: string, installmentId: number, newDate: string) => {
+  const handleUpdateInstallmentDate = async (semesterId: string, installmentId: number, newDate: string) => {
       let expenseToUpdateId: string | undefined;
       setSemesters(prevSemesters => prevSemesters.map(s => {
               if (s.id === semesterId) { return { ...s, installments: s.installments.map(i => { if (i.id === installmentId) { expenseToUpdateId = i.expenseId; return { ...i, paidDate: newDate }; } return i; }) }; }
@@ -442,7 +598,23 @@ const handleDeleteIncome = async (id: string) => {
           })
       );
       setIsSemestersDirty(true);
-      if (expenseToUpdateId) { const expenseId = expenseToUpdateId; setExpenses(prevExpenses => prevExpenses.map(exp => exp.id === expenseId ? { ...exp, date: newDate } : exp)); }
+      if (expenseToUpdateId) {
+        const expenseId = expenseToUpdateId;
+        // Use functional update to get latest expenses (avoids stale closure)
+        let expenseSnapshot: Expense | undefined;
+        setExpenses(prevExpenses => {
+          expenseSnapshot = prevExpenses.find(exp => exp.id === expenseId);
+          return prevExpenses.map(exp => exp.id === expenseId ? { ...exp, date: newDate } : exp);
+        });
+        // Persist the date change to the API
+        try {
+          if (expenseSnapshot) {
+            await updateExpense({ ...expenseSnapshot, date: newDate });
+          }
+        } catch (error) {
+          console.error('Failed to persist installment date change:', error);
+        }
+      }
   };
 
   const handleUpdateInstallmentCount = (semesterId: string, count: number) => {
@@ -587,7 +759,7 @@ const handleDeleteIncome = async (id: string) => {
                         {...commonProps}
                         />
                     </div>
-                    <div className="lg:col-gen-span-1">
+                    <div className="lg:col-span-1">
                         <AiAnalyst expenses={expenses} incomes={incomes} />
                     </div>
                 </div>
@@ -603,7 +775,7 @@ const handleDeleteIncome = async (id: string) => {
                            {...commonProps}
                         />
                     </div>
-                    <div className="lg:col-gen-span-1">
+                    <div className="lg:col-span-1">
                         <AiAnalyst expenses={expenses} incomes={incomes} />
                     </div>
                 </div>
@@ -650,6 +822,32 @@ const handleDeleteIncome = async (id: string) => {
               <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-bone">
                 <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-40">
                   
+                  {/* F3: Recurring expense prompt */}
+                  {pendingRecurring.length > 0 && (
+                    <div className="bg-usc-gold/20 border-4 border-ink p-4 shadow-neo">
+                      <p className="font-loud text-sm uppercase mb-2">
+                        🔁 {pendingRecurring.length} recurring expense{pendingRecurring.length > 1 ? 's' : ''} from last month
+                      </p>
+                      <p className="font-mono text-[10px] text-ink/70 mb-3">
+                        {pendingRecurring.map(e => `${e.title} ($${e.amount})`).join(', ')}
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={handleAcceptRecurring}
+                          className="bg-usc-gold text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all uppercase"
+                        >
+                          ADD_ALL
+                        </button>
+                        <button
+                          onClick={handleDismissRecurring}
+                          className="bg-bone text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all uppercase"
+                        >
+                          DISMISS
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {(activeView === 'expenses' || activeView === 'income') && (
                     <Dashboard 
                       expenses={filteredExpenses} 
@@ -691,7 +889,8 @@ const handleDeleteIncome = async (id: string) => {
                 onClose={() => setIsExpenseModalOpen(false)} 
                 onSave={editingExpense ? handleUpdateExpense : handleAddExpense} 
                 expense={editingExpense} 
-                displayCurrency={displayCurrency} 
+                displayCurrency={displayCurrency}
+                parentConversionRate={usdToInrRate}
               />
             )}
             {isIncomeModalOpen && (
@@ -700,7 +899,8 @@ const handleDeleteIncome = async (id: string) => {
                 onClose={() => setIsIncomeModalOpen(false)} 
                 onSave={editingIncome ? handleUpdateIncome : handleAddIncome} 
                 income={editingIncome} 
-                displayCurrency={displayCurrency} 
+                displayCurrency={displayCurrency}
+                parentConversionRate={usdToInrRate}
               />
             )}
             {isBudgetModalOpen && (
@@ -718,8 +918,11 @@ const handleDeleteIncome = async (id: string) => {
                 isOpen={isDataModalOpen} 
                 onClose={() => setIsDataModalOpen(false)} 
                 allExpenses={expenses} 
+                allIncomes={incomes}
                 budgets={budgets} 
+                semesters={semesters}
                 onImport={handleImportExpenses} 
+                onRestoreBackup={handleRestoreBackup}
               />
             )}
             {isCategoryModalOpen && (
@@ -734,6 +937,23 @@ const handleDeleteIncome = async (id: string) => {
         // --- THE NEW MAIN ROUTER RETURN ---
         return (
           <Router>
+            <Toaster 
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#111111',
+                  color: '#FAF9F6',
+                  border: '3px solid #111111',
+                  fontFamily: 'monospace',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  textTransform: 'uppercase',
+                },
+                success: { style: { background: '#166534', border: '3px solid #111111' } },
+                error: { style: { background: '#990000', border: '3px solid #111111' } },
+              }}
+            />
             <Routes>
               {/* 1. Auth Page */}
               <Route 

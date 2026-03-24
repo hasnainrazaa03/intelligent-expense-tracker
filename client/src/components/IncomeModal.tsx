@@ -9,9 +9,10 @@ interface IncomeModalProps {
   onSave: (income: any) => void;
   income: Income | null;
   displayCurrency: 'USD' | 'INR';
+  parentConversionRate?: number | null;
 }
 
-const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, displayCurrency }) => {
+const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, displayCurrency, parentConversionRate }) => {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
@@ -65,14 +66,18 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             setConversionLoading(true);
             setConversionError(null);
             try {
-                const response = await fetch(`https://api.frankfurter.app/latest?from=INR&to=USD`);
-                if (!response.ok) throw new Error('SYNC_ERROR');
-                const data = await response.json();
-                if (data.rates && data.rates.USD) {
-                    const rate = data.rates.USD;
-                    setConversionRate(rate);
-                    setAmount((parseFloat(originalAmount) * rate).toFixed(2));
+                // P2: Use parent rate if available (1/usdToInr = inrToUsd)
+                let rate: number;
+                if (parentConversionRate && parentConversionRate > 0) {
+                    rate = 1 / parentConversionRate;
+                } else {
+                    const response = await fetch(`https://api.frankfurter.app/latest?from=INR&to=USD`);
+                    if (!response.ok) throw new Error('SYNC_ERROR');
+                    const data = await response.json();
+                    rate = data.rates.USD;
                 }
+                setConversionRate(rate);
+                setAmount((parseFloat(originalAmount) * rate).toFixed(2));
             } catch (err: any) {
                 setConversionError("CONVERSION_FAILED");
             } finally {
@@ -82,7 +87,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
     };
     const debounce = setTimeout(convert, 500);
     return () => clearTimeout(debounce);
-  }, [selectedCurrency, originalAmount]);
+  }, [selectedCurrency, originalAmount, parentConversionRate]);
 
   // Filter logic for the advanced dropdown
   const filteredCategories = useMemo(() => {

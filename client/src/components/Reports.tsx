@@ -3,6 +3,15 @@ import { Expense, Budget } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { ClipboardDocumentListIcon, ChartPieIcon, BanknotesIcon, ExclamationTriangleIcon } from './Icons';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import BudgetActualChart from './reports/BudgetActualChart';
+import CategoryDrilldown from './reports/CategoryDrilldown';
+import MonthlyCategoryChart from './reports/MonthlyCategoryChart';
+import PaymentMethodChart from './reports/PaymentMethodChart';
+import RecurringVsOneTimeChart from './reports/RecurringVsOneTimeChart';
+import TimePeriodSummaries from './reports/TimePeriodSummaries';
+import YearOverYearChart from './reports/YearOverYearChart';
 
 interface ReportsProps {
   allExpenses: Expense[];
@@ -23,13 +32,58 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
 
     const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
     const budgetUtilization = budgets.length > 0 
-      ? (totalSpent / budgets.reduce((sum, b) => sum + b.amount, 0)) * 100 
+      ? (() => {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          const currentMonthExpenses = allExpenses.filter(e => {
+            const d = new Date(e.date);
+            return d >= startOfMonth && d <= endOfMonth;
+          });
+          const currentMonthSpent = currentMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+          const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
+          return totalBudget > 0 ? (currentMonthSpent / totalBudget) * 100 : 0;
+        })()
       : 0;
 
     return { totalSpent, topCategory, budgetUtilization, categoryTotals };
   }, [allExpenses, budgets]);
 
   const currencyProps = { displayCurrency, conversionRate };
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text('USC Financial Audit Report', 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+    
+    // Summary table
+    (doc as any).autoTable({
+      startY: 38,
+      head: [['Metric', 'Value']],
+      body: [
+        ['Total Expenditure', formatCurrency(stats.totalSpent, displayCurrency, conversionRate)],
+        ['Top Category', stats.topCategory ? `${stats.topCategory[0]} (${formatCurrency(stats.topCategory[1], displayCurrency, conversionRate)})` : 'N/A'],
+        ['Budget Utilization', `${stats.budgetUtilization.toFixed(1)}%`],
+      ],
+      theme: 'grid',
+    });
+
+    // Category breakdown table
+    const catRows = (Object.entries(stats.categoryTotals) as [string, number][])
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, amount]) => [name, formatCurrency(amount, displayCurrency, conversionRate), `${((amount / stats.totalSpent) * 100).toFixed(1)}%`]);
+
+    (doc as any).autoTable({
+      startY: (doc as any).lastAutoTable.finalY + 10,
+      head: [['Category', 'Amount', '% of Total']],
+      body: catRows,
+      theme: 'grid',
+    });
+
+    doc.save(`usc_audit_report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-20">
@@ -38,13 +92,16 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
         <div className="min-w-0">
           <div className="flex items-center space-x-2 mb-3">
             <span className="bg-usc-cardinal text-bone px-2 py-1 font-loud text-[8px] md:text-[10px] border-2 border-ink whitespace-nowrap">FISCAL_YEAR_2025</span>
-            <span className="font-mono text-[8px] md:text-[10px] opacity-40 uppercase tracking-tighter text-ink truncate max-w-[150px] md:max-w-none">Report_Reference: {Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
+            <span className="font-mono text-[8px] md:text-[10px] opacity-40 uppercase tracking-tighter text-ink truncate max-w-[150px] md:max-w-none">Report_Reference: AUDIT_ANNUAL</span>
           </div>
           <h2 className="font-loud text-4xl sm:text-6xl md:text-8xl text-ink leading-[0.85] tracking-tighter uppercase break-words">
             Annual_Audit
           </h2>
         </div>
-        <button className="w-full lg:w-auto bg-ink text-usc-gold font-loud px-6 md:px-8 py-3 md:py-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all flex items-center justify-center gap-3 text-xs md:text-base">
+        <button 
+          onClick={handleDownloadPDF}
+          className="w-full lg:w-auto bg-ink text-usc-gold font-loud px-6 md:px-8 py-3 md:py-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all flex items-center justify-center gap-3 text-xs md:text-base"
+        >
           <ClipboardDocumentListIcon className="h-5 w-5 md:h-6 md:w-6" />
           GET_HARD_COPY_(PDF)
         </button>
@@ -113,7 +170,63 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
         </div>
       </div>
 
-      {/* 3. FINAL CERTIFICATION */}
+      {/* 3. DETAILED REPORT CHARTS */}
+      <div className="space-y-8 md:space-y-12">
+        {/* Budget vs Actual */}
+        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
+          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">BUDGET_VS_ACTUAL</h4>
+          <div className="h-64 md:h-80">
+            <BudgetActualChart expenses={allExpenses} budgets={budgets} {...currencyProps} />
+          </div>
+        </div>
+
+        {/* Two-column grid for smaller charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+          <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
+            <h4 className="font-loud text-sm md:text-lg text-ink uppercase mb-4 border-b-2 border-ink pb-2">PAYMENT_METHOD_DISTRIBUTION</h4>
+            <div className="h-64">
+              <PaymentMethodChart expenses={allExpenses} {...currencyProps} />
+            </div>
+          </div>
+
+          <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
+            <h4 className="font-loud text-sm md:text-lg text-ink uppercase mb-4 border-b-2 border-ink pb-2">RECURRING_VS_ONE_TIME</h4>
+            <div className="h-64">
+              <RecurringVsOneTimeChart expenses={allExpenses} {...currencyProps} />
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly Category Breakdown */}
+        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
+          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">MONTHLY_CATEGORY_FLOW</h4>
+          <div className="h-72 md:h-96">
+            <MonthlyCategoryChart expenses={allExpenses} />
+          </div>
+        </div>
+
+        {/* Category Drilldown */}
+        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
+          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">CATEGORY_DRILLDOWN</h4>
+          <CategoryDrilldown expenses={allExpenses} {...currencyProps} />
+        </div>
+
+        {/* Year over Year */}
+        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
+          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">YEAR_OVER_YEAR_COMPARISON</h4>
+          <div className="h-64 md:h-80">
+            <YearOverYearChart expenses={allExpenses} {...currencyProps} />
+          </div>
+        </div>
+
+        {/* Time Period Summaries */}
+        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
+          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">TIME_PERIOD_SUMMARIES</h4>
+          <TimePeriodSummaries allExpenses={allExpenses} {...currencyProps} />
+        </div>
+      </div>
+
+      {/* 4. FINAL CERTIFICATION */}
       <div className="flex flex-col items-center justify-center pt-12">
         <div className="w-32 h-32 border-8 border-ink/10 rounded-full flex items-center justify-center relative rotate-12 group hover:rotate-0 transition-transform">
           <div className="text-center font-loud text-xs text-ink/10">

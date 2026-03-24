@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Semester } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
@@ -20,11 +21,11 @@ const detectCurrentSemesterId = () => {
   const month = now.getMonth(); // 0-11
 
   let season = "";
-  if (month <= 4) season = "SPRING";      // Jan - May
-  else if (month <= 6) season = "SUMMER"; // June - July
-  else season = "FALL";                   // Aug - Dec
+  if (month <= 4) season = "spring";      // Jan - May
+  else if (month <= 6) season = "summer"; // June - July
+  else season = "fall";                   // Aug - Dec
 
-  return `${season}_${year}`;
+  return `${season}-${year}`;
 };
 
 const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({ 
@@ -151,7 +152,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                       );
 
                       if (val < minRequired) {
-                        alert(`Cannot reduce count to ${val}. Installment #${minRequired} is already paid.`);
+                        toast.error(`Cannot reduce count to ${val}. Installment #${minRequired} is already paid.`);
                         e.target.value = activeSemester.installments.length.toString();
                         return;
                       }

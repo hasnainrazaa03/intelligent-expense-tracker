@@ -11,7 +11,7 @@ import Pagination from './Pagination';
 interface ExpenseListProps {
   expenses: Expense[];
   onEdit: (expense: Expense) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<void> | void;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
 }
@@ -23,6 +23,7 @@ interface ConfirmationDialogProps {
     onConfirm: () => void;
     title: string;
     children: React.ReactNode;
+    loading?: boolean;
 }
 
 interface ExpenseItemProps {
@@ -34,7 +35,7 @@ interface ExpenseItemProps {
 }
 
 // --- NEO-BRUTALIST CONFIRMATION DIALOG ---
-const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, title, children }) => {
+const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, title, children, loading }) => {
     if (!isOpen) return null;
 
     return (
@@ -48,11 +49,11 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose
                   {children}
               </div>
               <div className="flex p-3 md:p-4 border-t-4 border-ink gap-3 md:gap-4 bg-bone">
-                <button onClick={onClose} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-white text-ink shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all">
+                <button onClick={onClose} disabled={loading} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-white text-ink shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all disabled:opacity-50">
                   CANCEL
                 </button>
-                <button onClick={onConfirm} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-usc-cardinal text-bone shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all uppercase">
-                  CONFIRM
+                <button onClick={onConfirm} disabled={loading} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-usc-cardinal text-bone shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all uppercase disabled:opacity-50">
+                  {loading ? 'DELETING...' : 'CONFIRM'}
                 </button>
               </div>
           </div>
@@ -131,6 +132,7 @@ const ITEMS_PER_PAGE = 10;
 
 const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, displayCurrency, conversionRate }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   React.useEffect(() => {
@@ -143,10 +145,15 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, d
     currentPage * ITEMS_PER_PAGE
   );
 
-  const handleConfirmDelete = () => {
-    if (expenseToDeleteId) {
-      onDelete(expenseToDeleteId);
-      setExpenseToDeleteId(null);
+  const handleConfirmDelete = async () => {
+    if (expenseToDeleteId && !isDeleting) {
+      setIsDeleting(true);
+      try {
+        await onDelete(expenseToDeleteId);
+      } finally {
+        setIsDeleting(false);
+        setExpenseToDeleteId(null);
+      }
     }
   };
 
@@ -192,6 +199,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, d
         onClose={() => setExpenseToDeleteId(null)}
         onConfirm={handleConfirmDelete}
         title="DANGER_ZONE"
+        loading={isDeleting}
       >
         YOU ARE ABOUT TO PERMANENTLY ERASE THIS TRANSACTION. THIS ACTION CANNOT BE UNDONE. PROCEED?
       </ConfirmationDialog>

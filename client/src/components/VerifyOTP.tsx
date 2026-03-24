@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import { verifyOtp, resendOtp } from '../services/api';
 
 const VerifyOTP: React.FC = () => {
   const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
   const location = useLocation();
@@ -50,19 +51,32 @@ const VerifyOTP: React.FC = () => {
 
     try {
       const otpString = otp.join("");
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-      await axios.post(`${baseUrl}/auth/verify-otp`, {
-        email,
-        otp: otpString
-      });
+      await verifyOtp(email, otpString);
       
       // Success: Redirect to login
       sessionStorage.removeItem('pending_verification_email');
       navigate('/login', { state: { message: "ACCOUNT_VERIFIED_ACCESS_GRANTED" } });
     } catch (err: any) {
-      setError(err.response?.data?.message || "INVALID_VERIFICATION_CODE");
+      setError(err.message || "INVALID_VERIFICATION_CODE");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      setError("");
+      await resendOtp(email);
+      setResendCooldown(60);
+      const interval = setInterval(() => {
+        setResendCooldown(prev => {
+          if (prev <= 1) { clearInterval(interval); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      setError(err.message || "RESEND_FAILED");
     }
   };
 
@@ -115,7 +129,13 @@ const VerifyOTP: React.FC = () => {
         <div className="mt-8 pt-6 border-t-2 border-dashed border-ink/20 text-center">
           <p className="text-[10px] text-ink/40 uppercase">
             Didn't receive the code? 
-            <button className="ml-2 text-usc-cardinal hover:underline font-bold">Request_Resend</button>
+            <button 
+              onClick={handleResendOtp}
+              disabled={resendCooldown > 0}
+              className="ml-2 text-usc-cardinal hover:underline font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {resendCooldown > 0 ? `Resend_in_${resendCooldown}s` : 'Request_Resend'}
+            </button>
           </p>
           <p className="text-[10px] text-ink/40 uppercase">
             Wrong account? 
