@@ -11,6 +11,14 @@ export interface Expense {
   originalAmount?: number;
   originalCurrency?: string;
   isRecurring?: boolean;
+  tags?: string[];
+  metadata?: Record<string, string>;
+  taxCategory?: string;
+  isTaxDeductible?: boolean;
+  splitParticipants?: string[];
+  splitShares?: number[];
+  receiptText?: string;
+  receiptFileName?: string;
   userId?: string;
 }
 
@@ -23,6 +31,8 @@ export interface Income {
   notes?: string;
   originalAmount?: number;
   originalCurrency?: string;
+  tags?: string[];
+  metadata?: Record<string, string>;
   userId?: string;
 }
 

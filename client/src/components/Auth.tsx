@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { WalletIcon, GoogleIcon, ExclamationTriangleIcon } from './Icons';
-import { registerUser, loginUser, forgotPassword, resetPassword } from '../services/api';
+import { registerUser, loginUser, forgotPassword, resetPassword, verifyLoginOtp } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
@@ -28,6 +28,9 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const [loginOtp, setLoginOtp] = useState('');
+  const [pendingLoginEmail, setPendingLoginEmail] = useState('');
   const navigate = useNavigate();
 
   // Forgot password state
@@ -58,8 +61,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     try {
       if (isLoginView) {
         const data = await loginUser(email, password);
-        localStorage.setItem('authToken', data.token);
-        onLoginSuccess();
+        if (data.requiresTwoFactor) {
+          setRequiresTwoFactor(true);
+          setPendingLoginEmail(data.email || email);
+          setSuccessMsg('Verification code sent to your email.');
+        } else {
+          onLoginSuccess();
+        }
       } else {
         if (!isStrongPassword(password)) {
           setError('Password must include uppercase, lowercase, number, symbol, and be at least 8 characters.');
@@ -75,11 +83,28 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const handleTwoFactorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      await verifyLoginOtp(pendingLoginEmail, loginOtp);
+      onLoginSuccess();
+    } catch (err: any) {
+      setError(err.message || 'TWO_FACTOR_VERIFICATION_FAILED');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleView = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsLoginView(!isLoginView);
     setEmail('');
     setPassword('');
+    setRequiresTwoFactor(false);
+    setLoginOtp('');
+    setPendingLoginEmail('');
     setError(null);
     setSuccessMsg(null);
   };
@@ -226,6 +251,29 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 : (isLoginView ? 'INITIALIZE_SESSION' : 'GENERATE_CREDENTIALS')}
             </button>
           </form>
+
+          {requiresTwoFactor && (
+            <form onSubmit={handleTwoFactorSubmit} className="mt-6 space-y-4 border-4 border-ink p-4 bg-white">
+              <p className="font-loud text-xs uppercase tracking-widest text-ink/70">SECOND_FACTOR_REQUIRED</p>
+              <input
+                type="text"
+                value={loginOtp}
+                onChange={(e) => setLoginOtp(e.target.value)}
+                className={inputClasses}
+                placeholder="ENTER_6_DIGIT_CODE"
+                maxLength={6}
+                required
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                className="w-full bg-ink text-bone font-loud text-sm py-3 border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
+                disabled={loading}
+              >
+                {loading ? 'VERIFYING...' : 'VERIFY_AND_LOGIN'}
+              </button>
+            </form>
+          )}
           
           {/* VISUAL DIVIDER */}
           <div className="relative my-10 flex items-center justify-center">

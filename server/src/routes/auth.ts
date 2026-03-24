@@ -4,12 +4,14 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import otpGenerator from 'otp-generator';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/mailer';
+import crypto from 'crypto';
+import { sendVerificationEmail, sendPasswordResetEmail, sendTwoFactorEmail } from '../utils/mailer';
 import { authLimiter, loginLimiter, otpLimiter, passwordResetLimiter } from '../middleware/rateLimiter';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
 import { sanitizeEmail } from '../utils/sanitize';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
@@ -49,6 +51,26 @@ const isStrongPassword = (password: string): boolean => {
 // S5: Account lockout constants
 const MAX_LOGIN_ATTEMPTS = SERVER_CONFIG.auth.maxLoginAttempts;
 const LOCKOUT_DURATION_MS = SERVER_CONFIG.auth.lockoutDurationMs;
+
+const buildCookieOptions = (httpOnly: boolean) => ({
+  httpOnly,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  maxAge: SERVER_CONFIG.auth.cookieMaxAgeMs,
+  path: '/',
+});
+
+const issueSessionCookies = (res: Response, token: string): string => {
+  const csrfToken = crypto.randomBytes(24).toString('hex');
+  res.cookie(SERVER_CONFIG.auth.cookieName, token, buildCookieOptions(true));
+  res.cookie(SERVER_CONFIG.auth.csrfCookieName, csrfToken, buildCookieOptions(false));
+  return csrfToken;
+};
+
+const clearSessionCookies = (res: Response): void => {
+  res.clearCookie(SERVER_CONFIG.auth.cookieName, { path: '/' });
+  res.clearCookie(SERVER_CONFIG.auth.csrfCookieName, { path: '/' });
+};
 
 // --- 1. Sign Up (Register) ---
 router.post('/register', authLimiter, async (req: Request, res: Response) => {
@@ -301,11 +323,31 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       await prisma.user.update({ where: { email }, data: { loginAttempts: 0, lockUntil: null } });
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    if (user.twoFactorEnabled) {
+      const loginOtp = otpGenerator.generate(6, {
+        upperCaseAlphabets: false,
+        specialChars: false,
+        lowerCaseAlphabets: false,
+      });
+      const hashedLoginOtp = await bcrypt.hash(loginOtp, 10);
+      const twoFactorOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { twoFactorOtp: hashedLoginOtp, twoFactorOtpExpires },
+      });
+
+      await sendTwoFactorEmail(email, loginOtp);
+
+      return res.json({
+        message: 'Two-factor verification required',
+        requiresTwoFactor: true,
+        email,
+      });
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const csrfToken = issueSessionCookies(res, token);
 
     await writeAuditLog({
       action: 'login',
@@ -317,7 +359,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       metadata: { email },
     });
 
-    res.json({ message: 'Login successful', token });
+    res.json({ message: 'Login successful', csrfToken, requiresTwoFactor: false, twoFactorEnabled: user.twoFactorEnabled });
   } catch (error) {
     console.error('Login error:', error);
 
@@ -333,6 +375,83 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
     res.status(500).json({ message: 'Internal server error' });
   }
+});
+
+router.post('/verify-login-otp', otpLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email: rawEmail, otp } = req.body;
+    if (!rawEmail || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required' });
+    }
+
+    const email = sanitizeEmail(rawEmail);
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user || !user.twoFactorEnabled || !user.twoFactorOtp || !user.twoFactorOtpExpires) {
+      return res.status(400).json({ message: 'Invalid verification attempt' });
+    }
+
+    if (new Date() > user.twoFactorOtpExpires) {
+      return res.status(400).json({ message: 'Verification code expired' });
+    }
+
+    const valid = await bcrypt.compare(otp, user.twoFactorOtp);
+    if (!valid) {
+      return res.status(400).json({ message: 'Invalid verification code' });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { twoFactorOtp: null, twoFactorOtpExpires: null, loginAttempts: 0, lockUntil: null },
+    });
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const csrfToken = issueSessionCookies(res, token);
+
+    return res.json({ message: 'Login successful', csrfToken, requiresTwoFactor: false, twoFactorEnabled: true });
+  } catch (error) {
+    console.error('Verify login OTP error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+router.get('/session', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { email: true, twoFactorEnabled: true } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    return res.status(200).json({ authenticated: true, email: user.email, twoFactorEnabled: user.twoFactorEnabled });
+  } catch (error) {
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+router.post('/2fa/toggle', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { enabled } = req.body || {};
+    const nextValue = Boolean(enabled);
+
+    const updated = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        twoFactorEnabled: nextValue,
+        twoFactorOtp: null,
+        twoFactorOtpExpires: null,
+      },
+      select: { twoFactorEnabled: true },
+    });
+
+    return res.status(200).json({ message: `Two-factor ${updated.twoFactorEnabled ? 'enabled' : 'disabled'}`, twoFactorEnabled: updated.twoFactorEnabled });
+  } catch (error) {
+    console.error('2FA toggle error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+router.post('/logout', (_req: Request, res: Response) => {
+  clearSessionCookies(res);
+  return res.status(200).json({ message: 'Logged out' });
 });
 
 // --- 5. Forgot Password ---
@@ -436,19 +555,15 @@ router.get('/google/callback',
   }),
   (req: Request, res: Response) => {
     const user = req.user as any; 
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    issueSessionCookies(res, token);
     
     const frontendUrl = process.env.FRONTEND_URL;
     if (!frontendUrl) {
       return res.status(500).json({ message: 'Server misconfiguration: FRONTEND_URL not set' });
     }
     
-    // Put token in URL fragment so it is not sent in referrer/query logs.
-    res.redirect(`${frontendUrl}#token=${token}`);
+    res.redirect(`${frontendUrl}?auth=1`);
   }
 );
 

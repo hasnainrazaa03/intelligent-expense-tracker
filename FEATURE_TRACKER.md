@@ -179,7 +179,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Dedicated recurring management view.
 - Notes: Pause/resume controls.
 
-26. [ ] Investment and net-worth tracking
+26. [x] Investment and net-worth tracking
 - Opportunity: Broaden financial visibility.
 - Solution: Accounts + portfolio snapshots.
 - Notes: Manual first, integrations later.
@@ -189,7 +189,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Bill due dates and subscription dashboard.
 - Notes: Upcoming due reminders.
 
-28. [ ] Expense splitting and shared payments
+28. [x] Expense splitting and shared payments
 - Opportunity: Shared living/group expenses.
 - Solution: Split transactions and track balances.
 - Notes: Settled/unsettled states.
@@ -199,17 +199,17 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Triggered insights based on behavior.
 - Notes: Explainable recommendations.
 
-30. [ ] Tax categorization and tax report mode
+30. [x] Tax categorization and tax report mode
 - Opportunity: Easier annual reporting.
 - Solution: Tax tags and tax-period export.
 - Notes: Country-specific presets later.
 
-31. [ ] Custom tags and metadata
+31. [x] Custom tags and metadata
 - Opportunity: Better organization/filtering.
 - Solution: Add tags on expenses/incomes.
 - Notes: Tag chips and search support.
 
-32. [ ] Receipt upload with OCR
+32. [x] Receipt upload with OCR
 - Opportunity: Faster entry and better accuracy.
 - Solution: Receipt image parsing to draft transaction.
 - Notes: Confidence score + manual review.
@@ -229,17 +229,17 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Projection based on trends and recurring items.
 - Notes: Best/worst/base scenarios.
 
-36. [ ] Accounting software export adapters
+36. [x] Accounting software export adapters
 - Opportunity: Interop with external tools.
 - Solution: Export formats for common platforms.
 - Notes: CSV mapping profiles.
 
-37. [ ] Collaborative/family budgeting
+37. [x] Collaborative/family budgeting
 - Opportunity: Multi-user planning.
 - Solution: Shared spaces with permissions.
 - Notes: Invite flow and roles.
 
-38. [ ] Mobile app companion
+38. [x] Mobile app companion
 - Opportunity: Better daily capture habits.
 - Solution: Native or PWA mobile-first experience.
 - Notes: Quick add and notifications.
@@ -271,7 +271,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Cover utilities/hooks/formatters.
 - Notes: Start with high-value modules.
 
-44. [ ] End-to-end tests for core flows
+44. [x] End-to-end tests for core flows
 - Opportunity: Validate user journeys.
 - Solution: Auth, CRUD, import/restore, reports.
 - Notes: Playwright pipeline.
@@ -355,24 +355,24 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Add SoftwareApplication schema.
 - Notes: Keep accurate metadata.
 
-60. [ ] Public blog/knowledge base
+60. [x] Public blog/knowledge base
 - Opportunity: Content-led discoverability.
 - Solution: Publish budgeting guides and product updates.
 - Notes: Route traffic into app onboarding.
 
-61. [ ] Search-optimized landing page
+61. [x] Search-optimized landing page
 - Opportunity: Convert organic visitors.
 - Solution: Dedicated public landing with clear CTA.
 - Notes: Measure conversion funnel.
 
 ## Security Enhancements
 
-62. [ ] Move auth token to secure cookie session
+62. [x] Move auth token to secure cookie session
 - Opportunity: Reduce token exposure risk.
 - Solution: httpOnly secure cookies + CSRF strategy.
 - Notes: Migration plan needed.
 
-63. [ ] CSRF protection
+63. [x] CSRF protection
 - Opportunity: Protect state-changing routes.
 - Solution: Add CSRF middleware and token flow.
 - Notes: Pair with cookie auth.
@@ -397,7 +397,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Enforce stronger password rules.
 - Notes: Client hint + server enforcement.
 
-68. [ ] Optional 2FA for login
+68. [x] Optional 2FA for login
 - Opportunity: Improve account security.
 - Solution: TOTP/email OTP second factor.
 - Notes: Recovery code flow.

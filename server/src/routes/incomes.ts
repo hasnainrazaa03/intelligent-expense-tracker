@@ -14,15 +14,35 @@ router.use(authMiddleware);
 // S4: Input length limits
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
 
+const normalizeTags = (input: unknown): string[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((tag) => sanitizeText(tag))
+    .filter((tag): tag is string => Boolean(tag))
+    .slice(0, 20);
+};
+
+const normalizeMetadata = (input: unknown): Record<string, string> | undefined => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const pairs = Object.entries(input as Record<string, unknown>)
+    .map(([k, v]) => [sanitizeText(k), sanitizeText(v)] as const)
+    .filter(([k, v]) => Boolean(k) && Boolean(v))
+    .slice(0, 20);
+  if (pairs.length === 0) return undefined;
+  return Object.fromEntries(pairs);
+};
+
 // --- 1. Create new Income ---
 // POST /api/incomes
 router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { title, amount, category, date, notes, originalAmount, originalCurrency } = req.body;
+  const { title, amount, category, date, notes, originalAmount, originalCurrency, tags, metadata } = req.body;
 
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
   const safeNotes = sanitizeText(notes);
+  const safeTags = normalizeTags(tags);
+  const safeMetadata = normalizeMetadata(metadata);
 
   if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
@@ -58,6 +78,8 @@ router.post('/', async (req: Request, res: Response) => {
         notes: safeNotes || undefined,
         originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: originalCurrency || undefined,
+        tags: safeTags,
+        metadata: safeMetadata,
         userId: userId,
       },
     });
@@ -77,11 +99,13 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const incomeId = req.params.id;
-  const { title, amount, category, date, notes, originalAmount, originalCurrency } = req.body;
+  const { title, amount, category, date, notes, originalAmount, originalCurrency, tags, metadata } = req.body;
 
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
   const safeNotes = sanitizeText(notes);
+  const safeTags = normalizeTags(tags);
+  const safeMetadata = normalizeMetadata(metadata);
 
   if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
@@ -120,6 +144,8 @@ router.put('/:id', async (req: Request, res: Response) => {
         notes: safeNotes || undefined,
         originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: originalCurrency || undefined,
+        tags: safeTags,
+        metadata: safeMetadata,
       },
     });
 

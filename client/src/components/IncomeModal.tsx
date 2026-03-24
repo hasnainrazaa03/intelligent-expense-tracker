@@ -20,6 +20,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
+  const [metadataInput, setMetadataInput] = useState('');
 
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('USD');
   const [originalAmount, setOriginalAmount] = useState('');
@@ -42,6 +44,14 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       setCategory(income.category);
       setDate(income.date);
       setNotes(income.notes || '');
+      setTagsInput((income.tags || []).join(', '));
+      setMetadataInput(
+        income.metadata
+          ? Object.entries(income.metadata)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('\n')
+          : ''
+      );
       if (income.originalCurrency === 'INR' && income.originalAmount) {
         setSelectedCurrency('INR');
         setOriginalAmount(income.originalAmount.toString());
@@ -55,6 +65,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       setCategory(INCOME_CATEGORIES[0]);
       setDate(new Date().toISOString().split('T')[0]);
       setNotes(''); 
+      setTagsInput('');
+      setMetadataInput('');
       setSelectedCurrency(displayCurrency); 
       setOriginalAmount('');
     }
@@ -122,6 +134,17 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
     if (!title || !primaryAmount || parseFloat(primaryAmount) <= 0 || (isAmountUSDReadOnly && !amount)) return;
 
     const incomeData = {
+      tags: tagsInput.split(',').map((tag) => tag.trim()).filter(Boolean).slice(0, 20),
+      metadata: (() => {
+        const entries = metadataInput
+          .split('\n')
+          .map((line) => line.split(':'))
+          .filter((parts) => parts.length >= 2)
+          .map(([k, ...rest]) => [k.trim(), rest.join(':').trim()] as const)
+          .filter(([k, v]) => Boolean(k) && Boolean(v))
+          .slice(0, 20);
+        return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+      })(),
       title: title.trim(),
       amount: parseFloat(amount),
       category,
@@ -261,6 +284,27 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             <div className="col-span-2">
               <label htmlFor="income-notes" className={labelBase}>ADDITIONAL_METADATA</label>
               <textarea id="income-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="SOURCE_DETAILS..." className={`${inputBase} h-24 resize-none`} />
+            </div>
+
+            <div>
+              <label className={labelBase}>CUSTOM_TAGS</label>
+              <input
+                type="text"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                className={inputBase}
+                placeholder="stipend, freelance, passive"
+              />
+            </div>
+
+            <div>
+              <label className={labelBase}>METADATA (key:value per line)</label>
+              <textarea
+                value={metadataInput}
+                onChange={(e) => setMetadataInput(e.target.value)}
+                className={`${inputBase} h-24 resize-none`}
+                placeholder={'client: USC\ninvoice: INV-204'}
+              />
             </div>
           </div>
 

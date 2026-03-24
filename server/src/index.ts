@@ -2,11 +2,13 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import './passport-setup';
 import { apiLimiter, aiLimiter, userApiLimiter } from './middleware/rateLimiter';
+import { csrfProtection } from './middleware/csrf';
 import { requestLogger } from './middleware/requestLogger';
 import authRoutes from './routes/auth';
 import dataRoutes from './routes/data';
@@ -64,6 +66,7 @@ app.use(cors({
 
 // --- Body parsing with size limit ---
 app.use(express.json({ limit: SERVER_CONFIG.bodyLimit }));
+app.use(cookieParser());
 
 // --- Structured request logging with request id ---
 app.use(requestLogger);
@@ -87,12 +90,12 @@ app.use('/api/', apiLimiter);
 
 // --- Routes ---
 app.use('/api/auth', authRoutes);
-app.use('/api/data', userApiLimiter, dataRoutes);
-app.use('/api/expenses', userApiLimiter, expenseRoutes);
-app.use('/api/incomes', userApiLimiter, incomeRoutes);
-app.use('/api/budgets', userApiLimiter, budgetRoutes);
-app.use('/api/semesters', userApiLimiter, semesterRoutes);
-app.use('/api/ai', userApiLimiter, aiLimiter, aiRoutes);
+app.use('/api/data', userApiLimiter, csrfProtection, dataRoutes);
+app.use('/api/expenses', userApiLimiter, csrfProtection, expenseRoutes);
+app.use('/api/incomes', userApiLimiter, csrfProtection, incomeRoutes);
+app.use('/api/budgets', userApiLimiter, csrfProtection, budgetRoutes);
+app.use('/api/semesters', userApiLimiter, csrfProtection, semesterRoutes);
+app.use('/api/ai', userApiLimiter, csrfProtection, aiLimiter, aiRoutes);
 
 // --- Global Error Handler ---
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

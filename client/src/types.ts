@@ -11,6 +11,14 @@ export interface Expense {
   originalAmount?: number;
   originalCurrency?: string;
   isRecurring?: boolean;
+  tags?: string[];
+  metadata?: Record<string, string>;
+  taxCategory?: string;
+  isTaxDeductible?: boolean;
+  splitParticipants?: string[];
+  splitShares?: number[];
+  receiptText?: string;
+  receiptFileName?: string;
 }
 
 export interface Income {
@@ -22,6 +30,16 @@ export interface Income {
   notes?: string;
   originalAmount?: number;
   originalCurrency?: string;
+  tags?: string[];
+  metadata?: Record<string, string>;
+}
+
+export interface InvestmentAccount {
+  id: string;
+  name: string;
+  type: 'cash' | 'brokerage' | 'crypto' | 'retirement' | 'loan' | 'other';
+  value: number;
+  asOf: string;
 }
 
 export interface Budget {

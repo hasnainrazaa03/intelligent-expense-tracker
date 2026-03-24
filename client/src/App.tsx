@@ -7,7 +7,7 @@ import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapI
 import { useTheme } from './hooks/useTheme';
 import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
-import { getAllData } from './services/api';
+import { getAllData, getSession, logoutUser, toggleTwoFactor } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useDebouncedValue from './hooks/useDebouncedValue';
@@ -27,6 +27,9 @@ const DataModal = lazy(() => import('./components/ExportModal'));
 const AiAnalyst = lazy(() => import('./components/AiAnalyst'));
 const Auth = lazy(() => import('./components/Auth'));
 const VerifyOTP = lazy(() => import('./components/VerifyOTP'));
+const LandingPage = lazy(() => import('./components/LandingPage'));
+const KnowledgeBase = lazy(() => import('./components/KnowledgeBase'));
+const MobileInstallPrompt = lazy(() => import('./components/MobileInstallPrompt'));
 const USCPaymentTracker = lazy(() => import('./components/USCPaymentTracker'));
 const PivotAnalysis = lazy(() => import('./components/PivotAnalysis'));
 const Reports = lazy(() => import('./components/Reports'));
@@ -92,8 +95,9 @@ const App: React.FC = () => {
   
   // --- MODIFIED ---
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('authToken') != null;
+    return localStorage.getItem('hasSession') === 'true';
   });
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   // We add a loading state
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
@@ -103,23 +107,27 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    // Check if we've been redirected from the Google login
     const params = new URLSearchParams(window.location.search);
-    const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
-    const hashParams = new URLSearchParams(hash);
-    const token = hashParams.get('token') ?? params.get('token');
-
-    if (token) {
-      // 1. Save the token
-      localStorage.setItem('authToken', token);
-      
-      // 2. Update our auth state
+    const authSuccess = params.get('auth');
+    if (authSuccess === '1') {
       setIsAuthenticated(true);
-      
-      // 3. Clean the URL (remove token from query/hash)
+      localStorage.setItem('hasSession', 'true');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) return;
+    getSession()
+      .then((session) => {
+        if (session.authenticated) {
+          setIsAuthenticated(true);
+          setTwoFactorEnabled(Boolean(session.twoFactorEnabled));
+          localStorage.setItem('hasSession', 'true');
+        }
+      })
+      .catch(() => undefined);
+  }, [isAuthenticated]);
 
   // Fetch conversion rate (P1: cached with 1hr TTL)
   useEffect(() => {
@@ -349,17 +357,36 @@ const App: React.FC = () => {
   }, [semesters, isAuthenticated, isSemestersDirty]);
   
   // --- MODIFIED ---
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = async () => {
     setIsAuthenticated(true);
+    localStorage.setItem('hasSession', 'true');
+    try {
+      const session = await getSession();
+      setTwoFactorEnabled(Boolean(session.twoFactorEnabled));
+    } catch {
+      setTwoFactorEnabled(false);
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
+    logoutUser().catch(() => undefined);
+    localStorage.removeItem('hasSession');
     setIsAuthenticated(false);
+    setTwoFactorEnabled(false);
     setExpenses([]);
     setIncomes([]);
     setBudgets([]);
     setSemesters([]);
+  };
+
+  const handleToggleTwoFactor = async () => {
+    try {
+      const result = await toggleTwoFactor(!twoFactorEnabled);
+      setTwoFactorEnabled(result.twoFactorEnabled);
+      notify.success(result.message);
+    } catch (error) {
+      notify.error('Could not update 2FA setting.');
+    }
   };
 
   // Budget alert: check if a category is near or over its monthly budget
@@ -892,6 +919,8 @@ const handleDeleteIncome = async (id: string) => {
               onManageBudgets={() => setIsBudgetModalOpen(true)}
               onManageCategories={() => setIsCategoryModalOpen(true)}
               onDataAction={() => setIsDataModalOpen(true)}
+              onToggleTwoFactor={handleToggleTwoFactor}
+              twoFactorEnabled={twoFactorEnabled}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               activeView={activeView}
@@ -910,7 +939,7 @@ const handleDeleteIncome = async (id: string) => {
                 onKeyDown={(e) => {
                   const keys = ['ArrowUp', 'ArrowDown', 'Home', 'End'];
                   if (!keys.includes(e.key) || !navRef.current) return;
-                  const tabs = Array.from(navRef.current.querySelectorAll<HTMLButtonElement>('button'));
+                  const tabs = Array.from(navRef.current.querySelectorAll('button')) as HTMLButtonElement[];
                   const currentIndex = tabs.indexOf(document.activeElement as HTMLButtonElement);
                   if (tabs.length === 0 || currentIndex === -1) return;
 
@@ -1166,6 +1195,9 @@ const handleDeleteIncome = async (id: string) => {
                 />
               </Suspense>
             )}
+            <Suspense fallback={null}>
+              <MobileInstallPrompt />
+            </Suspense>
           </div>
         );
 
@@ -1197,7 +1229,25 @@ const handleDeleteIncome = async (id: string) => {
                   <Suspense fallback={<SectionSkeleton title="Loading login" rows={2} />}>
                     <Auth onLoginSuccess={handleLoginSuccess} />
                   </Suspense>
-                ) : <Navigate to="/" />} 
+                ) : <Navigate to="/app" />} 
+              />
+
+              <Route
+                path="/"
+                element={!isAuthenticated ? (
+                  <Suspense fallback={<SectionSkeleton title="Loading landing" rows={2} />}>
+                    <LandingPage />
+                  </Suspense>
+                ) : <Navigate to="/app" />}
+              />
+
+              <Route
+                path="/knowledge"
+                element={
+                  <Suspense fallback={<SectionSkeleton title="Loading knowledge base" rows={2} />}>
+                    <KnowledgeBase />
+                  </Suspense>
+                }
               />
               
               {/* 2. Verification Page */}
@@ -1205,12 +1255,12 @@ const handleDeleteIncome = async (id: string) => {
 
               {/* 3. The Main App (Protected) */}
               <Route 
-                path="/" 
+                path="/app" 
                 element={isAuthenticated ? DashboardLayout : <Navigate to="/login" />}
               />
 
               {/* Catch-all: Redirect unknown paths to home */}
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route path="*" element={<Navigate to={isAuthenticated ? '/app' : '/'} />} />
             </Routes>
           </Router>
   );

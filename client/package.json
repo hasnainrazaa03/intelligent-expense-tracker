@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.18",
@@ -23,10 +24,12 @@
     "react-router-dom": "^7.11.0",
     "react-window": "^2.2.7",
     "recharts": "^3.4.1"
+    ,"tesseract.js": "^6.0.1"
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.5",
     "@types/node": "^22.14.0",
+    "@playwright/test": "^1.53.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.23",
     "postcss": "^8.5.6",

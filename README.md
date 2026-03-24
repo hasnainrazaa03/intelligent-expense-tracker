@@ -155,6 +155,9 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Confirmation flows now support undo window before destructive deletes
 - Inline quick edit for list rows (double-click amount/title fields) with instant save hooks
 - Persistent theme toggle with refined dark-mode contrast for core dashboard surfaces
+- Expense split assistant with participant-based equal-share calculations
+- Receipt upload with in-browser OCR extraction to prefill notes and amounts
+- Custom tags and metadata fields on expenses and incomes for richer filtering
 
 ### 📈 Planning and Forecasting
 - Financial planning panel with monthly savings goal progress tracking
@@ -165,6 +168,8 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - 30-day cash-flow projection based on recent inflow/outflow trends
 - One-click budget templates (student, frugal, balanced) for faster setup
 - Merchant auto-categorization learning loop from manual category corrections
+- Investment account snapshots and net-worth rollups
+- Collaborative/family budgeting entries with shared contribution tracking
 
 ### 🛡️ Dependency Safety
 - Added Dependabot configuration for weekly client/server dependency updates
@@ -173,6 +178,19 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 ### 🔁 Data Portability
 - Import / export in **JSON** and **CSV** formats
 - Your data is never trapped—backup, migrate, or restore anytime
+- Accounting adapter exports for **QuickBooks** and **Xero** CSV schemas
+- Tax report mode (`TAX_CSV`) generated from deductible-tagged expenses
+
+### 🔐 Auth and Session Security
+- Auth token migrated from localStorage bearer flow to secure cookie-based session
+- CSRF protection enforced using double-submit cookie strategy (`x-csrf-token`)
+- Optional login 2FA with email verification code and per-user toggle
+
+### 🌍 Public Surface and Testing
+- Public landing page (`/`) with SEO-oriented content and focused conversion path
+- Public knowledge base (`/knowledge`) with searchable onboarding/security guidance
+- Playwright E2E suite scaffold for core flows (`client/tests/e2e/core-flows.spec.ts`)
+- Mobile companion path via installable PWA manifest and install prompt
 
 ---
 
@@ -244,6 +262,28 @@ USC Ledger uses a **Neo‑Brutalist aesthetic**:
 - Zero‑nonsense typography
 
 It’s built to be **loud**, **fast**, and deeply **cynical about floating‑point math**.
+
+---
+
+## 🧭 Safe UI Migration Plan
+For transitioning from Neo-Brutalist to another design language without functional regressions:
+
+1. Introduce a tokenized theme layer first.
+- Define shared design tokens for colors, spacing, radius, shadows, and typography in one source of truth.
+- Keep component logic unchanged while mapping current styles to tokens.
+
+2. Refactor shared primitives next.
+- Rebuild/standardize button, card, input, modal, and navigation primitives around the token system.
+- Migrate page-level usage to primitives before changing visual details in feature views.
+
+3. Migrate sections incrementally behind visual QA.
+- Move one section at a time (auth, dashboard, lists, modals, reports).
+- Keep feature flags or branch-based previews to compare old vs new presentation quickly.
+
+4. Run accessibility and regression checks after each section.
+- Accessibility: keyboard navigation, focus order, contrast, ARIA labels, and screen-reader announcements.
+- Regression: smoke test auth/session, CRUD flows, charts, imports/exports, and modal interactions.
+- Add/update screenshots and E2E assertions for each completed migration slice.
 
 ---
 

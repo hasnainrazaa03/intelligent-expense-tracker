@@ -77,3 +77,37 @@ export const sendPasswordResetEmail = async (email: string, resetCode: string) =
     return { success: false, error: err };
   }
 };
+
+export const sendTwoFactorEmail = async (email: string, code: string) => {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('Cannot send email: RESEND_API_KEY is undefined.');
+    }
+
+    const emailFrom = process.env.EMAIL_FROM;
+    if (!emailFrom) {
+      throw new Error('Cannot send email: EMAIL_FROM is undefined.');
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: emailFrom,
+      to: email,
+      subject: 'Your Login Verification Code',
+      html: `
+        <div style="font-family: monospace; max-width: 400px; margin: 0 auto; border: 3px solid #111; padding: 32px;">
+          <h2 style="color: #990000; margin-top: 0;">Login Verification</h2>
+          <p>Enter this code to complete your login:</p>
+          <p style="font-size: 32px; letter-spacing: 8px; font-weight: bold; text-align: center; background: #f5f0e8; padding: 16px; border: 2px solid #111;">${code}</p>
+          <p style="color: #666; font-size: 12px;">This code expires in 10 minutes.</p>
+        </div>
+      `,
+      text: `Your login verification code is: ${code}. It expires in 10 minutes.`,
+    });
+
+    if (error) return { success: false, error };
+    return { success: true, data };
+  } catch (err) {
+    console.error('Resend internal error:', err);
+    return { success: false, error: err };
+  }
+};

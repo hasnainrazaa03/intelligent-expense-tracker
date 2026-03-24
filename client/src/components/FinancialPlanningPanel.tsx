@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Expense, Income } from '../types';
+import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 
 const GOAL_KEY = 'monthlySavingsGoal';
 const PAUSED_RECURRING_KEY = 'pausedRecurringTemplates';
+const INVESTMENT_ACCOUNTS_KEY = 'investmentAccounts';
+const FAMILY_MEMBERS_KEY = 'familyBudgetMembers';
 
 interface FinancialPlanningPanelProps {
   expenses: Expense[];
@@ -25,6 +27,28 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
       return {};
     }
   });
+  const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccount[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(INVESTMENT_ACCOUNTS_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountType, setNewAccountType] = useState<InvestmentAccount['type']>('brokerage');
+  const [newAccountValue, setNewAccountValue] = useState('');
+
+  const [familyMembers, setFamilyMembers] = useState<Array<{ id: string; name: string; contribution: number }>>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(FAMILY_MEMBERS_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [memberName, setMemberName] = useState('');
+  const [memberContribution, setMemberContribution] = useState('');
 
   const now = new Date();
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -38,6 +62,57 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
     [incomes, currentMonthPrefix]
   );
   const monthlyNet = monthlyIncome - monthlyExpense;
+    const totalInvestments = useMemo(
+      () => investmentAccounts.reduce((sum, account) => sum + account.value, 0),
+      [investmentAccounts]
+    );
+
+    const netWorth = useMemo(() => {
+      const cashPosition = monthlyIncome - monthlyExpense;
+      return cashPosition + totalInvestments;
+    }, [monthlyIncome, monthlyExpense, totalInvestments]);
+
+    const familyContributionTotal = useMemo(
+      () => familyMembers.reduce((sum, member) => sum + member.contribution, 0),
+      [familyMembers]
+    );
+
+    const addInvestmentAccount = () => {
+      const parsed = Number.parseFloat(newAccountValue);
+      if (!newAccountName.trim() || !Number.isFinite(parsed)) return;
+      const next: InvestmentAccount[] = [
+        ...investmentAccounts,
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: newAccountName.trim(),
+          type: newAccountType,
+          value: parsed,
+          asOf: todayIso(),
+        },
+      ];
+      setInvestmentAccounts(next);
+      localStorage.setItem(INVESTMENT_ACCOUNTS_KEY, JSON.stringify(next));
+      setNewAccountName('');
+      setNewAccountValue('');
+    };
+
+    const addFamilyMember = () => {
+      const parsed = Number.parseFloat(memberContribution);
+      if (!memberName.trim() || !Number.isFinite(parsed)) return;
+      const next = [
+        ...familyMembers,
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: memberName.trim(),
+          contribution: parsed,
+        },
+      ];
+      setFamilyMembers(next);
+      localStorage.setItem(FAMILY_MEMBERS_KEY, JSON.stringify(next));
+      setMemberName('');
+      setMemberContribution('');
+    };
+
   const savingsGoal = Number.parseFloat(goalInput) || 0;
   const progressPct = savingsGoal > 0 ? Math.max(0, Math.min(100, (monthlyNet / savingsGoal) * 100)) : 0;
 
@@ -214,6 +289,52 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="border-2 border-ink p-4 bg-bone">
+          <p className="font-loud text-xs uppercase mb-2">INVESTMENT_AND_NET_WORTH_TRACKING</p>
+          <p className="font-mono text-[11px] mb-1">Portfolio value: {formatCurrency(totalInvestments, displayCurrency, conversionRate)}</p>
+          <p className="font-loud text-lg">Net worth snapshot: {formatCurrency(netWorth, displayCurrency, conversionRate)}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+            <input value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Account" />
+            <select value={newAccountType} onChange={(e) => setNewAccountType(e.target.value as InvestmentAccount['type'])} className="border-2 border-ink p-2 text-xs bg-white">
+              <option value="cash">CASH</option>
+              <option value="brokerage">BROKERAGE</option>
+              <option value="crypto">CRYPTO</option>
+              <option value="retirement">RETIREMENT</option>
+              <option value="loan">LOAN</option>
+              <option value="other">OTHER</option>
+            </select>
+            <input type="number" value={newAccountValue} onChange={(e) => setNewAccountValue(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Value" />
+          </div>
+          <button onClick={addInvestmentAccount} className="mt-2 px-3 py-1 border-2 border-ink bg-usc-gold font-loud text-[10px]">ADD_ACCOUNT</button>
+          <div className="mt-3 space-y-1 max-h-28 overflow-y-auto">
+            {investmentAccounts.slice(-6).map((account) => (
+              <div key={account.id} className="text-[10px] font-mono border border-ink p-1 bg-white flex justify-between">
+                <span>{account.name} ({account.type})</span>
+                <span>{formatCurrency(account.value, displayCurrency, conversionRate)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-2 border-ink p-4 bg-bone">
+          <p className="font-loud text-xs uppercase mb-2">COLLABORATIVE_FAMILY_BUDGETING</p>
+          <p className="font-mono text-[11px]">Shared contributions: {formatCurrency(familyContributionTotal, displayCurrency, conversionRate)}</p>
+          <p className="font-mono text-[11px]">Shared expense load: {formatCurrency(monthlyExpense - familyContributionTotal, displayCurrency, conversionRate)}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+            <input value={memberName} onChange={(e) => setMemberName(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Member name" />
+            <input type="number" value={memberContribution} onChange={(e) => setMemberContribution(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Contribution" />
+          </div>
+          <button onClick={addFamilyMember} className="mt-2 px-3 py-1 border-2 border-ink bg-usc-gold font-loud text-[10px]">ADD_MEMBER</button>
+          <div className="mt-3 space-y-1 max-h-28 overflow-y-auto">
+            {familyMembers.slice(-6).map((member) => (
+              <div key={member.id} className="text-[10px] font-mono border border-ink p-1 bg-white flex justify-between">
+                <span>{member.name}</span>
+                <span>{formatCurrency(member.contribution, displayCurrency, conversionRate)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="border-2 border-ink p-4 bg-bone">
           <p className="font-loud text-xs uppercase mb-2">BILLS_AND_SUBSCRIPTIONS_TRACKER</p>
           {upcomingBills.length === 0 ? (

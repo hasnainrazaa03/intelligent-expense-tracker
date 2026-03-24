@@ -11,7 +11,9 @@ if (!JWT_SECRET) {
 
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const bearerToken = authHeader && authHeader.split(' ')[1];
+  const cookieToken = (req as Request & { cookies?: Record<string, string> }).cookies?.[SERVER_CONFIG.auth.cookieName];
+  const token = cookieToken || bearerToken;
 
   if (token == null) {
     return res.status(401).json({ message: 'No token provided' });

@@ -6,6 +6,8 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Expense, Budget } from '../types';
 
+export type ExportFormat = 'csv' | 'pdf' | 'quickbooks' | 'xero' | 'tax_csv';
+
 // Augment jsPDF with the autoTable method
 declare module 'jspdf' {
   interface jsPDF {
@@ -79,7 +81,7 @@ const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, 
 }
 
 export const exportData = (
-  format: 'csv' | 'pdf',
+  format: ExportFormat,
   includeExpenses: boolean,
   expenses: Expense[],
   includeBudgets: boolean,
@@ -95,6 +97,35 @@ export const exportData = (
         if (includeBudgets) {
             generateCsv(budgets, `budgets-${timestamp}.csv`);
         }
+    } else if (format === 'tax_csv') {
+        const taxRows = expenses
+          .filter((expense) => expense.isTaxDeductible)
+          .map((expense) => ({
+            date: expense.date,
+            category: expense.taxCategory || expense.category,
+            title: expense.title,
+            amount: expense.amount,
+            notes: expense.notes || '',
+          }));
+        generateCsv(taxRows, `tax-report-${timestamp}.csv`);
+    } else if (format === 'quickbooks') {
+        const qbRows = expenses.map((expense) => ({
+          Date: expense.date,
+          Description: expense.title,
+          Category: expense.category,
+          Amount: expense.amount,
+          Memo: expense.notes || '',
+        }));
+        generateCsv(qbRows, `quickbooks-adapter-${timestamp}.csv`);
+    } else if (format === 'xero') {
+        const xeroRows = expenses.map((expense) => ({
+          Date: expense.date,
+          Payee: expense.title,
+          Description: expense.notes || expense.title,
+          Reference: expense.category,
+          Amount: expense.amount,
+        }));
+        generateCsv(xeroRows, `xero-adapter-${timestamp}.csv`);
     } else if (format === 'pdf') {
         const expensesToExport = includeExpenses ? expenses : [];
         const budgetsToExport = includeBudgets ? budgets : [];

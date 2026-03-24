@@ -22,7 +22,7 @@ export default function useModalFocusTrap<T extends HTMLElement>(
     lastActiveElementRef.current = document.activeElement as HTMLElement;
     const container = modalRef.current;
 
-    const focusableNodes = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
+    const focusableNodes = Array.from(container.querySelectorAll(FOCUSABLE)) as HTMLElement[];
     if (focusableNodes.length > 0) {
       focusableNodes[0].focus();
     } else {
@@ -37,7 +37,7 @@ export default function useModalFocusTrap<T extends HTMLElement>(
 
       if (event.key !== 'Tab') return;
 
-      const nodes = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
+      const nodes = Array.from(container.querySelectorAll(FOCUSABLE)) as HTMLElement[];
       if (nodes.length === 0) {
         event.preventDefault();
         return;

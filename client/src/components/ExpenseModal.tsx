@@ -70,6 +70,14 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('USD');
   const [originalAmount, setOriginalAmount] = useState(''); 
   const [isRecurring, setIsRecurring] = useState(false);
+  const [tagsInput, setTagsInput] = useState('');
+  const [metadataInput, setMetadataInput] = useState('');
+  const [taxCategory, setTaxCategory] = useState('');
+  const [isTaxDeductible, setIsTaxDeductible] = useState(false);
+  const [splitParticipantsInput, setSplitParticipantsInput] = useState('');
+  const [receiptText, setReceiptText] = useState('');
+  const [receiptFileName, setReceiptFileName] = useState('');
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
 
   const [conversionRate, setConversionRate] = useState<number|null>(null);
   const [conversionLoading, setConversionLoading] = useState(false);
@@ -88,6 +96,19 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setNotes(expense.notes || '');
       setHasManuallySelectedCategory(true);
       setIsRecurring(expense.isRecurring || false);
+      setTagsInput((expense.tags || []).join(', '));
+      setMetadataInput(
+        expense.metadata
+          ? Object.entries(expense.metadata)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('\n')
+          : ''
+      );
+      setTaxCategory(expense.taxCategory || '');
+      setIsTaxDeductible(Boolean(expense.isTaxDeductible));
+      setSplitParticipantsInput((expense.splitParticipants || []).join(', '));
+      setReceiptText(expense.receiptText || '');
+      setReceiptFileName(expense.receiptFileName || '');
 
       if (expense.originalCurrency === 'INR' && expense.originalAmount) {
         setSelectedCurrency('INR');
@@ -103,6 +124,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setHasManuallySelectedCategory(false);
       setSelectedCurrency(displayCurrency);
       setOriginalAmount(''); setIsRecurring(false);
+      setTagsInput('');
+      setMetadataInput('');
+      setTaxCategory('');
+      setIsTaxDeductible(false);
+      setSplitParticipantsInput('');
+      setReceiptText('');
+      setReceiptFileName('');
     }
     setConversionRate(null); setConversionLoading(false); setConversionError(null);
   }, [expense, isOpen, displayCurrency]);
@@ -198,6 +226,29 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     const finalAmount = parseFloat(amount);
     if (!title || isNaN(finalAmount) || finalAmount <= 0) return;
 
+    const tags = tagsInput
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+    const metadataEntries = metadataInput
+      .split('\n')
+      .map((line) => line.split(':'))
+      .filter((parts) => parts.length >= 2)
+      .map(([k, ...rest]) => [k.trim(), rest.join(':').trim()] as const)
+      .filter(([k, v]) => Boolean(k) && Boolean(v))
+      .slice(0, 20);
+    const metadata = metadataEntries.length > 0 ? Object.fromEntries(metadataEntries) : undefined;
+
+    const splitParticipants = splitParticipantsInput
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+    const splitShares = splitParticipants.length > 0
+      ? splitParticipants.map(() => Number((finalAmount / splitParticipants.length).toFixed(2)))
+      : [];
+
     const expenseData = {
       title: title.trim(),
       amount: finalAmount,
@@ -208,6 +259,14 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       originalAmount: selectedCurrency === 'INR' ? parseFloat(originalAmount) : undefined,
       originalCurrency: selectedCurrency === 'INR' ? 'INR' : 'USD',
       isRecurring,
+      tags,
+      metadata,
+      taxCategory: taxCategory.trim() || undefined,
+      isTaxDeductible,
+      splitParticipants,
+      splitShares,
+      receiptText: receiptText.trim() || undefined,
+      receiptFileName: receiptFileName || undefined,
     };
     
     onSave(expense ? { ...expenseData, id: expense.id } : expenseData);
@@ -234,6 +293,31 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   }, [categorySearchTerm]);
 
   if (!isOpen) return null;
+
+  const handleReceiptUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setReceiptFileName(file.name);
+    setIsOcrProcessing(true);
+    try {
+      const tesseract = await import('tesseract.js');
+      const result = await tesseract.recognize(file, 'eng');
+      const extracted = result.data.text?.trim() || '';
+      setReceiptText(extracted);
+
+      const amountMatch = extracted.match(/(?:total|amount|sum)\s*[:$]?\s*(\d+[\d,.]*\.?\d*)/i);
+      if (amountMatch && !amount) {
+        const parsed = Number.parseFloat(amountMatch[1].replace(/,/g, ''));
+        if (Number.isFinite(parsed) && parsed > 0) {
+          setAmount(parsed.toFixed(2));
+        }
+      }
+    } catch {
+      setReceiptText('OCR failed. You can still keep this receipt as attached metadata and type notes manually.');
+    } finally {
+      setIsOcrProcessing(false);
+    }
+  };
 
   // --- STYLING CONSTANTS ---
   const inputBase = "w-full bg-white border-4 border-ink p-4 font-loud text-base text-ink focus:outline-none focus:ring-4 focus:ring-usc-gold transition-all placeholder:text-ink/10 min-h-[56px] appearance-none";
@@ -417,6 +501,66 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               <textarea 
                 value={notes} onChange={e => setNotes(e.target.value)}
                 placeholder="INPUT_ADDITIONAL_METADATA..." className={`${inputBase} h-24 resize-none`}
+              />
+            </div>
+
+            <div>
+              <label className={labelBase}>TAX_CATEGORY</label>
+              <input
+                type="text"
+                value={taxCategory}
+                onChange={(e) => setTaxCategory(e.target.value)}
+                placeholder="e.g. EDUCATION, CHARITY"
+                className={inputBase}
+              />
+              <label className="mt-2 inline-flex items-center gap-2 font-mono text-[11px] uppercase">
+                <input type="checkbox" checked={isTaxDeductible} onChange={(e) => setIsTaxDeductible(e.target.checked)} />
+                Mark as tax deductible
+              </label>
+            </div>
+
+            <div>
+              <label className={labelBase}>CUSTOM_TAGS (comma separated)</label>
+              <input
+                type="text"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                placeholder="groceries, urgent, reimbursement"
+                className={inputBase}
+              />
+            </div>
+
+            <div>
+              <label className={labelBase}>SPLIT_PARTICIPANTS (comma separated)</label>
+              <input
+                type="text"
+                value={splitParticipantsInput}
+                onChange={(e) => setSplitParticipantsInput(e.target.value)}
+                placeholder="Alex, Sam, You"
+                className={inputBase}
+              />
+            </div>
+
+            <div>
+              <label className={labelBase}>CUSTOM_METADATA (one key:value per line)</label>
+              <textarea
+                value={metadataInput}
+                onChange={(e) => setMetadataInput(e.target.value)}
+                className={`${inputBase} h-24 resize-none`}
+                placeholder={'merchant: Trader Joes\ntrip: Seattle'}
+              />
+            </div>
+
+            <div className="col-span-2 border-4 border-ink p-4 bg-white">
+              <label className={labelBase}>RECEIPT_UPLOAD_WITH_OCR</label>
+              <input type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full font-mono text-xs" />
+              {isOcrProcessing && <p className="font-mono text-[10px] uppercase mt-2">Scanning receipt text...</p>}
+              {receiptFileName && <p className="font-mono text-[10px] uppercase mt-2">Attached: {receiptFileName}</p>}
+              <textarea
+                value={receiptText}
+                onChange={(e) => setReceiptText(e.target.value)}
+                className="mt-2 w-full border-2 border-ink p-2 h-28 font-mono text-xs"
+                placeholder="OCR text appears here"
               />
             </div>
           </div>

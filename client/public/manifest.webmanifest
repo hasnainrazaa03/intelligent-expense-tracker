@@ -1,0 +1,21 @@
+{
+  "name": "USC Ledger Mobile Companion",
+  "short_name": "USC Ledger",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#faf9f6",
+  "theme_color": "#990000",
+  "description": "Mobile companion for USC Ledger with quick add, budgets, and offline shell support.",
+  "icons": [
+    {
+      "src": "/trojan1.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/trojan1.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

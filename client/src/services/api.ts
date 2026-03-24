@@ -29,13 +29,16 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     }
   }
 
-  // Get the auth token from localStorage (if it exists)
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+  const csrfToken = document.cookie
+    .split('; ')
+    .find((cookie) => cookie.startsWith('usc_csrf='))
+    ?.split('=')[1];
+
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && csrfToken) {
+    headers.set('x-csrf-token', decodeURIComponent(csrfToken));
   }
 
-  const cacheKey = `${method}:${endpoint}:${token || 'anonymous'}`;
+  const cacheKey = `${method}:${endpoint}:cookie-session`;
   if (method === 'GET') {
     const cached = responseCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
@@ -53,6 +56,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
+      credentials: 'include',
     });
 
     // Handle empty responses (204 No Content)
@@ -144,6 +148,30 @@ export const loginUser = (email: string, password: string): Promise<AuthLoginRes
   return fetchApi<AuthLoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  });
+};
+
+export const verifyLoginOtp = (email: string, otp: string): Promise<AuthLoginResponse> => {
+  return fetchApi<AuthLoginResponse>('/auth/verify-login-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp }),
+  });
+};
+
+export const getSession = (): Promise<{ authenticated: boolean; email: string; twoFactorEnabled: boolean }> => {
+  return fetchApi('/auth/session', { method: 'GET' });
+};
+
+export const toggleTwoFactor = (enabled: boolean): Promise<{ message: string; twoFactorEnabled: boolean }> => {
+  return fetchApi('/auth/2fa/toggle', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  });
+};
+
+export const logoutUser = (): Promise<{ message: string }> => {
+  return fetchApi('/auth/logout', {
+    method: 'POST',
   });
 };
 

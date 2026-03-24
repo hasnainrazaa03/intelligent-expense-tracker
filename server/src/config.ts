@@ -29,6 +29,10 @@ export const SERVER_CONFIG = {
   auth: {
     maxLoginAttempts: 5,
     lockoutDurationMs: 15 * 60 * 1000,
+    cookieName: 'usc_session',
+    csrfCookieName: 'usc_csrf',
+    csrfHeaderName: 'x-csrf-token',
+    cookieMaxAgeMs: 7 * 24 * 60 * 60 * 1000,
   },
   jwtSecret: process.env.JWT_SECRET || '',
 } as const;

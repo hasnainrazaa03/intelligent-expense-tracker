@@ -17,16 +17,76 @@ const MAX_BULK_SIZE = SERVER_CONFIG.limits.maxBulkImportSize;
 // S4: Input length limits
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
 
+const normalizeTags = (input: unknown): string[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((tag) => sanitizeText(tag))
+    .filter((tag): tag is string => Boolean(tag))
+    .slice(0, 20);
+};
+
+const normalizeMetadata = (input: unknown): Record<string, string> | undefined => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const pairs = Object.entries(input as Record<string, unknown>)
+    .map(([k, v]) => [sanitizeText(k), sanitizeText(v)] as const)
+    .filter(([k, v]) => Boolean(k) && Boolean(v))
+    .slice(0, 20);
+  if (pairs.length === 0) return undefined;
+  return Object.fromEntries(pairs);
+};
+
+const normalizeStringArray = (input: unknown, limit = 20): string[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => sanitizeText(item))
+    .filter((item): item is string => Boolean(item))
+    .slice(0, limit);
+};
+
+const normalizeNumberArray = (input: unknown, limit = 20): number[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => parseFiniteFloat(item))
+    .filter((item): item is number => item !== null && item > 0)
+    .map((item) => toFinPrecision(item))
+    .slice(0, limit);
+};
+
 // --- 1. Create new Expense ---
 // POST /api/expenses
 router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { title, amount, category, date, paymentMethod, notes, originalAmount, originalCurrency, isRecurring } = req.body;
+  const {
+    title,
+    amount,
+    category,
+    date,
+    paymentMethod,
+    notes,
+    originalAmount,
+    originalCurrency,
+    isRecurring,
+    tags,
+    metadata,
+    taxCategory,
+    isTaxDeductible,
+    splitParticipants,
+    splitShares,
+    receiptText,
+    receiptFileName,
+  } = req.body;
 
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
   const safePaymentMethod = sanitizeText(paymentMethod);
   const safeNotes = sanitizeText(notes);
+  const safeTaxCategory = sanitizeText(taxCategory);
+  const safeReceiptText = sanitizeText(receiptText);
+  const safeReceiptFileName = sanitizeText(receiptFileName);
+  const safeTags = normalizeTags(tags);
+  const safeMetadata = normalizeMetadata(metadata);
+  const safeSplitParticipants = normalizeStringArray(splitParticipants);
+  const safeSplitShares = normalizeNumberArray(splitShares);
 
   // Basic validation
   if (!safeTitle || amount == null || !safeCategory || !date) {
@@ -70,6 +130,14 @@ router.post('/', async (req: Request, res: Response) => {
         originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: originalCurrency || undefined,
         isRecurring: Boolean(isRecurring),
+        tags: safeTags,
+        metadata: safeMetadata,
+        taxCategory: safeTaxCategory || undefined,
+        isTaxDeductible: Boolean(isTaxDeductible),
+        splitParticipants: safeSplitParticipants,
+        splitShares: safeSplitShares,
+        receiptText: safeReceiptText || undefined,
+        receiptFileName: safeReceiptFileName || undefined,
         userId: userId,
       },
     });
@@ -89,12 +157,37 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const expenseId = req.params.id;
-  const { title, amount, category, date, paymentMethod, notes, originalAmount, originalCurrency, isRecurring } = req.body;
+  const {
+    title,
+    amount,
+    category,
+    date,
+    paymentMethod,
+    notes,
+    originalAmount,
+    originalCurrency,
+    isRecurring,
+    tags,
+    metadata,
+    taxCategory,
+    isTaxDeductible,
+    splitParticipants,
+    splitShares,
+    receiptText,
+    receiptFileName,
+  } = req.body;
 
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
   const safePaymentMethod = sanitizeText(paymentMethod);
   const safeNotes = sanitizeText(notes);
+  const safeTaxCategory = sanitizeText(taxCategory);
+  const safeReceiptText = sanitizeText(receiptText);
+  const safeReceiptFileName = sanitizeText(receiptFileName);
+  const safeTags = normalizeTags(tags);
+  const safeMetadata = normalizeMetadata(metadata);
+  const safeSplitParticipants = normalizeStringArray(splitParticipants);
+  const safeSplitShares = normalizeNumberArray(splitShares);
 
   // Required-field validation (same as POST)
   if (!safeTitle || amount == null || !safeCategory || !date) {
@@ -141,6 +234,14 @@ router.put('/:id', async (req: Request, res: Response) => {
         originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: originalCurrency || undefined,
         isRecurring: Boolean(isRecurring),
+        tags: safeTags,
+        metadata: safeMetadata,
+        taxCategory: safeTaxCategory || undefined,
+        isTaxDeductible: Boolean(isTaxDeductible),
+        splitParticipants: safeSplitParticipants,
+        splitShares: safeSplitShares,
+        receiptText: safeReceiptText || undefined,
+        receiptFileName: safeReceiptFileName || undefined,
       },
     });
 
@@ -258,6 +359,14 @@ router.post('/bulk', async (req: Request, res: Response) => {
         originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: expense.originalCurrency || undefined,
         isRecurring: Boolean(expense.isRecurring),
+        tags: normalizeTags(expense.tags),
+        metadata: normalizeMetadata(expense.metadata),
+        taxCategory: sanitizeOptionalText(expense.taxCategory),
+        isTaxDeductible: Boolean(expense.isTaxDeductible),
+        splitParticipants: normalizeStringArray(expense.splitParticipants),
+        splitShares: normalizeNumberArray(expense.splitShares),
+        receiptText: sanitizeOptionalText(expense.receiptText),
+        receiptFileName: sanitizeOptionalText(expense.receiptFileName),
         userId: userId, 
       };
     });

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Expense, Budget, Income, Semester } from '../types';
-import { exportData } from '../utils/exportUtils';
+import { exportData, ExportFormat } from '../utils/exportUtils';
 import { logAuditEvent } from '../services/api';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { APP_CONFIG } from '../config';
@@ -42,7 +42,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [includeExpenses, setIncludeExpenses] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
-  const [format, setFormat] = useState<'csv' | 'pdf'>('pdf');
+  const [format, setFormat] = useState<ExportFormat>('pdf');
 
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -345,9 +345,12 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
 
               <div className="col-span-1">
                 <label className="font-loud text-[9px] text-ink/40 mb-2 block uppercase">Format</label>
-                <div className="grid grid-cols-2 bg-ink border-4 border-ink p-1">
+                <div className="grid grid-cols-2 md:grid-cols-3 bg-ink border-4 border-ink p-1 gap-1">
                   <button onClick={() => setFormat('pdf')} className={`py-2 font-loud text-xs ${format === 'pdf' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>PDF</button>
                   <button onClick={() => setFormat('csv')} className={`py-2 font-loud text-xs ${format === 'csv' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>CSV</button>
+                  <button onClick={() => setFormat('quickbooks')} className={`py-2 font-loud text-xs ${format === 'quickbooks' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>QB</button>
+                  <button onClick={() => setFormat('xero')} className={`py-2 font-loud text-xs ${format === 'xero' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>XERO</button>
+                  <button onClick={() => setFormat('tax_csv')} className={`py-2 font-loud text-xs ${format === 'tax_csv' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>TAX</button>
                 </div>
               </div>
 

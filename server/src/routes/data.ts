@@ -14,6 +14,41 @@ router.use(authMiddleware);
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
 const MAX_ITEMS = SERVER_CONFIG.limits.maxRestoreItemsPerSection;
 
+const normalizeTags = (input: unknown): string[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((tag) => sanitizeText(tag))
+    .filter((tag): tag is string => Boolean(tag))
+    .slice(0, 20);
+};
+
+const normalizeMetadata = (input: unknown): Record<string, string> | undefined => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const pairs = Object.entries(input as Record<string, unknown>)
+    .map(([k, v]) => [sanitizeText(k), sanitizeText(v)] as const)
+    .filter(([k, v]) => Boolean(k) && Boolean(v))
+    .slice(0, 20);
+  if (pairs.length === 0) return undefined;
+  return Object.fromEntries(pairs);
+};
+
+const normalizeStringArray = (input: unknown, limit = 20): string[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => sanitizeText(item))
+    .filter((item): item is string => Boolean(item))
+    .slice(0, limit);
+};
+
+const normalizeNumberArray = (input: unknown, limit = 20): number[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => parseFiniteFloat(item))
+    .filter((item): item is number => item !== null && item > 0)
+    .map((item) => toFinPrecision(item))
+    .slice(0, limit);
+};
+
 // --- Audit Event from Client ---
 router.post('/audit', async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -122,6 +157,14 @@ router.post('/restore', async (req: Request, res: Response) => {
           originalAmount: e.originalAmount != null ? toFinPrecision(parseFiniteFloat(e.originalAmount) ?? 0) : undefined,
           originalCurrency: sanitizeOptionalText(e.originalCurrency),
           isRecurring: Boolean(e.isRecurring),
+          tags: normalizeTags(e.tags),
+          metadata: normalizeMetadata(e.metadata),
+          taxCategory: sanitizeOptionalText(e.taxCategory),
+          isTaxDeductible: Boolean(e.isTaxDeductible),
+          splitParticipants: normalizeStringArray(e.splitParticipants),
+          splitShares: normalizeNumberArray(e.splitShares),
+          receiptText: sanitizeOptionalText(e.receiptText),
+          receiptFileName: sanitizeOptionalText(e.receiptFileName),
           userId,
         };
       });
@@ -145,6 +188,8 @@ router.post('/restore', async (req: Request, res: Response) => {
           notes: sanitizeOptionalText(i.notes),
           originalAmount: i.originalAmount != null ? toFinPrecision(parseFiniteFloat(i.originalAmount) ?? 0) : undefined,
           originalCurrency: sanitizeOptionalText(i.originalCurrency),
+          tags: normalizeTags(i.tags),
+          metadata: normalizeMetadata(i.metadata),
           userId,
         };
       });

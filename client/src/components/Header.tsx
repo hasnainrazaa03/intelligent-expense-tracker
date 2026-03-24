@@ -8,7 +8,8 @@ import {
   ArrowRightStartOnRectangleIcon, 
   PencilIcon,
   TableCellsIcon,
-  TagIcon
+  TagIcon,
+  Cog6ToothIcon
 } from './Icons';
 
 interface HeaderProps {
@@ -16,6 +17,8 @@ interface HeaderProps {
   onManageBudgets: () => void;
   onManageCategories: () => void;
   onDataAction: () => void;
+  onToggleTwoFactor: () => void;
+  twoFactorEnabled: boolean;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   activeView: string;
@@ -24,7 +27,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-  onLogout, onManageBudgets, onManageCategories, onDataAction, searchQuery, 
+  onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, searchQuery, 
   setSearchQuery, displayCurrency, onCurrencyChange
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
@@ -148,6 +151,14 @@ const Header: React.FC<HeaderProps> = ({
                   title="DATA_TERMINAL"
                 >
                   <TableCellsIcon className="h-4 w-4 md:h-6 md:w-6 text-ink" />
+                </button>
+                <button
+                  onClick={onToggleTwoFactor}
+                  aria-label="Toggle optional two factor authentication"
+                  className={`border-2 md:border-4 border-ink p-2 shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all ${twoFactorEnabled ? 'bg-usc-cardinal text-bone' : 'bg-bone text-ink'}`}
+                  title={twoFactorEnabled ? '2FA_ON' : '2FA_OFF'}
+                >
+                  <Cog6ToothIcon className="h-4 w-4 md:h-6 md:w-6" />
                 </button>
                 
                 {/* Desktop-Only Logout Button */}

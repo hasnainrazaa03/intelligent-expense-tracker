@@ -14,6 +14,9 @@ model User {
   isVerified      Boolean   @default(false)
   verificationOtp String?
   otpExpires      DateTime?
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorOtp     String?
+  twoFactorOtpExpires DateTime?
   loginAttempts   Int       @default(0)
   lockUntil       DateTime?
   resetToken      String?
@@ -37,6 +40,14 @@ model Expense {
   originalAmount   Float?
   originalCurrency String?
   isRecurring      Boolean? @default(false)
+  tags             String[]
+  metadata         Json?
+  taxCategory      String?
+  isTaxDeductible  Boolean? @default(false)
+  splitParticipants String[]
+  splitShares      Float[]
+  receiptText      String?
+  receiptFileName  String?
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId           String   @db.ObjectId
   @@index([userId])
@@ -53,6 +64,8 @@ model Income {
   notes            String?
   originalAmount   Float?
   originalCurrency String?
+  tags             String[]
+  metadata         Json?
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId           String   @db.ObjectId
   @@index([userId])
