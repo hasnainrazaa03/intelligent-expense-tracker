@@ -9,6 +9,18 @@ interface AuthProps {
   onLoginSuccess: () => void;
 }
 
+const scorePassword = (value: string): number => {
+  let score = 0;
+  if (value.length >= 8) score += 1;
+  if (/[a-z]/.test(value)) score += 1;
+  if (/[A-Z]/.test(value)) score += 1;
+  if (/\d/.test(value)) score += 1;
+  if (/[^A-Za-z0-9]/.test(value)) score += 1;
+  return score;
+};
+
+const isStrongPassword = (value: string): boolean => scorePassword(value) >= 5;
+
 const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,6 +61,10 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         localStorage.setItem('authToken', data.token);
         onLoginSuccess();
       } else {
+        if (!isStrongPassword(password)) {
+          setError('Password must include uppercase, lowercase, number, symbol, and be at least 8 characters.');
+          return;
+        }
         await registerUser(email, password);
         navigate('/verify', { state: { email: email } });
       }
@@ -77,6 +93,10 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         await forgotPassword(resetEmail);
         setResetStep('code');
       } else {
+        if (!isStrongPassword(newPassword)) {
+          setResetError('Password must include uppercase, lowercase, number, symbol, and be at least 8 characters.');
+          return;
+        }
         await resetPassword(resetEmail, resetCode, newPassword);
         closeForgotPasswordModal();
         setResetEmail('');
@@ -91,6 +111,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
   const inputClasses = "w-full bg-white border-4 border-ink p-3 md:p-4 font-loud text-base md:text-lg focus:ring-4 md:ring-8 focus:ring-usc-gold focus:outline-none transition-all placeholder:text-ink/50 text-ink";
   const labelClasses = "font-loud text-[10px] uppercase tracking-widest text-ink/40 mb-2 block";
+  const passwordScore = scorePassword(password);
+  const newPasswordScore = scorePassword(newPassword);
 
   return (
     <div className="min-h-screen graph-grid flex items-center justify-center p-4 antialiased relative overflow-hidden">
@@ -160,6 +182,21 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                   autoComplete={isLoginView ? "current-password" : "new-password"}
                   disabled={loading}
                 />
+                {!isLoginView && (
+                  <>
+                    <div className="mt-2 grid grid-cols-5 gap-1" aria-hidden="true">
+                      {Array.from({ length: 5 }, (_, idx) => (
+                        <div
+                          key={idx}
+                          className={`h-1.5 border border-ink ${idx < passwordScore ? 'bg-usc-gold' : 'bg-white'}`}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-ink/60">
+                      Use 8+ chars with upper, lower, number, and symbol.
+                    </p>
+                  </>
+                )}
                 {isLoginView && (
                   <button
                     type="button"
@@ -316,6 +353,17 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                       placeholder="••••••••"
                       disabled={resetLoading}
                     />
+                    <div className="mt-2 grid grid-cols-5 gap-1" aria-hidden="true">
+                      {Array.from({ length: 5 }, (_, idx) => (
+                        <div
+                          key={idx}
+                          className={`h-1.5 border border-ink ${idx < newPasswordScore ? 'bg-usc-gold' : 'bg-white'}`}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-ink/60">
+                      Must include upper, lower, number, and symbol.
+                    </p>
                   </div>
                   <button
                     type="submit"

@@ -2,12 +2,14 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { toFinPrecision, parseFiniteFloat } from '../utils/math';
+import { SERVER_CONFIG } from '../config';
 
 const router = Router();
 router.use(authMiddleware);
 
 // Maximum number of budget categories allowed
 const MAX_BUDGET_CATEGORIES = 50;
+const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
 
 // --- 1. Save All Budgets (Reconciliation Pattern) ---
 // POST /api/budgets
@@ -30,10 +32,20 @@ router.post('/', async (req: Request, res: Response) => {
       
       // 2. Validation, Formatting, and Precision Rounding
       const formattedBudgets = budgets.map(b => {
+        const category = typeof b.category === 'string' ? b.category.trim() : '';
         const parsedAmount = parseFiniteFloat(b.amount as any);
+        if (!category) {
+          throw new Error('Budget category is required');
+        }
+        if (category.length > MAX_TEXT_LENGTH) {
+          throw new Error(`Budget category must be ${MAX_TEXT_LENGTH} characters or less`);
+        }
+        if (parsedAmount === null || parsedAmount < 0) {
+          throw new Error('Budget amount must be zero or greater');
+        }
         return {
-          category: b.category?.trim(),
-          amount: toFinPrecision(parsedAmount ?? 0)
+          category,
+          amount: toFinPrecision(parsedAmount)
         };
       }).filter(b => b.category); // Remove any entries with empty category names
 
@@ -86,6 +98,9 @@ router.post('/', async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('CRITICAL_BUDGET_SYNC_FAILURE:', error);
+    if (error instanceof Error) {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ message: 'Failed to synchronize budgets' });
   }
 });

@@ -19,18 +19,27 @@ router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { title, amount, category, date, notes, originalAmount, originalCurrency } = req.body;
 
-  if (!title || !amount || !category || !date) {
+  const safeTitle = typeof title === 'string' ? title.trim() : '';
+  const safeCategory = typeof category === 'string' ? category.trim() : '';
+  const safeNotes = typeof notes === 'string' ? notes.trim() : '';
+
+  if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
   // S4: Input length limits
-  if (title.length > MAX_TEXT_LENGTH || category.length > MAX_TEXT_LENGTH || (notes && notes.length > MAX_TEXT_LENGTH)) {
+  if (safeTitle.length > MAX_TEXT_LENGTH || safeCategory.length > MAX_TEXT_LENGTH || (safeNotes && safeNotes.length > MAX_TEXT_LENGTH)) {
     return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
   }
 
   const parsedAmount = parseFiniteFloat(amount);
-  if (parsedAmount === null || parsedAmount < 0) {
+  if (parsedAmount === null || parsedAmount <= 0) {
     return res.status(400).json({ message: 'Invalid amount' });
+  }
+
+  const parsedOriginalAmount = originalAmount != null ? parseFiniteFloat(originalAmount) : null;
+  if (originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
+    return res.status(400).json({ message: 'Invalid original amount' });
   }
 
   const parsedDate = parseValidDate(date);
@@ -41,12 +50,12 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const newIncome = await prisma.income.create({
       data: {
-        title: title.trim(),
+        title: safeTitle,
         amount: toFinPrecision(parsedAmount),
-        category: category.trim(),
+        category: safeCategory,
         date: parsedDate,
-        notes: notes?.trim() || undefined,
-        originalAmount: originalAmount ? toFinPrecision(parseFiniteFloat(originalAmount) ?? 0) : undefined,
+        notes: safeNotes || undefined,
+        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: originalCurrency || undefined,
         userId: userId,
       },
@@ -69,13 +78,26 @@ router.put('/:id', async (req: Request, res: Response) => {
   const incomeId = req.params.id;
   const { title, amount, category, date, notes, originalAmount, originalCurrency } = req.body;
 
-  if (!title || !amount || !category || !date) {
+  const safeTitle = typeof title === 'string' ? title.trim() : '';
+  const safeCategory = typeof category === 'string' ? category.trim() : '';
+  const safeNotes = typeof notes === 'string' ? notes.trim() : '';
+
+  if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
+  if (safeTitle.length > MAX_TEXT_LENGTH || safeCategory.length > MAX_TEXT_LENGTH || (safeNotes && safeNotes.length > MAX_TEXT_LENGTH)) {
+    return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
+  }
+
   const parsedAmount = parseFiniteFloat(amount);
-  if (parsedAmount === null || parsedAmount < 0) {
+  if (parsedAmount === null || parsedAmount <= 0) {
     return res.status(400).json({ message: 'Invalid amount' });
+  }
+
+  const parsedOriginalAmount = originalAmount != null ? parseFiniteFloat(originalAmount) : null;
+  if (originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
+    return res.status(400).json({ message: 'Invalid original amount' });
   }
 
   const parsedDate = parseValidDate(date);
@@ -90,12 +112,12 @@ router.put('/:id', async (req: Request, res: Response) => {
         userId: userId,
       },
       data: {
-        title: title?.trim(),
+        title: safeTitle,
         amount: toFinPrecision(parsedAmount),
-        category: category?.trim(),
+        category: safeCategory,
         date: parsedDate,
-        notes: notes?.trim() || undefined,
-        originalAmount: originalAmount ? toFinPrecision(parseFiniteFloat(originalAmount) ?? 0) : undefined,
+        notes: safeNotes || undefined,
+        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: originalCurrency || undefined,
       },
     });

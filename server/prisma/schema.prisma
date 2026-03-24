@@ -40,6 +40,8 @@ model Expense {
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId           String   @db.ObjectId
   @@index([userId])
+  @@index([userId, date])
+  @@index([userId, category, date])
 }
 
 model Income {
@@ -54,6 +56,7 @@ model Income {
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId           String   @db.ObjectId
   @@index([userId])
+  @@index([userId, date])
 }
 
 model Budget {

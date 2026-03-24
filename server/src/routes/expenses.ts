@@ -22,19 +22,34 @@ router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { title, amount, category, date, paymentMethod, notes, originalAmount, originalCurrency, isRecurring } = req.body;
 
+  const safeTitle = typeof title === 'string' ? title.trim() : '';
+  const safeCategory = typeof category === 'string' ? category.trim() : '';
+  const safePaymentMethod = typeof paymentMethod === 'string' ? paymentMethod.trim() : '';
+  const safeNotes = typeof notes === 'string' ? notes.trim() : '';
+
   // Basic validation
-  if (!title || !amount || !category || !date) {
+  if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
   // S4: Input length limits
-  if (title.length > MAX_TEXT_LENGTH || category.length > MAX_TEXT_LENGTH || (notes && notes.length > MAX_TEXT_LENGTH)) {
+  if (
+    safeTitle.length > MAX_TEXT_LENGTH ||
+    safeCategory.length > MAX_TEXT_LENGTH ||
+    (safePaymentMethod && safePaymentMethod.length > MAX_TEXT_LENGTH) ||
+    (safeNotes && safeNotes.length > MAX_TEXT_LENGTH)
+  ) {
     return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
   }
 
   const parsedAmount = parseFiniteFloat(amount);
-  if (parsedAmount === null || parsedAmount < 0) {
+  if (parsedAmount === null || parsedAmount <= 0) {
     return res.status(400).json({ message: 'Invalid amount' });
+  }
+
+  const parsedOriginalAmount = originalAmount != null ? parseFiniteFloat(originalAmount) : null;
+  if (originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
+    return res.status(400).json({ message: 'Invalid original amount' });
   }
 
   const parsedDate = parseValidDate(date);
@@ -45,13 +60,13 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const newExpense = await prisma.expense.create({
       data: {
-        title: title.trim(),
+        title: safeTitle,
         amount: toFinPrecision(parsedAmount),
-        category: category.trim(),
+        category: safeCategory,
         date: parsedDate,
-        paymentMethod: paymentMethod?.trim() || undefined,
-        notes: notes?.trim() || undefined,
-        originalAmount: originalAmount ? toFinPrecision(parseFiniteFloat(originalAmount) ?? 0) : undefined,
+        paymentMethod: safePaymentMethod || undefined,
+        notes: safeNotes || undefined,
+        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: originalCurrency || undefined,
         isRecurring: Boolean(isRecurring),
         userId: userId,
@@ -75,14 +90,33 @@ router.put('/:id', async (req: Request, res: Response) => {
   const expenseId = req.params.id;
   const { title, amount, category, date, paymentMethod, notes, originalAmount, originalCurrency, isRecurring } = req.body;
 
+  const safeTitle = typeof title === 'string' ? title.trim() : '';
+  const safeCategory = typeof category === 'string' ? category.trim() : '';
+  const safePaymentMethod = typeof paymentMethod === 'string' ? paymentMethod.trim() : '';
+  const safeNotes = typeof notes === 'string' ? notes.trim() : '';
+
   // Required-field validation (same as POST)
-  if (!title || !amount || !category || !date) {
+  if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
+  if (
+    safeTitle.length > MAX_TEXT_LENGTH ||
+    safeCategory.length > MAX_TEXT_LENGTH ||
+    (safePaymentMethod && safePaymentMethod.length > MAX_TEXT_LENGTH) ||
+    (safeNotes && safeNotes.length > MAX_TEXT_LENGTH)
+  ) {
+    return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
+  }
+
   const parsedAmount = parseFiniteFloat(amount);
-  if (parsedAmount === null || parsedAmount < 0) {
+  if (parsedAmount === null || parsedAmount <= 0) {
     return res.status(400).json({ message: 'Invalid amount' });
+  }
+
+  const parsedOriginalAmount = originalAmount != null ? parseFiniteFloat(originalAmount) : null;
+  if (originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
+    return res.status(400).json({ message: 'Invalid original amount' });
   }
 
   const parsedDate = parseValidDate(date);
@@ -97,13 +131,13 @@ router.put('/:id', async (req: Request, res: Response) => {
         userId: userId,
       },
       data: {
-        title: title?.trim(),
+        title: safeTitle,
         amount: toFinPrecision(parsedAmount),
-        category: category?.trim(),
+        category: safeCategory,
         date: parsedDate,
-        paymentMethod: paymentMethod?.trim() || undefined,
-        notes: notes?.trim() || undefined,
-        originalAmount: originalAmount ? toFinPrecision(parseFiniteFloat(originalAmount) ?? 0) : undefined,
+        paymentMethod: safePaymentMethod || undefined,
+        notes: safeNotes || undefined,
+        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: originalCurrency || undefined,
         isRecurring: Boolean(isRecurring),
       },
@@ -189,19 +223,38 @@ router.post('/bulk', async (req: Request, res: Response) => {
         throw new Error(`Invalid date at row ${index + 1}: "${expense.date}"`);
       }
 
+      const safeTitle = String(expense.title || '').trim();
+      const safeCategory = String(expense.category || '').trim();
+      if (!safeTitle || !safeCategory) {
+        throw new Error(`Title and category are required at row ${index + 1}`);
+      }
+      if (
+        safeTitle.length > MAX_TEXT_LENGTH ||
+        safeCategory.length > MAX_TEXT_LENGTH ||
+        (expense.paymentMethod && String(expense.paymentMethod).trim().length > MAX_TEXT_LENGTH) ||
+        (expense.notes && String(expense.notes).trim().length > MAX_TEXT_LENGTH)
+      ) {
+        throw new Error(`Text field too long at row ${index + 1}`);
+      }
+
       const parsedAmount = parseFiniteFloat(expense.amount as any);
-      if (parsedAmount === null) {
+      if (parsedAmount === null || parsedAmount <= 0) {
         throw new Error(`Invalid amount at row ${index + 1}: "${expense.amount}"`);
       }
 
+      const parsedOriginalAmount = expense.originalAmount != null ? parseFiniteFloat(expense.originalAmount as any) : null;
+      if (expense.originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
+        throw new Error(`Invalid original amount at row ${index + 1}`);
+      }
+
       return {
-        title: (expense.title || '').trim(),
-        category: (expense.category || '').trim(),
+        title: safeTitle,
+        category: safeCategory,
         amount: toFinPrecision(parsedAmount),
         date: parsedDate,
         paymentMethod: expense.paymentMethod?.trim() || undefined,
         notes: expense.notes?.trim() || undefined,
-        originalAmount: expense.originalAmount ? toFinPrecision(parseFiniteFloat(expense.originalAmount as any) ?? 0) : undefined,
+        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: expense.originalCurrency || undefined,
         isRecurring: Boolean(expense.isRecurring),
         userId: userId, 

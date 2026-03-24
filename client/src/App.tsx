@@ -72,6 +72,7 @@ const App: React.FC = () => {
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
   
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
@@ -475,6 +476,7 @@ const handleDeleteIncome = async (id: string) => {
   const handleEditIncomeClick = (income: Income) => { setEditingIncome(income); setIsIncomeModalOpen(true); };
 
   const handleOpenModal = () => {
+    setIsQuickActionsOpen(false);
     if (activeView === 'income') {
         setEditingIncome(null);
         setIsIncomeModalOpen(true);
@@ -482,6 +484,28 @@ const handleDeleteIncome = async (id: string) => {
         setEditingExpense(null);
         setIsExpenseModalOpen(true);
     }
+  };
+
+  const handleOpenExpenseModal = () => {
+    setEditingExpense(null);
+    setIsExpenseModalOpen(true);
+    setIsQuickActionsOpen(false);
+  };
+
+  const handleOpenIncomeModal = () => {
+    setEditingIncome(null);
+    setIsIncomeModalOpen(true);
+    setIsQuickActionsOpen(false);
+  };
+
+  const handleOpenBudgetModal = () => {
+    setIsBudgetModalOpen(true);
+    setIsQuickActionsOpen(false);
+  };
+
+  const handleOpenDataModal = () => {
+    setIsDataModalOpen(true);
+    setIsQuickActionsOpen(false);
   };
 
   const handleSaveBudgets = async (updatedBudgets: Budget[]) => {
@@ -813,7 +837,7 @@ const handleDeleteIncome = async (id: string) => {
                   const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
                   tabs[nextIndex].focus();
                 }}
-                className="w-16 md:w-20 flex flex-col border-r-4 border-ink bg-bone z-30 flex-shrink-0 overflow-hidden no-scrollbar h-full"
+                className="hidden md:flex w-16 md:w-20 flex-col border-r-4 border-ink bg-bone z-30 flex-shrink-0 overflow-hidden no-scrollbar h-full"
               >
                 <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="TXNS" colorClass="bg-usc-cardinal" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
                 <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="REVENUE" colorClass="bg-green-600" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
@@ -824,7 +848,7 @@ const handleDeleteIncome = async (id: string) => {
 
               {/* 3. MAIN SCROLLABLE VIEWPORT */}
               <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-bone">
-                <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-40">
+                <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-56 md:pb-40">
                   
                   {/* F3: Recurring expense prompt */}
                   {pendingRecurring.length > 0 && (
@@ -878,17 +902,78 @@ const handleDeleteIncome = async (id: string) => {
 
               {/* 4. FLOATING ACTION BUTTON */}
               <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 flex flex-col items-center z-50 group">
+                  {isQuickActionsOpen && (
+                    <div className="mb-3 w-44 bg-bone border-4 border-ink shadow-neo p-2 space-y-2">
+                      <button
+                        onClick={handleOpenExpenseModal}
+                        className="w-full text-left bg-white border-2 border-ink px-3 py-2 font-loud text-[10px] uppercase hover:bg-usc-gold"
+                      >
+                        + ADD_EXPENSE
+                      </button>
+                      <button
+                        onClick={handleOpenIncomeModal}
+                        className="w-full text-left bg-white border-2 border-ink px-3 py-2 font-loud text-[10px] uppercase hover:bg-usc-gold"
+                      >
+                        + ADD_INCOME
+                      </button>
+                      <button
+                        onClick={handleOpenBudgetModal}
+                        className="w-full text-left bg-white border-2 border-ink px-3 py-2 font-loud text-[10px] uppercase hover:bg-usc-gold"
+                      >
+                        + MANAGE_BUDGETS
+                      </button>
+                      <button
+                        onClick={handleOpenDataModal}
+                        className="w-full text-left bg-white border-2 border-ink px-3 py-2 font-loud text-[10px] uppercase hover:bg-usc-gold"
+                      >
+                        + DATA_HUB
+                      </button>
+                    </div>
+                  )}
                   <button
-                    onClick={handleOpenModal}
-                    aria-label={`Add ${activeView === 'income' ? 'income' : 'expense'}`}
+                    onClick={() => setIsQuickActionsOpen((prev) => !prev)}
+                    aria-label="Open quick actions"
                     className="bg-usc-gold text-ink border-4 border-ink p-3 md:p-4 shadow-neo hover:bg-white hover:text-usc-cardinal hover:shadow-neo-hover transition-all flex flex-col items-center active:scale-95"
                   >
                     <PlusCircleIcon className="h-8 w-8 md:h-10 md:w-10" />
                     <span className="font-loud text-[8px] md:text-[10px] mt-1 md:mt-2 leading-none uppercase tracking-tighter">
-                      ADD_{activeView === 'income' ? 'INFLOW' : 'OUTFLOW'}
+                      QUICK_ACTIONS
                     </span>
                   </button>
               </div>
+
+              <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t-4 border-ink bg-bone grid grid-cols-5">
+                <button
+                  onClick={() => setActiveView('expenses')}
+                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'expenses' ? 'bg-usc-cardinal text-bone' : 'bg-white text-ink'}`}
+                >
+                  TXNS
+                </button>
+                <button
+                  onClick={() => setActiveView('income')}
+                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'income' ? 'bg-green-600 text-bone' : 'bg-white text-ink'}`}
+                >
+                  INCOME
+                </button>
+                <button
+                  onClick={() => setActiveView('pivot')}
+                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'pivot' ? 'bg-ink text-bone' : 'bg-white text-ink'}`}
+                >
+                  MATRIX
+                </button>
+                <button
+                  onClick={() => setActiveView('reports')}
+                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'reports' ? 'bg-ink text-bone' : 'bg-white text-ink'}`}
+                >
+                  AUDIT
+                </button>
+                <button
+                  onClick={() => setActiveView('usc')}
+                  className={`py-2 font-loud text-[9px] ${activeView === 'usc' ? 'bg-usc-gold text-ink' : 'bg-white text-ink'}`}
+                >
+                  BURSAR
+                </button>
+              </nav>
             </main>
           </div>
 

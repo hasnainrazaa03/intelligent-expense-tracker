@@ -65,12 +65,12 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Purposeful empty states with clear CTA.
 - Notes: Reusable EmptyState component.
 
-4. [ ] Improved mobile navigation
+4. [x] Improved mobile navigation
 - Opportunity: Dense controls on smaller screens.
 - Solution: Responsive bottom nav on mobile, tabs on desktop.
 - Notes: Keep current visual identity.
 
-5. [ ] Floating action button for quick actions
+5. [x] Floating action button for quick actions
 - Opportunity: Add flows could be faster.
 - Solution: Expandable FAB with action shortcuts.
 - Notes: Expense, income, budget shortcuts.
@@ -127,12 +127,12 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Lazy-load heavy views.
 - Notes: React.lazy and Suspense.
 
-16. [ ] Asset optimization
+16. [x] Asset optimization
 - Opportunity: Improve image/font loading.
 - Solution: Compress, preload critical assets.
 - Notes: Keep first paint fast.
 
-17. [ ] Database query optimization
+17. [x] Database query optimization
 - Opportunity: High-frequency queries can be tuned.
 - Solution: Add indexes and tighten selects.
 - Notes: Profile by route latency.
@@ -276,7 +276,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Auth, CRUD, import/restore, reports.
 - Notes: Playwright pipeline.
 
-45. [ ] Database data-quality constraints
+45. [x] Database data-quality constraints
 - Opportunity: Prevent invalid persisted data.
 - Solution: Strengthen schema constraints + route validation.
 - Notes: Guard rails at multiple layers.
@@ -382,7 +382,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: strict CSP via Helmet config.
 - Notes: Add report-only rollout first.
 
-65. [ ] Sensitive data sanitization in logs
+65. [x] Sensitive data sanitization in logs
 - Opportunity: Prevent accidental leak in logs.
 - Solution: Redact secrets and PII fields.
 - Notes: Central log sanitizer.
@@ -392,7 +392,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Tight, route-specific auth limits.
 - Notes: Include lockout telemetry.
 
-67. [ ] Strong password policy and strength meter
+67. [x] Strong password policy and strength meter
 - Opportunity: Reduce weak credential risk.
 - Solution: Enforce stronger password rules.
 - Notes: Client hint + server enforcement.
@@ -412,12 +412,12 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: sanitize/untrusted text handling.
 - Notes: Avoid dangerous HTML rendering.
 
-71. [ ] Per-user API rate limiting
+71. [x] Per-user API rate limiting
 - Opportunity: Fair-use and abuse control.
 - Solution: user-scoped limit keys.
 - Notes: Fallback by IP.
 
-72. [ ] Secure file upload validation
+72. [x] Secure file upload validation
 - Opportunity: Protect import/upload endpoints.
 - Solution: Strict MIME/size/content checks.
 - Notes: Reject malformed payloads early.
@@ -427,7 +427,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Structured audit events for critical operations.
 - Notes: Include actor, action, outcome, metadata.
 
-74. [ ] Dependency vulnerability scanning automation
+74. [x] Dependency vulnerability scanning automation
 - Opportunity: Continuous package risk management.
 - Solution: Dependabot/Snyk + CI checks.
 - Notes: Regular triage cadence.

@@ -57,6 +57,9 @@ const Header: React.FC<HeaderProps> = ({
                 <img 
                   src={trojanLogo} 
                   alt="USC Trojan" 
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
                   className="h-8 w-8 md:h-10 md:w-10 object-contain" 
                 />
               </div>

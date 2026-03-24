@@ -25,7 +25,25 @@ const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.te
 // S4: Input length limits
 const MAX_EMAIL_LENGTH = SERVER_CONFIG.limits.maxEmailLength;
 const MAX_PASSWORD_LENGTH = SERVER_CONFIG.limits.maxPasswordLength;
-const MIN_PASSWORD_LENGTH = SERVER_CONFIG.limits.minPasswordLength;
+const MIN_PASSWORD_LENGTH = Math.max(SERVER_CONFIG.limits.minPasswordLength, 8);
+
+const passwordPolicy = {
+  lower: /[a-z]/,
+  upper: /[A-Z]/,
+  digit: /\d/,
+  symbol: /[^A-Za-z0-9]/,
+};
+
+const isStrongPassword = (password: string): boolean => {
+  return (
+    password.length >= MIN_PASSWORD_LENGTH &&
+    password.length <= MAX_PASSWORD_LENGTH &&
+    passwordPolicy.lower.test(password) &&
+    passwordPolicy.upper.test(password) &&
+    passwordPolicy.digit.test(password) &&
+    passwordPolicy.symbol.test(password)
+  );
+};
 
 // S5: Account lockout constants
 const MAX_LOGIN_ATTEMPTS = SERVER_CONFIG.auth.maxLoginAttempts;
@@ -46,8 +64,13 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
       return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid email format');
     }
 
-    if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
-      return sendError(res, 400, 'VALIDATION_ERROR', `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters`);
+    if (!isStrongPassword(password)) {
+      return sendError(
+        res,
+        400,
+        'VALIDATION_ERROR',
+        `Password must be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} chars and include uppercase, lowercase, number, and symbol`
+      );
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -352,7 +375,7 @@ router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: 
 });
 
 // --- 6. Reset Password ---
-router.post('/reset-password', authLimiter, async (req: Request, res: Response) => {
+router.post('/reset-password', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
     const { email: rawEmail, code, newPassword } = req.body;
 
@@ -360,8 +383,10 @@ router.post('/reset-password', authLimiter, async (req: Request, res: Response) 
       return res.status(400).json({ message: 'Email, code, and new password are required' });
     }
 
-    if (newPassword.length < 6 || newPassword.length > MAX_PASSWORD_LENGTH) {
-      return res.status(400).json({ message: 'Password must be between 6 and 128 characters' });
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        message: `Password must be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} chars and include uppercase, lowercase, number, and symbol`,
+      });
     }
 
     const email = rawEmail.toLowerCase().trim();

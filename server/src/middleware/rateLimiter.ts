@@ -1,4 +1,24 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
+import { SERVER_CONFIG } from '../config';
+
+const JWT_SECRET = SERVER_CONFIG.jwtSecret;
+
+const getRateLimitKey = (authorizationHeader?: string): string | null => {
+  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authorizationHeader.slice('Bearer '.length).trim();
+  if (!token) return null;
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { id?: string };
+    return payload?.id ? `user:${payload.id}` : null;
+  } catch {
+    return null;
+  }
+};
 
 // Auth endpoints: 10 requests per 15 minutes per IP
 export const authLimiter = rateLimit({
@@ -52,4 +72,17 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests. Please slow down.' },
+});
+
+// Authenticated API: 180 requests per minute per user (falls back to IP)
+export const userApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 180,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userKey = getRateLimitKey(req.headers.authorization);
+    return userKey || ipKeyGenerator(req.ip || 'unknown-ip');
+  },
+  message: { message: 'Per-user rate limit reached. Please try again shortly.' },
 });

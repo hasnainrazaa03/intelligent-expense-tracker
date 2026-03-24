@@ -11,13 +11,15 @@ export const requestLogger = (req: RequestWithRequestId, res: Response, next: Ne
 
   res.on('finish', () => {
     const durationMs = Date.now() - startedAt;
+    const safePath = req.path;
+    const safeUserId = req.user?.id ? `${req.user.id.slice(0, 4)}***` : undefined;
     const log = {
       requestId,
       method: req.method,
-      path: req.originalUrl,
+      path: safePath,
       statusCode: res.statusCode,
       durationMs,
-      userId: req.user?.id,
+      userId: safeUserId,
     };
     console.log(JSON.stringify(log));
   });

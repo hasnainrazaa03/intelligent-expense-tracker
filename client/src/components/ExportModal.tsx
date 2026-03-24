@@ -3,6 +3,7 @@ import { Expense, Budget, Income, Semester } from '../types';
 import { exportData } from '../utils/exportUtils';
 import { logAuditEvent } from '../services/api';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import { APP_CONFIG } from '../config';
 import { 
   XMarkIcon, 
   TableCellsIcon, 
@@ -124,14 +125,38 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
-        setImportFile(event.target.files[0]);
+        const file = event.target.files[0];
+        const lowerName = file.name.toLowerCase();
+        if (!lowerName.endsWith('.csv')) {
+          setImportFile(null);
+          setImportError('ONLY_CSV_FILES_ALLOWED');
+          return;
+        }
+        if (file.size > APP_CONFIG.maxImportFileSizeBytes) {
+          setImportFile(null);
+          setImportError(`CSV_FILE_TOO_LARGE_MAX_${Math.floor(APP_CONFIG.maxImportFileSizeBytes / (1024 * 1024))}MB`);
+          return;
+        }
+        setImportFile(file);
         setImportError(null);
     }
   };
 
   const handleBackupFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
-      setBackupFile(event.target.files[0]);
+      const file = event.target.files[0];
+      const lowerName = file.name.toLowerCase();
+      if (!lowerName.endsWith('.json')) {
+        setBackupFile(null);
+        setBackupError('ONLY_JSON_BACKUP_FILES_ALLOWED');
+        return;
+      }
+      if (file.size > APP_CONFIG.maxBackupFileSizeBytes) {
+        setBackupFile(null);
+        setBackupError(`BACKUP_FILE_TOO_LARGE_MAX_${Math.floor(APP_CONFIG.maxBackupFileSizeBytes / (1024 * 1024))}MB`);
+        return;
+      }
+      setBackupFile(file);
       setBackupError(null);
     }
   };
@@ -150,6 +175,9 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             const csvText = event.target?.result as string;
             const lines = csvText.trim().split(/\r?\n/);
             if (lines.length < 2) throw new Error("CSV_EMPTY_OR_NO_DATA");
+            if (lines.length - 1 > APP_CONFIG.maxCsvImportRows) {
+              throw new Error(`CSV_ROW_LIMIT_EXCEEDED_MAX_${APP_CONFIG.maxCsvImportRows}`);
+            }
             
             const header = lines[0].split(',').map(h => h.trim());
             const requiredHeaders = ['title', 'amount', 'category', 'date'];

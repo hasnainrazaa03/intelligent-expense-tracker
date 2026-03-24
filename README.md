@@ -104,6 +104,7 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Debounced search to reduce expensive filtering during typing
 - API request deduplication + short TTL read cache to reduce duplicate network calls
 - Additional memoization for frequently re-computed view props and summaries
+- Optimized asset delivery with image preload hints for critical USC branding assets
 
 ### 🧱 Architecture and Reliability
 - Root-level React error boundary with graceful recovery UI
@@ -111,6 +112,8 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Strongly typed API client responses for safer frontend integration
 - Centralized client and server configuration constants
 - OpenAPI docs exposed at `/api/docs` with machine-readable spec at `/api/openapi.json`
+- Query-path index optimization for expense/income lookups (`userId + date/category`)
+- Stronger backend payload validation for expenses, incomes, and budgets
 
 ### 🔎 Observability and Security Ops
 - Structured request logging with request IDs and latency
@@ -124,6 +127,8 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Focus-visible styling and improved keyboard navigation for vertical tab controls
 - Modal focus trap with return-focus behavior on close
 - Live-region announcements for loading and modal error/status updates
+- Improved mobile-first navigation with dedicated bottom tab navigation
+- Expanded floating quick-action menu for faster add/manage workflows
 
 ### 🌐 Discoverability
 - Robots and sitemap files for crawl strategy (`client/public/robots.txt`, `client/public/sitemap.xml`)
@@ -132,6 +137,14 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 ### 🔐 Security Hardening
 - Tightened Helmet Content Security Policy defaults on server responses
 - Route-specific auth hardening with stricter OTP and password-reset rate limits
+- Per-user authenticated API rate limiting with safe IP fallback
+- Password policy hardening (upper/lower/number/symbol) with client-side strength meter
+- Request log sanitization to reduce accidental sensitive data exposure
+- Client-side import file validation (extension/size/row limits) for safer data ingestion
+
+### 🛡️ Dependency Safety
+- Added Dependabot configuration for weekly client/server dependency updates
+- Added GitHub Actions dependency audit workflow (`npm audit --audit-level=high`)
 
 ### 🔁 Data Portability
 - Import / export in **JSON** and **CSV** formats

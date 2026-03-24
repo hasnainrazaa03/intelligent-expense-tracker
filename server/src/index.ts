@@ -6,7 +6,7 @@ import passport from 'passport';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import './passport-setup';
-import { apiLimiter, aiLimiter } from './middleware/rateLimiter';
+import { apiLimiter, aiLimiter, userApiLimiter } from './middleware/rateLimiter';
 import { requestLogger } from './middleware/requestLogger';
 import authRoutes from './routes/auth';
 import dataRoutes from './routes/data';
@@ -86,12 +86,12 @@ app.use('/api/', apiLimiter);
 
 // --- Routes ---
 app.use('/api/auth', authRoutes);
-app.use('/api/data', dataRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/incomes', incomeRoutes);
-app.use('/api/budgets', budgetRoutes);
-app.use('/api/semesters', semesterRoutes);
-app.use('/api/ai', aiLimiter, aiRoutes);
+app.use('/api/data', userApiLimiter, dataRoutes);
+app.use('/api/expenses', userApiLimiter, expenseRoutes);
+app.use('/api/incomes', userApiLimiter, incomeRoutes);
+app.use('/api/budgets', userApiLimiter, budgetRoutes);
+app.use('/api/semesters', userApiLimiter, semesterRoutes);
+app.use('/api/ai', userApiLimiter, aiLimiter, aiRoutes);
 
 // --- Global Error Handler ---
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
