@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { toFinPrecision, parseFiniteFloat } from '../utils/math';
 import { SERVER_CONFIG } from '../config';
+import { sanitizeText } from '../utils/sanitize';
 
 const router = Router();
 router.use(authMiddleware);
@@ -32,7 +33,7 @@ router.post('/', async (req: Request, res: Response) => {
       
       // 2. Validation, Formatting, and Precision Rounding
       const formattedBudgets = budgets.map(b => {
-        const category = typeof b.category === 'string' ? b.category.trim() : '';
+        const category = sanitizeText(b.category);
         const parsedAmount = parseFiniteFloat(b.amount as any);
         if (!category) {
           throw new Error('Budget category is required');

@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
+import { sanitizeText } from '../utils/sanitize';
 
 const router = Router();
 
@@ -19,9 +20,9 @@ router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { title, amount, category, date, notes, originalAmount, originalCurrency } = req.body;
 
-  const safeTitle = typeof title === 'string' ? title.trim() : '';
-  const safeCategory = typeof category === 'string' ? category.trim() : '';
-  const safeNotes = typeof notes === 'string' ? notes.trim() : '';
+  const safeTitle = sanitizeText(title);
+  const safeCategory = sanitizeText(category);
+  const safeNotes = sanitizeText(notes);
 
   if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
@@ -78,9 +79,9 @@ router.put('/:id', async (req: Request, res: Response) => {
   const incomeId = req.params.id;
   const { title, amount, category, date, notes, originalAmount, originalCurrency } = req.body;
 
-  const safeTitle = typeof title === 'string' ? title.trim() : '';
-  const safeCategory = typeof category === 'string' ? category.trim() : '';
-  const safeNotes = typeof notes === 'string' ? notes.trim() : '';
+  const safeTitle = sanitizeText(title);
+  const safeCategory = sanitizeText(category);
+  const safeNotes = sanitizeText(notes);
 
   if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });

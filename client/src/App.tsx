@@ -33,6 +33,11 @@ const Reports = lazy(() => import('./components/Reports'));
 
 type ActiveView = 'expenses' | 'income' | 'pivot' | 'usc' | 'reports';
 
+const RECURRING_SNOOZE_KEY = 'recurringReminderSnoozeUntil';
+const ONBOARDING_DISMISSED_KEY = 'onboardingDismissed';
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const SESSION_WARNING_MS = 2 * 60 * 1000;
+
 const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, colorClass: string }) => {
     return (
         <button
@@ -93,6 +98,9 @@ const App: React.FC = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
   const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
+  const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
+    return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true';
+  });
 
   useEffect(() => {
     // Check if we've been redirected from the Google login
@@ -205,6 +213,12 @@ const App: React.FC = () => {
           );
 
           if (missing.length > 0) {
+            const snoozeUntil = Number(localStorage.getItem(RECURRING_SNOOZE_KEY) || '0');
+            if (Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil) {
+              setPendingRecurring([]);
+              return;
+            }
+
             const daysInThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
             const newEntries: Omit<Expense, 'id'>[] = missing.map(e => ({
               // Clamp day so 31st from prior month doesn't generate invalid dates like YYYY-MM-31 in shorter months
@@ -278,6 +292,38 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAuthenticated, isExpenseModalOpen, isIncomeModalOpen, isBudgetModalOpen, isDataModalOpen, isCategoryModalOpen, activeView]);
 
+  // S9: Session timeout with warning + automatic logout on inactivity.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let warningTimer: ReturnType<typeof setTimeout> | null = null;
+    let logoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const resetTimers = () => {
+      if (warningTimer) clearTimeout(warningTimer);
+      if (logoutTimer) clearTimeout(logoutTimer);
+
+      warningTimer = setTimeout(() => {
+        notify.warning('Session expires soon due to inactivity.');
+      }, SESSION_TIMEOUT_MS - SESSION_WARNING_MS);
+
+      logoutTimer = setTimeout(() => {
+        notify.info('Session expired. Please log in again.');
+        handleLogout();
+      }, SESSION_TIMEOUT_MS);
+    };
+
+    const events: Array<keyof WindowEventMap> = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach((eventName) => window.addEventListener(eventName, resetTimers, { passive: true }));
+    resetTimers();
+
+    return () => {
+      if (warningTimer) clearTimeout(warningTimer);
+      if (logoutTimer) clearTimeout(logoutTimer);
+      events.forEach((eventName) => window.removeEventListener(eventName, resetTimers));
+    };
+  }, [isAuthenticated]);
+
   // Auto-save semesters to the database whenever they change
   useEffect(() => {
     // Only save if we're logged in AND the user has actually made a change
@@ -346,6 +392,7 @@ const App: React.FC = () => {
       const refreshed = await getAllData();
       setExpenses(refreshed.expenses);
       setPendingRecurring([]);
+      localStorage.removeItem(RECURRING_SNOOZE_KEY);
       notify.success(`${addedCount} recurring expense(s) added for this month.`);
     } catch (error) {
       console.error("Failed to create recurring expenses:", error);
@@ -356,6 +403,15 @@ const App: React.FC = () => {
   const handleDismissRecurring = () => {
     setPendingRecurring([]);
   };
+
+  const handleSnoozeRecurring = () => {
+    const until = Date.now() + 24 * 60 * 60 * 1000;
+    localStorage.setItem(RECURRING_SNOOZE_KEY, String(until));
+    setPendingRecurring([]);
+    notify.info('Recurring reminder snoozed for 24 hours.');
+  };
+
+  const showOnboarding = isAuthenticated && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0;
 
   const handleAddExpense = async (expense: Omit<Expense, 'id'>) => {
   try {
@@ -849,6 +905,38 @@ const handleDeleteIncome = async (id: string) => {
               {/* 3. MAIN SCROLLABLE VIEWPORT */}
               <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-bone">
                 <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-56 md:pb-40">
+
+                  {showOnboarding && (
+                    <section className="bg-white border-4 border-ink p-4 md:p-6 shadow-neo">
+                      <h3 className="font-loud text-lg md:text-2xl uppercase mb-2">WELCOME_ONBOARDING</h3>
+                      <p className="font-mono text-[11px] text-ink/70 uppercase mb-4">
+                        Start by adding one expense, one income, then set a budget for your top category.
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={handleOpenExpenseModal}
+                          className="bg-usc-gold text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo uppercase"
+                        >
+                          ADD_FIRST_EXPENSE
+                        </button>
+                        <button
+                          onClick={handleOpenIncomeModal}
+                          className="bg-bone text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo uppercase"
+                        >
+                          ADD_FIRST_INCOME
+                        </button>
+                        <button
+                          onClick={() => {
+                            localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true');
+                            setOnboardingDismissed(true);
+                          }}
+                          className="bg-ink text-bone font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo uppercase"
+                        >
+                          DISMISS
+                        </button>
+                      </div>
+                    </section>
+                  )}
                   
                   {/* F3: Recurring expense prompt */}
                   {pendingRecurring.length > 0 && (
@@ -871,6 +959,12 @@ const handleDeleteIncome = async (id: string) => {
                           className="bg-bone text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all uppercase"
                         >
                           DISMISS
+                        </button>
+                        <button
+                          onClick={handleSnoozeRecurring}
+                          className="bg-ink text-bone font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all uppercase"
+                        >
+                          SNOOZE_24H
                         </button>
                       </div>
                     </div>

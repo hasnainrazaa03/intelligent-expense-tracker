@@ -5,6 +5,7 @@ import { Expense } from '../types';
 import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
+import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
 
 const router = Router();
 
@@ -22,10 +23,10 @@ router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { title, amount, category, date, paymentMethod, notes, originalAmount, originalCurrency, isRecurring } = req.body;
 
-  const safeTitle = typeof title === 'string' ? title.trim() : '';
-  const safeCategory = typeof category === 'string' ? category.trim() : '';
-  const safePaymentMethod = typeof paymentMethod === 'string' ? paymentMethod.trim() : '';
-  const safeNotes = typeof notes === 'string' ? notes.trim() : '';
+  const safeTitle = sanitizeText(title);
+  const safeCategory = sanitizeText(category);
+  const safePaymentMethod = sanitizeText(paymentMethod);
+  const safeNotes = sanitizeText(notes);
 
   // Basic validation
   if (!safeTitle || amount == null || !safeCategory || !date) {
@@ -90,10 +91,10 @@ router.put('/:id', async (req: Request, res: Response) => {
   const expenseId = req.params.id;
   const { title, amount, category, date, paymentMethod, notes, originalAmount, originalCurrency, isRecurring } = req.body;
 
-  const safeTitle = typeof title === 'string' ? title.trim() : '';
-  const safeCategory = typeof category === 'string' ? category.trim() : '';
-  const safePaymentMethod = typeof paymentMethod === 'string' ? paymentMethod.trim() : '';
-  const safeNotes = typeof notes === 'string' ? notes.trim() : '';
+  const safeTitle = sanitizeText(title);
+  const safeCategory = sanitizeText(category);
+  const safePaymentMethod = sanitizeText(paymentMethod);
+  const safeNotes = sanitizeText(notes);
 
   // Required-field validation (same as POST)
   if (!safeTitle || amount == null || !safeCategory || !date) {
@@ -223,8 +224,8 @@ router.post('/bulk', async (req: Request, res: Response) => {
         throw new Error(`Invalid date at row ${index + 1}: "${expense.date}"`);
       }
 
-      const safeTitle = String(expense.title || '').trim();
-      const safeCategory = String(expense.category || '').trim();
+      const safeTitle = sanitizeText(expense.title);
+      const safeCategory = sanitizeText(expense.category);
       if (!safeTitle || !safeCategory) {
         throw new Error(`Title and category are required at row ${index + 1}`);
       }
@@ -252,8 +253,8 @@ router.post('/bulk', async (req: Request, res: Response) => {
         category: safeCategory,
         amount: toFinPrecision(parsedAmount),
         date: parsedDate,
-        paymentMethod: expense.paymentMethod?.trim() || undefined,
-        notes: expense.notes?.trim() || undefined,
+        paymentMethod: sanitizeOptionalText(expense.paymentMethod),
+        notes: sanitizeOptionalText(expense.notes),
         originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
         originalCurrency: expense.originalCurrency || undefined,
         isRecurring: Boolean(expense.isRecurring),

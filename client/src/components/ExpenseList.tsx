@@ -11,6 +11,8 @@ import EmptyState from './EmptyState';
 import SectionSkeleton from './SectionSkeleton';
 import { List, RowComponentProps } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
+import toast from 'react-hot-toast';
+import ConfirmationDialog from './ConfirmationDialog';
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -23,48 +25,12 @@ interface ExpenseListProps {
 }
 
 // --- TYPES FOR SUB-COMPONENTS ---
-interface ConfirmationDialogProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
-    title: string;
-    children: React.ReactNode;
-    loading?: boolean;
-}
-
 interface ExpenseItemProps {
     expense: Expense;
     onEdit: (e: Expense) => void;
     onDelete: (id: string) => void;
     displayCurrency: 'USD' | 'INR';
     conversionRate: number | null;
-}
-
-// --- NEO-BRUTALIST CONFIRMATION DIALOG ---
-const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, title, children, loading }) => {
-    if (!isOpen) return null;
-
-    return (
-      <div className="fixed inset-0 bg-ink/80 backdrop-blur-sm z-[110] flex justify-center items-center p-4" onClick={onClose}>
-          <div className="bg-bone border-4 border-ink shadow-neo-cardinal w-full max-w-sm transform transition-all" onClick={e => e.stopPropagation()}>
-              <div className="p-4 md:p-6 border-b-4 border-ink bg-usc-cardinal text-bone flex items-center">
-                  <ExclamationTriangleIcon className="h-6 w-6 md:h-8 md:w-8 mr-3 flex-shrink-0" />
-                  <h3 className="font-loud text-lg md:text-2xl uppercase leading-none">{title}</h3>
-              </div>
-              <div className="p-6 md:p-8 font-bold text-ink text-sm md:text-base uppercase leading-tight">
-                  {children}
-              </div>
-              <div className="flex p-3 md:p-4 border-t-4 border-ink gap-3 md:gap-4 bg-bone">
-                <button onClick={onClose} disabled={loading} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-white text-ink shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all disabled:opacity-50">
-                  CANCEL
-                </button>
-                <button onClick={onConfirm} disabled={loading} className="flex-1 py-3 font-loud text-xs md:text-base border-4 border-ink bg-usc-cardinal text-bone shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all uppercase disabled:opacity-50">
-                  {loading ? 'DELETING...' : 'CONFIRM'}
-                </button>
-              </div>
-          </div>
-      </div>
-  );
 }
 
 // --- NEO-BRUTALIST EXPENSE ITEM ---
@@ -179,13 +145,33 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onDelete, o
 
   const handleConfirmDelete = async () => {
     if (expenseToDeleteId && !isDeleting) {
+      const idToDelete = expenseToDeleteId;
+      setExpenseToDeleteId(null);
       setIsDeleting(true);
-      try {
-        await onDelete(expenseToDeleteId);
-      } finally {
-        setIsDeleting(false);
-        setExpenseToDeleteId(null);
-      }
+
+      const deletionTimer = setTimeout(async () => {
+        try {
+          await onDelete(idToDelete);
+        } finally {
+          setIsDeleting(false);
+        }
+      }, 5000);
+
+      toast((t) => (
+        <div className="font-mono text-xs uppercase flex items-center gap-2">
+          <span>Expense scheduled for deletion.</span>
+          <button
+            onClick={() => {
+              clearTimeout(deletionTimer);
+              setIsDeleting(false);
+              toast.dismiss(t.id);
+            }}
+            className="border border-white px-2 py-0.5 font-bold"
+          >
+            UNDO
+          </button>
+        </div>
+      ), { duration: 5000 });
     }
   };
 

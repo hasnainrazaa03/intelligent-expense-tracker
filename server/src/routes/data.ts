@@ -5,6 +5,7 @@ import { parseFiniteFloat, parseValidDate, toFinPrecision } from '../utils/math'
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
+import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
 
 const router = Router();
 
@@ -101,57 +102,62 @@ router.post('/restore', async (req: Request, res: Response) => {
       await tx.semester.deleteMany({ where: { userId } });
 
       const cleanExpenses = expenses.map((e: any, idx: number) => {
+        const safeTitle = sanitizeText(e.title);
+        const safeCategory = sanitizeText(e.category);
         const amount = parseFiniteFloat(e.amount);
         const date = parseValidDate(e.date);
-        if (!e.title || !e.category || amount === null || !date) {
+        if (!safeTitle || !safeCategory || amount === null || !date) {
           throw new Error(`Invalid expense at index ${idx}`);
         }
-        if (String(e.title).length > MAX_TEXT_LENGTH || String(e.category).length > MAX_TEXT_LENGTH || (e.notes && String(e.notes).length > MAX_TEXT_LENGTH)) {
+        if (safeTitle.length > MAX_TEXT_LENGTH || safeCategory.length > MAX_TEXT_LENGTH || (e.notes && String(e.notes).length > MAX_TEXT_LENGTH)) {
           throw new Error(`Expense text too long at index ${idx}`);
         }
         return {
-          title: String(e.title).trim(),
+          title: safeTitle,
           amount: toFinPrecision(amount),
-          category: String(e.category).trim(),
+          category: safeCategory,
           date,
-          paymentMethod: e.paymentMethod ? String(e.paymentMethod).trim() : undefined,
-          notes: e.notes ? String(e.notes).trim() : undefined,
+          paymentMethod: sanitizeOptionalText(e.paymentMethod),
+          notes: sanitizeOptionalText(e.notes),
           originalAmount: e.originalAmount != null ? toFinPrecision(parseFiniteFloat(e.originalAmount) ?? 0) : undefined,
-          originalCurrency: e.originalCurrency ? String(e.originalCurrency) : undefined,
+          originalCurrency: sanitizeOptionalText(e.originalCurrency),
           isRecurring: Boolean(e.isRecurring),
           userId,
         };
       });
 
       const cleanIncomes = incomes.map((i: any, idx: number) => {
+        const safeTitle = sanitizeText(i.title);
+        const safeCategory = sanitizeText(i.category);
         const amount = parseFiniteFloat(i.amount);
         const date = parseValidDate(i.date);
-        if (!i.title || !i.category || amount === null || !date) {
+        if (!safeTitle || !safeCategory || amount === null || !date) {
           throw new Error(`Invalid income at index ${idx}`);
         }
-        if (String(i.title).length > MAX_TEXT_LENGTH || String(i.category).length > MAX_TEXT_LENGTH || (i.notes && String(i.notes).length > MAX_TEXT_LENGTH)) {
+        if (safeTitle.length > MAX_TEXT_LENGTH || safeCategory.length > MAX_TEXT_LENGTH || (i.notes && String(i.notes).length > MAX_TEXT_LENGTH)) {
           throw new Error(`Income text too long at index ${idx}`);
         }
         return {
-          title: String(i.title).trim(),
+          title: safeTitle,
           amount: toFinPrecision(amount),
-          category: String(i.category).trim(),
+          category: safeCategory,
           date,
-          notes: i.notes ? String(i.notes).trim() : undefined,
+          notes: sanitizeOptionalText(i.notes),
           originalAmount: i.originalAmount != null ? toFinPrecision(parseFiniteFloat(i.originalAmount) ?? 0) : undefined,
-          originalCurrency: i.originalCurrency ? String(i.originalCurrency) : undefined,
+          originalCurrency: sanitizeOptionalText(i.originalCurrency),
           userId,
         };
       });
 
       const cleanBudgets = budgets
         .map((b: any, idx: number) => {
+          const safeCategory = sanitizeText(b.category);
           const amount = parseFiniteFloat(b.amount);
-          if (!b.category || amount === null) {
+          if (!safeCategory || amount === null) {
             throw new Error(`Invalid budget at index ${idx}`);
           }
           return {
-            category: String(b.category).trim(),
+            category: safeCategory,
             amount: toFinPrecision(amount),
             userId,
           };
@@ -170,7 +176,8 @@ router.post('/restore', async (req: Request, res: Response) => {
 
       for (let sIdx = 0; sIdx < semesters.length; sIdx++) {
         const sem = semesters[sIdx];
-        if (!sem?.id || !sem?.name || !Array.isArray(sem.installments)) {
+        const safeName = sanitizeText(sem?.name);
+        if (!sem?.id || !safeName || !Array.isArray(sem.installments)) {
           throw new Error(`Invalid semester at index ${sIdx}`);
         }
         const totalTuition = toFinPrecision(parseFiniteFloat(sem.totalTuition) ?? 0);
@@ -178,7 +185,7 @@ router.post('/restore', async (req: Request, res: Response) => {
         await tx.semester.create({
           data: {
             id: String(sem.id),
-            name: String(sem.name).trim(),
+            name: safeName,
             totalTuition,
             userId,
             installments: {

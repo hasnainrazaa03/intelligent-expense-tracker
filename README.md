@@ -105,6 +105,7 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - API request deduplication + short TTL read cache to reduce duplicate network calls
 - Additional memoization for frequently re-computed view props and summaries
 - Optimized asset delivery with image preload hints for critical USC branding assets
+- Basic offline resilience with service worker app-shell caching
 
 ### 🧱 Architecture and Reliability
 - Root-level React error boundary with graceful recovery UI
@@ -114,6 +115,8 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - OpenAPI docs exposed at `/api/docs` with machine-readable spec at `/api/openapi.json`
 - Query-path index optimization for expense/income lookups (`userId + date/category`)
 - Stronger backend payload validation for expenses, incomes, and budgets
+- Shared reusable confirmation dialog component to reduce duplicated list logic
+- Added unit tests for core utility behavior (fuzzy search, currency formatting)
 
 ### 🔎 Observability and Security Ops
 - Structured request logging with request IDs and latency
@@ -129,6 +132,7 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Live-region announcements for loading and modal error/status updates
 - Improved mobile-first navigation with dedicated bottom tab navigation
 - Expanded floating quick-action menu for faster add/manage workflows
+- Contrast refinements for helper/label text in auth and chart empty states
 
 ### 🌐 Discoverability
 - Robots and sitemap files for crawl strategy (`client/public/robots.txt`, `client/public/sitemap.xml`)
@@ -141,6 +145,14 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 - Password policy hardening (upper/lower/number/symbol) with client-side strength meter
 - Request log sanitization to reduce accidental sensitive data exposure
 - Client-side import file validation (extension/size/row limits) for safer data ingestion
+- Server-side input sanitization for auth and data CRUD/restore endpoints
+- Idle session timeout with warning + auto logout on inactivity
+
+### 🧩 UX Improvements
+- First-run onboarding panel with guided next actions
+- Recurring reminder controls now support snooze (24h) in addition to dismiss/add
+- Interactive category pie chart filtering via clickable legend/slices
+- Confirmation flows now support undo window before destructive deletes
 
 ### 🛡️ Dependency Safety
 - Added Dependabot configuration for weekly client/server dependency updates

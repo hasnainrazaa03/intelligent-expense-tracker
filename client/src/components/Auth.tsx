@@ -110,7 +110,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   };
 
   const inputClasses = "w-full bg-white border-4 border-ink p-3 md:p-4 font-loud text-base md:text-lg focus:ring-4 md:ring-8 focus:ring-usc-gold focus:outline-none transition-all placeholder:text-ink/50 text-ink";
-  const labelClasses = "font-loud text-[10px] uppercase tracking-widest text-ink/40 mb-2 block";
+  const labelClasses = "font-loud text-[10px] uppercase tracking-widest text-ink/70 mb-2 block";
   const passwordScore = scorePassword(password);
   const newPasswordScore = scorePassword(newPassword);
 

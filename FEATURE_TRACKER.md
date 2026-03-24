@@ -50,7 +50,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 
 ## UI/UX Improvements
 
-1. [ ] Enhanced onboarding flow
+1. [x] Enhanced onboarding flow
 - Opportunity: New users may not know where to begin.
 - Solution: Guided setup flow for first expenses, budgets, and reports.
 - Notes: Multi-step modal or tour.
@@ -90,12 +90,12 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Standardize success/info/warning/error messaging.
 - Notes: Include context and suggested next action.
 
-9. [ ] Interactive data visualization improvements
+9. [x] Interactive data visualization improvements
 - Opportunity: Charts can be more explorable.
 - Solution: Drilldowns, richer tooltips, click filtering.
 - Notes: Recharts interactions.
 
-10. [ ] Confirmation dialogs with undo actions
+10. [x] Confirmation dialogs with undo actions
 - Opportunity: Safer recovery after accidental deletion.
 - Solution: Add undo to destructive flows.
 - Notes: Time-bound undo queue.
@@ -142,7 +142,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Memoize derived data.
 - Notes: Verify dependency accuracy.
 
-19. [ ] Service worker offline support
+19. [x] Service worker offline support
 - Opportunity: Better resilience on unstable networks.
 - Solution: Cache app shell and selected responses.
 - Notes: PWA strategy.
@@ -159,7 +159,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Near-limit and over-limit alerts.
 - Notes: Thresholds (80%, 100%).
 
-22. [ ] Recurring reminder enhancements
+22. [x] Recurring reminder enhancements
 - Opportunity: Better recurring lifecycle management.
 - Solution: Reminders, snooze, skip, auto-create options.
 - Notes: Notification preferences.
@@ -266,7 +266,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Correlation IDs and standardized logs.
 - Notes: Include duration/status.
 
-43. [ ] Unit tests for critical logic
+43. [x] Unit tests for critical logic
 - Opportunity: Lower regression risk.
 - Solution: Cover utilities/hooks/formatters.
 - Notes: Start with high-value modules.
@@ -291,7 +291,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Validate required env vars at boot.
 - Notes: fail-fast + clear message.
 
-48. [ ] Separation of concerns cleanup
+48. [x] Separation of concerns cleanup
 - Opportunity: Tighter module boundaries.
 - Solution: Move business logic from components to hooks/services.
 - Notes: Incremental refactors.
@@ -323,7 +323,7 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: Associate labels and error hints.
 - Notes: aria-describedby for errors.
 
-54. [ ] Color contrast audit
+54. [x] Color contrast audit
 - Opportunity: Improve readability/compliance.
 - Solution: Adjust failing color pairs.
 - Notes: Test both themes.
@@ -402,12 +402,12 @@ These are selected because they are high impact with low-to-moderate effort and 
 - Solution: TOTP/email OTP second factor.
 - Notes: Recovery code flow.
 
-69. [ ] Session timeout and refresh controls
+69. [x] Session timeout and refresh controls
 - Opportunity: Better session lifecycle.
 - Solution: Idle timeout and rotation.
 - Notes: User-visible timeout warning.
 
-70. [ ] XSS hardening and input sanitization
+70. [x] XSS hardening and input sanitization
 - Opportunity: Defense in depth for user input.
 - Solution: sanitize/untrusted text handling.
 - Notes: Avoid dangerous HTML rendering.

@@ -9,6 +9,7 @@ import { authLimiter, loginLimiter, otpLimiter, passwordResetLimiter } from '../
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
+import { sanitizeEmail } from '../utils/sanitize';
 
 const router = Router();
 
@@ -58,7 +59,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
       return sendError(res, 400, 'VALIDATION_ERROR', 'Email and password are required');
     }
 
-    const email = rawEmail.toLowerCase().trim();
+    const email = sanitizeEmail(rawEmail);
 
     if (!isValidEmail(email) || email.length > MAX_EMAIL_LENGTH) {
       return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid email format');
@@ -140,7 +141,7 @@ router.post('/verify-otp', otpLimiter, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email and OTP are required' });
     }
 
-    const email = rawEmail.toLowerCase().trim();
+    const email = sanitizeEmail(rawEmail);
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user || !user.verificationOtp || (user.otpExpires && new Date() > user.otpExpires)) {
@@ -173,7 +174,7 @@ router.post('/resend-otp', otpLimiter, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    const email = rawEmail.toLowerCase().trim();
+    const email = sanitizeEmail(rawEmail);
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
@@ -220,7 +221,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const email = rawEmail.toLowerCase().trim();
+    const email = sanitizeEmail(rawEmail);
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -342,7 +343,7 @@ router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: 
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    const email = rawEmail.toLowerCase().trim();
+    const email = sanitizeEmail(rawEmail);
     // Always return success to prevent email enumeration
     const genericMsg = 'If an account exists with this email, a reset code has been sent.';
 
@@ -389,7 +390,7 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
       });
     }
 
-    const email = rawEmail.toLowerCase().trim();
+    const email = sanitizeEmail(rawEmail);
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user || !user.resetToken || !user.resetTokenExpires || new Date() > user.resetTokenExpires) {
