@@ -1,0 +1,180 @@
+# Roadmap — Bug Fixes, Hardening & Modern Redesign
+
+This is the execution plan derived from the [Codebase Review](./01-codebase-review.md). It is organized into phases, each with a checklist and a "Definition of Done" gate. Work top-to-bottom: later phases assume earlier ones landed. Finding IDs (e.g. `APP-C1`) reference the review catalog.
+
+**Guiding rules**
+- One phase = one focused branch/PR series. Don't mix bug fixes with the visual redesign.
+- Every phase ends with: `tsc --noEmit` clean (both packages), unit tests green, a manual smoke of the affected flow, and a CHANGELOG entry.
+- The theme refactor (Phase 6) does **not** start until data-integrity phases (1–4) are done — restyling on top of broken math just makes broken math prettier.
+
+**Phase order & rationale**
+
+| Phase | Theme | Why here |
+|-------|-------|----------|
+| 0 | Safety net | Can't refactor safely without git + a way to observe behavior |
+| 1 | Critical bugs (data loss) | Users are losing data *today* |
+| 2 | Security hardening | Exploitable account/data compromise |
+| 3 | Correctness (money & dates) | Wrong numbers shown to users; root-cause the timezone/float sprawl |
+| 4 | Architecture & maintainability | Makes the redesign tractable |
+| 5 | Design system foundation (tokens + primitives) | Prereq for restyle |
+| 6 | Feature-surface restyle (neo-brutalist → modern) | The visual refactor |
+| 7 | Polish, a11y, testing, launch | Lock in quality |
+
+---
+
+## Phase 0 — Safety Net & Baseline
+*Goal: make change reversible and observable. ~0.5 day.*
+
+- [x] **X-1** Repo already under git (cloned from GitHub, full history, root `.gitignore` present). ~~Initialize git~~ — done.
+- [ ] Commit the current tree (docs + changelog) and **tag** it `pre-refactor-baseline`.
+- [ ] Create a working branch; protect the baseline tag.
+- [ ] Confirm both packages build & typecheck from a clean checkout (`server: tsc --noEmit`, `client: tsc --noEmit && npm run build`).
+- [ ] Capture baseline screenshots of every major surface (auth, dashboard, lists, each modal, reports, AI, tuition) for later visual diffing.
+- [ ] Stand up a local `.env` for server (`DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `FRONTEND_URL`, mailer keys) and confirm the app runs end-to-end locally.
+- [ ] Remove obvious repo cruft: `server/prisma.config.ts.bak`, verify `backups/` and `logs/` are gitignored.
+
+**Done when:** repo is under git, a clean checkout runs locally, baseline screenshots exist.
+
+---
+
+## Phase 1 — Critical Bug Fixes (stop data loss)
+*Goal: no user action silently loses data. ~1–2 days.*
+
+- [ ] **CMP-C1** Tuition input wipe: change the tuition field to update on explicit commit (Enter / debounced valid value), ignore `NaN`/empty blur, and never recompute installments to `0` from an empty input. Add a guard in `App.tsx` `onUpdateTuition` that rejects non-finite/negative totals.
+- [ ] **APP-C2** Remove reads of variables mutated inside state updaters. Refactor `handleDeleteExpense` and `handleUpdateInstallmentDate` to compute the needed values *before* `setState`, and drive persistence from those local values (or from the awaited API response), not from inside the updater.
+- [ ] **APP-C1** Fix the service worker:
+  - [ ] Make navigation requests **network-first** (fall back to cached shell only when offline).
+  - [ ] Version the cache by build hash (or adopt `vite-plugin-pwa`) and delete old caches in `activate`.
+  - [ ] Stop returning `index.html` for non-navigation GET failures (**APP-M8**); let them reject.
+  - [ ] Add an update-available prompt or `skipWaiting` + `clients.claim()` so deploys reach users.
+- [ ] **CMP-M11 (partial)** BudgetManagerModal: stop closing on backdrop click while there are unsaved edits (or confirm before discarding).
+- [ ] **CMP-M18** CSV import: wrap per-row parsing in try/catch so one bad row is skipped with a reported count instead of aborting; handle `reader.onerror`; reset the button state on failure.
+
+**Done when:** you can (1) click into and out of the tuition field without losing the schedule, (2) delete a tuition expense and reload with the installment correctly reset, (3) redeploy and have a returning user get the new build, all verified manually.
+
+---
+
+## Phase 2 — Security Hardening
+*Goal: close exploitable holes. ~2–3 days.*
+
+- [ ] **SRV-H1** Apply CSRF protection to state-changing `/api/auth` routes (`2fa/toggle`, `logout`, and any other mutation). Require the current password to disable 2FA. Reject non-JSON bodies on these routes.
+- [ ] **SRV-H3** Set `app.set('trust proxy', 1)` (match your proxy depth) so rate limits key off the real client IP. Fix `userApiLimiter` to key off the authenticated user id (cookie session), with IP fallback.
+- [ ] **SRV-M1** Stop returning the JWT in login/2FA JSON bodies — rely on the httpOnly cookie only. Remove the leftover client `token`/`csrfToken` DTO fields (APP-L).
+- [ ] **SRV-M2** Invalidate sessions on password reset (and ideally logout): add a `tokenVersion`/`passwordChangedAt` claim checked in `authMiddleware`, bump it on reset.
+- [ ] **SRV-M4** Add a per-account attempt counter + lockout for OTP verification (register, login-OTP, password-reset code), not just per-IP.
+- [ ] **SRV-M5** Remove or lock down `POST /api/data/audit`: don't let clients write arbitrary `action`/`metadata` to the server audit log; audit events should be server-derived.
+- [ ] **SRV-M6** Return generic 500s for unexpected errors; never echo `error.message` to clients. Map known validation errors to 400 explicitly.
+- [ ] **SRV-M7** Google OAuth: set `isVerified: true` on OAuth login and reconcile pre-registered unverified records safely.
+- [ ] **SRV-M9** Encrypt or restrict `backup.ts` output; never include password hashes/OTPs/reset tokens in plaintext dumps.
+- [ ] **SRV-M10** Remove `prisma db push` from the production build; use committed migrations (`prisma migrate deploy`).
+- [ ] **SRV-L3/L4/L15** Generic auth responses (no account enumeration), atomic lockout increment, `JWT_SECRET` length/entropy check at boot, align `minPasswordLength`.
+- [ ] Run `/security-review` on the resulting diff before merge.
+
+**Done when:** a cross-site form can't toggle 2FA, rate limits work behind the proxy, no JWT appears in any response body, and a password reset invalidates old sessions — each verified.
+
+---
+
+## Phase 3 — Correctness: Money & Dates
+*Goal: the numbers on screen are right everywhere. ~3–4 days.*
+
+**Pick the conventions first (X-2, X-3):**
+- [ ] **X-2** Decide the date convention (recommended: expense dates are timezone-agnostic `YYYY-MM-DD` calendar days; never pass them through `toISOString()`), document it, and add helper utilities (`startOfMonthLocal`, `parseCalendarDate`, `formatCalendarDate`) that all code must use.
+- [ ] **X-3** Decide money representation (recommended: integer cents in a shared `money` util) and add conversion helpers.
+
+**Then apply:**
+- [ ] **APP-H3 / APP-H4 / CMP-M13** Replace all ad-hoc UTC/local date math (`useDateRangeFilter`, `App.tsx:396`, `Dashboard.tsx:71,182`, `Reports.tsx:41`, modals' default date, `FinancialPlanningPanel`) with the shared helpers. Add a unit test proving an India/LA user sees "today" correctly.
+- [ ] **CMP-H6** Fix the 6-month window (`setMonth` overflow) using a safe month-iterator helper.
+- [ ] **CMP-H4** Unify budget-vs-spend into **one** shared function keyed consistently on the actual stored category granularity; use it in BudgetTracker, Dashboard alerts, Reports, and BudgetActualChart. Add tests.
+- [ ] **CMP-M15** Budget utilization must always compare against a *month* window, independent of the dashboard's period filter.
+- [ ] **CMP-M14** Budget alert amounts go through `formatCurrency`/display currency.
+- [ ] **CMP-M12** NET_FLOW shows the sign (and a non-color indicator).
+- [ ] **APP-M2 / CMP-C1 follow-up** Installment split reconciles remainder cents so paid sum == total.
+- [ ] **APP-M3 / APP-M4** CSV export uses a proper RFC-4180 encoder; exchange-rate cache parse is guarded and never yields `₹NaN`.
+- [ ] **SRV-L5 / SRV-M8** Server date parsing normalized to calendar days; money stored as cents (migration).
+- [ ] **CMP-M22** Relabel/repair "net worth" and "30-day forecast" so the label matches the math (or implement a real trailing-trend forecast).
+
+**Done when:** the same budget shows the same utilization in all four places; a US-evening and an India-morning entry both land on the correct day; PDF/CSV totals reconcile to the on-screen totals.
+
+---
+
+## Phase 4 — Architecture & Maintainability
+*Goal: make the codebase safe to restyle and extend. ~4–6 days.*
+
+- [ ] **APP (App.tsx is 1,265 lines)** Decompose the monolith:
+  - [ ] `AuthContext` — auth state, session timeout, 2FA (fixes **APP-H2** via status-based handling and **APP-H6** hydration).
+  - [ ] `CurrencyContext` — replaces prop-drilling `displayCurrency`/`conversionRate` through 25+ interfaces.
+  - [ ] Data hooks `useExpenses`/`useIncomes`/`useBudgets`/`useSemesters` (or adopt React Query, which also replaces the hand-rolled 15s cache and refetch logic — fixes **APP-M6** cache-keying and **APP-M1** over-eager semesters saves).
+  - [ ] A `DashboardLayout` route component owning nav/FAB/modals.
+- [ ] **APP-H2** Make `fetchApi` surface HTTP status; drive logout off 401/403, not error strings.
+- [ ] **APP-H5** Add `React.memo` to list/chart/row components and `useCallback` to handlers so search keystrokes don't re-render the world.
+- [ ] **CMP code quality** Extract a generic `TransactionList<T>` (kills ~250 lines of ExpenseList/IncomeList duplication and fixes undo lifecycle **CMP-M19** once) and a `useInrToUsd` conversion hook (dedupes ExpenseModal/IncomeModal, fixes **CMP-H5**).
+- [ ] **SRV-X4 / SRV-H2 follow-up** Convert the destructive full-state reconciliation routes (semesters especially) to item-level CRUD or wrap them in `$transaction` with validation-first (also closes **SRV-L6/L7/L8**).
+- [ ] **SRV-L17** De-duplicate the `normalize*` helpers into a shared module; delete dead code (`ApiError`, unreachable filters); populate or remove the empty Swagger spec.
+- [ ] **APP-M5 / APP-L** Remove the stale CDN importmap, dead `axios`, unused vite `loadEnv`/alias.
+- [ ] **CMP-M24** Make custom categories actually propagate (single source of truth for categories, not a static constant + localStorage side channel).
+
+**Done when:** `App.tsx` is under ~300 lines, no component re-renders on unrelated search keystrokes, and there is one `TransactionList` and one currency-conversion hook.
+
+---
+
+## Phase 5 — Design System Foundation (tokens + primitives)
+*Goal: a modern, tokenized theme layer with no visual regressions yet. ~3–4 days. Supersedes the token portions of `UI_REFACTOR_MASTER_PLAN.md`.*
+
+- [ ] **THM-1** Wire dark mode correctly for Tailwind v4: add `@custom-variant dark (&:where(.dark, .dark *))` (or `darkMode: 'class'`), so the existing `useTheme` toggle actually works.
+- [ ] Define **semantic design tokens** as CSS variables with `.dark` overrides: `--color-bg`, `--surface`, `--border`, `--primary`, `--accent`, `--success`, `--warning`, `--danger`, `--muted-foreground`; a radius scale (move off square-everything); an **elevation scale** to replace hard neo-brutalist shadows; a spacing/type scale that kills the `text-[8px]/[9px]/[10px]` sprawl.
+- [ ] **THM-3** Load the fonts you actually use; remove references to unloaded `Archivo Black`/`Bebas Neue`; resolve the `.font-loud` double-definition collision. Choose the modern type pairing here (see Phase 6 direction note).
+- [ ] **THM-2** Define or delete the orphan utilities: `shadow-neo-gold` and all `bg-base-*/dark-*/text-base-*` tokens used by `reports/`.
+- [ ] **THM-6** Build a **chart theme module** (JS tokens for Recharts axis/stroke/tooltip/fill) and rebuild `constants.ts` `CATEGORY_COLORS` as an accessible, collision-free palette. See the `dataviz` skill for palette construction.
+- [ ] Build the **primitive library** (each with hover / focus-visible / disabled / loading / error states, correct ARIA):
+  - [ ] `Button` (primary / secondary / destructive / icon; sizes) — replaces 30+ verbatim uses.
+  - [ ] `Card` / `Panel` / `StatCard`.
+  - [ ] `Modal`/`Dialog` (one overlay, folds in `useModalFocusTrap`, fixes z-index sprawl **THM-4** and **CMP-M11**).
+  - [ ] `Input` / `Select` / `SearchableSelect` (keyboard-accessible — fixes **CMP-H9**) / `OtpInput` (with paste — **CMP-M20**).
+  - [ ] `Badge`/`Tag`, `Tabs`/`SegmentedControl` (one USD/INR control), `EmptyState`, `Pagination`, `Skeleton`, `Toast` theme.
+- [ ] **THM-4** Fix layering: drop `.noise-overlay` below modals (or remove it for the modern look); standardize a z-index scale.
+
+**Done when:** the token layer + primitives exist and render, the dark-mode toggle visibly works, but feature screens still look essentially the same (primitives styled to match current look as a checkpoint).
+
+---
+
+## Phase 6 — Feature-Surface Restyle (Neo-Brutalist → Modern)
+*Goal: migrate every surface to the modern design, slice by slice. ~7–10 days.*
+
+Migrate one slice at a time; after each, compare against Phase 0 baseline screenshots and run the affected flow.
+
+- [ ] Decide/lock the target visual direction (see note below) and record it in `docs/design-direction.md`.
+- [ ] Slice 1: **Auth + onboarding** (Auth, VerifyOTP, forgot-password) — highest coupling (66/54).
+- [ ] Slice 2: **Navigation + layout shell** (Header, sidebar/bottom nav, FAB) — App-level chrome.
+- [ ] Slice 3: **Expense/Income lists + forms** (the new `TransactionList`, ExpenseModal, IncomeModal).
+- [ ] Slice 4: **Dashboard + charts** (Dashboard, SummaryCard, all chart components via the chart theme module).
+- [ ] Slice 5: **Reports + export** (Reports, ExportModal, `reports/*` — retheme the abandoned `base-*` files **CMP-M17/CMP-M16**).
+- [ ] Slice 6: **AI tab/chat** (AiAnalyst, AnalysisModal — fix `.ai-markdown` font).
+- [ ] Slice 7: **USC tuition module** (USCPaymentTracker — also lands **CMP-M21** prop-contract fix).
+- [ ] Slice 8: **Planning** (FinancialPlanningPanel — fix **CMP-M23** invalid class during restyle).
+- [ ] Remove the last hardcoded neo-brutalist class stacks and hex literals (target: 0 arbitrary `shadow-[…#hex…]`, 0 raw hex in `.tsx`).
+- [ ] Retire dead theme code (`ThemeToggle`/`CurrencyToggle` if still unused, `tailwind.config.js` once fully on `@theme`).
+
+**Done when:** every surface uses primitives + tokens, `grep -rn "border-4 border-black\|shadow-\[.*#" src` returns ~0, and both light and dark render correctly.
+
+> **Visual direction:** you mentioned providing good samples — drop them in and I'll turn them into the token values (color ramps, radius, elevation, type scale) and a `design-direction.md`. Default recommendation if you don't: a clean, calm fintech look — neutral surface with one confident accent, soft elevation, generous radius (8–12px), a humanist sans (e.g. Inter/General Sans) at a proper type scale, WCAG-AA contrast, and USC cardinal reserved as a single accent rather than a dominant field.
+
+---
+
+## Phase 7 — Polish, Accessibility, Testing & Launch
+*Goal: lock in quality. ~2–3 days.*
+
+- [ ] Micro-interactions/motion pass (transitions, skeletons, state changes) with `prefers-reduced-motion` respected.
+- [ ] Full accessibility pass: keyboard-only nav of every flow, focus order, contrast audit (both themes), ARIA/live-region checks. Confirm **CMP-H9/M20/M11/M12** are truly fixed.
+- [ ] Performance: verify Phase 4 memoization holds; re-check bundle (lazy-load the heavy `jspdf-autotable` 398 kB / recharts / html2canvas / tesseract paths).
+- [ ] Testing: expand the smoke-only E2E (auth, CRUD, import/restore, reports, AI chat, tuition); add unit tests for the new shared money/date/budget utilities.
+- [ ] Responsive QA at key breakpoints; fix the fixed-row-height virtualization properly (**CMP-H8**) with measured/estimated sizes.
+- [ ] Update README, CHANGELOG, and `FEATURE_TRACKER.md`; write a final migration summary with known follow-ups.
+- [ ] Run `/code-review high` and `/security-review` on the cumulative diff.
+
+**Done when:** all critical/high findings are closed, E2E covers the core journeys, both themes pass a contrast audit, and docs reflect reality.
+
+---
+
+## Progress tracking
+
+Check items off in place as they land. Keep a one-line entry per shipped item in [CHANGELOG.md](../CHANGELOG.md). The severity rollup lives in the [review catalog](./01-codebase-review.md#summary-counts); update it as counts drop.
