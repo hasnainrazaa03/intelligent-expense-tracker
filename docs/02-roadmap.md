@@ -40,17 +40,19 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 ## Phase 1 — Critical Bug Fixes (stop data loss)
 *Goal: no user action silently loses data. ~1–2 days.*
 
-- [ ] **CMP-C1** Tuition input wipe: change the tuition field to update on explicit commit (Enter / debounced valid value), ignore `NaN`/empty blur, and never recompute installments to `0` from an empty input. Add a guard in `App.tsx` `onUpdateTuition` that rejects non-finite/negative totals.
-- [ ] **APP-C2** Remove reads of variables mutated inside state updaters. Refactor `handleDeleteExpense` and `handleUpdateInstallmentDate` to compute the needed values *before* `setState`, and drive persistence from those local values (or from the awaited API response), not from inside the updater.
-- [ ] **APP-C1** Fix the service worker:
-  - [ ] Make navigation requests **network-first** (fall back to cached shell only when offline).
-  - [ ] Version the cache by build hash (or adopt `vite-plugin-pwa`) and delete old caches in `activate`.
-  - [ ] Stop returning `index.html` for non-navigation GET failures (**APP-M8**); let them reject.
-  - [ ] Add an update-available prompt or `skipWaiting` + `clients.claim()` so deploys reach users.
-- [ ] **CMP-M11 (partial)** BudgetManagerModal: stop closing on backdrop click while there are unsaved edits (or confirm before discarding).
-- [ ] **CMP-M18** CSV import: wrap per-row parsing in try/catch so one bad row is skipped with a reported count instead of aborting; handle `reader.onerror`; reset the button state on failure.
+- [x] **CMP-C1** Tuition input wipe: field now commits on Enter / valid blur, ignores `NaN`/empty blur, and `handleUpdateSemesterTuition` rejects non-finite/negative totals **and preserves paid installments** (only redistributes the remaining balance). *(commit `1d2fa31`)*
+- [x] **APP-C2** `handleDeleteExpense` and `handleUpdateInstallmentDate` now compute needed values from current state *before* `setState`, so installment resets and date edits persist reliably. *(commit `1d2fa31`)*
+- [x] **APP-M2** Added cent-accurate `distributeAmount()` (with unit tests) used for all tuition splits so paid+unpaid reconciles to the total. *(commit `1d2fa31`)*
+- [x] **CMP-M21** Corrected `onMarkAsPaid` prop type to match its 3-arg call site. *(commit `1d2fa31`)*
+- [x] **APP-C1 / APP-M8** Service worker rewritten:
+  - [x] Navigation requests are **network-first** (cached shell only offline).
+  - [x] Cache versioned (`v2`); old caches purged on `activate`; `skipWaiting` + `clients.claim` so deploys reach users.
+  - [x] Failed non-navigation GETs reject instead of receiving the HTML shell; cross-origin requests bypass the SW. *(commit `6020dc4`)*
+  - [ ] *(Deferred to Phase 7)* Explicit update-available toast/banner (current skip-waiting behavior already unblocks deploys).
+- [x] **CMP-M11** BudgetManagerModal confirms before discarding unsaved edits on backdrop/[X] click (dirty-flag guard). *(commit `eabaf0f`)*
+- [x] **CMP-M18** CSV import isolates each row (one bad date no longer aborts the file), skips+counts invalid rows, handles `reader.onerror`, and decodes RFC-4180 escaped quotes. *(commit `eabaf0f`)*
 
-**Done when:** you can (1) click into and out of the tuition field without losing the schedule, (2) delete a tuition expense and reload with the installment correctly reset, (3) redeploy and have a returning user get the new build, all verified manually.
+**Done when:** you can (1) click into and out of the tuition field without losing the schedule, (2) delete a tuition expense and reload with the installment correctly reset, (3) redeploy and have a returning user get the new build, all verified manually. — **Code complete; recommend a manual smoke of the tuition + deploy flows before closing.**
 
 ---
 

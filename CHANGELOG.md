@@ -8,15 +8,17 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
-[codebase review](./docs/01-codebase-review.md). Nothing below has shipped yet — this
-section is the working queue. Move items to a dated release as they land.
+[codebase review](./docs/01-codebase-review.md). Items under **Fixed** have landed on the
+`fixes/phases-1-4` branch; items under **Planned** are still queued.
 
-### Planned — Phase 1: Critical bug fixes
-- Fix tuition input wiping the semester and zeroing paid installments on blur (`CMP-C1`).
-- Fix installment reset / date edits silently lost because values were read from inside React state updaters (`APP-C2`).
-- Fix the service worker pinning returning users to stale deployments; move to network-first navigation with build-versioned caches (`APP-C1`, `APP-M8`).
-- Prevent BudgetManagerModal from discarding unsaved edits on backdrop click (`CMP-M11`).
-- Make CSV import skip bad rows instead of aborting the whole file (`CMP-M18`).
+### Fixed — Phase 1: Critical bug fixes (branch `fixes/phases-1-4`)
+- **Tuition tracker no longer loses data** (`CMP-C1`): clicking into and out of the empty tuition field can no longer zero the total or wipe the payment schedule; updating the total now preserves already-paid installments and only redistributes the remaining balance. `1d2fa31`
+- **Installment resets and date edits now persist** (`APP-C2`): removed reads of variables mutated inside React state updaters that caused updates to be silently dropped on reload. `1d2fa31`
+- **Cent-accurate tuition splits** (`APP-M2`): added a tested `distributeAmount()` helper so paid + unpaid installments always reconcile to the total (no phantom balance). `1d2fa31`
+- **Service worker no longer pins users to stale deploys** (`APP-C1`, `APP-M8`): navigation is network-first with a versioned cache; failed asset requests reject instead of returning the HTML shell. `6020dc4`
+- **BudgetManagerModal confirms before discarding** unsaved edits on a backdrop/close click (`CMP-M11`). `eabaf0f`
+- **CSV import is resilient** (`CMP-M18`): one bad row is skipped and counted instead of aborting the whole file; `reader.onerror` handled; RFC-4180 escaped quotes decoded. `eabaf0f`
+- Corrected the `onMarkAsPaid` prop type to match its call site (`CMP-M21`). `1d2fa31`
 
 ### Planned — Phase 2: Security hardening
 - CSRF-protect `/api/auth` mutations; require password to disable 2FA (`SRV-H1`).
