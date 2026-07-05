@@ -8,7 +8,7 @@ interface USCPaymentTrackerProps {
   semesters: Semester[];
   onUpdateTuition: (semesterId: string, totalTuition: number) => void;
   onUpdateInstallmentCount: (semesterId: string, count: number) => void;
-  onMarkAsPaid: (semesterId: string, installmentId: number) => void;
+  onMarkAsPaid: (semesterId: string, installmentId: number, paymentDate: string) => void;
   onUpdateDate: (semesterId: string, installmentId: number, newDate: string) => void;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
@@ -120,11 +120,25 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                   <span className="font-loud text-3xl sm:text-4xl md:text-5xl text-ink leading-none break-all">
                     {formatCurrency(activeSemester.totalTuition, displayCurrency, conversionRate)}
                   </span>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
+                    min="0"
                     placeholder="SET_VAL"
                     className="w-full max-w-[180px] bg-bone border-4 border-ink p-3 font-loud text-sm focus:ring-4 focus:ring-usc-gold focus:outline-none text-center"
-                    onBlur={(e) => onUpdateTuition(activeSemester.id, parseFloat(e.target.value) || 0)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    onBlur={(e) => {
+                      const raw = e.target.value.trim();
+                      // Ignore an empty/blank blur so clicking in and out never
+                      // wipes the tuition total or zeroes the payment schedule.
+                      if (raw === '') return;
+                      const parsed = parseFloat(raw);
+                      if (!Number.isFinite(parsed) || parsed < 0) {
+                        e.target.value = '';
+                        return;
+                      }
+                      onUpdateTuition(activeSemester.id, parsed);
+                      e.target.value = '';
+                    }}
                   />
                 </div>
               </div>

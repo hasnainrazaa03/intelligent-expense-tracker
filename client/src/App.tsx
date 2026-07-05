@@ -6,6 +6,7 @@ import type { DateRange } from './components/Dashboard';
 import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon, ChatBubbleBottomCenterTextIcon } from './components/Icons';
 import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
+import { distributeAmount } from './utils/currencyUtils';
 import { getAllData, getSession, logoutUser, toggleTwoFactor } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -505,34 +506,29 @@ const handleDeleteExpense = async (id: string) => {
     // 1. EXECUTE API DELETE FIRST (before mutating state)
     await deleteExpense(id);
 
-    // 2. SCAN AND RESET BURSAR STATE
-    let wasTuitionPayment = false;
+    // 2. Determine whether this expense was a tuition payment BEFORE mutating
+    // state — reading a flag set inside a state updater is unreliable (updaters
+    // are not guaranteed to run synchronously and run twice under StrictMode),
+    // which previously caused the installment reset to never be persisted.
+    const wasTuitionPayment = semesters.some(semester =>
+      semester.installments.some(inst => inst.expenseId === id)
+    );
 
-    setSemesters(prevSemesters => {
-      return prevSemesters.map(semester => {
-        let semesterModified = false;
-        
-        const updatedInstallments = semester.installments.map(inst => {
-          if (inst.expenseId === id) {
-            wasTuitionPayment = true;
-            semesterModified = true;
-            return { 
-              ...inst, 
-              status: 'unpaid' as const, 
-              expenseId: undefined, 
-              paidDate: undefined 
-            };
-          }
-          return inst;
-        });
-
-        if (semesterModified) return { ...semester, installments: updatedInstallments };
-        return semester;
-      });
-    });
-
-    // 3. MARK BURSAR AS DIRTY
+    // 3. RESET BURSAR STATE (unlink the installment tied to this expense)
     if (wasTuitionPayment) {
+      setSemesters(prevSemesters =>
+        prevSemesters.map(semester => {
+          if (!semester.installments.some(inst => inst.expenseId === id)) return semester;
+          return {
+            ...semester,
+            installments: semester.installments.map(inst =>
+              inst.expenseId === id
+                ? { ...inst, status: 'unpaid' as const, expenseId: undefined, paidDate: undefined }
+                : inst
+            ),
+          };
+        })
+      );
       setIsSemestersDirty(true);
     }
 
@@ -685,13 +681,30 @@ const handleDeleteIncome = async (id: string) => {
     }
   };
   const handleUpdateSemesterTuition = (semesterId: string, totalTuition: number) => {
+    // Guard against invalid input (empty field, NaN, negative) so a stray blur
+    // can never wipe the tuition total or zero out the payment schedule.
+    if (!Number.isFinite(totalTuition) || totalTuition < 0) return;
+
     setSemesters(prevSemesters =>
       prevSemesters.map(semester => {
-        if (semester.id === semesterId) {
-          const installmentAmount = totalTuition > 0 && semester.installments.length > 0 ? totalTuition / semester.installments.length : 0;
-          return { ...semester, totalTuition, installments: semester.installments.map(inst => ({ ...inst, amount: installmentAmount })) };
-        }
-        return semester;
+        if (semester.id !== semesterId) return semester;
+
+        // Paid installments are locked: preserve their amounts and only
+        // redistribute the remaining balance across the unpaid slots
+        // (cent-accurate, no penny leak).
+        const paidSum = semester.installments.reduce(
+          (sum, inst) => (inst.status === 'paid' ? sum + inst.amount : sum),
+          0
+        );
+        const unpaidSlots = semester.installments.filter(i => i.status !== 'paid').length;
+        const splits = distributeAmount(Math.max(0, totalTuition - paidSum), unpaidSlots);
+
+        let unpaidIdx = 0;
+        const installments = semester.installments.map(inst =>
+          inst.status === 'paid' ? inst : { ...inst, amount: splits[unpaidIdx++] ?? 0 }
+        );
+
+        return { ...semester, totalTuition, installments };
       })
     );
     setIsSemestersDirty(true);
@@ -742,26 +755,30 @@ const handleDeleteIncome = async (id: string) => {
     }
   };
   const handleUpdateInstallmentDate = async (semesterId: string, installmentId: number, newDate: string) => {
-      let expenseToUpdateId: string | undefined;
-      setSemesters(prevSemesters => prevSemesters.map(s => {
-              if (s.id === semesterId) { return { ...s, installments: s.installments.map(i => { if (i.id === installmentId) { expenseToUpdateId = i.expenseId; return { ...i, paidDate: newDate }; } return i; }) }; }
-              return s;
-          })
-      );
+      // Resolve the linked expense from current state BEFORE mutating — reading a
+      // value assigned inside a state updater is unreliable (see handleDeleteExpense),
+      // which previously caused the date change to be persisted only sometimes.
+      const targetInstallment = semesters
+        .find(s => s.id === semesterId)
+        ?.installments.find(i => i.id === installmentId);
+      const expenseSnapshot = targetInstallment?.expenseId
+        ? expenses.find(exp => exp.id === targetInstallment.expenseId)
+        : undefined;
+
+      setSemesters(prevSemesters => prevSemesters.map(s =>
+        s.id === semesterId
+          ? { ...s, installments: s.installments.map(i => i.id === installmentId ? { ...i, paidDate: newDate } : i) }
+          : s
+      ));
       setIsSemestersDirty(true);
-      if (expenseToUpdateId) {
-        const expenseId = expenseToUpdateId;
-        // Use functional update to get latest expenses (avoids stale closure)
-        let expenseSnapshot: Expense | undefined;
-        setExpenses(prevExpenses => {
-          expenseSnapshot = prevExpenses.find(exp => exp.id === expenseId);
-          return prevExpenses.map(exp => exp.id === expenseId ? { ...exp, date: newDate } : exp);
-        });
+
+      if (expenseSnapshot) {
+        setExpenses(prevExpenses => prevExpenses.map(exp =>
+          exp.id === expenseSnapshot.id ? { ...exp, date: newDate } : exp
+        ));
         // Persist the date change to the API
         try {
-          if (expenseSnapshot) {
-            await updateExpense({ ...expenseSnapshot, date: newDate });
-          }
+          await updateExpense({ ...expenseSnapshot, date: newDate });
         } catch (error) {
           console.error('Failed to persist installment date change:', error);
         }
@@ -781,26 +798,26 @@ const handleDeleteIncome = async (id: string) => {
         const unpaidSlotsNeeded = count - paidInstallments.length;
 
         // 3. Prevent logic errors if count is reduced below paid installments
-        if (unpaidSlotsNeeded < 0) return semester; 
+        if (unpaidSlotsNeeded < 0) return semester;
 
-        // 4. Calculate the new per-installment amount for the remaining slots
-        const newSplitAmount = unpaidSlotsNeeded > 0 
-          ? Math.round(((remainingToPay / unpaidSlotsNeeded) + Number.EPSILON) * 100) / 100
-          : 0;
+        // 4. Split the remaining balance cent-accurately across the unpaid slots
+        // so paid + unpaid sums back to totalTuition (no phantom balance).
+        const splits = distributeAmount(remainingToPay, unpaidSlotsNeeded);
 
         // 5. Build the new dynamic array
+        let unpaidIdx = 0;
         const newInstallments = Array.from({ length: count }, (_, i) => {
           const existing = semester.installments[i];
-          
+
           // LOCK: If this slot was already paid, keep it EXACTLY as is (amount, ID, date)
           if (existing && existing.status === 'paid') {
             return existing;
           }
 
-          // REDISTRIBUTE: Otherwise, assign the new split amount to the unpaid slot
+          // REDISTRIBUTE: Otherwise, assign the next split amount to the unpaid slot
           return {
             id: i + 1,
-            amount: newSplitAmount,
+            amount: splits[unpaidIdx++] ?? 0,
             status: 'unpaid',
             expenseId: undefined,
             paidDate: undefined,
