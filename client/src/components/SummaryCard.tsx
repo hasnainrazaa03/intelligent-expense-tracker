@@ -18,10 +18,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   isNetFlow = false, displayCurrency, conversionRate 
 }) => {
   const isNumeric = !isString && typeof value === 'number';
-  
-  // Format the value
+
+  // Format the value. Net flow must keep its sign — a -$1,250 net flow previously
+  // rendered as "$1,250.00" (sign conveyed by color only, an accessibility gap too).
+  const showSign = isNetFlow && isNumeric && (value as number) < 0;
   const formattedValue = isNumeric
-    ? formatCurrency(Math.abs(value as number), displayCurrency, conversionRate)
+    ? `${showSign ? '-' : ''}${formatCurrency(Math.abs(value as number), displayCurrency, conversionRate)}`
     : value;
 
   // Neo-Brutalist Color Logic

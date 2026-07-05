@@ -132,35 +132,47 @@ const App: React.FC = () => {
 
   // Fetch conversion rate (P1: cached with 1hr TTL)
   useEffect(() => {
-    const fetchRate = async () => {
-      try {
-        // P1: Check localStorage cache first
-        const cached = localStorage.getItem('usdToInrRate');
-        if (cached) {
-          const { rate, timestamp } = JSON.parse(cached);
-          const ONE_HOUR = 60 * 60 * 1000;
-          if (Date.now() - timestamp < ONE_HOUR) {
-            setUsdToInrRate(rate);
-            return;
-          }
-        }
+    const CACHE_KEY = 'usdToInrRate';
+    const ONE_HOUR = 60 * 60 * 1000;
 
+    // Safely read the cached rate; a corrupt value must never throw (previously
+    // an unguarded JSON.parse inside the catch produced an unhandled rejection)
+    // and a non-finite rate must never reach state (it would render as ₹NaN).
+    const readCache = (): { rate: number; timestamp: number } | null => {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.rate === 'number' && Number.isFinite(parsed.rate)) {
+          return { rate: parsed.rate, timestamp: Number(parsed.timestamp) || 0 };
+        }
+      } catch {
+        // Corrupt cache — ignore and refetch.
+      }
+      return null;
+    };
+
+    const fetchRate = async () => {
+      const cached = readCache();
+      if (cached && Date.now() - cached.timestamp < ONE_HOUR) {
+        setUsdToInrRate(cached.rate);
+        return;
+      }
+
+      try {
         const response = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR');
         if (!response.ok) throw new Error('Failed to fetch rate');
         const data = await response.json();
-        const rate = data.rates.INR;
-        setUsdToInrRate(rate);
-        
-        // P1: Cache the rate
-        localStorage.setItem('usdToInrRate', JSON.stringify({ rate, timestamp: Date.now() }));
-      } catch (error) {
-        console.error("Could not fetch conversion rate:", error);
-        // Fallback: try to use cached rate even if expired
-        const cached = localStorage.getItem('usdToInrRate');
-        if (cached) {
-          const { rate } = JSON.parse(cached);
-          setUsdToInrRate(rate);
+        const rate = data?.rates?.INR;
+        if (typeof rate !== 'number' || !Number.isFinite(rate)) {
+          throw new Error('Unexpected rate response shape');
         }
+        setUsdToInrRate(rate);
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ rate, timestamp: Date.now() }));
+      } catch (error) {
+        console.error('Could not fetch conversion rate:', error);
+        // Fallback: use any cached rate, even if expired.
+        if (cached) setUsdToInrRate(cached.rate);
       }
     };
     fetchRate();
