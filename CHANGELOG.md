@@ -20,12 +20,16 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 - **CSV import is resilient** (`CMP-M18`): one bad row is skipped and counted instead of aborting the whole file; `reader.onerror` handled; RFC-4180 escaped quotes decoded. `eabaf0f`
 - Corrected the `onMarkAsPaid` prop type to match its call site (`CMP-M21`). `1d2fa31`
 
-### Planned — Phase 2: Security hardening
-- CSRF-protect `/api/auth` mutations; require password to disable 2FA (`SRV-H1`).
-- Set `trust proxy` so rate limits work behind the deployment proxy; key per-user limiter off the session (`SRV-H3`).
-- Stop returning the JWT in response bodies; rely on the httpOnly cookie (`SRV-M1`).
-- Invalidate sessions on password reset (`SRV-M2`).
-- Per-account OTP attempt lockout; lock down client-writable audit log; stop leaking internal error messages (`SRV-M4`, `SRV-M5`, `SRV-M6`).
+### Fixed — Phase 2: Security hardening (in progress, branch `fixes/phases-1-4`)
+- **Rate limits work behind a proxy** (`SRV-H3`): set `trust proxy` (configurable `TRUST_PROXY`) so login/OTP/AI limiters key off the real client IP instead of collapsing to one global bucket; the per-user limiter now keys off the session cookie. `1ed7ae2`
+- **CSRF can no longer silently disable 2FA or log you out** (`SRV-H1`): `/auth/2fa/toggle` and `/auth/logout` are CSRF-protected; disabling 2FA now requires an explicit boolean and the current password. `49e5a06`
+- **JWT no longer returned in response bodies** (`SRV-M1`): session/CSRF are cookie-delivered only; unused client token fields removed. `49e5a06`
+- **Internal error messages no longer leak to clients** (`SRV-M6`): budget sync, bulk import, and restore return generic 500s. `5d7afd5`
+- **Weak-secret guard** (`SRV-L15`): server refuses to boot with a `JWT_SECRET` under 32 chars; `minPasswordLength` aligned to 8. `1ed7ae2`
+
+### Planned — Phase 2 remaining
+- Invalidate sessions on password reset (`SRV-M2`, needs a `tokenVersion` claim).
+- Per-account OTP attempt lockout (`SRV-M4`); lock down the client-writable audit endpoint (`SRV-M5`); Google OAuth verification reconcile (`SRV-M7`); restrict plaintext backups (`SRV-M9`); drop `prisma db push` from the build (`SRV-M10`).
 
 ### Planned — Phase 3: Correctness (money & dates)
 - Single date convention across the app; fix timezone bugs hiding "today" for non-UTC users (`X-2`, `APP-H3`, `APP-H4`, `CMP-M13`, `CMP-H6`).

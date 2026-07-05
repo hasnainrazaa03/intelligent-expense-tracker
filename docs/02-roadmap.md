@@ -59,20 +59,23 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 ## Phase 2 — Security Hardening
 *Goal: close exploitable holes. ~2–3 days.*
 
-- [ ] **SRV-H1** Apply CSRF protection to state-changing `/api/auth` routes (`2fa/toggle`, `logout`, and any other mutation). Require the current password to disable 2FA. Reject non-JSON bodies on these routes.
-- [ ] **SRV-H3** Set `app.set('trust proxy', 1)` (match your proxy depth) so rate limits key off the real client IP. Fix `userApiLimiter` to key off the authenticated user id (cookie session), with IP fallback.
-- [ ] **SRV-M1** Stop returning the JWT in login/2FA JSON bodies — rely on the httpOnly cookie only. Remove the leftover client `token`/`csrfToken` DTO fields (APP-L).
-- [ ] **SRV-M2** Invalidate sessions on password reset (and ideally logout): add a `tokenVersion`/`passwordChangedAt` claim checked in `authMiddleware`, bump it on reset.
-- [ ] **SRV-M4** Add a per-account attempt counter + lockout for OTP verification (register, login-OTP, password-reset code), not just per-IP.
-- [ ] **SRV-M5** Remove or lock down `POST /api/data/audit`: don't let clients write arbitrary `action`/`metadata` to the server audit log; audit events should be server-derived.
-- [ ] **SRV-M6** Return generic 500s for unexpected errors; never echo `error.message` to clients. Map known validation errors to 400 explicitly.
-- [ ] **SRV-M7** Google OAuth: set `isVerified: true` on OAuth login and reconcile pre-registered unverified records safely.
-- [ ] **SRV-M9** Encrypt or restrict `backup.ts` output; never include password hashes/OTPs/reset tokens in plaintext dumps.
-- [ ] **SRV-M10** Remove `prisma db push` from the production build; use committed migrations (`prisma migrate deploy`).
-- [ ] **SRV-L3/L4/L15** Generic auth responses (no account enumeration), atomic lockout increment, `JWT_SECRET` length/entropy check at boot, align `minPasswordLength`.
+- [x] **SRV-H1** CSRF protection applied to `/auth/2fa/toggle` and `/auth/logout`; `2fa/toggle` requires an explicit boolean and the current password to disable. *(commit `49e5a06`)*
+- [x] **SRV-H3** `trust proxy` set (configurable `TRUST_PROXY`, default 1); `userApiLimiter` keys off the session cookie with IP fallback. *(commit `1ed7ae2`)*
+- [x] **SRV-M1** JWT (and redundant csrfToken) removed from login/2FA response bodies; client DTO cleaned up. *(commit `49e5a06`)*
+- [ ] **SRV-M2** Invalidate sessions on password reset (`tokenVersion`/`passwordChangedAt` claim checked in `authMiddleware`). ⚠️ *Needs a schema field + a per-request user lookup in authMiddleware — a small latency cost worth a heads-up before landing. Deferred pending that decision.*
+- [ ] **SRV-M4** Per-account attempt counter + lockout for OTP verification. *Needs a schema field (`otpAttempts`). Queued.*
+- [ ] **SRV-M5** Lock down `POST /api/data/audit` so clients can't write arbitrary audit entries. *Queued (self-contained).*
+- [x] **SRV-M6** Generic 500s for budget sync / bulk import / restore; no `error.message` echoed to clients. *(commit `5d7afd5`)*
+- [ ] **SRV-M7** Google OAuth: set `isVerified: true` and reconcile pre-registered records. *Queued (self-contained).*
+- [ ] **SRV-M9** Restrict/encrypt `backup.ts` output (no plaintext credential dumps). *Queued (self-contained).*
+- [ ] **SRV-M10** Remove `prisma db push` from the production build. *Queued (self-contained).*
+- [x] **SRV-L15** `JWT_SECRET` ≥32-char check at boot; `minPasswordLength` aligned to 8. *(commit `1ed7ae2`)*
+- [ ] **SRV-L3/L4** Generic auth responses (no enumeration), atomic lockout increment. *Queued.*
 - [ ] Run `/security-review` on the resulting diff before merge.
 
-**Done when:** a cross-site form can't toggle 2FA, rate limits work behind the proxy, no JWT appears in any response body, and a password reset invalidates old sessions — each verified.
+**Progress:** H1, H3, M1, M6, L15 landed. Remaining: M2 (needs perf-tradeoff decision), M4 (schema), and the self-contained M5/M7/M9/M10 + L3/L4.
+
+**Done when:** a cross-site form can't toggle 2FA ✅, rate limits work behind the proxy ✅, no JWT appears in any response body ✅, and a password reset invalidates old sessions (M2, pending).
 
 ---
 
