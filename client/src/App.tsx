@@ -379,12 +379,23 @@ const App: React.FC = () => {
   };
 
   const handleToggleTwoFactor = async () => {
+    const disabling = twoFactorEnabled;
+    // Disabling 2FA requires re-entering the password (server-enforced).
+    let password: string | undefined;
+    if (disabling) {
+      password = window.prompt('Enter your password to disable two-factor authentication:') ?? undefined;
+      if (!password) return; // cancelled or left blank
+    }
     try {
-      const result = await toggleTwoFactor(!twoFactorEnabled);
+      const result = await toggleTwoFactor(!twoFactorEnabled, password);
       setTwoFactorEnabled(result.twoFactorEnabled);
       notify.success(result.message);
     } catch (error) {
-      notify.error('Could not update 2FA setting.');
+      notify.error(
+        disabling
+          ? 'Could not disable 2FA. Check your password and try again.'
+          : 'Could not update 2FA setting.'
+      );
     }
   };
 

@@ -12,6 +12,7 @@ import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
 import { sanitizeEmail } from '../utils/sanitize';
 import { authMiddleware } from '../middleware/auth';
+import { csrfProtection } from '../middleware/csrf';
 
 const router = Router();
 
@@ -352,7 +353,9 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    const csrfToken = issueSessionCookies(res, token);
+    // Session + CSRF tokens are delivered via cookies only; never echo the JWT
+    // in the response body (an XSS could otherwise exfiltrate a 7-day credential).
+    issueSessionCookies(res, token);
 
     await writeAuditLog({
       action: 'login',
@@ -366,8 +369,6 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
     res.json({
       message: 'Login successful',
-      csrfToken,
-      token,
       requiresTwoFactor: false,
       twoFactorEnabled: user.twoFactorEnabled,
     });
@@ -417,12 +418,10 @@ router.post('/verify-login-otp', otpLimiter, async (req: Request, res: Response)
     });
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    const csrfToken = issueSessionCookies(res, token);
+    issueSessionCookies(res, token);
 
     return res.json({
       message: 'Login successful',
-      csrfToken,
-      token,
       requiresTwoFactor: false,
       twoFactorEnabled: true,
     });
@@ -444,15 +443,36 @@ router.get('/session', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/2fa/toggle', authMiddleware, async (req: Request, res: Response) => {
+router.post('/2fa/toggle', csrfProtection, authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { enabled } = req.body || {};
-    const nextValue = Boolean(enabled);
+    const { enabled, password } = req.body || {};
+
+    // Require an explicit boolean so a missing/mistyped body can't be coerced
+    // (undefined -> false) into silently disabling two-factor auth.
+    if (typeof enabled !== 'boolean') {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'enabled (boolean) is required');
+    }
+
+    // Disabling 2FA is security-sensitive: require the current password so a
+    // hijacked session alone cannot weaken the account.
+    if (enabled === false) {
+      if (typeof password !== 'string' || !password) {
+        return sendError(res, 400, 'VALIDATION_ERROR', 'Password is required to disable two-factor authentication');
+      }
+      const account = await prisma.user.findUnique({
+        where: { id: req.user!.id },
+        select: { password: true },
+      });
+      const passwordValid = account?.password ? await bcrypt.compare(password, account.password) : false;
+      if (!passwordValid) {
+        return sendError(res, 401, 'UNAUTHORIZED', 'Incorrect password');
+      }
+    }
 
     const updated = await prisma.user.update({
       where: { id: req.user!.id },
       data: {
-        twoFactorEnabled: nextValue,
+        twoFactorEnabled: enabled,
         twoFactorOtp: null,
         twoFactorOtpExpires: null,
       },
@@ -466,7 +486,7 @@ router.post('/2fa/toggle', authMiddleware, async (req: Request, res: Response) =
   }
 });
 
-router.post('/logout', (_req: Request, res: Response) => {
+router.post('/logout', csrfProtection, (_req: Request, res: Response) => {
   clearSessionCookies(res);
   return res.status(200).json({ message: 'Logged out' });
 });

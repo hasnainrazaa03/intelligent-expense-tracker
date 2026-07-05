@@ -162,10 +162,13 @@ export const getSession = (): Promise<{ authenticated: boolean; email: string; t
   return fetchApi('/auth/session', { method: 'GET' });
 };
 
-export const toggleTwoFactor = (enabled: boolean): Promise<{ message: string; twoFactorEnabled: boolean }> => {
+export const toggleTwoFactor = (
+  enabled: boolean,
+  password?: string
+): Promise<{ message: string; twoFactorEnabled: boolean }> => {
   return fetchApi('/auth/2fa/toggle', {
     method: 'POST',
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify({ enabled, password }),
   });
 };
 

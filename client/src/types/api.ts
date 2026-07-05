@@ -10,8 +10,6 @@ export interface ApiErrorResponse {
 
 export interface AuthLoginResponse {
   message: string;
-  token?: string;
-  csrfToken?: string;
   requiresTwoFactor?: boolean;
   twoFactorEnabled?: boolean;
   email?: string;
