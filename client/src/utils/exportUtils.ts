@@ -5,6 +5,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Expense, Budget } from '../types';
+import { todayCalendar } from './dateUtils';
 
 export type ExportFormat = 'csv' | 'pdf' | 'quickbooks' | 'xero' | 'tax_csv';
 
@@ -15,18 +16,34 @@ declare module 'jspdf' {
   }
 }
 
+// RFC 4180 cell encoding: arrays become "a; b", objects become JSON, and any
+// value containing a comma, quote, or newline is wrapped in double quotes with
+// internal quotes doubled (not backslash-escaped as JSON.stringify did).
+export const escapeCsvCell = (value: unknown): string => {
+  if (value === null || value === undefined) return '';
+  let str: string;
+  if (Array.isArray(value)) str = value.join('; ');
+  else if (typeof value === 'object') str = JSON.stringify(value);
+  else str = String(value);
+
+  return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+};
+
 const generateCsv = (items: any[], filename: string) => {
   if (items.length === 0) return;
-  
-  const headers = Object.keys(items[0]);
+
+  // Union of keys across all rows so optional fields present only on later rows
+  // aren't silently dropped (headers previously came from the first row only).
+  const headerSet = new Set<string>();
+  items.forEach((row) => Object.keys(row).forEach((k) => headerSet.add(k)));
+  const headers = Array.from(headerSet);
+
   const csvRows = [
-    headers.join(','),
-    ...items.map(row => 
-      headers.map(fieldName => JSON.stringify(row[fieldName])).join(',')
-    )
+    headers.map(escapeCsvCell).join(','),
+    ...items.map((row) => headers.map((field) => escapeCsvCell(row[field])).join(',')),
   ];
-  
-  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+
+  const blob = new Blob([csvRows.join('\r\n')], { type: 'text/csv' });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.setAttribute('hidden', '');
@@ -88,7 +105,7 @@ export const exportData = (
   budgets: Budget[],
   dateRangeLabel: string
 ) => {
-    const timestamp = new Date().toISOString().split('T')[0];
+    const timestamp = todayCalendar();
 
     if (format === 'csv') {
         if (includeExpenses) {
