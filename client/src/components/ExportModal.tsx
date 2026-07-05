@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { Expense, Budget, Income, Semester } from '../types';
 import { exportData, ExportFormat } from '../utils/exportUtils';
 import { logAuditEvent } from '../services/api';
@@ -193,7 +194,13 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
                 for (let i = 0; i < line.length; i++) {
                     const char = line[i];
                     if (char === '"') {
-                        inQuotes = !inQuotes;
+                        // A doubled quote inside a quoted field is a literal quote (RFC 4180).
+                        if (inQuotes && line[i + 1] === '"') {
+                            current += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
                     } else if (char === ',' && !inQuotes) {
                         result.push(current.trim());
                         current = '';
@@ -205,37 +212,66 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
                 return result;
             };
             
+            let skippedRows = 0;
             const importedExpenses = lines.slice(1).map((line) => {
                 if (!line.trim()) return null;
-                const values = parseCsvLine(line);
-                const entry: any = header.reduce((obj, key, i) => {
-                    obj[key] = values[i] ? values[i].replace(/^"|"$/g, '').trim() : undefined;
-                    return obj;
-                }, {} as any);
+                // Isolate each row: a single malformed row (e.g. an unparseable
+                // date) is skipped and counted, never aborting the whole import.
+                try {
+                    const values = parseCsvLine(line);
+                    const entry: any = header.reduce((obj, key, i) => {
+                        obj[key] = values[i] ? values[i].replace(/^"|"$/g, '').trim() : undefined;
+                        return obj;
+                    }, {} as any);
 
-                if (!entry.title || isNaN(parseFloat(entry.amount)) || !entry.category || !entry.date) return null;
+                    if (!entry.title || isNaN(parseFloat(entry.amount)) || !entry.category || !entry.date) {
+                        skippedRows++;
+                        return null;
+                    }
 
-                // FIXED TYPE PREDICATE LOGIC:
-                const newExpense: Omit<Expense, 'id'> = {
-                    title: entry.title,
-                    amount: parseFloat(entry.amount),
-                    category: entry.category,
-                    date: new Date(entry.date).toISOString().split('T')[0],
-                    paymentMethod: entry.paymentMethod || undefined,
-                    notes: entry.notes || undefined,
-                    isRecurring: entry.isRecurring?.toLowerCase() === 'true',
-                };
-                return newExpense;
+                    const parsedDate = new Date(entry.date);
+                    if (isNaN(parsedDate.getTime())) {
+                        skippedRows++;
+                        return null;
+                    }
+
+                    const newExpense: Omit<Expense, 'id'> = {
+                        title: entry.title,
+                        amount: parseFloat(entry.amount),
+                        category: entry.category,
+                        date: parsedDate.toISOString().split('T')[0],
+                        paymentMethod: entry.paymentMethod || undefined,
+                        notes: entry.notes || undefined,
+                        isRecurring: entry.isRecurring?.toLowerCase() === 'true',
+                    };
+                    return newExpense;
+                } catch {
+                    skippedRows++;
+                    return null;
+                }
             }).filter((item): item is Omit<Expense, 'id'> => item !== null);
 
+            if (importedExpenses.length === 0) {
+                throw new Error(
+                    skippedRows > 0 ? `NO_VALID_ROWS (${skippedRows} skipped)` : 'CSV_EMPTY_OR_NO_DATA'
+                );
+            }
+
             onImport(importedExpenses);
-            logAuditEvent('expense_csv_import', { importedCount: importedExpenses.length }).catch(() => undefined);
+            logAuditEvent('expense_csv_import', { importedCount: importedExpenses.length, skippedRows }).catch(() => undefined);
+            if (skippedRows > 0) {
+                toast(`Imported ${importedExpenses.length} rows, skipped ${skippedRows} invalid.`);
+            }
             onClose();
         } catch (error: any) {
             setImportError(error.message || "PARSING_FAILURE");
         } finally {
             setIsImporting(false);
         }
+    };
+    reader.onerror = () => {
+        setImportError('FILE_READ_FAILED');
+        setIsImporting(false);
     };
     reader.readAsText(importFile);
   };
