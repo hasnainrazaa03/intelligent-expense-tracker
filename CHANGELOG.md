@@ -26,10 +26,18 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 - **JWT no longer returned in response bodies** (`SRV-M1`): session/CSRF are cookie-delivered only; unused client token fields removed. `49e5a06`
 - **Internal error messages no longer leak to clients** (`SRV-M6`): budget sync, bulk import, and restore return generic 500s. `5d7afd5`
 - **Weak-secret guard** (`SRV-L15`): server refuses to boot with a `JWT_SECRET` under 32 chars; `minPasswordLength` aligned to 8. `1ed7ae2`
+- **Sessions are invalidated on password reset** (`SRV-M2`): JWTs carry a `tokenVersion` checked per request; resetting the password revokes every previously issued token (including an attacker's). `d45afb1`
+- **OTP brute-force lockout** (`SRV-M4`): 5 wrong codes invalidates the active OTP across registration, login-2FA, and password reset. `e3346d6`
+- **Audit endpoint locked down** (`SRV-M5`): clients may only report an allowlisted set of actions, namespaced `client:*`, with capped metadata — no more forged audit entries. `995a3be`
+- **Google OAuth account-takeover gap closed** (`SRV-M7`): a pre-existing unverified record is verified *and* its password rotated on OAuth login. `995a3be`
+- **No plaintext credential dumps** (`SRV-M9`): backups exclude password/OTP/reset-token hashes. `995a3be`
+- **Safer build** (`SRV-M10`): `prisma db push` removed from the build (separate `db:push` script); login timing oracle removed and lockout increment made atomic (`SRV-L3/L4`). `995a3be`
 
-### Planned — Phase 2 remaining
-- Invalidate sessions on password reset (`SRV-M2`, needs a `tokenVersion` claim).
-- Per-account OTP attempt lockout (`SRV-M4`); lock down the client-writable audit endpoint (`SRV-M5`); Google OAuth verification reconcile (`SRV-M7`); restrict plaintext backups (`SRV-M9`); drop `prisma db push` from the build (`SRV-M10`).
+> Deploy note: run `npm run db:push` in `server/` once after this update — the schema adds `User.tokenVersion` and `User.otpAttempts`.
+
+### Note — Phase 2 remaining
+- Registration email-enumeration (`SRV-L3` registration path) intentionally left as standard UX; revisit if strict anti-enumeration is required.
+- Recommended: run a security review over the cumulative Phase 2 diff before merging.
 
 ### Planned — Phase 3: Correctness (money & dates)
 - Single date convention across the app; fix timezone bugs hiding "today" for non-UTC users (`X-2`, `APP-H3`, `APP-H4`, `CMP-M13`, `CMP-H6`).

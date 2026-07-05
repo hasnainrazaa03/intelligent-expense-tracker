@@ -62,20 +62,22 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 - [x] **SRV-H1** CSRF protection applied to `/auth/2fa/toggle` and `/auth/logout`; `2fa/toggle` requires an explicit boolean and the current password to disable. *(commit `49e5a06`)*
 - [x] **SRV-H3** `trust proxy` set (configurable `TRUST_PROXY`, default 1); `userApiLimiter` keys off the session cookie with IP fallback. *(commit `1ed7ae2`)*
 - [x] **SRV-M1** JWT (and redundant csrfToken) removed from login/2FA response bodies; client DTO cleaned up. *(commit `49e5a06`)*
-- [ ] **SRV-M2** Invalidate sessions on password reset (`tokenVersion`/`passwordChangedAt` claim checked in `authMiddleware`). ⚠️ *Needs a schema field + a per-request user lookup in authMiddleware — a small latency cost worth a heads-up before landing. Deferred pending that decision.*
-- [ ] **SRV-M4** Per-account attempt counter + lockout for OTP verification. *Needs a schema field (`otpAttempts`). Queued.*
-- [ ] **SRV-M5** Lock down `POST /api/data/audit` so clients can't write arbitrary audit entries. *Queued (self-contained).*
+- [x] **SRV-M2** Session invalidation on password reset via a `tokenVersion` claim checked in `authMiddleware` (one indexed lookup per authenticated request); reset bumps the version. *(commit `d45afb1`)*
+- [x] **SRV-M4** Per-account failed-OTP counter (`otpAttempts`) invalidates the active code after 5 wrong guesses across register / login-2FA / password-reset. *(commit `e3346d6`)*
+- [x] **SRV-M5** `POST /api/data/audit` restricted to an allowlist, namespaced `client:*` (no forged server events), metadata capped/sanitized. *(commit `995a3be`)*
 - [x] **SRV-M6** Generic 500s for budget sync / bulk import / restore; no `error.message` echoed to clients. *(commit `5d7afd5`)*
-- [ ] **SRV-M7** Google OAuth: set `isVerified: true` and reconcile pre-registered records. *Queued (self-contained).*
-- [ ] **SRV-M9** Restrict/encrypt `backup.ts` output (no plaintext credential dumps). *Queued (self-contained).*
-- [ ] **SRV-M10** Remove `prisma db push` from the production build. *Queued (self-contained).*
+- [x] **SRV-M7** Google OAuth verifies + rotates the password on a pre-existing *unverified* record; verified accounts untouched. *(commit `995a3be`)*
+- [x] **SRV-M9** `backup.ts` no longer dumps password/OTP/reset-token hashes to plaintext. *(commit `995a3be`)*
+- [x] **SRV-M10** Removed `prisma db push` from the build; added a separate `db:push` script. *(commit `995a3be`)*
 - [x] **SRV-L15** `JWT_SECRET` ≥32-char check at boot; `minPasswordLength` aligned to 8. *(commit `1ed7ae2`)*
-- [ ] **SRV-L3/L4** Generic auth responses (no enumeration), atomic lockout increment. *Queued.*
-- [ ] Run `/security-review` on the resulting diff before merge.
+- [x] **SRV-L4** Atomic lockout increment (no race undercount). *(commit `995a3be`)*
+- [x] **SRV-L3 (login)** Dummy bcrypt compare removes the login user-enumeration timing oracle. *(commit `995a3be`)*
+- [ ] **SRV-L3 (registration)** *Accepted/deferred:* registration still tells a user their email is already taken (standard UX). Full anti-enumeration (generic 201 + "account exists" email) is a UX tradeoff to revisit if needed.
+- [ ] Run `/security-review` on the cumulative diff before merge. *(Recommended next.)*
 
-**Progress:** H1, H3, M1, M6, L15 landed. Remaining: M2 (needs perf-tradeoff decision), M4 (schema), and the self-contained M5/M7/M9/M10 + L3/L4.
+**Done when:** a cross-site form can't toggle 2FA ✅, rate limits work behind the proxy ✅, no JWT appears in any response body ✅, and a password reset invalidates old sessions ✅. — **Phase 2 code complete (only the deploy `db:push` note + a security-review pass remain).**
 
-**Done when:** a cross-site form can't toggle 2FA ✅, rate limits work behind the proxy ✅, no JWT appears in any response body ✅, and a password reset invalidates old sessions (M2, pending).
+> **Deploy note:** the build no longer runs `prisma db push`. After pulling schema changes (this phase adds `User.tokenVersion` and `User.otpAttempts`), run `npm run db:push` in `server/` once against the target database. On MongoDB these are additive optional fields with defaults, so existing documents keep working.
 
 ---
 
