@@ -5,6 +5,7 @@ import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math'
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText } from '../utils/sanitize';
+import { normalizeTags, normalizeMetadata } from '../utils/normalize';
 
 const router = Router();
 
@@ -13,24 +14,6 @@ router.use(authMiddleware);
 
 // S4: Input length limits
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
-
-const normalizeTags = (input: unknown): string[] => {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((tag) => sanitizeText(tag))
-    .filter((tag): tag is string => Boolean(tag))
-    .slice(0, 20);
-};
-
-const normalizeMetadata = (input: unknown): Record<string, string> | undefined => {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
-  const pairs = Object.entries(input as Record<string, unknown>)
-    .map(([k, v]) => [sanitizeText(k), sanitizeText(v)] as const)
-    .filter(([k, v]) => Boolean(k) && Boolean(v))
-    .slice(0, 20);
-  if (pairs.length === 0) return undefined;
-  return Object.fromEntries(pairs);
-};
 
 // --- 1. Create new Income ---
 // POST /api/incomes
