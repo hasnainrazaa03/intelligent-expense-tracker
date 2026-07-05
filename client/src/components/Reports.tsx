@@ -3,7 +3,7 @@ import { Expense, Budget } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { computeTotalBudgetedSpend } from '../utils/budgetUtils';
-import { startOfMonth, endOfMonth, isWithinRange } from '../utils/dateUtils';
+import { startOfMonth, endOfMonth, isWithinRange, todayCalendar } from '../utils/dateUtils';
 import { ClipboardDocumentListIcon, ChartPieIcon, BanknotesIcon, ExclamationTriangleIcon } from './Icons';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -88,7 +88,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
       theme: 'grid',
     });
 
-    doc.save(`usc_audit_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`usc_audit_report_${todayCalendar()}.pdf`);
   };
 
   return (

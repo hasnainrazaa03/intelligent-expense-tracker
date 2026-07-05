@@ -5,6 +5,7 @@ import { exportData, ExportFormat } from '../utils/exportUtils';
 import { logAuditEvent } from '../services/api';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { APP_CONFIG } from '../config';
+import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange } from '../utils/dateUtils';
 import { 
   XMarkIcon, 
   TableCellsIcon, 
@@ -57,24 +58,24 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   const filteredExpenses = useMemo(() => {
     if (dateRange === 'all_time') return allExpenses;
     const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const getUTCDate = (dateString: string) => new Date(dateString);
-    let start: Date = new Date(), end: Date = today;
-    
+    // Local calendar-day boundaries, consistent with the dashboard filter.
+    let start: string;
+    let end: string = todayCalendar();
+
     switch (dateRange) {
-        case 'this_month':
-            start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-            break;
         case 'last_month':
-            start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
-            end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
+            start = startOfMonth(addMonths(now, -1));
+            end = endOfMonth(addMonths(now, -1));
             break;
         case 'last_90_days':
-            start = new Date(today);
-            start.setUTCDate(today.getUTCDate() - 90);
+            start = formatCalendarDate(addDays(now, -90));
+            break;
+        case 'this_month':
+        default:
+            start = startOfMonth(now);
             break;
     }
-    return allExpenses.filter(exp => { const d = getUTCDate(exp.date); return d >= start && d <= end; });
+    return allExpenses.filter((exp) => isWithinRange(exp.date, start, end));
   }, [allExpenses, dateRange]);
 
   const handleDownload = () => {
@@ -113,7 +114,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `expense_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `expense_tracker_backup_${todayCalendar()}.json`;
     link.click();
     URL.revokeObjectURL(url);
     logAuditEvent('backup_export', {

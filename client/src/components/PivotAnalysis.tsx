@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Expense } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
+import { todayCalendar } from '../utils/dateUtils';
 import { TableCellsIcon, ClipboardDocumentListIcon } from './Icons'; // Swapped to icons you have
 
 interface PivotAnalysisProps {
@@ -142,7 +143,7 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses, displayCurrency
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `pivot_analysis_${groupBy}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.download = `pivot_analysis_${groupBy}_${todayCalendar()}.csv`;
             link.click();
             URL.revokeObjectURL(url);
           }}
