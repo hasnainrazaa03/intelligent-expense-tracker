@@ -50,22 +50,47 @@ const normalizeNumberArray = (input: unknown, limit = 20): number[] => {
 };
 
 // --- Audit Event from Client ---
+// SRV-M5: clients may only report a fixed set of UI actions, and the written
+// action is namespaced ("client:") so a caller cannot forge server-authored
+// events (e.g. a fake successful "login"). Metadata is sanitized and capped.
+const ALLOWED_CLIENT_AUDIT_ACTIONS = new Set([
+  'data_export',
+  'backup_export',
+  'expense_csv_import',
+  'backup_restore',
+]);
+
+// Keep only primitive metadata values (string/number/boolean), capped, so a
+// client can't push large or nested objects into the audit log.
+const normalizeAuditMetadata = (input: unknown): Record<string, string | number | boolean> | undefined => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const result: Record<string, string | number | boolean> = {};
+  for (const [rawKey, value] of Object.entries(input as Record<string, unknown>)) {
+    if (Object.keys(result).length >= 20) break;
+    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') continue;
+    const key = sanitizeText(rawKey);
+    if (!key) continue;
+    result[key] = typeof value === 'string' ? sanitizeText(value) : value;
+  }
+  return Object.keys(result).length ? result : undefined;
+};
+
 router.post('/audit', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { action, metadata } = req.body || {};
 
-  if (!action || typeof action !== 'string') {
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Action is required');
+  if (!action || typeof action !== 'string' || !ALLOWED_CLIENT_AUDIT_ACTIONS.has(action)) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Unsupported audit action');
   }
 
   await writeAuditLog({
-    action,
+    action: `client:${action}`,
     userId,
     success: true,
     route: '/api/data/audit',
     ip: req.ip,
     userAgent: req.get('user-agent') || undefined,
-    metadata: typeof metadata === 'object' && metadata !== null ? metadata : undefined,
+    metadata: normalizeAuditMetadata(metadata),
   });
 
   return res.status(200).json({ success: true });

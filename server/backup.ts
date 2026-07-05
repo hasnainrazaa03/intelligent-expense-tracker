@@ -8,7 +8,18 @@ async function backup() {
   try {
     console.log('Starting database backup...\n');
 
-    const users = await prisma.user.findMany();
+    // SRV-M9: never write credentials (password/OTP/reset-token hashes) to a
+    // plaintext backup file — a leaked backup would otherwise be a credential dump.
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        isVerified: true,
+        twoFactorEnabled: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
     const expenses = await prisma.expense.findMany();
     const incomes = await prisma.income.findMany();
     const budgets = await prisma.budget.findMany();

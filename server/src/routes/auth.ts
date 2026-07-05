@@ -58,6 +58,9 @@ const LOCKOUT_DURATION_MS = SERVER_CONFIG.auth.lockoutDurationMs;
 // beyond the per-IP limiter.
 const MAX_OTP_ATTEMPTS = 5;
 
+// SRV-L3: a fixed bcrypt hash used to equalize login timing for unknown emails.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('unused-timing-equalizer-password', 10);
+
 const buildCookieOptions = (httpOnly: boolean) => ({
   httpOnly,
   secure: process.env.NODE_ENV === 'production',
@@ -276,6 +279,9 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
+      // SRV-L3: run a dummy hash comparison so an unknown email takes about the
+      // same time as a known one, removing the user-enumeration timing oracle.
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
       await writeAuditLog({
         action: 'login',
         userId: 'unknown',
@@ -310,17 +316,22 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      // S5: Increment login attempts
-      const attempts = (user.loginAttempts || 0) + 1;
-      const updateData: any = { loginAttempts: attempts };
-      
+      // SRV-L4: increment atomically so concurrent failed logins can't race and
+      // undercount attempts; read the new value back from the returned record.
+      const bumped = await prisma.user.update({
+        where: { email },
+        data: { loginAttempts: { increment: 1 } },
+        select: { loginAttempts: true },
+      });
+      const attempts = bumped.loginAttempts;
+
       if (attempts >= MAX_LOGIN_ATTEMPTS) {
-        updateData.lockUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
-        updateData.loginAttempts = 0;
+        await prisma.user.update({
+          where: { email },
+          data: { lockUntil: new Date(Date.now() + LOCKOUT_DURATION_MS), loginAttempts: 0 },
+        });
       }
-      
-      await prisma.user.update({ where: { email }, data: updateData });
-      
+
       if (attempts >= MAX_LOGIN_ATTEMPTS) {
         await writeAuditLog({
           action: 'login',
