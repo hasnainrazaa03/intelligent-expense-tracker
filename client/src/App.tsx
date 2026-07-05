@@ -7,6 +7,7 @@ import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapI
 import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
+import { startOfMonth, endOfMonth, isWithinRange } from './utils/dateUtils';
 import { getAllData, getSession, logoutUser, toggleTwoFactor } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -404,12 +405,12 @@ const App: React.FC = () => {
     const budget = budgets.find(b => b.category === category);
     if (!budget || budget.amount <= 0) return;
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    // Local calendar month window (no toISOString UTC shift).
+    const monthStart = startOfMonth();
+    const monthEnd = endOfMonth();
 
     const monthlySpent = allExpenses
-      .filter(e => e.category === category && e.date >= monthStart && e.date <= monthEnd)
+      .filter(e => e.category === category && isWithinRange(e.date, monthStart, monthEnd))
       .reduce((sum, e) => sum + e.amount, 0);
 
     const pct = (monthlySpent / budget.amount) * 100;

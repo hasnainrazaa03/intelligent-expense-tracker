@@ -1,11 +1,60 @@
 import { useMemo } from 'react';
 import { Expense, Income } from '../types';
 import { DateRange } from '../components/Dashboard';
+import {
+  addDays,
+  addMonths,
+  endOfMonth,
+  formatCalendarDate,
+  isWithinRange,
+  startOfMonth,
+} from '../utils/dateUtils';
 
 interface DateRangeResult {
   filteredExpenses: Expense[];
   filteredIncomes: Income[];
   previousPeriodExpenses: Expense[];
+}
+
+interface Window {
+  start: string;
+  end: string;
+  prevStart: string;
+  prevEnd: string;
+}
+
+// All boundaries are LOCAL calendar days (YYYY-MM-DD) so a user's "this month"
+// matches the days they picked, regardless of timezone (fixes the UTC drift
+// that hid today's transactions for UTC+ users).
+function computeWindow(dateRange: DateRange): Window | null {
+  const now = new Date();
+
+  switch (dateRange) {
+    case 'this_month':
+      return {
+        start: startOfMonth(now),
+        end: formatCalendarDate(now),
+        prevStart: startOfMonth(addMonths(now, -1)),
+        prevEnd: endOfMonth(addMonths(now, -1)),
+      };
+    case 'last_month':
+      return {
+        start: startOfMonth(addMonths(now, -1)),
+        end: endOfMonth(addMonths(now, -1)),
+        prevStart: startOfMonth(addMonths(now, -2)),
+        prevEnd: endOfMonth(addMonths(now, -2)),
+      };
+    case 'last_90_days':
+      return {
+        start: formatCalendarDate(addDays(now, -90)),
+        end: formatCalendarDate(now),
+        prevStart: formatCalendarDate(addDays(now, -180)),
+        prevEnd: formatCalendarDate(addDays(now, -91)),
+      };
+    case 'all_time':
+    default:
+      return null;
+  }
 }
 
 export default function useDateRangeFilter(
@@ -14,61 +63,17 @@ export default function useDateRangeFilter(
   dateRange: DateRange
 ): DateRangeResult {
   return useMemo(() => {
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const getUTCDate = (dateString: string) => new Date(dateString);
-
-    let start: Date;
-    let end: Date;
-    let prevStart: Date;
-    let prevEnd: Date;
-
-    switch (dateRange) {
-      case 'this_month':
-        start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-        end = today;
-        prevStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
-        prevEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
-        break;
-      case 'last_month':
-        start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
-        end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
-        prevStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 2, 1));
-        prevEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 0));
-        break;
-      case 'last_90_days':
-        start = new Date(today);
-        start.setUTCDate(today.getUTCDate() - 90);
-        end = today;
-        prevStart = new Date(start);
-        prevStart.setUTCDate(start.getUTCDate() - 90);
-        prevEnd = new Date(start);
-        prevEnd.setUTCDate(start.getUTCDate() - 1);
-        break;
-      case 'all_time':
-      default:
-        return { filteredExpenses: expenses, filteredIncomes: incomes, previousPeriodExpenses: [] };
+    const window = computeWindow(dateRange);
+    if (!window) {
+      return { filteredExpenses: expenses, filteredIncomes: incomes, previousPeriodExpenses: [] };
     }
 
-    const currentExpenses = expenses.filter((exp) => {
-      const d = getUTCDate(exp.date);
-      return d >= start && d <= end;
-    });
-
-    const currentIncomes = incomes.filter((inc) => {
-      const d = getUTCDate(inc.date);
-      return d >= start && d <= end;
-    });
-
-    const previousExpenses = expenses.filter((exp) => {
-      const d = getUTCDate(exp.date);
-      return d >= prevStart && d <= prevEnd;
-    });
+    const { start, end, prevStart, prevEnd } = window;
 
     return {
-      filteredExpenses: currentExpenses,
-      filteredIncomes: currentIncomes,
-      previousPeriodExpenses: previousExpenses,
+      filteredExpenses: expenses.filter((exp) => isWithinRange(exp.date, start, end)),
+      filteredIncomes: incomes.filter((inc) => isWithinRange(inc.date, start, end)),
+      previousPeriodExpenses: expenses.filter((exp) => isWithinRange(exp.date, prevStart, prevEnd)),
     };
   }, [expenses, incomes, dateRange]);
 }
