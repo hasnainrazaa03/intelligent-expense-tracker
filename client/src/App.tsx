@@ -9,7 +9,7 @@ import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
 import { startOfMonth, endOfMonth, isWithinRange } from './utils/dateUtils';
 import { expenseMatchesBudget } from './utils/budgetUtils';
-import { getAllData, getSession, logoutUser, toggleTwoFactor } from './services/api';
+import { getAllData, getSession, logoutUser, toggleTwoFactor, isAuthError } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useDebouncedValue from './hooks/useDebouncedValue';
@@ -118,7 +118,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) return;
+    // Always reconcile the session on mount — even when optimistically
+    // authenticated from the hasSession flag — so twoFactorEnabled reflects the
+    // server's truth on reload (APP-H6); previously it stayed false and the 2FA
+    // toggle misreported the account's real state.
     getSession()
       .then((session) => {
         if (session.authenticated) {
@@ -128,7 +131,7 @@ const App: React.FC = () => {
         }
       })
       .catch(() => undefined);
-  }, [isAuthenticated]);
+  }, []);
 
   // Fetch conversion rate (P1: cached with 1hr TTL)
   useEffect(() => {
@@ -264,8 +267,10 @@ const App: React.FC = () => {
         })
         .catch(err => {
           console.error("Failed to fetch data:", err);
-          // If token is invalid, log out
-          if (err.message === 'Invalid token' || err.message === 'No token provided' || err.message === 'Token expired') {
+          // Log out on any auth failure (401/403), keyed off HTTP status rather
+          // than brittle error-message matching that missed several server
+          // messages and left the user stuck on an empty authenticated shell.
+          if (isAuthError(err)) {
             handleLogout();
           }
         })

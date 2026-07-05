@@ -10,6 +10,21 @@ import {
 } from '../types/api';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
+/** Error thrown by the API client, carrying the HTTP status so callers can react
+ *  to 401/403 by status instead of fragile message-string matching (APP-H2). */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+/** True for auth failures that should trigger a client-side logout. */
+export const isAuthError = (error: unknown): boolean =>
+  error instanceof ApiError && (error.status === 401 || error.status === 403);
+
 const GET_CACHE_TTL_MS = 15000;
 const responseCache = new Map<string, { expiresAt: number; data: unknown }>();
 const inFlightRequests = new Map<string, Promise<unknown>>();
@@ -70,15 +85,16 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       data = await response.json();
     } catch {
       if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+        throw new ApiError(`Request failed with status ${response.status}`, response.status);
       }
       return null as T;
     }
 
     if (!response.ok) {
-      // If the server returned an error, throw it
+      // If the server returned an error, throw it (with status for callers).
       const errorPayload = data as ApiErrorResponse;
-      throw new Error(errorPayload.message || errorPayload.error?.message || 'API request failed');
+      const message = errorPayload.message || errorPayload.error?.message || 'API request failed';
+      throw new ApiError(message, response.status);
     }
 
     if (method === 'GET') {
