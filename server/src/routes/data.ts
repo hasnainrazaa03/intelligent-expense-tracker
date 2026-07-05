@@ -310,7 +310,9 @@ router.post('/restore', async (req: Request, res: Response) => {
       metadata: { error: error?.message || 'unknown' },
     });
 
-    return sendError(res, 400, 'RESTORE_FAILED', error.message || 'Failed to restore backup.');
+    // The real error is logged and audited above; return a generic message so
+    // internal/Prisma details aren't leaked to the client.
+    return sendError(res, 500, 'RESTORE_FAILED', 'Failed to restore backup.');
   }
 });
 

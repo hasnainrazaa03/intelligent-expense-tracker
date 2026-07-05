@@ -378,8 +378,9 @@ router.post('/bulk', async (req: Request, res: Response) => {
     res.status(201).json({ message: `${expenses.length} expenses imported successfully` });
 
   } catch (error: any) {
+    // Don't surface internal/Prisma error text to the client.
     console.error('Failed to bulk create expenses:', error);
-    res.status(400).json({ message: error.message || 'Failed to import expenses' });
+    res.status(500).json({ message: 'Failed to import expenses' });
   }
 });
 
