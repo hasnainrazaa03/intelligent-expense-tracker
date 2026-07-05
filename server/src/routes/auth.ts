@@ -61,6 +61,13 @@ const buildCookieOptions = (httpOnly: boolean) => ({
   path: '/',
 });
 
+const signSessionToken = (user: { id: string; email: string; tokenVersion?: number }): string =>
+  jwt.sign(
+    { id: user.id, email: user.email, tokenVersion: user.tokenVersion ?? 0 },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
 const issueSessionCookies = (res: Response, token: string): string => {
   const csrfToken = crypto.randomBytes(24).toString('hex');
   res.cookie(SERVER_CONFIG.auth.cookieName, token, buildCookieOptions(true));
@@ -352,7 +359,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       });
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = signSessionToken(user);
     // Session + CSRF tokens are delivered via cookies only; never echo the JWT
     // in the response body (an XSS could otherwise exfiltrate a 7-day credential).
     issueSessionCookies(res, token);
@@ -417,7 +424,7 @@ router.post('/verify-login-otp', otpLimiter, async (req: Request, res: Response)
       data: { twoFactorOtp: null, twoFactorOtpExpires: null, loginAttempts: 0, lockUntil: null },
     });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = signSessionToken(user);
     issueSessionCookies(res, token);
 
     return res.json({
@@ -567,6 +574,9 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
         resetTokenExpires: null,
         loginAttempts: 0,
         lockUntil: null,
+        // Invalidate every previously issued session token (SRV-M2), so anyone
+        // holding an old JWT (including a would-be attacker) is logged out.
+        tokenVersion: { increment: 1 },
       },
     });
 
@@ -592,7 +602,7 @@ router.get('/google/callback',
   }),
   (req: Request, res: Response) => {
     const user = req.user as any; 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = signSessionToken(user);
     issueSessionCookies(res, token);
     
     const frontendUrl = process.env.FRONTEND_URL;
