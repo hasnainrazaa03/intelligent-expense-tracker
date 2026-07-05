@@ -8,6 +8,7 @@ import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
 import { startOfMonth, endOfMonth, isWithinRange } from './utils/dateUtils';
+import { expenseMatchesBudget } from './utils/budgetUtils';
 import { getAllData, getSession, logoutUser, toggleTwoFactor } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -410,7 +411,7 @@ const App: React.FC = () => {
     const monthEnd = endOfMonth();
 
     const monthlySpent = allExpenses
-      .filter(e => e.category === category && isWithinRange(e.date, monthStart, monthEnd))
+      .filter(e => expenseMatchesBudget(e.category, category) && isWithinRange(e.date, monthStart, monthEnd))
       .reduce((sum, e) => sum + e.amount, 0);
 
     const pct = (monthlySpent / budget.amount) * 100;

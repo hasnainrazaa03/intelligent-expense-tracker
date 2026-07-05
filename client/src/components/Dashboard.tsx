@@ -10,6 +10,8 @@ import { getCategoryColor } from '../utils/colorUtils';
 import { CalendarDaysIcon, TagIcon, ReceiptPercentIcon, TrendingUpIcon, BanknotesIcon } from './Icons';
 import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { startOfMonth, endOfMonth, isWithinRange, addMonths, parseCalendarDate, monthKey } from '../utils/dateUtils';
+import { formatCurrency } from '../utils/currencyUtils';
+import { computeBudgetSpend } from '../utils/budgetUtils';
 import SectionSkeleton from './SectionSkeleton';
 
 export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
@@ -72,12 +74,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     // of the dashboard's selected period (CMP-M15), using local month bounds.
     const monthStart = startOfMonth();
     const monthEnd = endOfMonth();
+    const monthExpenses = allExpenses.filter((e) => isWithinRange(e.date, monthStart, monthEnd));
 
     return budgets
       .map((budget) => {
-        const spent = allExpenses
-          .filter((e) => e.category === budget.category && isWithinRange(e.date, monthStart, monthEnd))
-          .reduce((sum, e) => sum + e.amount, 0);
+        // Shared matcher (CMP-H4): a main-category budget aggregates its subcategories.
+        const spent = computeBudgetSpend(budget.category, monthExpenses);
         const pct = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
         if (pct < 80) return null;
         return {
@@ -218,7 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 key={alert.category}
                 className={`border-2 border-ink px-3 py-2 font-bold text-xs md:text-sm uppercase ${alert.severity === 'danger' ? 'bg-usc-cardinal text-bone' : 'bg-usc-gold text-ink'}`}
               >
-                {alert.category}: {alert.spent.toFixed(0)} / {alert.budget.toFixed(0)} ({alert.pct.toFixed(0)}%)
+                {alert.category}: {formatCurrency(alert.spent, displayCurrency, conversionRate, true)} / {formatCurrency(alert.budget, displayCurrency, conversionRate, true)} ({alert.pct.toFixed(0)}%)
               </div>
             ))}
           </div>

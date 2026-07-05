@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { Expense, Budget } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { SUBCATEGORY_TO_CATEGORY_MAP } from '../../constants';
 import { formatCurrency } from '../../utils/currencyUtils';
+import { computeBudgetSpend } from '../../utils/budgetUtils';
+import { startOfMonth, endOfMonth, isWithinRange } from '../../utils/dateUtils';
 
 interface BudgetActualChartProps {
   expenses: Expense[];
@@ -29,25 +30,15 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
   const data = useMemo(() => {
     if (budgets.length === 0) return [];
 
-    // Use expenses from the current month
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const monthlyExpenses = expenses.filter(exp => {
-        const expDate = new Date(exp.date);
-        const expLocalDate = new Date(expDate.getUTCFullYear(), expDate.getUTCMonth(), expDate.getUTCDate());
-        return expLocalDate >= startOfMonth;
-    });
-
-    const spendingByMainCategory = monthlyExpenses.reduce((acc, exp) => {
-      const mainCategory = SUBCATEGORY_TO_CATEGORY_MAP[exp.category] || 'Miscellaneous';
-      acc[mainCategory] = (acc[mainCategory] || 0) + Number(exp.amount);
-      return acc;
-    }, {} as { [key: string]: number });
+    // Current calendar month, shared matcher so subcategory budgets populate and
+    // main-category budgets aggregate their subcategories (CMP-H4/CMP-M13).
+    const monthStart = startOfMonth();
+    const monthEnd = endOfMonth();
+    const monthlyExpenses = expenses.filter((exp) => isWithinRange(exp.date, monthStart, monthEnd));
 
     return budgets.map(budget => ({
       name: budget.category,
-      actual: spendingByMainCategory[budget.category] || 0,
+      actual: computeBudgetSpend(budget.category, monthlyExpenses),
       budget: budget.amount,
     }));
   }, [expenses, budgets]);
