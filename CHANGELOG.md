@@ -47,10 +47,16 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 
 > Deferred: money-as-integer-cents end-to-end (`X-3`/`SRV-M8`) — a larger schema+migration effort scheduled separately; the tuition penny-leak is already fixed via the tested `distributeAmount()` helper.
 
-### Planned — Phase 4: Architecture
-- Decompose the 1,265-line `App.tsx` into auth/currency contexts and data hooks.
-- Extract a shared `TransactionList` and currency-conversion hook.
-- Status-based auth handling; memoization to stop app-wide re-renders on search.
+### Fixed — Phase 4: Architecture (in progress, branch `fixes/phases-1-4`)
+- **Status-based auth handling** (`APP-H2`): the API client throws a typed `ApiError` with HTTP status; logout triggers on 401/403 instead of matching error strings.
+- **2FA state hydrates on reload** (`APP-H6`): the session is reconciled on every mount.
+- **TanStack Query foundation** (`P4a`): provider + configured client added (data-layer migration in progress).
+- **Server dedupe** (`SRV-L17`): duplicated `normalize*` helpers consolidated into one module.
+
+### Planned — Phase 4 remaining (needs runtime testing before merge)
+- Migrate the data-mutation layer to React Query hooks and finish decomposing `App.tsx` (`APP-M6`, `APP-M1`).
+- CurrencyContext / AuthContext / DashboardLayout extraction; memoization (`APP-H5`).
+- Shared `TransactionList` (`CMP-M19`) and `useInrToUsd` hook (`CMP-H5`); item-level semester CRUD (`SRV-H2` follow-up).
 
 ### Planned — Phases 5–6: Modern redesign
 - Tokenized, dark-mode-correct design system with reusable primitives (`THM-1`, `THM-2`, `THM-5`).

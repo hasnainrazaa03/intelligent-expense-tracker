@@ -108,17 +108,25 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 ## Phase 4 — Architecture & Maintainability
 *Goal: make the codebase safe to restyle and extend. ~4–6 days.*
 
-- [ ] **APP (App.tsx is 1,265 lines)** Decompose the monolith:
-  - [ ] `AuthContext` — auth state, session timeout, 2FA (fixes **APP-H2** via status-based handling and **APP-H6** hydration).
-  - [ ] `CurrencyContext` — replaces prop-drilling `displayCurrency`/`conversionRate` through 25+ interfaces.
-  - [ ] Data hooks `useExpenses`/`useIncomes`/`useBudgets`/`useSemesters` (or adopt React Query, which also replaces the hand-rolled 15s cache and refetch logic — fixes **APP-M6** cache-keying and **APP-M1** over-eager semesters saves).
-  - [ ] A `DashboardLayout` route component owning nav/FAB/modals.
-- [ ] **APP-H2** Make `fetchApi` surface HTTP status; drive logout off 401/403, not error strings.
-- [ ] **APP-H5** Add `React.memo` to list/chart/row components and `useCallback` to handlers so search keystrokes don't re-render the world.
-- [ ] **CMP code quality** Extract a generic `TransactionList<T>` (kills ~250 lines of ExpenseList/IncomeList duplication and fixes undo lifecycle **CMP-M19** once) and a `useInrToUsd` conversion hook (dedupes ExpenseModal/IncomeModal, fixes **CMP-H5**).
-- [ ] **SRV-X4 / SRV-H2 follow-up** Convert the destructive full-state reconciliation routes (semesters especially) to item-level CRUD or wrap them in `$transaction` with validation-first (also closes **SRV-L6/L7/L8**).
-- [ ] **SRV-L17** De-duplicate the `normalize*` helpers into a shared module; delete dead code (`ApiError`, unreachable filters); populate or remove the empty Swagger spec.
+**Decision (recorded):** full decomposition, adopting **TanStack Query** for the data layer.
+
+**Landed (safe, verifiable pieces):**
+- [x] **P4a** TanStack Query v5 installed; `QueryClientProvider` + configured client (`lib/queryClient.ts`). *(commit `5badbf8`)*
+- [x] **APP-H2** `fetchApi` throws a typed `ApiError` with HTTP status; logout keys off 401/403, not error strings. *(commit `7f3daa5`)*
+- [x] **APP-H6** Session reconcile runs on every mount so `twoFactorEnabled` hydrates correctly on reload. *(commit `7f3daa5`)*
+- [x] **SRV-L17** `normalize*` helpers extracted to `server/src/utils/normalize.ts`, imported by all three routes. *(commit `af96fcd`)*
+
+**Remaining (invasive — needs runtime testing against a live backend before merge):**
+- [ ] **P4b / APP-M6 / APP-M1** Migrate the data layer to React Query hooks (`useAppData` query + create/update/delete/tuition mutations via `setQueryData`), replacing App.tsx's `useState` arrays + manual handlers and the hand-rolled cache. ⚠️ *Highest-stakes code (tuition/semester/recurring autosave); rewrites the data-mutation flow — must be exercised end-to-end before merging.*
+- [ ] **CurrencyContext** — replace prop-drilled `displayCurrency`/`conversionRate` across 25+ components with `useCurrency()`.
+- [ ] **AuthContext** — extract auth state, session timeout, 2FA (H2/H6 logic already fixed in place; this is the structural move).
+- [ ] **DashboardLayout** route component owning nav/FAB/modals.
+- [ ] **APP-H5** `React.memo` on list/chart/row components + `useCallback` handlers.
+- [ ] **CMP-M19 / CMP-H5** Generic `TransactionList<T>` (kills ~250 duplicated lines, fixes undo lifecycle) and a `useInrToUsd` hook (dedupes the two modals).
+- [ ] **SRV-H2 follow-up** Convert destructive full-state reconciliation (semesters) to item-level CRUD or transactional validation-first (closes SRV-L6/L7/L8).
 - [ ] **APP-M5 / APP-L** Remove the stale CDN importmap, dead `axios`, unused vite `loadEnv`/alias.
+
+> **Why the pause here:** the pieces above that rewrite the data-mutation flow can't be safely verified in this environment (no live backend/DB to exercise CRUD, tuition, and autosave end-to-end). They're the same subsystems where the Phase 1 data-loss bugs lived, so they need real runtime testing — best done where the app can run against its backend.
 - [ ] **CMP-M24** Make custom categories actually propagate (single source of truth for categories, not a static constant + localStorage side channel).
 
 **Done when:** `App.tsx` is under ~300 lines, no component re-renders on unrelated search keystrokes, and there is one `TransactionList` and one currency-conversion hook.
