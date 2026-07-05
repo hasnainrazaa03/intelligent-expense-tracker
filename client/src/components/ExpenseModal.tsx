@@ -4,6 +4,7 @@ import { suggestCategory, recordCategorySelection } from '../services/categorySu
 import { CATEGORIES, PAYMENT_METHODS } from '../constants';
 import { XMarkIcon, ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
+import { todayCalendar } from '../utils/dateUtils';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface ExpenseModalProps {
@@ -59,7 +60,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [title, setTitle] = useState(expense?.title || '');
   const [amount, setAmount] = useState(''); 
   const [category, setCategory] = useState<Category>(expense?.category || 'Miscellaneous');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(todayCalendar());
   const [paymentMethod, setPaymentMethod] = useState('');
   const [notes, setNotes] = useState('');
   const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(false);
@@ -119,7 +120,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       }
     } else {
       setTitle(''); setAmount(''); setCategory('Other');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayCalendar());
       setPaymentMethod(''); setNotes('');
       setHasManuallySelectedCategory(false);
       setSelectedCurrency(displayCurrency);

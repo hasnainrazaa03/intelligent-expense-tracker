@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Semester } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
+import { todayCalendar } from '../utils/dateUtils';
 import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
 
 interface USCPaymentTrackerProps {
@@ -215,7 +216,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                           <input 
                             type="date" 
                             // Default to today if no date is selected yet
-                            value={selectedDates[inst.id] || new Date().toISOString().split('T')[0]}
+                            value={selectedDates[inst.id] || todayCalendar()}
                             onChange={(e) => setSelectedDates(prev => ({ ...prev, [inst.id]: e.target.value }))}
                             className="bg-bone border-2 border-ink p-1 font-loud text-[10px] focus:ring-2 focus:ring-usc-gold focus:outline-none"
                           />
@@ -223,7 +224,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                         
                         <button 
                           onClick={() => {
-                            const dateToUse = selectedDates[inst.id] || new Date().toISOString().split('T')[0];
+                            const dateToUse = selectedDates[inst.id] || todayCalendar();
                             onMarkAsPaid(activeSemester.id, inst.id, dateToUse);
                           }}
                           className="bg-usc-cardinal text-bone font-loud text-[9px] md:text-[10px] px-3 md:px-4 py-2 border-2 md:border-4 border-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[4px_4px_0px_0px_#111111] active:shadow-none active:translate-y-0.5 transition-all flex-shrink-0 uppercase"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Income } from '../types';
 import { INCOME_CATEGORIES } from '../constants';
 import { XMarkIcon } from './Icons';
+import { todayCalendar } from '../utils/dateUtils';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface IncomeModalProps {
@@ -18,7 +19,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(todayCalendar());
   const [notes, setNotes] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [metadataInput, setMetadataInput] = useState('');
@@ -63,7 +64,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       setTitle(''); 
       setAmount(''); 
       setCategory(INCOME_CATEGORIES[0]);
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayCalendar());
       setNotes(''); 
       setTagsInput('');
       setMetadataInput('');
