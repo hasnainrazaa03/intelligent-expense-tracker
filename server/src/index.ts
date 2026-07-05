@@ -27,6 +27,10 @@ const app = express();
 const HOST = SERVER_CONFIG.host;
 const PORT = SERVER_CONFIG.port;
 
+// --- Trust the reverse proxy so req.ip is the real client (rate limits depend
+// on this behind Render/Heroku/nginx). ---
+app.set('trust proxy', SERVER_CONFIG.trustProxy);
+
 // --- Security Middleware ---
 app.use(
   helmet({
