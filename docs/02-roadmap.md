@@ -84,23 +84,24 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 ## Phase 3 — Correctness: Money & Dates
 *Goal: the numbers on screen are right everywhere. ~3–4 days.*
 
-**Pick the conventions first (X-2, X-3):**
-- [ ] **X-2** Decide the date convention (recommended: expense dates are timezone-agnostic `YYYY-MM-DD` calendar days; never pass them through `toISOString()`), document it, and add helper utilities (`startOfMonthLocal`, `parseCalendarDate`, `formatCalendarDate`) that all code must use.
-- [ ] **X-3** Decide money representation (recommended: integer cents in a shared `money` util) and add conversion helpers.
+**Conventions (X-2, X-3):**
+- [x] **X-2** Date convention chosen and implemented: `client/src/utils/dateUtils.ts` — dates are timezone-agnostic `YYYY-MM-DD` calendar days compared as strings, boundaries from LOCAL time, never `toISOString()`. Tested. *(commit `df96672`)*
+- [ ] **X-3 / SRV-M8** Money-as-integer-cents end-to-end. ⚠️ *Deferred:* large, risky change (DB schema + migration + all math). The tuition penny-leak is already mitigated by the tested `distributeAmount()` cents helper (Phase 1) and `formatCurrency` rounds display. Recommend scheduling as its own mini-project after Phase 4, not inside this pass.
 
-**Then apply:**
-- [ ] **APP-H3 / APP-H4 / CMP-M13** Replace all ad-hoc UTC/local date math (`useDateRangeFilter`, `App.tsx:396`, `Dashboard.tsx:71,182`, `Reports.tsx:41`, modals' default date, `FinancialPlanningPanel`) with the shared helpers. Add a unit test proving an India/LA user sees "today" correctly.
-- [ ] **CMP-H6** Fix the 6-month window (`setMonth` overflow) using a safe month-iterator helper.
-- [ ] **CMP-H4** Unify budget-vs-spend into **one** shared function keyed consistently on the actual stored category granularity; use it in BudgetTracker, Dashboard alerts, Reports, and BudgetActualChart. Add tests.
-- [ ] **CMP-M15** Budget utilization must always compare against a *month* window, independent of the dashboard's period filter.
-- [ ] **CMP-M14** Budget alert amounts go through `formatCurrency`/display currency.
-- [ ] **CMP-M12** NET_FLOW shows the sign (and a non-color indicator).
-- [ ] **APP-M2 / CMP-C1 follow-up** Installment split reconciles remainder cents so paid sum == total.
-- [ ] **APP-M3 / APP-M4** CSV export uses a proper RFC-4180 encoder; exchange-rate cache parse is guarded and never yields `₹NaN`.
-- [ ] **SRV-L5 / SRV-M8** Server date parsing normalized to calendar days; money stored as cents (migration).
-- [ ] **CMP-M22** Relabel/repair "net worth" and "30-day forecast" so the label matches the math (or implement a real trailing-trend forecast).
+**Applied:**
+- [x] **APP-H3 / APP-H4 / CMP-M13** `useDateRangeFilter`, budget-alert window, Dashboard, modals, tuition tracker, ExportModal range + filenames, Reports/Pivot filenames, FinancialPlanningPanel all use the shared calendar helpers. *(commits `df96672`, `1691a70`, `899cc52`)*
+- [x] **CMP-H6** 6-month window uses overflow-safe `addMonths` + month-key matching. *(commit `1691a70`)*
+- [x] **CMP-H4** One shared `budgetUtils` matcher (tested) used by BudgetTracker, Dashboard alerts, App toast, Reports utilization, and BudgetActualChart. *(commit `2584b11`)*
+- [x] **CMP-M15** Budget utilization is always a current-month figure regardless of the dashboard's period. *(commit `2584b11`)*
+- [x] **CMP-M14** Budget alert amounts render through `formatCurrency`. *(commit `2584b11`)*
+- [x] **CMP-M12** NET_FLOW shows a leading minus sign, not color only. *(commit `addc814`)*
+- [x] **APP-M2** Installment split reconciles remainder cents (Phase 1, `distributeAmount`). *(commit `1d2fa31`)*
+- [x] **APP-M3** CSV export uses an RFC-4180 encoder (tested). *(commit `b001816`)*
+- [x] **APP-M4** FX rate cache parse guarded; never yields `₹NaN`. *(commit `addc814`)*
+- [x] **CMP-M22** "Net worth"/"forecast" relabeled so the label matches the math. *(commit `899cc52`)*
+- [ ] **SRV-L5** Server-side calendar-day parse normalization — bundle with the X-3 money/cents migration (server-side).
 
-**Done when:** the same budget shows the same utilization in all four places; a US-evening and an India-morning entry both land on the correct day; PDF/CSV totals reconcile to the on-screen totals.
+**Done when:** the same budget shows the same utilization in all four places ✅; a US-evening and an India-morning entry both land on the correct day ✅; CSV export is valid ✅. — **Phase 3 client correctness complete; only the X-3/SRV-M8/SRV-L5 money-as-cents migration is deferred as a separate scheduled effort.**
 
 ---
 

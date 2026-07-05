@@ -39,10 +39,13 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 - Registration email-enumeration (`SRV-L3` registration path) intentionally left as standard UX; revisit if strict anti-enumeration is required.
 - Recommended: run a security review over the cumulative Phase 2 diff before merging.
 
-### Planned — Phase 3: Correctness (money & dates)
-- Single date convention across the app; fix timezone bugs hiding "today" for non-UTC users (`X-2`, `APP-H3`, `APP-H4`, `CMP-M13`, `CMP-H6`).
-- One shared budget-vs-spend calculation used everywhere (`CMP-H4`, `CMP-M15`).
-- Integer-cents money representation end-to-end; RFC-4180 CSV export (`X-3`, `APP-M3`).
+### Fixed — Phase 3: Correctness — money & dates (branch `fixes/phases-1-4`)
+- **One date convention** (`X-2`): new `utils/dateUtils.ts` (tested) — calendar days compared as strings, boundaries from local time, never `toISOString()`.
+- **Timezone bugs fixed** (`APP-H3/H4`, `CMP-M13/H6`): "this month" and today's transactions now match the user's local day (previously UTC drift hid them for UTC+ users); the 6-month chart no longer duplicates/skips months at month-end; expense/income/tuition date fields default to the local day, not the UTC day.
+- **One budget-vs-spend calculation** (`CMP-H4/M15/M14`): new tested `utils/budgetUtils.ts` matcher used everywhere; a subcategory budget now shows real spend, a main-category budget aggregates its subcategories, utilization is always a current-month figure, and alert amounts render in the selected currency. (Previously the same budget showed three different numbers.)
+- **Net flow shows its sign** (`CMP-M12`); **FX rate cache hardened** (`APP-M4`, no more `₹NaN` or unhandled parse); **CSV export is RFC-4180 valid** (`APP-M3`, tested); **planning figures relabeled** so labels match the math (`CMP-M22`).
+
+> Deferred: money-as-integer-cents end-to-end (`X-3`/`SRV-M8`) — a larger schema+migration effort scheduled separately; the tuition penny-leak is already fixed via the tested `distributeAmount()` helper.
 
 ### Planned — Phase 4: Architecture
 - Decompose the 1,265-line `App.tsx` into auth/currency contexts and data hooks.
