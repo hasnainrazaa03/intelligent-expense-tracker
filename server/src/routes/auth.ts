@@ -53,6 +53,11 @@ const isStrongPassword = (password: string): boolean => {
 const MAX_LOGIN_ATTEMPTS = SERVER_CONFIG.auth.maxLoginAttempts;
 const LOCKOUT_DURATION_MS = SERVER_CONFIG.auth.lockoutDurationMs;
 
+// SRV-M4: per-account failed-OTP ceiling. After this many wrong codes the active
+// OTP is invalidated (forcing a resend), bounding brute-force of 6-digit codes
+// beyond the per-IP limiter.
+const MAX_OTP_ATTEMPTS = 5;
+
 const buildCookieOptions = (httpOnly: boolean) => ({
   httpOnly,
   secure: process.env.NODE_ENV === 'production',
@@ -134,6 +139,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
           password: hashedPassword,
           verificationOtp: hashedOtp,
           otpExpires: expires,
+          otpAttempts: 0,
         },
       });
     } else {
@@ -186,12 +192,22 @@ router.post('/verify-otp', otpLimiter, async (req: Request, res: Response) => {
     // S3: Compare against hashed OTP
     const otpValid = await bcrypt.compare(otp, user.verificationOtp);
     if (!otpValid) {
-      return res.status(400).json({ message: "INVALID_OR_EXPIRED_CODE" });
+      const attempts = (user.otpAttempts || 0) + 1;
+      if (attempts >= MAX_OTP_ATTEMPTS) {
+        // Invalidate the code so it can no longer be brute-forced.
+        await prisma.user.update({
+          where: { email },
+          data: { verificationOtp: null, otpExpires: null, otpAttempts: 0 },
+        });
+        return res.status(429).json({ message: 'TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE' });
+      }
+      await prisma.user.update({ where: { email }, data: { otpAttempts: attempts } });
+      return res.status(400).json({ message: 'INVALID_OR_EXPIRED_CODE' });
     }
 
     await prisma.user.update({
       where: { email },
-      data: { isVerified: true, verificationOtp: null, otpExpires: null }
+      data: { isVerified: true, verificationOtp: null, otpExpires: null, otpAttempts: 0 }
     });
 
     res.json({ message: "ACCOUNT_VERIFIED_SUCCESSFULLY" });
@@ -231,7 +247,7 @@ router.post('/resend-otp', otpLimiter, async (req: Request, res: Response) => {
 
     await prisma.user.update({
       where: { email },
-      data: { verificationOtp: hashedOtp, otpExpires: expires },
+      data: { verificationOtp: hashedOtp, otpExpires: expires, otpAttempts: 0 },
     });
 
     await sendVerificationEmail(email, otp);
@@ -347,7 +363,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
       await prisma.user.update({
         where: { id: user.id },
-        data: { twoFactorOtp: hashedLoginOtp, twoFactorOtpExpires },
+        data: { twoFactorOtp: hashedLoginOtp, twoFactorOtpExpires, otpAttempts: 0 },
       });
 
       await sendTwoFactorEmail(email, loginOtp);
@@ -416,12 +432,21 @@ router.post('/verify-login-otp', otpLimiter, async (req: Request, res: Response)
 
     const valid = await bcrypt.compare(otp, user.twoFactorOtp);
     if (!valid) {
+      const attempts = (user.otpAttempts || 0) + 1;
+      if (attempts >= MAX_OTP_ATTEMPTS) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { twoFactorOtp: null, twoFactorOtpExpires: null, otpAttempts: 0 },
+        });
+        return res.status(429).json({ message: 'Too many attempts. Please log in again to receive a new code.' });
+      }
+      await prisma.user.update({ where: { id: user.id }, data: { otpAttempts: attempts } });
       return res.status(400).json({ message: 'Invalid verification code' });
     }
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { twoFactorOtp: null, twoFactorOtpExpires: null, loginAttempts: 0, lockUntil: null },
+      data: { twoFactorOtp: null, twoFactorOtpExpires: null, loginAttempts: 0, lockUntil: null, otpAttempts: 0 },
     });
 
     const token = signSessionToken(user);
@@ -526,7 +551,7 @@ router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: 
 
     await prisma.user.update({
       where: { email },
-      data: { resetToken: hashedCode, resetTokenExpires: expires },
+      data: { resetToken: hashedCode, resetTokenExpires: expires, otpAttempts: 0 },
     });
 
     await sendPasswordResetEmail(email, resetCode);
@@ -562,6 +587,16 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
 
     const codeValid = await bcrypt.compare(code, user.resetToken);
     if (!codeValid) {
+      const attempts = (user.otpAttempts || 0) + 1;
+      if (attempts >= MAX_OTP_ATTEMPTS) {
+        // Invalidate the reset code after too many wrong guesses (guards account takeover).
+        await prisma.user.update({
+          where: { email },
+          data: { resetToken: null, resetTokenExpires: null, otpAttempts: 0 },
+        });
+        return res.status(429).json({ message: 'Too many attempts. Please request a new reset code.' });
+      }
+      await prisma.user.update({ where: { email }, data: { otpAttempts: attempts } });
       return res.status(400).json({ message: 'Invalid or expired reset code' });
     }
 
