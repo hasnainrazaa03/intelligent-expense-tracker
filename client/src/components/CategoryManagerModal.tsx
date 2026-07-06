@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, PlusCircleIcon, TrashIcon, TagIcon } from './Icons';
 import { CATEGORIES } from '../constants';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface CategoryManagerModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ const loadCategories = (): Record<string, string[]> => {
 };
 
 const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onClose }) => {
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   const [activeTab, setActiveTab] = useState<string>(Object.keys(CATEGORIES)[0]);
   const [categories, setCategories] = useState<Record<string, string[]>>(loadCategories);
   const [newSubcategory, setNewSubcategory] = useState('');
@@ -97,7 +99,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
 
   return (
     <div className="fixed inset-0 bg-ink/80 backdrop-blur-sm z-[100] flex justify-center items-center p-2 md:p-4">
-      <div className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-3xl flex flex-col h-full max-h-[95vh] md:max-h-[85vh] overflow-hidden">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Category taxonomy editor" className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-3xl flex flex-col h-full max-h-[95vh] md:max-h-[85vh] overflow-hidden">
         
         {/* HEADER */}
         <div className="bg-ink p-4 md:p-8 border-b-4 md:border-b-8 border-ink flex justify-between items-center flex-shrink-0">

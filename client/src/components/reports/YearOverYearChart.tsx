@@ -71,13 +71,14 @@ const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses, display
         />
         <Legend />
         {years.map((year, index) => (
-            <Line 
-                key={year} 
-                type="monotone" 
-                dataKey={year} 
-                stroke={COLORS[index % COLORS.length]} 
+            <Line
+                key={year}
+                type="monotone"
+                dataKey={year}
+                stroke={COLORS[index % COLORS.length]}
                 strokeWidth={2}
                 activeDot={{ r: 6 }}
+                connectNulls
             />
         ))}
       </LineChart>

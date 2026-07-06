@@ -9,26 +9,23 @@ interface MonthlyCategoryChartProps {
 
 const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses }) => {
   const data = useMemo(() => {
-    const monthlyData: { [month: string]: { name: string, [category: string]: number | string } } = {};
-    
+    const monthlyData: { [month: string]: { name: string, __sort: number, [category: string]: number | string } } = {};
+
     expenses.forEach(expense => {
       const date = new Date(expense.date);
       const monthKey = date.toLocaleString('default', { month: 'short', year: '2-digit', timeZone: 'UTC' });
       const mainCategory = SUBCATEGORY_TO_CATEGORY_MAP[expense.category] || 'Miscellaneous';
-      
+
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { name: monthKey };
+        // Numeric sort key (year*12 + month) — reliable across engines, unlike
+        // parsing the "Jan 25" display label which was Invalid Date in Safari.
+        monthlyData[monthKey] = { name: monthKey, __sort: date.getUTCFullYear() * 12 + date.getUTCMonth() };
       }
-      
+
       monthlyData[monthKey][mainCategory] = (monthlyData[monthKey][mainCategory] || 0) as number + expense.amount;
     });
 
-    return Object.values(monthlyData).sort((a, b) => {
-        const dateA = new Date(`01 ${a.name}`);
-        const dateB = new Date(`01 ${b.name}`);
-        return dateA.getTime() - dateB.getTime();
-    });
-
+    return Object.values(monthlyData).sort((a, b) => a.__sort - b.__sort);
   }, [expenses]);
   
   if (data.length === 0) return <div className="flex items-center justify-center h-full text-base-content-secondary dark:text-gray-400">Not enough data to display.</div>;

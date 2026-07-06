@@ -1,7 +1,21 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
+
+// Track the mobile breakpoint reactively so rotating the device / resizing
+// re-lays-out the chart (CMP-M25: window.innerWidth was read once at render).
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [breakpoint]);
+  return isMobile;
+};
 
 interface ChartData {
   name: string;
@@ -32,6 +46,7 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
 
 const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurrency, conversionRate }) => {
     const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
+    const isMobile = useIsMobile();
 
     const interactiveData = useMemo(() => {
       return data.filter((item) => !hiddenCategories.includes(item.name));
@@ -85,10 +100,10 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurren
       <PieChart>
         <Pie
           data={interactiveData}
-          innerRadius={window.innerWidth < 768 ? 45 : 60}
-          outerRadius={window.innerWidth < 768 ? 65 : 80}
+          innerRadius={isMobile ? 45 : 60}
+          outerRadius={isMobile ? 65 : 80}
           paddingAngle={5}
-          strokeWidth={window.innerWidth < 768 ? 2 : 4}
+          strokeWidth={isMobile ? 2 : 4}
           stroke="#111111"
           dataKey="value"
           isAnimationActive={true}
@@ -106,12 +121,12 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurren
         <Legend
           payload={legendPayload}
           iconType="rect"
-          iconSize={window.innerWidth < 768 ? 8 : 10}
-          layout={window.innerWidth < 768 ? 'horizontal' : 'vertical'}
+          iconSize={isMobile ? 8 : 10}
+          layout={isMobile ? 'horizontal' : 'vertical'}
           align="center"
-          verticalAlign={window.innerWidth < 768 ? 'bottom' : 'middle'}
+          verticalAlign={isMobile ? 'bottom' : 'middle'}
           wrapperStyle={
-            window.innerWidth < 768
+            isMobile
               ? {
                   paddingTop: '10px',
                   fontSize: '8px',
