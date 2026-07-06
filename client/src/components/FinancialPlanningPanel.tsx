@@ -257,7 +257,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
               <div key={d} className="text-center font-bold">{d}</div>
             ))}
             {calendarCells.map((cell, idx) => (
-              <div key={`${cell.day ?? 'x'}-${idx}`} className="border border-ink min-h-10.5 p-1 bg-white">
+              <div key={`${cell.day ?? 'x'}-${idx}`} className="border border-ink min-h-[42px] p-1 bg-white">
                 <div className="font-bold">{cell.day ?? ''}</div>
                 {cell.total > 0 && <div className="text-[9px]">{formatCurrency(cell.total, displayCurrency, conversionRate, true)}</div>}
               </div>

@@ -44,6 +44,25 @@ const VerifyOTP: React.FC = () => {
     }
   };
 
+  // Allow pasting the whole 6-digit code into any box (CMP-M20).
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const digits = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!digits) return;
+    const next = new Array(6).fill("");
+    for (let i = 0; i < digits.length; i++) next[i] = digits[i];
+    setOtp(next);
+    inputRefs.current[Math.min(digits.length, 5)]?.focus();
+  };
+
+  // Leak-free resend countdown: one timer per tick, cleared on unmount/change
+  // (previously a setInterval in the click handler was only cleared at zero).
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -68,13 +87,7 @@ const VerifyOTP: React.FC = () => {
     try {
       setError("");
       await resendOtp(email);
-      setResendCooldown(60);
-      const interval = setInterval(() => {
-        setResendCooldown(prev => {
-          if (prev <= 1) { clearInterval(interval); return 0; }
-          return prev - 1;
-        });
-      }, 1000);
+      setResendCooldown(60); // the countdown effect handles ticking + cleanup
     } catch (err: any) {
       setError(err.message || "RESEND_FAILED");
     }
@@ -106,6 +119,10 @@ const VerifyOTP: React.FC = () => {
                 value={data}
                 onChange={(e) => handleChange(e.target, index)}
                 onKeyDown={(e) => handleKeyDown(e, index)}
+                onPaste={handlePaste}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                aria-label={`Verification digit ${index + 1}`}
                 className="w-full h-14 border-4 border-ink text-center text-2xl font-loud focus:bg-usc-gold focus:outline-none transition-colors shadow-[4px_4px_0px_0px_#111111]"
               />
             ))}

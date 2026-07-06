@@ -63,12 +63,13 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses, display
       .sort((a, b) => b.amount - a.amount);
   }, [expenses, selectedCategory]);
 
-  const handleBarClick = (data: any) => {
-    if (data && data.activePayload && data.activePayload.length > 0) {
-      const categoryName = data.activePayload[0].payload.name;
-      if (CATEGORIES[categoryName as keyof typeof CATEGORIES]) {
-        setSelectedCategory(categoryName);
-      }
+  // Recharts passes the clicked bar's own data entry here (not a chart-level
+  // event with activePayload — that only exists on <BarChart onClick>), so read
+  // the category name directly from the entry (CMP-H2: drilldown was dead).
+  const handleBarClick = (entry: any) => {
+    const categoryName = entry?.name ?? entry?.payload?.name;
+    if (categoryName && CATEGORIES[categoryName as keyof typeof CATEGORIES]) {
+      setSelectedCategory(categoryName);
     }
   };
   

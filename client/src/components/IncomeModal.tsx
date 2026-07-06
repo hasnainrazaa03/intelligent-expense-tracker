@@ -250,12 +250,13 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
               </div>
               <div className="overflow-y-auto">
                 {filteredCategories.map(cat => (
-                  <div
+                  <button
+                    type="button"
                     key={cat} onClick={() => handleCategorySelect(cat)}
-                    className="px-4 py-3 text-xs font-bold text-ink hover:bg-usc-gold cursor-pointer transition-colors border-b border-ink/5 uppercase"
+                    className="w-full text-left px-4 py-3 text-xs font-bold text-ink hover:bg-usc-gold focus:bg-usc-gold focus:outline-none cursor-pointer transition-colors border-b border-ink/5 uppercase"
                   >
                     {cat}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

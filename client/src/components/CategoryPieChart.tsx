@@ -37,6 +37,21 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurren
       return data.filter((item) => !hiddenCategories.includes(item.name));
     }, [data, hiddenCategories]);
 
+    // Legend is built from the FULL dataset (not the filtered pie data) so hidden
+    // categories still appear — struck-through and clickable to restore. Without
+    // this, hiding a slice removed it from the legend and there was no way back
+    // until every category was hidden (CMP-H7).
+    const legendPayload = useMemo(
+      () =>
+        data.map((item) => ({
+          value: item.name,
+          type: 'rect' as const,
+          id: item.name,
+          color: hiddenCategories.includes(item.name) ? '#9ca3af' : item.fill,
+        })),
+      [data, hiddenCategories]
+    );
+
     const toggleCategory = (name: string) => {
       setHiddenCategories((prev) =>
         prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]
@@ -89,6 +104,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurren
         </Pie>
         <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate} />} />
         <Legend
+          payload={legendPayload}
           iconType="rect"
           iconSize={window.innerWidth < 768 ? 8 : 10}
           layout={window.innerWidth < 768 ? 'horizontal' : 'vertical'}

@@ -11,6 +11,17 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 [codebase review](./docs/01-codebase-review.md). Items under **Fixed** have landed on the
 `fixes/phases-1-4` branch; items under **Planned** are still queued.
 
+### Fixed — Component bugs (branch `fix/component-bugs`)
+- **Category drilldown works again** (`CMP-H2`): clicking a main-category bar in Reports opens its subcategory breakdown (the handler read a chart-level field that a bar-click event doesn't have).
+- **Pie-chart category hiding is two-way** (`CMP-H7`): a hidden category stays in the legend (struck-through) and can be clicked to restore, instead of disappearing with no way back.
+- **Deleted subcategories stay deleted** (`CMP-H3`): deletion state is applied on load regardless of whether the user has custom additions.
+- **Category dropdown is keyboard-accessible** (`CMP-H9`): expense/income category options are real buttons (focusable, Enter/Space selects) — verified with Playwright.
+- **OTP paste + leak-free resend** (`CMP-M20`): the verification screen accepts a pasted 6-digit code and the resend cooldown no longer leaks a timer on unmount.
+- **Calendar cells no longer collapse** (`CMP-M23`): fixed an invalid `min-h-10.5` Tailwind class.
+
+### Fixed — Currency refactor (branch `refactor/currency-context`)
+- Currency state, the USD→INR rate fetch, the India default, and persistence moved out of `App.tsx` into a `CurrencyProvider` + `useCurrency()` hook. Verified end-to-end (toggle, persistence, CRUD, tuition).
+
 ### Fixed — Phase 1: Critical bug fixes (branch `fixes/phases-1-4`)
 - **Tuition tracker no longer loses data** (`CMP-C1`): clicking into and out of the empty tuition field can no longer zero the total or wipe the payment schedule; updating the total now preserves already-paid installments and only redistributes the remaining balance. `1d2fa31`
 - **Installment resets and date edits now persist** (`APP-C2`): removed reads of variables mutated inside React state updaters that caused updates to be silently dropped on reload. `1d2fa31`
