@@ -58,9 +58,11 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 
 - **Data store migrated to TanStack Query** (`APP-M6`): the four collections and fetch-on-auth logic are now a single `['allData']` query; the hand-rolled 15s cache is gone (React Query keys per query, closing the cross-user cache bug), and logout drops the cached data. Verified end-to-end against a local backend with Playwright (login, CRUD + reload persistence, tuition set/mark-paid/autosave/reload — all pass, zero page errors).
 
-### Planned — Phase 4 remaining (structural/perf polish; data-layer correctness done)
-- Memoization (`APP-H5`) — now effective since handlers are stable.
-- CurrencyContext / AuthContext / DashboardLayout extraction; over-eager semester autosave (`APP-M1`); item-level semester CRUD (`SRV-H2` follow-up).
+- **Search no longer re-renders the whole app** (`APP-H5`): the raw search input moved into Header and is debounced there; App re-renders only when the debounced term changes.
+- **Autosave only when it matters** (`APP-M1`): editing an ordinary expense no longer POSTs the entire semesters array — only tuition-linked edits do.
+
+### Planned — Phase 4 remaining (optional structural refactors; no functional impact)
+- CurrencyContext / AuthContext / DashboardLayout extraction; item-level semester CRUD (`SRV-H2` follow-up); optional further memoization / `TransactionList<T>` extraction.
 
 ### Planned — Phases 5–6: Modern redesign
 - Tokenized, dark-mode-correct design system with reusable primitives (`THM-1`, `THM-2`, `THM-5`).

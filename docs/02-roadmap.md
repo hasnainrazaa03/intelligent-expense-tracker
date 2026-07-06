@@ -123,16 +123,19 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 - [x] **P4b / APP-M6** Data store migrated to a single `['allData']` TanStack Query; `setExpenses`/`setIncomes`/`setBudgets`/`setSemesters` are now `setQueryData` wrappers so all handlers (CRUD, tuition math, recurring, autosave) work unchanged. Removed the hand-rolled 15s cache (fixes the cross-user cache bug); logout drops the cached dataset. *(commit `25b70c5`)*
   - **Verification:** stood up a local backend (Docker Mongo replica set + server + Vite client) and drove it with Playwright — login + add-expense + reload-persistence **PASS**, and tuition set/mark-paid/autosave/reload + created-expense **PASS**, both with zero page errors. This exercised the exact tuition/semester/autosave subsystems where the Phase 1 data-loss bugs lived.
 
-**Remaining Phase 4 (now lower-risk — data layer is stable and verified):**
-- [ ] **APP-H5** `React.memo` + `useCallback` on the heavy views so search keystrokes don't re-render everything (handlers are now stable, so memo will actually help).
-- [ ] **CurrencyContext** — replace prop-drilled `displayCurrency`/`conversionRate` across 25+ components with `useCurrency()`. *(Safe/tsc-verifiable; large mechanical change.)*
+**Also landed & verified this pass:**
+- [x] **APP-H5** Search input moved into Header and debounced there, so keystrokes no longer re-render the whole app — App re-renders only per debounce. *(commit `d825e26`)*
+- [x] **APP-M1** Expense edits only touch semesters (and their autosave) when the expense is a linked tuition installment — no more full semesters POST on every ordinary edit. *(commit `1aa41ed`)*
+
+**Remaining Phase 4 (optional structural polish — no functional/correctness impact):**
+- [ ] **CurrencyContext** — replace prop-drilled `displayCurrency`/`conversionRate` across 25+ components with `useCurrency()`. *(Safe/tsc-verifiable; large mechanical change — best as its own focused pass.)*
 - [ ] **AuthContext** — extract auth state, session timeout, 2FA (H2/H6 logic already fixed in place; structural move).
 - [ ] **DashboardLayout** route component owning nav/FAB/modals.
-- [ ] **APP-M1** Stop marking semesters dirty on non-tuition edits (over-eager autosave).
+- [ ] **Further `React.memo`** on the heavy views (the main search re-render is already fixed; remaining gains are marginal and need per-handler `useCallback`).
 - [ ] **CMP-M19 follow-on** Optional generic `TransactionList<T>` DOM extraction (pure code-quality; the buggy shared logic is already fixed via the hook).
 - [ ] **SRV-H2 follow-up** Convert destructive full-state reconciliation (semesters) to item-level CRUD or transactional validation-first (closes SRV-L6/L7/L8).
 
-> **Note:** the data-layer migration — the centerpiece and highest-stakes item — is complete and verified running against a real backend. The remaining items are structural/perf polish that no longer touch the data-mutation correctness.
+> **Note:** all correctness- and perf-critical Phase 4 work (data-layer migration, search re-render, over-eager autosave) is complete and verified running against a real backend. The remaining items are pure structural refactors (contexts / layout extraction) with no functional impact — safe to schedule as a separate pass.
 - [ ] **CMP-M24** Make custom categories actually propagate (single source of truth for categories, not a static constant + localStorage side channel).
 
 **Done when:** `App.tsx` is under ~300 lines, no component re-renders on unrelated search keystrokes, and there is one `TransactionList` and one currency-conversion hook.
