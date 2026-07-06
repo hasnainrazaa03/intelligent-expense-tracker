@@ -24,14 +24,16 @@ const loadCategories = (): Record<string, string[]> => {
           base[cat] = parsed[cat];
         }
       }
-      // Handle deletions
-      const deleted = localStorage.getItem('deletedSubcategories');
-      if (deleted) {
-        const deletedMap = JSON.parse(deleted) as Record<string, string[]>;
-        for (const cat in deletedMap) {
-          if (base[cat]) {
-            base[cat] = base[cat].filter(sub => !deletedMap[cat].includes(sub));
-          }
+    }
+    // Apply deletions independently of custom additions — previously this was
+    // nested inside `if (custom)`, so deleted subcategories reappeared on reload
+    // whenever the user had no custom additions (CMP-H3).
+    const deleted = localStorage.getItem('deletedSubcategories');
+    if (deleted) {
+      const deletedMap = JSON.parse(deleted) as Record<string, string[]>;
+      for (const cat in deletedMap) {
+        if (base[cat]) {
+          base[cat] = base[cat].filter(sub => !deletedMap[cat].includes(sub));
         }
       }
     }
