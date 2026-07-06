@@ -510,15 +510,21 @@ const handleUpdateExpense = async (updatedExpense: Expense) => {
       checkBudgetAlert(returnedExpense.category, updated);
       return updated;
     });
-    setSemesters(prev => prev.map(sem => ({
-      ...sem,
-      installments: sem.installments.map(inst => 
-        inst.expenseId === returnedExpense.id 
-          ? { ...inst, paidDate: returnedExpense.date, amount: returnedExpense.amount } 
-          : inst
-      )
-    })));
-    setIsSemestersDirty(true);
+    // Only touch semesters (and trigger their autosave) when this expense is
+    // actually a linked tuition installment — editing a normal expense no longer
+    // POSTs the entire semesters array (APP-M1).
+    const isLinkedTuition = semesters.some(sem => sem.installments.some(i => i.expenseId === returnedExpense.id));
+    if (isLinkedTuition) {
+      setSemesters(prev => prev.map(sem => ({
+        ...sem,
+        installments: sem.installments.map(inst =>
+          inst.expenseId === returnedExpense.id
+            ? { ...inst, paidDate: returnedExpense.date, amount: returnedExpense.amount }
+            : inst
+        )
+      })));
+      setIsSemestersDirty(true);
+    }
     setEditingExpense(null);
     setIsExpenseModalOpen(false);
   } catch (error) {
@@ -535,15 +541,19 @@ const handleQuickSaveExpense = async (updatedExpense: Expense) => {
       checkBudgetAlert(returnedExpense.category, updated);
       return updated;
     });
-    setSemesters(prev => prev.map(sem => ({
-      ...sem,
-      installments: sem.installments.map(inst =>
-        inst.expenseId === returnedExpense.id
-          ? { ...inst, paidDate: returnedExpense.date, amount: returnedExpense.amount }
-          : inst
-      )
-    })));
-    setIsSemestersDirty(true);
+    // See APP-M1 note in handleUpdateExpense.
+    const isLinkedTuition = semesters.some(sem => sem.installments.some(i => i.expenseId === returnedExpense.id));
+    if (isLinkedTuition) {
+      setSemesters(prev => prev.map(sem => ({
+        ...sem,
+        installments: sem.installments.map(inst =>
+          inst.expenseId === returnedExpense.id
+            ? { ...inst, paidDate: returnedExpense.date, amount: returnedExpense.amount }
+            : inst
+        )
+      })));
+      setIsSemestersDirty(true);
+    }
   } catch (error) {
     console.error('Failed to quick update expense:', error);
     notify.error('Could not quick update expense.');
