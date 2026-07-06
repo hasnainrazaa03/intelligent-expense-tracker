@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
+import { todayCalendar } from '../utils/dateUtils';
 
 const GOAL_KEY = 'monthlySavingsGoal';
 const PAUSED_RECURRING_KEY = 'pausedRecurringTemplates';
@@ -14,7 +15,7 @@ interface FinancialPlanningPanelProps {
   conversionRate: number | null;
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => todayCalendar();
 
 const templateKey = (e: Expense): string => `${e.title}|${e.category}|${e.amount}`;
 
@@ -242,9 +243,9 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
         </div>
 
         <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">CASH_FLOW_FORECAST_30D</p>
+          <p className="font-loud text-xs uppercase mb-2">TRAILING_30D_NET_FLOW</p>
           <p className="font-loud text-xl">{formatCurrency(forecast30d, displayCurrency, conversionRate)}</p>
-          <p className="font-mono text-[11px] mt-2 uppercase text-ink/70">Projected net based on last 30-day trend.</p>
+          <p className="font-mono text-[11px] mt-2 uppercase text-ink/70">Net of the last 30 days (income minus expenses); a simple forward proxy.</p>
         </div>
       </div>
 
@@ -290,9 +291,10 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">INVESTMENT_AND_NET_WORTH_TRACKING</p>
+          <p className="font-loud text-xs uppercase mb-2">INVESTMENTS_AND_POSITION</p>
           <p className="font-mono text-[11px] mb-1">Portfolio value: {formatCurrency(totalInvestments, displayCurrency, conversionRate)}</p>
-          <p className="font-loud text-lg">Net worth snapshot: {formatCurrency(netWorth, displayCurrency, conversionRate)}</p>
+          <p className="font-loud text-lg">Estimated position: {formatCurrency(netWorth, displayCurrency, conversionRate)}</p>
+          <p className="font-mono text-[10px] text-ink/60 mt-1">This month's net cash flow + portfolio value (not full net worth).</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
             <input value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Account" />
             <select value={newAccountType} onChange={(e) => setNewAccountType(e.target.value as InvestmentAccount['type'])} className="border-2 border-ink p-2 text-xs bg-white">

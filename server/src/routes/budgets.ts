@@ -98,10 +98,9 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(200).json(savedBudgets);
 
   } catch (error: any) {
+    // Log the real error server-side; never echo internal/Prisma messages to
+    // the client (they leak engine internals and mislabel 500s as 400s).
     console.error('CRITICAL_BUDGET_SYNC_FAILURE:', error);
-    if (error instanceof Error) {
-      return res.status(400).json({ message: error.message });
-    }
     res.status(500).json({ message: 'Failed to synchronize budgets' });
   }
 });

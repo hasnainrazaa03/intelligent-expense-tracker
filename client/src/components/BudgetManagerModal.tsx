@@ -13,6 +13,14 @@ interface BudgetManagerModalProps {
 
 const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose, onSave, currentBudgets, displayCurrency, conversionRate }) => {
   const [budgets, setBudgets] = useState<{ [key: string]: string }>({});
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Close, but guard against discarding unsaved edits on an accidental
+  // backdrop click. Explicit [X]/CANCEL still close directly.
+  const handleRequestClose = () => {
+    if (isDirty && !window.confirm('Discard your unsaved budget changes?')) return;
+    onClose();
+  };
 
   const budgetTemplates: Record<string, Record<string, number>> = {
     student_essential: {
@@ -78,6 +86,7 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
       return acc;
     }, {} as { [key: string]: string });
     setBudgets(budgetMap);
+    setIsDirty(false);
   }, [currentBudgets, isOpen, displayCurrency, conversionRate]);
 
   const totalBudget = useMemo(() => {
@@ -86,6 +95,7 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
   
   const handleBudgetChange = (category: string, amount: string) => {
     setBudgets(prev => ({...prev, [category]: amount }));
+    setIsDirty(true);
   };
 
   const handleApplyTemplate = (templateKey: keyof typeof budgetTemplates) => {
@@ -97,6 +107,7 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
       return acc;
     }, {} as Record<string, string>);
     setBudgets((prev) => ({ ...prev, ...mapped }));
+    setIsDirty(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -124,11 +135,11 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
   const currencySymbol = displayCurrency === 'INR' ? '₹' : '$';
 
   return (
-    <div className="fixed inset-0 bg-ink/90 backdrop-blur-sm z-[100] flex justify-center items-center p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-ink/90 backdrop-blur-sm z-[100] flex justify-center items-center p-2 sm:p-4" onClick={handleRequestClose}>
       <div className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-2xl max-h-[95vh] flex flex-col transform transition-all" onClick={e => e.stopPropagation()}>
         <div className="p-4 md:p-8 bg-ink border-b-4 md:border-b-8 border-ink flex justify-between items-center flex-shrink-0">
             <h2 className="font-loud text-lg md:text-3xl text-bone leading-none uppercase tracking-tighter truncate pr-4">BUDGET_ALLOCATION_MATRIX</h2>
-            <button onClick={onClose} className="text-bone hover:text-usc-gold font-mono text-xl flex-shrink-0"> [X] </button>
+            <button onClick={handleRequestClose} className="text-bone hover:text-usc-gold font-mono text-xl flex-shrink-0"> [X] </button>
         </div>
         
         <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">

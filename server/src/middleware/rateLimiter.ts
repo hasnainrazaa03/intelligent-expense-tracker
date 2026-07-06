@@ -1,15 +1,22 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
+import type { Request } from 'express';
 import { SERVER_CONFIG } from '../config';
 
 const JWT_SECRET = SERVER_CONFIG.jwtSecret;
 
-const getRateLimitKey = (authorizationHeader?: string): string | null => {
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ')) {
-    return null;
-  }
+// Resolve a per-user rate-limit key from the session. Browser traffic
+// authenticates via the httpOnly session cookie, so we must check it (not just
+// the Bearer header) or every cookie-authenticated user shares the IP bucket.
+const getUserRateLimitKey = (req: Request): string | null => {
+  const cookieToken = (req as Request & { cookies?: Record<string, string> })
+    .cookies?.[SERVER_CONFIG.auth.cookieName];
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice('Bearer '.length).trim()
+    : undefined;
 
-  const token = authorizationHeader.slice('Bearer '.length).trim();
+  const token = cookieToken || bearerToken;
   if (!token) return null;
 
   try {
@@ -81,7 +88,7 @@ export const userApiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    const userKey = getRateLimitKey(req.headers.authorization);
+    const userKey = getUserRateLimitKey(req);
     return userKey || ipKeyGenerator(req.ip || 'unknown-ip');
   },
   message: { message: 'Per-user rate limit reached. Please try again shortly.' },

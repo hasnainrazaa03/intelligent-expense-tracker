@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Expense, Budget } from '../types';
-import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { BanknotesIcon, ExclamationTriangleIcon, ChartPieIcon } from './Icons'; // Swapped to ChartPieIcon
 import { formatCurrency } from '../utils/currencyUtils';
+import { computeBudgetSpend, computeTotalBudgetedSpend } from '../utils/budgetUtils';
 
 interface BudgetTrackerProps {
   expenses: Expense[];
@@ -62,18 +62,15 @@ const BudgetProgressItem: React.FC<{ category: string; spent: number; budget: nu
 
 const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets, displayCurrency, conversionRate }) => {
   const { categorySpending, totalSpentInBudgetedCategories, totalBudgeted } = useMemo(() => {
+    // Per-budget spend uses the shared matcher so a subcategory budget (e.g.
+    // "Groceries") is populated correctly and a main-category budget aggregates
+    // its subcategories (CMP-H4). The total counts each expense once.
     const spending: { [key: string]: number } = {};
-    
-    expenses.forEach(exp => {
-      const mainCategory = SUBCATEGORY_TO_CATEGORY_MAP[exp.category] || 'Miscellaneous';
-      spending[mainCategory] = (spending[mainCategory] || 0) + exp.amount;
+    budgets.forEach((b) => {
+      spending[b.category] = computeBudgetSpend(b.category, expenses);
     });
 
-    const budgetedCategories = budgets.map(b => b.category);
-    const totalSpent = Object.entries(spending)
-      .filter(([cat]) => budgetedCategories.includes(cat))
-      .reduce((sum, [, amount]) => sum + amount, 0);
-
+    const totalSpent = computeTotalBudgetedSpend(budgets.map((b) => b.category), expenses);
     const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
 
     return { categorySpending: spending, totalSpentInBudgetedCategories: totalSpent, totalBudgeted: totalBudget };

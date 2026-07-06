@@ -26,3 +26,24 @@ export const formatCurrency = (
   // 2. PURE PASSTHROUGH: No math is performed for USD to avoid conversion leaks
   return new Intl.NumberFormat('en-US', options).format(cleanUSD);
 };
+
+/**
+ * Splits a total amount into `parts` cent-accurate pieces that sum back to the
+ * exact total (no penny leak). Any leftover cents are distributed one-per-piece
+ * to the earliest slots, so e.g. distributeAmount(100, 3) => [33.34, 33.33, 33.33].
+ * Non-positive totals or counts yield zero-filled slots (safe for tuition math).
+ */
+export const distributeAmount = (totalUSD: number, parts: number): number[] => {
+  if (!Number.isFinite(parts) || parts <= 0) return [];
+  if (!Number.isFinite(totalUSD) || totalUSD <= 0) return Array.from({ length: parts }, () => 0);
+
+  const totalCents = Math.round((totalUSD + Number.EPSILON) * 100);
+  const base = Math.floor(totalCents / parts);
+  let remainder = totalCents - base * parts; // 0 .. parts-1 extra cents
+
+  return Array.from({ length: parts }, () => {
+    const cents = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder--;
+    return cents / 100;
+  });
+};

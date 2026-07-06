@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Semester } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
+import { todayCalendar } from '../utils/dateUtils';
 import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
 
 interface USCPaymentTrackerProps {
   semesters: Semester[];
   onUpdateTuition: (semesterId: string, totalTuition: number) => void;
   onUpdateInstallmentCount: (semesterId: string, count: number) => void;
-  onMarkAsPaid: (semesterId: string, installmentId: number) => void;
+  onMarkAsPaid: (semesterId: string, installmentId: number, paymentDate: string) => void;
   onUpdateDate: (semesterId: string, installmentId: number, newDate: string) => void;
   displayCurrency: 'USD' | 'INR';
   conversionRate: number | null;
@@ -120,11 +121,25 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                   <span className="font-loud text-3xl sm:text-4xl md:text-5xl text-ink leading-none break-all">
                     {formatCurrency(activeSemester.totalTuition, displayCurrency, conversionRate)}
                   </span>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
+                    min="0"
                     placeholder="SET_VAL"
                     className="w-full max-w-[180px] bg-bone border-4 border-ink p-3 font-loud text-sm focus:ring-4 focus:ring-usc-gold focus:outline-none text-center"
-                    onBlur={(e) => onUpdateTuition(activeSemester.id, parseFloat(e.target.value) || 0)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    onBlur={(e) => {
+                      const raw = e.target.value.trim();
+                      // Ignore an empty/blank blur so clicking in and out never
+                      // wipes the tuition total or zeroes the payment schedule.
+                      if (raw === '') return;
+                      const parsed = parseFloat(raw);
+                      if (!Number.isFinite(parsed) || parsed < 0) {
+                        e.target.value = '';
+                        return;
+                      }
+                      onUpdateTuition(activeSemester.id, parsed);
+                      e.target.value = '';
+                    }}
                   />
                 </div>
               </div>
@@ -201,7 +216,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                           <input 
                             type="date" 
                             // Default to today if no date is selected yet
-                            value={selectedDates[inst.id] || new Date().toISOString().split('T')[0]}
+                            value={selectedDates[inst.id] || todayCalendar()}
                             onChange={(e) => setSelectedDates(prev => ({ ...prev, [inst.id]: e.target.value }))}
                             className="bg-bone border-2 border-ink p-1 font-loud text-[10px] focus:ring-2 focus:ring-usc-gold focus:outline-none"
                           />
@@ -209,7 +224,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                         
                         <button 
                           onClick={() => {
-                            const dateToUse = selectedDates[inst.id] || new Date().toISOString().split('T')[0];
+                            const dateToUse = selectedDates[inst.id] || todayCalendar();
                             onMarkAsPaid(activeSemester.id, inst.id, dateToUse);
                           }}
                           className="bg-usc-cardinal text-bone font-loud text-[9px] md:text-[10px] px-3 md:px-4 py-2 border-2 md:border-4 border-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[4px_4px_0px_0px_#111111] active:shadow-none active:translate-y-0.5 transition-all flex-shrink-0 uppercase"

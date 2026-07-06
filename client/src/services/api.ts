@@ -10,13 +10,26 @@ import {
 } from '../types/api';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
-const GET_CACHE_TTL_MS = 15000;
-const responseCache = new Map<string, { expiresAt: number; data: unknown }>();
-const inFlightRequests = new Map<string, Promise<unknown>>();
+/** Error thrown by the API client, carrying the HTTP status so callers can react
+ *  to 401/403 by status instead of fragile message-string matching (APP-H2). */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+/** True for auth failures that should trigger a client-side logout. */
+export const isAuthError = (error: unknown): boolean =>
+  error instanceof ApiError && (error.status === 401 || error.status === 403);
 
 /**
- * A helper function for making API requests.
- * It handles setting headers and parsing the JSON response.
+ * A helper function for making API requests. Handles headers, CSRF, and JSON
+ * parsing. Caching/dedup is now owned by TanStack Query (which keys per query
+ * and per user session), replacing the previous hand-rolled response cache whose
+ * constant key could serve one user's data to the next on the same tab (APP-M6).
  */
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
@@ -38,19 +51,6 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     headers.set('x-csrf-token', decodeURIComponent(csrfToken));
   }
 
-  const cacheKey = `${method}:${endpoint}:cookie-session`;
-  if (method === 'GET') {
-    const cached = responseCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.data as T;
-    }
-
-    const inFlight = inFlightRequests.get(cacheKey);
-    if (inFlight) {
-      return inFlight as Promise<T>;
-    }
-  }
-
   const runRequest = async (): Promise<T> => {
     // Build the request
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -70,41 +70,22 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       data = await response.json();
     } catch {
       if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+        throw new ApiError(`Request failed with status ${response.status}`, response.status);
       }
       return null as T;
     }
 
     if (!response.ok) {
-      // If the server returned an error, throw it
+      // If the server returned an error, throw it (with status for callers).
       const errorPayload = data as ApiErrorResponse;
-      throw new Error(errorPayload.message || errorPayload.error?.message || 'API request failed');
-    }
-
-    if (method === 'GET') {
-      responseCache.set(cacheKey, {
-        data,
-        expiresAt: Date.now() + GET_CACHE_TTL_MS,
-      });
-    } else {
-      // Invalidate all GET cache entries after mutations to avoid stale UI state.
-      responseCache.clear();
+      const message = errorPayload.message || errorPayload.error?.message || 'API request failed';
+      throw new ApiError(message, response.status);
     }
 
     return data as T;
   };
 
   const requestPromise = runRequest();
-
-  if (method === 'GET') {
-    inFlightRequests.set(cacheKey, requestPromise as Promise<unknown>);
-    try {
-      const result = await requestPromise;
-      return result;
-    } finally {
-      inFlightRequests.delete(cacheKey);
-    }
-  }
 
   return requestPromise;
 }
@@ -162,10 +143,13 @@ export const getSession = (): Promise<{ authenticated: boolean; email: string; t
   return fetchApi('/auth/session', { method: 'GET' });
 };
 
-export const toggleTwoFactor = (enabled: boolean): Promise<{ message: string; twoFactorEnabled: boolean }> => {
+export const toggleTwoFactor = (
+  enabled: boolean,
+  password?: string
+): Promise<{ message: string; twoFactorEnabled: boolean }> => {
   return fetchApi('/auth/2fa/toggle', {
     method: 'POST',
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify({ enabled, password }),
   });
 };
 

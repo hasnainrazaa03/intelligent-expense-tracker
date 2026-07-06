@@ -21,6 +21,11 @@ model User {
   lockUntil       DateTime?
   resetToken      String?
   resetTokenExpires DateTime?
+  // Bumped on password reset; embedded in issued JWTs and checked on each
+  // authenticated request so old sessions are invalidated (SRV-M2).
+  tokenVersion    Int       @default(0)
+  // Per-account failed-OTP counter to complement the per-IP limiter (SRV-M4).
+  otpAttempts     Int       @default(0)
   expenses  Expense[]
   incomes   Income[]
   budgets   Budget[]

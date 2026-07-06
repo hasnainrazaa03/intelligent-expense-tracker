@@ -9,6 +9,9 @@ import FinancialPlanningPanel from './FinancialPlanningPanel';
 import { getCategoryColor } from '../utils/colorUtils';
 import { CalendarDaysIcon, TagIcon, ReceiptPercentIcon, TrendingUpIcon, BanknotesIcon } from './Icons';
 import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
+import { startOfMonth, endOfMonth, isWithinRange, addMonths, parseCalendarDate, monthKey } from '../utils/dateUtils';
+import { formatCurrency } from '../utils/currencyUtils';
+import { computeBudgetSpend } from '../utils/budgetUtils';
 import SectionSkeleton from './SectionSkeleton';
 
 export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
@@ -67,15 +70,16 @@ const Dashboard: React.FC<DashboardProps> = ({
   const budgetAlerts = useMemo(() => {
     if (budgets.length === 0) return [] as Array<{ category: string; spent: number; budget: number; pct: number; severity: 'warning' | 'danger' }>;
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    // Budget utilization is always a current-calendar-month figure, independent
+    // of the dashboard's selected period (CMP-M15), using local month bounds.
+    const monthStart = startOfMonth();
+    const monthEnd = endOfMonth();
+    const monthExpenses = allExpenses.filter((e) => isWithinRange(e.date, monthStart, monthEnd));
 
     return budgets
       .map((budget) => {
-        const spent = allExpenses
-          .filter((e) => e.category === budget.category && e.date >= monthStart && e.date <= monthEnd)
-          .reduce((sum, e) => sum + e.amount, 0);
+        // Shared matcher (CMP-H4): a main-category budget aggregates its subcategories.
+        const spent = computeBudgetSpend(budget.category, monthExpenses);
         const pct = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
         if (pct < 80) return null;
         return {
@@ -131,43 +135,35 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [expenses]);
   
   const barChartData = useMemo(() => {
-    const getUTCDate = (dateString: string) => new Date(dateString);
-    
     if (selectedRange === 'this_month' || selectedRange === 'last_month') {
+        // `expenses` is already filtered to the selected month, so bucket by the
+        // picked calendar day-of-month (local, no UTC shift).
         const dailyTotals: { [key: number]: number } = {};
         expenses.forEach(expense => {
-            const day = getUTCDate(expense.date).getUTCDate();
+            const day = parseCalendarDate(expense.date).getDate();
             dailyTotals[day] = (dailyTotals[day] || 0) + Number(expense.amount);
         });
 
-        const now = new Date();
-        const year = selectedRange === 'this_month' ? now.getUTCFullYear() : 
-          (now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear());
-        const month = selectedRange === 'this_month' ? now.getUTCMonth() : 
-          (now.getUTCMonth() === 0 ? 11 : now.getUTCMonth() - 1);
-        const daysInMonth = new Date(year, month + 1, 0).getUTCDate();
-        
+        const targetRef = selectedRange === 'this_month' ? new Date() : addMonths(new Date(), -1);
+        const daysInMonth = new Date(targetRef.getFullYear(), targetRef.getMonth() + 1, 0).getDate();
+
         return Array.from({ length: daysInMonth }, (_, i) => {
             const day = i + 1;
             return { label: `${day}`, amount: dailyTotals[day] || 0 };
         });
 
     } else {
-        const monthlyTotals: { [key: string]: { amount: number; date: Date } } = {};
+        const monthlyTotals: { [key: string]: number } = {};
         expenses.forEach(expense => {
-            const expDate = getUTCDate(expense.date);
-            const key = `${expDate.getUTCFullYear()}-${expDate.getUTCMonth()}`;
-            if (!monthlyTotals[key]) {
-                monthlyTotals[key] = { amount: 0, date: new Date(Date.UTC(expDate.getUTCFullYear(), expDate.getUTCMonth(), 1)) };
-            }
-            monthlyTotals[key].amount += Number(expense.amount);
+            const key = monthKey(expense.date); // YYYY-MM
+            monthlyTotals[key] = (monthlyTotals[key] || 0) + Number(expense.amount);
         });
 
-        return Object.values(monthlyTotals)
-            .sort((a, b) => a.date.getTime() - b.date.getTime())
-            .map(monthData => ({
-                label: monthData.date.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
-                amount: monthData.amount
+        return Object.entries(monthlyTotals)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, amount]) => ({
+                label: parseCalendarDate(`${key}-01`).toLocaleString('en-US', { month: 'short', year: '2-digit' }),
+                amount,
             }));
     }
   }, [expenses, selectedRange]);
@@ -177,20 +173,17 @@ const Dashboard: React.FC<DashboardProps> = ({
     const totalMonthlyBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
     const data: { name: string; spent: number; budgeted: number }[] = [];
     const now = new Date();
-    
+
     for (let i = 5; i >= 0; i--) {
-        const date = new Date(); date.setMonth(now.getMonth() - i);
-        const year = date.getFullYear(); const month = date.getMonth();
-        const monthName = date.toLocaleString('en-US', { month: 'short' });
-        const yearShort = year.toString().slice(-2);
-        const startOfMonth = new Date(year, month, 1); startOfMonth.setHours(0, 0, 0, 0);
-        const endOfMonth = new Date(year, month + 1, 0); endOfMonth.setHours(23, 59, 59, 999);
-        const monthlyExpenses = allExpenses.filter(exp => {
-            const expDate = new Date(exp.date);
-            const expLocalDate = new Date(expDate.getUTCFullYear(), expDate.getUTCMonth(), expDate.getUTCDate());
-            return expLocalDate >= startOfMonth && expLocalDate <= endOfMonth;
-        });
-        const totalSpent = monthlyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        // addMonths is overflow-safe (naive setMonth wraps on 29-31st, producing
+        // duplicate/skipped months — CMP-H6).
+        const monthRef = addMonths(now, -i);
+        const key = monthKey(`${monthRef.getFullYear()}-${String(monthRef.getMonth() + 1).padStart(2, '0')}-01`);
+        const monthName = monthRef.toLocaleString('en-US', { month: 'short' });
+        const yearShort = monthRef.getFullYear().toString().slice(-2);
+        const totalSpent = allExpenses
+            .filter((exp) => monthKey(exp.date) === key)
+            .reduce((sum, exp) => sum + exp.amount, 0);
         data.push({ name: `${monthName} '${yearShort}`, spent: totalSpent, budgeted: totalMonthlyBudget });
     }
     return data;
@@ -227,7 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 key={alert.category}
                 className={`border-2 border-ink px-3 py-2 font-bold text-xs md:text-sm uppercase ${alert.severity === 'danger' ? 'bg-usc-cardinal text-bone' : 'bg-usc-gold text-ink'}`}
               >
-                {alert.category}: {alert.spent.toFixed(0)} / {alert.budget.toFixed(0)} ({alert.pct.toFixed(0)}%)
+                {alert.category}: {formatCurrency(alert.spent, displayCurrency, conversionRate, true)} / {formatCurrency(alert.budget, displayCurrency, conversionRate, true)} ({alert.pct.toFixed(0)}%)
               </div>
             ))}
           </div>

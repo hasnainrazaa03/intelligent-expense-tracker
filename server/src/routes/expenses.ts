@@ -6,6 +6,7 @@ import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math'
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
+import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray } from '../utils/normalize';
 
 const router = Router();
 
@@ -16,41 +17,6 @@ router.use(authMiddleware);
 const MAX_BULK_SIZE = SERVER_CONFIG.limits.maxBulkImportSize;
 // S4: Input length limits
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
-
-const normalizeTags = (input: unknown): string[] => {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((tag) => sanitizeText(tag))
-    .filter((tag): tag is string => Boolean(tag))
-    .slice(0, 20);
-};
-
-const normalizeMetadata = (input: unknown): Record<string, string> | undefined => {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
-  const pairs = Object.entries(input as Record<string, unknown>)
-    .map(([k, v]) => [sanitizeText(k), sanitizeText(v)] as const)
-    .filter(([k, v]) => Boolean(k) && Boolean(v))
-    .slice(0, 20);
-  if (pairs.length === 0) return undefined;
-  return Object.fromEntries(pairs);
-};
-
-const normalizeStringArray = (input: unknown, limit = 20): string[] => {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((item) => sanitizeText(item))
-    .filter((item): item is string => Boolean(item))
-    .slice(0, limit);
-};
-
-const normalizeNumberArray = (input: unknown, limit = 20): number[] => {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((item) => parseFiniteFloat(item))
-    .filter((item): item is number => item !== null && item > 0)
-    .map((item) => toFinPrecision(item))
-    .slice(0, limit);
-};
 
 // --- 1. Create new Expense ---
 // POST /api/expenses
@@ -378,8 +344,9 @@ router.post('/bulk', async (req: Request, res: Response) => {
     res.status(201).json({ message: `${expenses.length} expenses imported successfully` });
 
   } catch (error: any) {
+    // Don't surface internal/Prisma error text to the client.
     console.error('Failed to bulk create expenses:', error);
-    res.status(400).json({ message: error.message || 'Failed to import expenses' });
+    res.status(500).json({ message: 'Failed to import expenses' });
   }
 });
 

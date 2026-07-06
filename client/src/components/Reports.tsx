@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { Expense, Budget } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
+import { computeTotalBudgetedSpend } from '../utils/budgetUtils';
+import { startOfMonth, endOfMonth, isWithinRange, todayCalendar } from '../utils/dateUtils';
 import { ClipboardDocumentListIcon, ChartPieIcon, BanknotesIcon, ExclamationTriangleIcon } from './Icons';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -33,16 +35,14 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
     });
 
     const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
-    const budgetUtilization = budgets.length > 0 
+    const budgetUtilization = budgets.length > 0
       ? (() => {
-          const now = new Date();
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-          const currentMonthExpenses = allExpenses.filter(e => {
-            const d = new Date(e.date);
-            return d >= startOfMonth && d <= endOfMonth;
-          });
-          const currentMonthSpent = currentMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+          // Match the Dashboard/BudgetTracker definition (CMP-H4): current-month
+          // spend in budgeted categories vs total budget, local calendar month.
+          const monthStart = startOfMonth();
+          const monthEnd = endOfMonth();
+          const currentMonthExpenses = allExpenses.filter((e) => isWithinRange(e.date, monthStart, monthEnd));
+          const currentMonthSpent = computeTotalBudgetedSpend(budgets.map((b) => b.category), currentMonthExpenses);
           const totalBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
           return totalBudget > 0 ? (currentMonthSpent / totalBudget) * 100 : 0;
         })()
@@ -88,7 +88,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
       theme: 'grid',
     });
 
-    doc.save(`usc_audit_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`usc_audit_report_${todayCalendar()}.pdf`);
   };
 
   return (

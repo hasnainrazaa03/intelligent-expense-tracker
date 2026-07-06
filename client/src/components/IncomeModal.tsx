@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Income } from '../types';
 import { INCOME_CATEGORIES } from '../constants';
 import { XMarkIcon } from './Icons';
+import { todayCalendar } from '../utils/dateUtils';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
+import useInrToUsd from '../hooks/useInrToUsd';
 
 interface IncomeModalProps {
   isOpen: boolean;
@@ -18,7 +20,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(todayCalendar());
   const [notes, setNotes] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [metadataInput, setMetadataInput] = useState('');
@@ -26,11 +28,21 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('USD');
   const [originalAmount, setOriginalAmount] = useState('');
 
-  const [conversionRate, setConversionRate] = useState<number | null>(null);
-  const [conversionLoading, setConversionLoading] = useState(false);
-  const [conversionError, setConversionError] = useState<string | null>(null);
-  
+  const {
+    convertedAmount,
+    rate: conversionRate,
+    loading: conversionLoading,
+    error: conversionError,
+  } = useInrToUsd(selectedCurrency, originalAmount, parentConversionRate ?? null);
+
   const isAmountUSDReadOnly = selectedCurrency === 'INR';
+
+  // Mirror the derived USD amount in INR mode ('' when cleared/failed — CMP-H5).
+  useEffect(() => {
+    if (selectedCurrency === 'INR') {
+      setAmount(convertedAmount);
+    }
+  }, [convertedAmount, selectedCurrency]);
 
   const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -63,45 +75,14 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       setTitle(''); 
       setAmount(''); 
       setCategory(INCOME_CATEGORIES[0]);
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayCalendar());
       setNotes(''); 
       setTagsInput('');
       setMetadataInput('');
       setSelectedCurrency(displayCurrency); 
       setOriginalAmount('');
     }
-    setConversionRate(null); 
-    setConversionError(null);
   }, [income, isOpen, displayCurrency]);
-
-  useEffect(() => {
-    const convert = async () => {
-        if (selectedCurrency === 'INR' && originalAmount && parseFloat(originalAmount) > 0) {
-            setConversionLoading(true);
-            setConversionError(null);
-            try {
-                // P2: Use parent rate if available (1/usdToInr = inrToUsd)
-                let rate: number;
-                if (parentConversionRate && parentConversionRate > 0) {
-                    rate = 1 / parentConversionRate;
-                } else {
-                    const response = await fetch(`https://api.frankfurter.app/latest?from=INR&to=USD`);
-                    if (!response.ok) throw new Error('SYNC_ERROR');
-                    const data = await response.json();
-                    rate = data.rates.USD;
-                }
-                setConversionRate(rate);
-                setAmount((parseFloat(originalAmount) * rate).toFixed(2));
-            } catch (err: any) {
-                setConversionError("CONVERSION_FAILED");
-            } finally {
-                setConversionLoading(false);
-            }
-        }
-    };
-    const debounce = setTimeout(convert, 500);
-    return () => clearTimeout(debounce);
-  }, [selectedCurrency, originalAmount, parentConversionRate]);
 
   // Filter logic for the advanced dropdown
   const filteredCategories = useMemo(() => {

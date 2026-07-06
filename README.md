@@ -6,6 +6,18 @@ Most budgeting apps treat *Tuition* as a one-off expense and *International FX* 
 
 ---
 
+> ### 🚧 Status: under active hardening & redesign
+> A full codebase review was completed on **2026-07-05**. The app is functional but has known
+> data-integrity, security, and styling issues being worked through in phases, and the UI is
+> migrating from the neo-brutalist look to a modern design.
+>
+> - **Findings catalog:** [docs/01-codebase-review.md](./docs/01-codebase-review.md)
+> - **Phased plan with checklists:** [docs/02-roadmap.md](./docs/02-roadmap.md)
+> - **Changelog:** [CHANGELOG.md](./CHANGELOG.md)
+> - **Docs index:** [docs/README.md](./docs/README.md)
+
+---
+
 ## 🧠 Why USC Ledger Exists
 International students deal with:
 - Multi‑installment tuition plans
@@ -266,35 +278,18 @@ Both should complete without TypeScript errors.
 
 ---
 
-## 🎨 Design Philosophy
-USC Ledger uses a **Neo‑Brutalist aesthetic**:
-- High contrast
-- Heavy borders
-- Zero‑nonsense typography
+## 🎨 Design Philosophy (in transition)
+USC Ledger shipped with a **Neo‑Brutalist aesthetic** — high contrast, heavy borders,
+zero‑nonsense typography, loud and fast.
 
-It’s built to be **loud**, **fast**, and deeply **cynical about floating‑point math**.
+It is **migrating to a modern, clean design**: a tokenized theme layer, reusable primitives,
+working light/dark modes, soft elevation, and WCAG-AA contrast. The migration is phased and
+does not change financial calculations or data schemas. See
+[roadmap Phases 5–6](./docs/02-roadmap.md#phase-5--design-system-foundation-tokens--primitives)
+for the design-system foundation and slice-by-slice restyle plan.
 
----
-
-## 🧭 Safe UI Migration Plan
-For transitioning from Neo-Brutalist to another design language without functional regressions:
-
-1. Introduce a tokenized theme layer first.
-- Define shared design tokens for colors, spacing, radius, shadows, and typography in one source of truth.
-- Keep component logic unchanged while mapping current styles to tokens.
-
-2. Refactor shared primitives next.
-- Rebuild/standardize button, card, input, modal, and navigation primitives around the token system.
-- Migrate page-level usage to primitives before changing visual details in feature views.
-
-3. Migrate sections incrementally behind visual QA.
-- Move one section at a time (auth, dashboard, lists, modals, reports).
-- Keep feature flags or branch-based previews to compare old vs new presentation quickly.
-
-4. Run accessibility and regression checks after each section.
-- Accessibility: keyboard navigation, focus order, contrast, ARIA labels, and screen-reader announcements.
-- Regression: smoke test auth/session, CRUD flows, charts, imports/exports, and modal interactions.
-- Add/update screenshots and E2E assertions for each completed migration slice.
+> Contributing a visual direction? Drop sample designs/tokens and they'll be captured in
+> `docs/design-direction.md` and translated into the token layer.
 
 ---
 

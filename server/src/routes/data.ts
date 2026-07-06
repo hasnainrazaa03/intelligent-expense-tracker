@@ -6,6 +6,7 @@ import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
+import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray } from '../utils/normalize';
 
 const router = Router();
 
@@ -14,58 +15,48 @@ router.use(authMiddleware);
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
 const MAX_ITEMS = SERVER_CONFIG.limits.maxRestoreItemsPerSection;
 
-const normalizeTags = (input: unknown): string[] => {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((tag) => sanitizeText(tag))
-    .filter((tag): tag is string => Boolean(tag))
-    .slice(0, 20);
-};
-
-const normalizeMetadata = (input: unknown): Record<string, string> | undefined => {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
-  const pairs = Object.entries(input as Record<string, unknown>)
-    .map(([k, v]) => [sanitizeText(k), sanitizeText(v)] as const)
-    .filter(([k, v]) => Boolean(k) && Boolean(v))
-    .slice(0, 20);
-  if (pairs.length === 0) return undefined;
-  return Object.fromEntries(pairs);
-};
-
-const normalizeStringArray = (input: unknown, limit = 20): string[] => {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((item) => sanitizeText(item))
-    .filter((item): item is string => Boolean(item))
-    .slice(0, limit);
-};
-
-const normalizeNumberArray = (input: unknown, limit = 20): number[] => {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((item) => parseFiniteFloat(item))
-    .filter((item): item is number => item !== null && item > 0)
-    .map((item) => toFinPrecision(item))
-    .slice(0, limit);
-};
-
 // --- Audit Event from Client ---
+// SRV-M5: clients may only report a fixed set of UI actions, and the written
+// action is namespaced ("client:") so a caller cannot forge server-authored
+// events (e.g. a fake successful "login"). Metadata is sanitized and capped.
+const ALLOWED_CLIENT_AUDIT_ACTIONS = new Set([
+  'data_export',
+  'backup_export',
+  'expense_csv_import',
+  'backup_restore',
+]);
+
+// Keep only primitive metadata values (string/number/boolean), capped, so a
+// client can't push large or nested objects into the audit log.
+const normalizeAuditMetadata = (input: unknown): Record<string, string | number | boolean> | undefined => {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const result: Record<string, string | number | boolean> = {};
+  for (const [rawKey, value] of Object.entries(input as Record<string, unknown>)) {
+    if (Object.keys(result).length >= 20) break;
+    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') continue;
+    const key = sanitizeText(rawKey);
+    if (!key) continue;
+    result[key] = typeof value === 'string' ? sanitizeText(value) : value;
+  }
+  return Object.keys(result).length ? result : undefined;
+};
+
 router.post('/audit', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { action, metadata } = req.body || {};
 
-  if (!action || typeof action !== 'string') {
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Action is required');
+  if (!action || typeof action !== 'string' || !ALLOWED_CLIENT_AUDIT_ACTIONS.has(action)) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Unsupported audit action');
   }
 
   await writeAuditLog({
-    action,
+    action: `client:${action}`,
     userId,
     success: true,
     route: '/api/data/audit',
     ip: req.ip,
     userAgent: req.get('user-agent') || undefined,
-    metadata: typeof metadata === 'object' && metadata !== null ? metadata : undefined,
+    metadata: normalizeAuditMetadata(metadata),
   });
 
   return res.status(200).json({ success: true });
@@ -310,7 +301,9 @@ router.post('/restore', async (req: Request, res: Response) => {
       metadata: { error: error?.message || 'unknown' },
     });
 
-    return sendError(res, 400, 'RESTORE_FAILED', error.message || 'Failed to restore backup.');
+    // The real error is logged and audited above; return a generic message so
+    // internal/Prisma details aren't leaked to the client.
+    return sendError(res, 500, 'RESTORE_FAILED', 'Failed to restore backup.');
   }
 });
 
