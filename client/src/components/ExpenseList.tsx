@@ -11,8 +11,8 @@ import EmptyState from './EmptyState';
 import SectionSkeleton from './SectionSkeleton';
 import { List, RowComponentProps } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
-import toast from 'react-hot-toast';
 import ConfirmationDialog from './ConfirmationDialog';
+import useUndoableDelete from '../hooks/useUndoableDelete';
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -175,7 +175,7 @@ const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index,
 
 const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const scheduleDelete = useUndoableDelete(onDelete);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
 
@@ -191,36 +191,11 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave
     currentPage * itemsPerPage
   );
 
-  const handleConfirmDelete = async () => {
-    if (expenseToDeleteId && !isDeleting) {
-      const idToDelete = expenseToDeleteId;
-      setExpenseToDeleteId(null);
-      setIsDeleting(true);
-
-      const deletionTimer = setTimeout(async () => {
-        try {
-          await onDelete(idToDelete);
-        } finally {
-          setIsDeleting(false);
-        }
-      }, 5000);
-
-      toast((t) => (
-        <div className="font-mono text-xs uppercase flex items-center gap-2">
-          <span>Expense scheduled for deletion.</span>
-          <button
-            onClick={() => {
-              clearTimeout(deletionTimer);
-              setIsDeleting(false);
-              toast.dismiss(t.id);
-            }}
-            className="border border-white px-2 py-0.5 font-bold"
-          >
-            UNDO
-          </button>
-        </div>
-      ), { duration: 5000 });
-    }
+  const handleConfirmDelete = () => {
+    if (!expenseToDeleteId) return;
+    const idToDelete = expenseToDeleteId;
+    setExpenseToDeleteId(null);
+    scheduleDelete(idToDelete, 'Expense scheduled for deletion.');
   };
 
   return (
@@ -311,7 +286,6 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave
         onClose={() => setExpenseToDeleteId(null)}
         onConfirm={handleConfirmDelete}
         title="DANGER_ZONE"
-        loading={isDeleting}
       >
         YOU ARE ABOUT TO PERMANENTLY ERASE THIS TRANSACTION. THIS ACTION CANNOT BE UNDONE. PROCEED?
       </ConfirmationDialog>

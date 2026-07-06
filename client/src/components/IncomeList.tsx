@@ -10,8 +10,8 @@ import EmptyState from './EmptyState';
 import SectionSkeleton from './SectionSkeleton';
 import { List, RowComponentProps } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
-import toast from 'react-hot-toast';
 import ConfirmationDialog from './ConfirmationDialog';
+import useUndoableDelete from '../hooks/useUndoableDelete';
 
 interface IncomeListProps {
   incomes: Income[];
@@ -154,7 +154,7 @@ const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, 
 
 const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const scheduleDelete = useUndoableDelete(onDelete);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
 
@@ -170,36 +170,11 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
     currentPage * itemsPerPage
   );
 
-  const handleConfirmDelete = async () => {
-    if (incomeToDeleteId && !isDeleting) {
-      const idToDelete = incomeToDeleteId;
-      setIncomeToDeleteId(null);
-      setIsDeleting(true);
-
-      const deletionTimer = setTimeout(async () => {
-        try {
-          await onDelete(idToDelete);
-        } finally {
-          setIsDeleting(false);
-        }
-      }, 5000);
-
-      toast((t) => (
-        <div className="font-mono text-xs uppercase flex items-center gap-2">
-          <span>Income scheduled for deletion.</span>
-          <button
-            onClick={() => {
-              clearTimeout(deletionTimer);
-              setIsDeleting(false);
-              toast.dismiss(t.id);
-            }}
-            className="border border-white px-2 py-0.5 font-bold"
-          >
-            UNDO
-          </button>
-        </div>
-      ), { duration: 5000 });
-    }
+  const handleConfirmDelete = () => {
+    if (!incomeToDeleteId) return;
+    const idToDelete = incomeToDeleteId;
+    setIncomeToDeleteId(null);
+    scheduleDelete(idToDelete, 'Income scheduled for deletion.');
   };
 
   return (
@@ -291,7 +266,6 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
         onClose={() => setIncomeToDeleteId(null)}
         onConfirm={handleConfirmDelete}
         title="SYSTEM_ALERT"
-        loading={isDeleting}
       >
         IDENTIFIED RECORD WILL BE DELETED FROM THE CENTRAL DATABASE. PROCEED WITH PERMANENT ERASURE?
       </ConfirmationDialog>
