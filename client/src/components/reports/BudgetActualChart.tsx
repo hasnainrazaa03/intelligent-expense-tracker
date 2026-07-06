@@ -15,8 +15,8 @@ interface BudgetActualChartProps {
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-base-100 dark:bg-dark-300 p-2 border border-base-300 dark:border-dark-100 rounded-md shadow-lg">
-        <p className="font-bold">{label}</p>
+      <div className="bg-white border-2 border-ink p-2 shadow-neo">
+        <p className="font-bold text-ink">{label}</p>
         <p style={{color: payload[0].fill}}>{`Actual: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}</p>
         <p style={{color: payload[1].fill}}>{`Budget: ${formatCurrency(payload[1].value, displayCurrency, conversionRate)}`}</p>
       </div>
@@ -47,10 +47,11 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
     return null; // Don't render the card if no budgets are set
   }
     
+  // The parent (Reports) already provides the card, title, and sized container,
+  // so render only the chart filling that space — previously this component drew
+  // its own card + duplicate title + fixed h-[400px], overflowing the container
+  // and double-rendering the heading (CMP-M16).
   return (
-     <div className="bg-base-100 dark:bg-dark-200 p-6 rounded-2xl shadow-lg">
-        <div className="h-[400px]">
-            <h3 className="text-lg font-semibold mb-2 text-center text-base-content-secondary dark:text-base-300">This Month: Budget vs. Actual</h3>
             <ResponsiveContainer width="100%" height="100%">
             <BarChart
                 data={data}
@@ -70,8 +71,6 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
                 <Bar dataKey="budget" name="Budget" fill="#a8a29e" radius={[4, 4, 0, 0]} />
             </BarChart>
             </ResponsiveContainer>
-        </div>
-    </div>
   );
 };
 
