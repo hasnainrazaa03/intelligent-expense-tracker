@@ -434,13 +434,14 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                               <div key={main}>
                                   <div className="px-3 py-1 text-[9px] font-loud bg-ink text-bone uppercase">{main}</div>
                                   {subs.map(sub => (
-                                      <div
+                                      <button
+                                          type="button"
                                           key={sub} onClick={() => handleCategorySelect(sub)}
-                                          className="px-4 py-2 text-xs font-bold text-ink hover:bg-usc-gold cursor-pointer flex items-center transition-colors border-b border-ink/5"
+                                          className="w-full text-left px-4 py-2 text-xs font-bold text-ink hover:bg-usc-gold focus:bg-usc-gold focus:outline-none cursor-pointer flex items-center transition-colors border-b border-ink/5"
                                       >
                                           <div className="w-2 h-2 border border-ink mr-3" style={{ backgroundColor: getCategoryColor(sub) }}></div>
                                           {sub.toUpperCase()}
-                                      </div>
+                                      </button>
                                   ))}
                               </div>
                           ))}
