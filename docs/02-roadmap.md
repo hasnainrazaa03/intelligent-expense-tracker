@@ -119,16 +119,20 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 - [x] **CMP-M19** `useUndoableDelete` hook: undo-delete timer cleared on unmount, toast outlives the window, deletions keyed by id, dead `loading` prop dropped. *(commit `fb40b55`)*
 - [x] **APP-M5 / APP-L** Removed the stale CDN importmap, dead `axios`, unused vite `loadEnv`/alias. *(commit `d226c00`)*
 
-**Remaining (needs a runnable backend to verify — the data-mutation flow):**
-- [ ] **P4b / APP-M6 / APP-M1** Migrate the data layer to React Query hooks (`useAppData` query + create/update/delete/tuition mutations via `setQueryData`), replacing App.tsx's `useState` arrays + manual handlers and the hand-rolled cache. ⚠️ *Highest-stakes code (tuition/semester/recurring autosave); rewrites the data-mutation flow — exercise end-to-end before merging.*
-- [ ] **CurrencyContext** — replace prop-drilled `displayCurrency`/`conversionRate` across 25+ components with `useCurrency()`. *(Safe/tsc-verifiable; large mechanical change — do as one focused pass.)*
-- [ ] **AuthContext** — extract auth state, session timeout, 2FA (H2/H6 logic already fixed in place; this is the structural move).
+**Data-layer migration — landed & verified end-to-end:**
+- [x] **P4b / APP-M6** Data store migrated to a single `['allData']` TanStack Query; `setExpenses`/`setIncomes`/`setBudgets`/`setSemesters` are now `setQueryData` wrappers so all handlers (CRUD, tuition math, recurring, autosave) work unchanged. Removed the hand-rolled 15s cache (fixes the cross-user cache bug); logout drops the cached dataset. *(commit `25b70c5`)*
+  - **Verification:** stood up a local backend (Docker Mongo replica set + server + Vite client) and drove it with Playwright — login + add-expense + reload-persistence **PASS**, and tuition set/mark-paid/autosave/reload + created-expense **PASS**, both with zero page errors. This exercised the exact tuition/semester/autosave subsystems where the Phase 1 data-loss bugs lived.
+
+**Remaining Phase 4 (now lower-risk — data layer is stable and verified):**
+- [ ] **APP-H5** `React.memo` + `useCallback` on the heavy views so search keystrokes don't re-render everything (handlers are now stable, so memo will actually help).
+- [ ] **CurrencyContext** — replace prop-drilled `displayCurrency`/`conversionRate` across 25+ components with `useCurrency()`. *(Safe/tsc-verifiable; large mechanical change.)*
+- [ ] **AuthContext** — extract auth state, session timeout, 2FA (H2/H6 logic already fixed in place; structural move).
 - [ ] **DashboardLayout** route component owning nav/FAB/modals.
-- [ ] **APP-H5** `React.memo` + `useCallback` — best bundled with P4b, since memo only helps once the handlers passed down are stable (they become stable React Query mutations there).
-- [ ] **CMP-M19 follow-on** Optional generic `TransactionList<T>` DOM extraction (pure code-quality; needs visual QA — the *buggy* shared logic is already fixed via the hook).
+- [ ] **APP-M1** Stop marking semesters dirty on non-tuition edits (over-eager autosave).
+- [ ] **CMP-M19 follow-on** Optional generic `TransactionList<T>` DOM extraction (pure code-quality; the buggy shared logic is already fixed via the hook).
 - [ ] **SRV-H2 follow-up** Convert destructive full-state reconciliation (semesters) to item-level CRUD or transactional validation-first (closes SRV-L6/L7/L8).
 
-> **Note:** the safe pieces above (bug fixes + dedup hooks + cleanup) are all landed and verified. The remaining items either rewrite the data-mutation flow (needs a live backend to exercise CRUD/tuition/autosave — the subsystems where the Phase 1 data-loss bugs lived) or are large mechanical structural moves best done as focused passes.
+> **Note:** the data-layer migration — the centerpiece and highest-stakes item — is complete and verified running against a real backend. The remaining items are structural/perf polish that no longer touch the data-mutation correctness.
 - [ ] **CMP-M24** Make custom categories actually propagate (single source of truth for categories, not a static constant + localStorage side channel).
 
 **Done when:** `App.tsx` is under ~300 lines, no component re-renders on unrelated search keystrokes, and there is one `TransactionList` and one currency-conversion hook.

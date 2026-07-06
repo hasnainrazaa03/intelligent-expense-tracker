@@ -56,9 +56,11 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 - **Undo-delete lifecycle fixed** (`CMP-M19`): `useUndoableDelete` hook clears timers on unmount, times the toast correctly, and keys deletions by id.
 - **Cleanup** (`APP-M5`, `APP-L`): removed the stale CDN importmap, the dead `axios` dependency, and unused vite config.
 
-### Planned — Phase 4 remaining (needs a runnable backend to verify)
-- Migrate the data-mutation layer to React Query hooks and finish decomposing `App.tsx` (`APP-M6`, `APP-M1`); memoization (`APP-H5`) bundles here.
-- CurrencyContext / AuthContext / DashboardLayout extraction; item-level semester CRUD (`SRV-H2` follow-up).
+- **Data store migrated to TanStack Query** (`APP-M6`): the four collections and fetch-on-auth logic are now a single `['allData']` query; the hand-rolled 15s cache is gone (React Query keys per query, closing the cross-user cache bug), and logout drops the cached data. Verified end-to-end against a local backend with Playwright (login, CRUD + reload persistence, tuition set/mark-paid/autosave/reload — all pass, zero page errors).
+
+### Planned — Phase 4 remaining (structural/perf polish; data-layer correctness done)
+- Memoization (`APP-H5`) — now effective since handlers are stable.
+- CurrencyContext / AuthContext / DashboardLayout extraction; over-eager semester autosave (`APP-M1`); item-level semester CRUD (`SRV-H2` follow-up).
 
 ### Planned — Phases 5–6: Modern redesign
 - Tokenized, dark-mode-correct design system with reusable primitives (`THM-1`, `THM-2`, `THM-5`).
