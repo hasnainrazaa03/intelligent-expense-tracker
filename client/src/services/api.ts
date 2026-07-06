@@ -25,13 +25,11 @@ export class ApiError extends Error {
 export const isAuthError = (error: unknown): boolean =>
   error instanceof ApiError && (error.status === 401 || error.status === 403);
 
-const GET_CACHE_TTL_MS = 15000;
-const responseCache = new Map<string, { expiresAt: number; data: unknown }>();
-const inFlightRequests = new Map<string, Promise<unknown>>();
-
 /**
- * A helper function for making API requests.
- * It handles setting headers and parsing the JSON response.
+ * A helper function for making API requests. Handles headers, CSRF, and JSON
+ * parsing. Caching/dedup is now owned by TanStack Query (which keys per query
+ * and per user session), replacing the previous hand-rolled response cache whose
+ * constant key could serve one user's data to the next on the same tab (APP-M6).
  */
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
@@ -51,19 +49,6 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && csrfToken) {
     headers.set('x-csrf-token', decodeURIComponent(csrfToken));
-  }
-
-  const cacheKey = `${method}:${endpoint}:cookie-session`;
-  if (method === 'GET') {
-    const cached = responseCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.data as T;
-    }
-
-    const inFlight = inFlightRequests.get(cacheKey);
-    if (inFlight) {
-      return inFlight as Promise<T>;
-    }
   }
 
   const runRequest = async (): Promise<T> => {
@@ -97,30 +82,10 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       throw new ApiError(message, response.status);
     }
 
-    if (method === 'GET') {
-      responseCache.set(cacheKey, {
-        data,
-        expiresAt: Date.now() + GET_CACHE_TTL_MS,
-      });
-    } else {
-      // Invalidate all GET cache entries after mutations to avoid stale UI state.
-      responseCache.clear();
-    }
-
     return data as T;
   };
 
   const requestPromise = runRequest();
-
-  if (method === 'GET') {
-    inFlightRequests.set(cacheKey, requestPromise as Promise<unknown>);
-    try {
-      const result = await requestPromise;
-      return result;
-    } finally {
-      inFlightRequests.delete(cacheKey);
-    }
-  }
 
   return requestPromise;
 }

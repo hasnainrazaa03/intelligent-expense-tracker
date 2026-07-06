@@ -11,6 +11,9 @@ import { startOfMonth, endOfMonth, isWithinRange } from './utils/dateUtils';
 import { expenseMatchesBudget } from './utils/budgetUtils';
 import { getAllData, getSession, logoutUser, toggleTwoFactor, isAuthError } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from './lib/queryClient';
+import type { AllDataResponse } from './types/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useDebouncedValue from './hooks/useDebouncedValue';
 import useDateRangeFilter from './hooks/useDateRangeFilter';
@@ -37,6 +40,16 @@ const PivotAnalysis = lazy(() => import('./components/PivotAnalysis'));
 const Reports = lazy(() => import('./components/Reports'));
 
 type ActiveView = 'expenses' | 'income' | 'ai' | 'pivot' | 'usc' | 'reports';
+
+// Default (empty) tuition plan used when the server has no semesters yet.
+const buildDefaultSemesters = (): Semester[] =>
+  USC_SEMESTERS.map((s) => ({
+    ...s,
+    totalTuition: 0,
+    installments: Array.from({ length: 4 }, (_, i) => ({ id: i + 1, amount: 0, status: 'unpaid' })),
+  }));
+
+const EMPTY_ALL_DATA: AllDataResponse = { expenses: [], incomes: [], budgets: [], semesters: [] };
 
 const RECURRING_SNOOZE_KEY = 'recurringReminderSnoozeUntil';
 const ONBOARDING_DISMISSED_KEY = 'onboardingDismissed';
@@ -71,10 +84,46 @@ const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: Rea
 
 const App: React.FC = () => {
   const navRef = useRef<HTMLElement | null>(null);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [incomes, setIncomes] = useState<Income[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [semesters, setSemesters] = useState<Semester[]>([]);
+  // --- Data store: React Query owns the four collections (replaces useState +
+  // the hand-rolled getAllData/cache). Setter wrappers keep the useState-style
+  // API so every existing handler works unchanged; they patch the ['allData']
+  // cache entry, which is keyed per-query by React Query (fixes the cross-user
+  // cache bug where a stale entry could survive a failed logout — APP-M6). ---
+  const queryClient = useQueryClient();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('hasSession') === 'true';
+  });
+
+  const allDataQuery = useQuery({
+    queryKey: queryKeys.allData,
+    queryFn: getAllData,
+    enabled: isAuthenticated,
+  });
+  const isLoadingData = isAuthenticated && allDataQuery.isPending;
+
+  const expenses = allDataQuery.data?.expenses ?? EMPTY_ALL_DATA.expenses;
+  const incomes = allDataQuery.data?.incomes ?? EMPTY_ALL_DATA.incomes;
+  const budgets = allDataQuery.data?.budgets ?? EMPTY_ALL_DATA.budgets;
+  const semesters = allDataQuery.data?.semesters ?? EMPTY_ALL_DATA.semesters;
+
+  const patchAllData = useCallback(
+    <K extends keyof AllDataResponse>(key: K, updater: React.SetStateAction<AllDataResponse[K]>) => {
+      queryClient.setQueryData<AllDataResponse>(queryKeys.allData, (old) => {
+        const base = old ?? EMPTY_ALL_DATA;
+        const next =
+          typeof updater === 'function'
+            ? (updater as (p: AllDataResponse[K]) => AllDataResponse[K])(base[key])
+            : updater;
+        return { ...base, [key]: next };
+      });
+    },
+    [queryClient]
+  );
+
+  const setExpenses = useCallback((u: React.SetStateAction<Expense[]>) => patchAllData('expenses', u), [patchAllData]);
+  const setIncomes = useCallback((u: React.SetStateAction<Income[]>) => patchAllData('incomes', u), [patchAllData]);
+  const setBudgets = useCallback((u: React.SetStateAction<Budget[]>) => patchAllData('budgets', u), [patchAllData]);
+  const setSemesters = useCallback((u: React.SetStateAction<Semester[]>) => patchAllData('semesters', u), [patchAllData]);
   
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
@@ -94,13 +143,7 @@ const App: React.FC = () => {
   const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'INR'>('USD');
   const [usdToInrRate, setUsdToInrRate] = useState<number | null>(null);
   
-  // --- MODIFIED ---
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('hasSession') === 'true';
-  });
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  // We add a loading state
-  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
   const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
@@ -181,112 +224,88 @@ const App: React.FC = () => {
     fetchRate();
   }, []);
 
-  // --- MODIFIED: Load data from API ---
+  // Currency preference on login (India timezone defaults to INR).
   useEffect(() => {
-    if (isAuthenticated) {
-      // Set default currency preference
-      const storedCurrency = localStorage.getItem('displayCurrency');
-      if (storedCurrency === 'USD' || storedCurrency === 'INR') {
-          setDisplayCurrency(storedCurrency);
-      } else {
-          const isIndia = new Date().getTimezoneOffset() === -330;
-          setDisplayCurrency(isIndia ? 'INR' : 'USD');
-      }
-      
-      // Fetch all data from our server
-      setIsLoadingData(true);
-      getAllData()
-        .then(data => {
-          const loadedExpenses = data.expenses;
-          setExpenses(loadedExpenses);
-          setIncomes(data.incomes);
-          setBudgets(data.budgets);
-
-          // Set initial semesters if user has none
-          if (data.semesters.length > 0) {
-            setSemesters(data.semesters);
-          } else {
-            const initialSemesters: Semester[] = USC_SEMESTERS.map(s => ({
-                ...s,
-                totalTuition: 0,
-                installments: Array.from({ length: 4 }, (_, i) => ({
-                    id: i + 1,
-                    amount: 0,
-                    status: 'unpaid',
-                })),
-            }));
-            setSemesters(initialSemesters);
-          }
-
-          // F3: Check for recurring expenses from last month not yet created this month
-          const now = new Date();
-          const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-          const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          const lastMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
-
-          const lastMonthRecurring = loadedExpenses.filter(
-            e => e.isRecurring && e.date.startsWith(lastMonth)
-          );
-          const thisMonthEntries = new Set(
-            loadedExpenses
-              .filter(e => e.date.startsWith(thisMonth))
-              .map(e => `${e.title.toLowerCase()}|${e.category.toLowerCase()}|${e.amount}`)
-          );
-          const missing = lastMonthRecurring.filter(
-            e => !thisMonthEntries.has(`${e.title.toLowerCase()}|${e.category.toLowerCase()}|${e.amount}`)
-          );
-
-          if (missing.length > 0) {
-            const snoozeUntil = Number(localStorage.getItem(RECURRING_SNOOZE_KEY) || '0');
-            if (Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil) {
-              setPendingRecurring([]);
-              return;
-            }
-
-            const daysInThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-            const newEntries: Omit<Expense, 'id'>[] = missing.map(e => ({
-              // Clamp day so 31st from prior month doesn't generate invalid dates like YYYY-MM-31 in shorter months
-              date: (() => {
-                const parsedDay = Number.parseInt(e.date.slice(8, 10), 10);
-                const safeDay = Number.isFinite(parsedDay) && parsedDay > 0 ? Math.min(parsedDay, daysInThisMonth) : 1;
-                return `${thisMonth}-${String(safeDay).padStart(2, '0')}`;
-              })(),
-              title: e.title,
-              amount: e.amount,
-              category: e.category,
-              paymentMethod: e.paymentMethod,
-              notes: e.notes,
-              originalAmount: e.originalAmount,
-              originalCurrency: e.originalCurrency,
-              isRecurring: true,
-            }));
-            setPendingRecurring(newEntries);
-          } else {
-            setPendingRecurring([]);
-          }
-        })
-        .catch(err => {
-          console.error("Failed to fetch data:", err);
-          // Log out on any auth failure (401/403), keyed off HTTP status rather
-          // than brittle error-message matching that missed several server
-          // messages and left the user stuck on an empty authenticated shell.
-          if (isAuthError(err)) {
-            handleLogout();
-          }
-        })
-        .finally(() => {
-          setIsLoadingData(false);
-        });
-
+    if (!isAuthenticated) return;
+    const storedCurrency = localStorage.getItem('displayCurrency');
+    if (storedCurrency === 'USD' || storedCurrency === 'INR') {
+      setDisplayCurrency(storedCurrency);
     } else {
-      // If not authenticated, clear data and set loading to false
-      setExpenses([]);
-      setIncomes([]);
-      setBudgets([]);
-      setSemesters([]);
-      setIsLoadingData(false);
+      const isIndia = new Date().getTimezoneOffset() === -330;
+      setDisplayCurrency(isIndia ? 'INR' : 'USD');
     }
   }, [isAuthenticated]);
+
+  // Log out on a data-load auth failure (401/403) — keyed off HTTP status, not
+  // brittle message matching (APP-H2).
+  useEffect(() => {
+    if (allDataQuery.error && isAuthError(allDataQuery.error)) {
+      handleLogout();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allDataQuery.error]);
+
+  // Once per fresh load: substitute default semesters when the user has none,
+  // and detect recurring expenses from last month not yet created this month.
+  const didProcessLoadRef = useRef(false);
+  useEffect(() => {
+    const data = allDataQuery.data;
+    if (!data) {
+      didProcessLoadRef.current = false;
+      return;
+    }
+    if (didProcessLoadRef.current) return;
+    didProcessLoadRef.current = true;
+
+    if (data.semesters.length === 0) {
+      setSemesters(buildDefaultSemesters());
+    }
+
+    // F3: recurring detection
+    const loadedExpenses = data.expenses;
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    const lastMonthRecurring = loadedExpenses.filter(e => e.isRecurring && e.date.startsWith(lastMonth));
+    const thisMonthEntries = new Set(
+      loadedExpenses
+        .filter(e => e.date.startsWith(thisMonth))
+        .map(e => `${e.title.toLowerCase()}|${e.category.toLowerCase()}|${e.amount}`)
+    );
+    const missing = lastMonthRecurring.filter(
+      e => !thisMonthEntries.has(`${e.title.toLowerCase()}|${e.category.toLowerCase()}|${e.amount}`)
+    );
+
+    if (missing.length > 0) {
+      const snoozeUntil = Number(localStorage.getItem(RECURRING_SNOOZE_KEY) || '0');
+      if (Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil) {
+        setPendingRecurring([]);
+        return;
+      }
+      const daysInThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const newEntries: Omit<Expense, 'id'>[] = missing.map(e => ({
+        date: (() => {
+          const parsedDay = Number.parseInt(e.date.slice(8, 10), 10);
+          const safeDay = Number.isFinite(parsedDay) && parsedDay > 0 ? Math.min(parsedDay, daysInThisMonth) : 1;
+          return `${thisMonth}-${String(safeDay).padStart(2, '0')}`;
+        })(),
+        title: e.title,
+        amount: e.amount,
+        category: e.category,
+        paymentMethod: e.paymentMethod,
+        notes: e.notes,
+        originalAmount: e.originalAmount,
+        originalCurrency: e.originalCurrency,
+        isRecurring: true,
+      }));
+      setPendingRecurring(newEntries);
+    } else {
+      setPendingRecurring([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allDataQuery.data]);
 
   // --- MODIFIED: Remove all localStorage.setItem for data ---
   // We only save the displayCurrency preference
@@ -391,10 +410,9 @@ const App: React.FC = () => {
     localStorage.removeItem('hasSession');
     setIsAuthenticated(false);
     setTwoFactorEnabled(false);
-    setExpenses([]);
-    setIncomes([]);
-    setBudgets([]);
-    setSemesters([]);
+    // Drop the cached dataset so the next user can't read the previous user's
+    // data from cache (the query is disabled while logged out).
+    queryClient.removeQueries({ queryKey: queryKeys.allData });
   };
 
   const handleToggleTwoFactor = async () => {
@@ -445,8 +463,8 @@ const App: React.FC = () => {
     try {
       const addedCount = pendingRecurring.length;
       await createBulkExpenses(pendingRecurring);
-      const refreshed = await getAllData();
-      setExpenses(refreshed.expenses);
+      // Refetch the authoritative dataset (the bulk insert created server ids).
+      await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
       setPendingRecurring([]);
       localStorage.removeItem(RECURRING_SNOOZE_KEY);
       notify.success(`${addedCount} recurring expense(s) added for this month.`);
@@ -666,21 +684,9 @@ const handleDeleteIncome = async (id: string) => {
       // 2. The import was successful, show an alert
       notify.success(`${importedExpenses.length} expenses successfully imported.`);
 
-      // 3. Easiest way to get all the new IDs is to just re-fetch all data
-      // This ensures our local state is in sync with the database.
-      setIsLoadingData(true);
-      getAllData()
-        .then(data => {
-          setExpenses(data.expenses);
-          setIncomes(data.incomes);
-          setBudgets(data.budgets);
-          if (data.semesters?.length > 0) {
-            setSemesters(data.semesters);
-          }
-        })
-        .catch(err => console.error("Failed to refetch data:", err))
-        .finally(() => setIsLoadingData(false));
-      
+      // 3. Refetch the authoritative dataset so local state has the new ids.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
+
     } catch (error) {
       console.error("Failed to import expenses:", error);
       notify.error('Could not import expenses.');
@@ -694,20 +700,20 @@ const handleDeleteIncome = async (id: string) => {
     semesters: Semester[];
   }) => {
     try {
-      setIsLoadingData(true);
       const restored = await restoreAllData(payload);
-      setExpenses(restored.expenses);
-      setIncomes(restored.incomes);
-      setBudgets(restored.budgets);
-      setSemesters(restored.semesters);
+      // Replace the whole cached dataset in one write.
+      queryClient.setQueryData<AllDataResponse>(queryKeys.allData, {
+        expenses: restored.expenses,
+        incomes: restored.incomes,
+        budgets: restored.budgets,
+        semesters: restored.semesters,
+      });
       setPendingRecurring([]);
       notify.success('Backup restored successfully.');
     } catch (error) {
       console.error('Failed to restore backup:', error);
       notify.error('Could not restore backup. Please verify the file format.');
       throw error;
-    } finally {
-      setIsLoadingData(false);
     }
   };
   const handleUpdateSemesterTuition = (semesterId: string, totalTuition: number) => {
