@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import trojanLogo from '../../public/trojan-logo.png';
 import { ExpenseTrackerLogo } from './Branding';
+import useDebouncedValue from '../hooks/useDebouncedValue';
+import { APP_CONFIG } from '../config';
 import { 
   WalletIcon, 
   MagnifyingGlassIcon, 
@@ -18,18 +20,25 @@ interface HeaderProps {
   onDataAction: () => void;
   onToggleTwoFactor: () => void;
   twoFactorEnabled: boolean;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  onSearch: (query: string) => void;
   activeView: string;
   displayCurrency: 'USD' | 'INR';
   onCurrencyChange: (currency: 'USD' | 'INR') => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, searchQuery, 
-  setSearchQuery, displayCurrency, onCurrencyChange
+const Header: React.FC<HeaderProps> = ({
+  onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch,
+  displayCurrency, onCurrencyChange
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+
+  // Raw search input is owned here and debounced locally, so keystrokes re-render
+  // only the Header — not the whole app (APP-H5).
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebouncedValue(searchInput, APP_CONFIG.searchDebounceMs);
+  useEffect(() => {
+    onSearch(debouncedSearch);
+  }, [debouncedSearch, onSearch]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
@@ -97,8 +106,8 @@ const Header: React.FC<HeaderProps> = ({
               type="text"
               placeholder="SEARCH_MANIFEST..."
               aria-label="Search transactions"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-full bg-white border-2 md:border-4 border-ink p-3 md:p-4 pl-10 md:pl-12 font-loud text-xs md:text-sm text-ink focus:outline-none focus:ring-4 focus:ring-usc-gold shadow-neo-gold placeholder:text-ink/40"
             />
           </div>

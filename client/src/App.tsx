@@ -15,7 +15,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from './lib/queryClient';
 import type { AllDataResponse } from './types/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import useDebouncedValue from './hooks/useDebouncedValue';
 import useDateRangeFilter from './hooks/useDateRangeFilter';
 import { notify } from './utils/notifications';
 import SectionSkeleton from './components/SectionSkeleton';
@@ -137,8 +136,10 @@ const App: React.FC = () => {
 
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [activeView, setActiveView] = useState<ActiveView>('expenses');
-  const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearchQuery = useDebouncedValue(searchQuery, APP_CONFIG.searchDebounceMs);
+  // The raw search input lives in Header (debounced there); App only stores the
+  // already-debounced term, so typing no longer re-renders the whole app on every
+  // keystroke — only when the debounced value actually changes (APP-H5).
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   
   const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'INR'>('USD');
   const [usdToInrRate, setUsdToInrRate] = useState<number | null>(null);
@@ -964,8 +965,7 @@ const handleDeleteIncome = async (id: string) => {
               onDataAction={() => setIsDataModalOpen(true)}
               onToggleTwoFactor={handleToggleTwoFactor}
               twoFactorEnabled={twoFactorEnabled}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
+              onSearch={setDebouncedSearchQuery}
               activeView={activeView}
               displayCurrency={displayCurrency}
               onCurrencyChange={setDisplayCurrency}
