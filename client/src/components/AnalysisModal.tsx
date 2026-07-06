@@ -1,6 +1,7 @@
 import React from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -11,17 +12,22 @@ interface AnalysisModalProps {
 }
 
 const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, analysis, isLoading, error }) => {
+  const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   if (!isOpen) return null;
 
   const parsedAnalysis = analysis ? DOMPurify.sanitize(marked.parse(analysis) as string) : '';
 
   return (
-    <div 
-      className="fixed inset-0 bg-ink/90 backdrop-blur-sm z-[100] flex justify-center items-center p-4" 
+    <div
+      className="fixed inset-0 bg-ink/90 backdrop-blur-sm z-[100] flex justify-center items-center p-4"
       onClick={onClose}
     >
-      <div 
-        className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-2xl mx-auto transform transition-all duration-200 overflow-hidden" 
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="AI financial audit report"
+        className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-2xl mx-auto transform transition-all duration-200 overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="bg-ink p-4 md:p-6 border-b-4 md:border-b-8 border-ink flex justify-between items-center">
