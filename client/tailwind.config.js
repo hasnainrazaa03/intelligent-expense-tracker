@@ -15,6 +15,11 @@ export default {
       boxShadow: {
         'neo': '4px 4px 0px 0px #111111',
         'neo-hover': '2px 2px 0px 0px #111111',
+        // Colored hard shadows used across modal panels and accents. These were
+        // referenced ~16 times but never defined, so those elements rendered with
+        // no shadow at all (THM-2).
+        'neo-gold': '4px 4px 0px 0px #FFCC00',
+        'neo-cardinal': '4px 4px 0px 0px #990000',
       },
       fontFamily: {
         'loud': ['Archivo Black', 'sans-serif'],
