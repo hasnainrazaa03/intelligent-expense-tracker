@@ -9,6 +9,7 @@ import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
 import { startOfMonth, endOfMonth, isWithinRange } from './utils/dateUtils';
 import { expenseMatchesBudget } from './utils/budgetUtils';
+import { useCurrency } from './contexts/CurrencyContext';
 import { getAllData, getSession, logoutUser, toggleTwoFactor, isAuthError } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -140,10 +141,10 @@ const App: React.FC = () => {
   // already-debounced term, so typing no longer re-renders the whole app on every
   // keystroke — only when the debounced value actually changes (APP-H5).
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  
-  const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'INR'>('USD');
-  const [usdToInrRate, setUsdToInrRate] = useState<number | null>(null);
-  
+
+  // Currency state/logic lives in CurrencyProvider now.
+  const { displayCurrency, setDisplayCurrency, conversionRate: usdToInrRate } = useCurrency();
+
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
   const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
@@ -176,66 +177,6 @@ const App: React.FC = () => {
       })
       .catch(() => undefined);
   }, []);
-
-  // Fetch conversion rate (P1: cached with 1hr TTL)
-  useEffect(() => {
-    const CACHE_KEY = 'usdToInrRate';
-    const ONE_HOUR = 60 * 60 * 1000;
-
-    // Safely read the cached rate; a corrupt value must never throw (previously
-    // an unguarded JSON.parse inside the catch produced an unhandled rejection)
-    // and a non-finite rate must never reach state (it would render as ₹NaN).
-    const readCache = (): { rate: number; timestamp: number } | null => {
-      try {
-        const raw = localStorage.getItem(CACHE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (typeof parsed?.rate === 'number' && Number.isFinite(parsed.rate)) {
-          return { rate: parsed.rate, timestamp: Number(parsed.timestamp) || 0 };
-        }
-      } catch {
-        // Corrupt cache — ignore and refetch.
-      }
-      return null;
-    };
-
-    const fetchRate = async () => {
-      const cached = readCache();
-      if (cached && Date.now() - cached.timestamp < ONE_HOUR) {
-        setUsdToInrRate(cached.rate);
-        return;
-      }
-
-      try {
-        const response = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR');
-        if (!response.ok) throw new Error('Failed to fetch rate');
-        const data = await response.json();
-        const rate = data?.rates?.INR;
-        if (typeof rate !== 'number' || !Number.isFinite(rate)) {
-          throw new Error('Unexpected rate response shape');
-        }
-        setUsdToInrRate(rate);
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ rate, timestamp: Date.now() }));
-      } catch (error) {
-        console.error('Could not fetch conversion rate:', error);
-        // Fallback: use any cached rate, even if expired.
-        if (cached) setUsdToInrRate(cached.rate);
-      }
-    };
-    fetchRate();
-  }, []);
-
-  // Currency preference on login (India timezone defaults to INR).
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const storedCurrency = localStorage.getItem('displayCurrency');
-    if (storedCurrency === 'USD' || storedCurrency === 'INR') {
-      setDisplayCurrency(storedCurrency);
-    } else {
-      const isIndia = new Date().getTimezoneOffset() === -330;
-      setDisplayCurrency(isIndia ? 'INR' : 'USD');
-    }
-  }, [isAuthenticated]);
 
   // Log out on a data-load auth failure (401/403) — keyed off HTTP status, not
   // brittle message matching (APP-H2).
@@ -307,14 +248,6 @@ const App: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allDataQuery.data]);
-
-  // --- MODIFIED: Remove all localStorage.setItem for data ---
-  // We only save the displayCurrency preference
-  useEffect(() => { 
-    if (isAuthenticated) { 
-      localStorage.setItem('displayCurrency', displayCurrency); 
-    } 
-  }, [displayCurrency, isAuthenticated]);
 
   // U6: Keyboard shortcuts
   useEffect(() => {
