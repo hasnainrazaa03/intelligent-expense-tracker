@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Expense, Category } from '../types';
 import { suggestCategory, recordCategorySelection } from '../services/categorySuggestionService';
 import { CATEGORIES, PAYMENT_METHODS } from '../constants';
-import { XMarkIcon, ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
+import { ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
-import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useInrToUsd from '../hooks/useInrToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { Modal, Button, Input, Textarea, Label } from './ui';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -18,7 +18,6 @@ interface ExpenseModalProps {
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense }) => {
   const { displayCurrency, conversionRate: parentConversionRate } = useCurrency();
-  const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   // --- CORE STATE (PRESERVED) ---
   const [title, setTitle] = useState(expense?.title || '');
   const [amount, setAmount] = useState(''); 
@@ -235,8 +234,6 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     return filtered;
   }, [categorySearchTerm]);
 
-  if (!isOpen) return null;
-
   const handleReceiptUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -264,48 +261,38 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
   // --- STYLING CONSTANTS ---
   const inputBase = "w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-app-faint appearance-none";
-  const labelBase = "text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase";
 
   return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="expense-modal-title"
-      tabIndex={-1}
-      className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={expense ? 'Edit expense' : 'New expense'}
+      subtitle={expense ? 'Update this transaction.' : 'Log a new transaction.'}
+      size="lg"
+      labelledById="expense-modal-title"
+      footer={
+        <>
+          <Button variant="secondary" fullWidth onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="expense-form" fullWidth>{expense ? 'Save changes' : 'Add expense'}</Button>
+        </>
+      }
     >
-      <div className="glass glass-blur rounded-2xl w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
-
-        {/* HEADER */}
-        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-center flex-shrink-0">
-          <div className="min-w-0 pr-2">
-            <h2 id="expense-modal-title" className="font-display text-xl sm:text-2xl font-bold text-app-text leading-tight truncate">
-                {expense ? 'Edit expense' : 'New expense'}
-            </h2>
-            <p className="text-xs text-app-muted mt-1">{expense ? 'Update this transaction.' : 'Log a new transaction.'}</p>
-          </div>
-          <button onClick={onClose} aria-label="Close expense modal" className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors flex-shrink-0">
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-5 sm:p-6">
+      <form id="expense-form" onSubmit={handleSubmit}>
           <div className="flex flex-col space-y-5">
 
             {/* Title */}
             <div>
-              <label className={labelBase}>Title</label>
-              <input
+              <Label>Title</Label>
+              <Input
                 type="text" value={title} onChange={e => setTitle(e.target.value)}
                 placeholder="e.g. Groceries"
-                className={inputBase} required
+                required
               />
             </div>
 
             {/* Currency Segmented Control */}
             <div>
-              <label className={labelBase}>Currency</label>
+              <Label>Currency</Label>
               <div className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
                   <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'USD' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
                   <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'INR' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>INR (₹)</button>
@@ -315,7 +302,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             {/* Conditional INR Input */}
             {selectedCurrency === 'INR' && (
               <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-                <label className={labelBase}>Amount in INR</label>
+                <Label>Amount in INR</Label>
                 <div className="flex items-center gap-2">
                   <span className="font-display text-xl text-app-muted">₹</span>
                   <input
@@ -333,12 +320,12 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             {/* USD Amount */}
             <div>
-              <label className={labelBase}>Amount (USD)</label>
+              <Label>Amount (USD)</Label>
               <div className="relative">
-                  <input
+                  <Input
                     type="number" value={amount} onChange={e => setAmount(e.target.value)}
                     placeholder="0.00"
-                    className={`${inputBase} ${isAmountUSDReadOnly ? 'opacity-70' : ''}`}
+                    className={isAmountUSDReadOnly ? 'opacity-70' : ''}
                     required readOnly={isAmountUSDReadOnly} min="0.01" step="0.01"
                   />
                   {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
@@ -351,13 +338,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             {/* Date */}
             <div>
-              <label className={labelBase}>Date</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} className={`${inputBase} [color-scheme:dark]`} required />
+              <Label>Date</Label>
+              <Input type="date" value={date} onChange={e => setDate(e.target.value)} required />
             </div>
 
             {/* Category Dropdown */}
             <div>
-              <label className={labelBase}>Category</label>
+              <Label>Category</Label>
               <div className="relative" ref={categoryDropdownRef}>
                 <button
                     type="button"
@@ -418,10 +405,10 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div>
-                <label className={labelBase}>Payment method</label>
-                <input
+                <Label>Payment method</Label>
+                <Input
                     list="methods" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
-                    placeholder="Card, cash, transfer…" className={inputBase}
+                    placeholder="Card, cash, transfer…"
                 />
                 <datalist id="methods">
                     {PAYMENT_METHODS.map(m => <option key={m} value={m} />)}
@@ -430,21 +417,20 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             {/* Notes */}
             <div>
-              <label className={labelBase}>Notes</label>
-              <textarea
+              <Label>Notes</Label>
+              <Textarea
                 value={notes} onChange={e => setNotes(e.target.value)}
-                placeholder="Any additional details…" className={`${inputBase} h-24 resize-none`}
+                placeholder="Any additional details…" className="h-24 resize-none"
               />
             </div>
 
             <div>
-              <label className={labelBase}>Tax category</label>
-              <input
+              <Label>Tax category</Label>
+              <Input
                 type="text"
                 value={taxCategory}
                 onChange={(e) => setTaxCategory(e.target.value)}
                 placeholder="e.g. Education, Charity"
-                className={inputBase}
               />
               <label className="mt-2.5 inline-flex items-center gap-2 text-sm text-app-muted cursor-pointer">
                 <input type="checkbox" checked={isTaxDeductible} onChange={(e) => setIsTaxDeductible(e.target.checked)} className="accent-[color:var(--primary)]" />
@@ -453,39 +439,37 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div>
-              <label className={labelBase}>Tags (comma separated)</label>
-              <input
+              <Label>Tags (comma separated)</Label>
+              <Input
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 placeholder="groceries, urgent, reimbursement"
-                className={inputBase}
               />
             </div>
 
             <div>
-              <label className={labelBase}>Split participants (comma separated)</label>
-              <input
+              <Label>Split participants (comma separated)</Label>
+              <Input
                 type="text"
                 value={splitParticipantsInput}
                 onChange={(e) => setSplitParticipantsInput(e.target.value)}
                 placeholder="Alex, Sam, You"
-                className={inputBase}
               />
             </div>
 
             <div>
-              <label className={labelBase}>Metadata (one key: value per line)</label>
-              <textarea
+              <Label>Metadata (one key: value per line)</Label>
+              <Textarea
                 value={metadataInput}
                 onChange={(e) => setMetadataInput(e.target.value)}
-                className={`${inputBase} h-24 resize-none`}
+                className="h-24 resize-none"
                 placeholder={'merchant: Trader Joes\ntrip: Seattle'}
               />
             </div>
 
             <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-              <label className={labelBase}>Receipt upload (OCR)</label>
+              <Label>Receipt upload (OCR)</Label>
               <input type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
               {isOcrProcessing && <p className="text-[11px] text-app-muted mt-2">Scanning receipt text…</p>}
               {receiptFileName && <p className="text-[11px] text-app-muted mt-2">Attached: {receiptFileName}</p>}
@@ -497,25 +481,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               />
             </div>
           </div>
-
-          {/* ACTIONS */}
-          <div className="mt-7 pt-6 border-t border-app-border flex flex-col sm:flex-row gap-3">
-            <button
-              type="button" onClick={onClose}
-              className="w-full sm:flex-1 py-3 rounded-xl text-sm font-semibold bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all order-2 sm:order-1"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="w-full sm:flex-1 py-3 rounded-xl text-sm font-semibold bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all order-1 sm:order-2"
-            >
-              {expense ? 'Save changes' : 'Add expense'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };
 

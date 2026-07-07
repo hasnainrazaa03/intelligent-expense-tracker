@@ -3,6 +3,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
+import { Button, Card } from './ui';
 
 const GOAL_KEY = 'monthlySavingsGoal';
 const PAUSED_RECURRING_KEY = 'pausedRecurringTemplates';
@@ -217,11 +218,10 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const cardCls = "rounded-2xl border border-app-border bg-surface-2 p-4 md:p-5";
   const subLabelCls = "font-display text-sm font-semibold text-app-text mb-3";
   const fieldCls = "bg-surface border border-app-border rounded-lg px-3 py-2 text-sm text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50";
-  const addBtnCls = "mt-2.5 px-3.5 py-2 rounded-lg bg-primary text-on-primary font-semibold text-xs shadow-glow hover:brightness-110 transition-all";
   const rowCls = "text-xs rounded-lg border border-app-border bg-surface px-2.5 py-2 flex justify-between items-center tabular-nums";
 
   return (
-    <section className="glass rounded-2xl p-5 md:p-7 space-y-5">
+    <Card className="space-y-5">
       <h3 className="font-display text-xl md:text-2xl font-bold text-app-text">Financial planning</h3>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -235,12 +235,13 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
               className={`flex-1 ${fieldCls}`}
               placeholder="Set monthly goal"
             />
-            <button
+            <Button
+              size="sm"
               onClick={() => localStorage.setItem(GOAL_KEY, goalInput)}
-              className="px-4 rounded-lg bg-primary text-on-primary font-semibold text-xs shadow-glow hover:brightness-110 transition-all"
+              className="px-4"
             >
               Save
-            </button>
+            </Button>
           </div>
           <p className="text-xs text-app-muted mt-2.5 tabular-nums">Monthly net: <span className="text-app-text font-medium">{formatCurrency(monthlyNet, displayCurrency, conversionRate)}</span></p>
           <div className="mt-2 h-2.5 rounded-full border border-app-border bg-surface overflow-hidden">
@@ -314,7 +315,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             </select>
             <input type="number" value={newAccountValue} onChange={(e) => setNewAccountValue(e.target.value)} className={fieldCls} placeholder="Value" />
           </div>
-          <button onClick={addInvestmentAccount} className={addBtnCls}>Add account</button>
+          <Button size="sm" onClick={addInvestmentAccount} className="mt-2.5">Add account</Button>
           <div className="mt-3 space-y-1.5 max-h-28 overflow-y-auto">
             {investmentAccounts.slice(-6).map((account) => (
               <div key={account.id} className={rowCls}>
@@ -333,7 +334,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             <input value={memberName} onChange={(e) => setMemberName(e.target.value)} className={fieldCls} placeholder="Member name" />
             <input type="number" value={memberContribution} onChange={(e) => setMemberContribution(e.target.value)} className={fieldCls} placeholder="Contribution" />
           </div>
-          <button onClick={addFamilyMember} className={addBtnCls}>Add member</button>
+          <Button size="sm" onClick={addFamilyMember} className="mt-2.5">Add member</Button>
           <div className="mt-3 space-y-1.5 max-h-28 overflow-y-auto">
             {familyMembers.slice(-6).map((member) => (
               <div key={member.id} className={rowCls}>
@@ -370,7 +371,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           </ul>
         </div>
       </div>
-    </section>
+    </Card>
   );
 };
 

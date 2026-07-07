@@ -3,16 +3,15 @@ import toast from 'react-hot-toast';
 import { Expense, Budget, Income, Semester } from '../types';
 import { exportData, ExportFormat } from '../utils/exportUtils';
 import { logAuditEvent } from '../services/api';
-import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import { APP_CONFIG } from '../config';
 import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange } from '../utils/dateUtils';
-import { 
-  XMarkIcon, 
-  TableCellsIcon, 
-  PlusCircleIcon, 
+import {
+  TableCellsIcon,
+  PlusCircleIcon,
   ExclamationTriangleIcon,
-  ClipboardDocumentListIcon 
+  ClipboardDocumentListIcon
 } from './Icons'; // Swapped to icons already in your project
+import { Modal, Button, Label } from './ui';
 
 export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
 
@@ -40,7 +39,6 @@ const ranges: { id: DateRange; label: string }[] = [
 ];
 
 const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onRestoreBackup }) => {
-  const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [includeExpenses, setIncludeExpenses] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
@@ -331,31 +329,16 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     reader.readAsText(backupFile);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="data-modal-title"
-      tabIndex={-1}
-      className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Export data"
+      subtitle="Export, import, or back up your data."
+      size="xl"
+      labelledById="data-modal-title"
+      bodyClassName="space-y-8"
     >
-      <div className="glass glass-blur rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-
-        {/* HEADER */}
-        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-center flex-shrink-0">
-          <div className="min-w-0">
-            <h2 id="data-modal-title" className="font-display text-xl sm:text-2xl font-bold text-app-text truncate">Export data</h2>
-            <p className="text-xs text-app-muted mt-1">Export, import, or back up your data.</p>
-          </div>
-          <button onClick={onClose} aria-label="Close export modal" className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors flex-shrink-0">
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="flex-grow overflow-y-auto p-5 sm:p-6 space-y-8">
 
           {/* EXPORT */}
           <div className="space-y-5">
@@ -366,7 +349,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div className="col-span-1 sm:col-span-2">
-                <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase">Date range</label>
+                <Label>Date range</Label>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
                   {ranges.map(range => (
                     <button
@@ -381,7 +364,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               </div>
 
               <div className="col-span-1">
-                <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase">Format</label>
+                <Label>Format</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
                   <button onClick={() => setFormat('pdf')} className={`py-2 text-xs font-semibold transition-all rounded-lg ${format === 'pdf' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>PDF</button>
                   <button onClick={() => setFormat('csv')} className={`py-2 text-xs font-semibold transition-all rounded-lg ${format === 'csv' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>CSV</button>
@@ -392,7 +375,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               </div>
 
               <div className="col-span-1">
-                <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase">Include</label>
+                <Label>Include</Label>
                 <div className="flex flex-col gap-2">
                     <button onClick={() => setIncludeExpenses(!includeExpenses)} className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition-all ${includeExpenses ? 'bg-primary text-on-primary border-transparent shadow-glow' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}>
                         Expenses: {includeExpenses ? 'On' : 'Off'}
@@ -404,20 +387,23 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               </div>
             </div>
 
-            <button
+            <Button
+              fullWidth
               onClick={handleDownload}
               disabled={!includeExpenses && !includeBudgets}
-              className="w-full bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold py-3.5 disabled:opacity-40 disabled:pointer-events-none"
+              className="py-3.5"
             >
               Download export
-            </button>
+            </Button>
 
-            <button
+            <Button
+              variant="secondary"
+              fullWidth
               onClick={handleExportFullBackup}
-              className="w-full bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold py-3"
+              className="py-3"
             >
               Export full backup (JSON)
-            </button>
+            </Button>
           </div>
 
           <div className="relative flex items-center justify-center py-1">
@@ -447,13 +433,14 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               </div>
             )}
 
-            <button
+            <Button
+              fullWidth
               onClick={handleImport}
               disabled={isImporting || !importFile}
-              className="w-full bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold py-3.5 disabled:opacity-40 disabled:pointer-events-none"
+              className="py-3.5"
             >
               {isImporting ? 'Importing…' : 'Import CSV'}
-            </button>
+            </Button>
 
             <div className="relative flex items-center justify-center py-1">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-app-border" /></div>
@@ -475,17 +462,17 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               </div>
             )}
 
-            <button
+            <Button
+              variant="secondary"
+              fullWidth
               onClick={handleRestoreBackup}
               disabled={isRestoringBackup || !backupFile}
-              className="w-full bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold py-3 disabled:opacity-40 disabled:pointer-events-none"
+              className="py-3"
             >
               {isRestoringBackup ? 'Restoring backup…' : 'Restore full backup'}
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

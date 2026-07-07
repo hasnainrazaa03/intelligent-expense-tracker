@@ -12,6 +12,7 @@ import {
   TagIcon,
   Cog6ToothIcon
 } from './Icons';
+import { IconButton } from './ui';
 
 interface HeaderProps {
   onLogout: () => void;
@@ -129,30 +130,30 @@ const Header: React.FC<HeaderProps> = ({
 
               {/* Action Buttons Group */}
               <div className="flex items-center gap-2">
-                <button
+                <IconButton
                   onClick={onManageBudgets}
                   aria-label="Manage budgets"
-                  className="grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
+                  className="md:w-10 md:h-10"
                   title="Manage budgets"
                 >
                   <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </button>
-                <button
+                </IconButton>
+                <IconButton
                   onClick={onManageCategories}
                   aria-label="Manage categories"
-                  className="grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
+                  className="md:w-10 md:h-10"
                   title="Manage categories"
                 >
                   <TagIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </button>
-                <button
+                </IconButton>
+                <IconButton
                   onClick={onDataAction}
                   aria-label="Open data import and export"
-                  className="grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
+                  className="md:w-10 md:h-10"
                   title="Import / export"
                 >
                   <TableCellsIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </button>
+                </IconButton>
                 <button
                   onClick={onToggleTwoFactor}
                   aria-label="Toggle optional two factor authentication"

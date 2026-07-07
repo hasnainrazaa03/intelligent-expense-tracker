@@ -3,6 +3,7 @@ import { GoogleIcon, ExclamationTriangleIcon } from './Icons';
 import { ExpenseTrackerLogo } from './Branding';
 import { registerUser, loginUser, forgotPassword, resetPassword, verifyLoginOtp } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { Button, Input, Label } from './ui';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -135,8 +136,6 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const inputClasses = "w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 md:py-3.5 text-base text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all disabled:opacity-50";
-  const labelClasses = "text-[11px] font-medium uppercase tracking-[0.14em] text-app-muted mb-2 block";
   const passwordScore = scorePassword(password);
   const newPasswordScore = scorePassword(newPassword);
 
@@ -174,13 +173,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
             <div className="space-y-5">
               <div>
-                <label htmlFor="email" className={labelClasses}>Email</label>
-                <input
+                <Label htmlFor="email" className="tracking-[0.14em]">Email</Label>
+                <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className={inputClasses}
+                  className="md:py-3.5 text-base disabled:opacity-50"
                   aria-invalid={!!error}
                   aria-describedby={error ? authErrorId : undefined}
                   required
@@ -190,13 +189,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 />
               </div>
               <div>
-                <label htmlFor="password" className={labelClasses}>Password</label>
-                <input
+                <Label htmlFor="password" className="tracking-[0.14em]">Password</Label>
+                <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className={inputClasses}
+                  className="md:py-3.5 text-base disabled:opacity-50"
                   aria-invalid={!!error}
                   aria-describedby={error ? authErrorId : undefined}
                   required
@@ -238,37 +237,40 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-            <button
+            <Button
               type="submit"
-              className="w-full bg-primary text-on-primary font-semibold text-base py-3.5 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
+              fullWidth
+              size="lg"
+              className="py-3.5"
               disabled={loading}
             >
               {loading
                 ? (isLoginView ? 'Signing in…' : 'Creating…')
                 : (isLoginView ? 'Sign in' : 'Create account')}
-            </button>
+            </Button>
           </form>
 
           {requiresTwoFactor && (
             <form onSubmit={handleTwoFactorSubmit} className="mt-6 space-y-4 rounded-2xl border border-app-border bg-surface-2 p-5">
               <p className="text-xs font-medium uppercase tracking-[0.14em] text-app-muted">Two-factor required</p>
-              <input
+              <Input
                 type="text"
                 value={loginOtp}
                 onChange={(e) => setLoginOtp(e.target.value)}
-                className={inputClasses}
+                className="md:py-3.5 text-base disabled:opacity-50"
                 placeholder="Enter 6-digit code"
                 maxLength={6}
                 required
                 disabled={loading}
               />
-              <button
+              <Button
                 type="submit"
-                className="w-full bg-primary text-on-primary font-semibold text-sm py-3 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
+                fullWidth
+                className="py-3"
                 disabled={loading}
               >
                 {loading ? 'Verifying…' : 'Verify & sign in'}
-              </button>
+              </Button>
             </form>
           )}
 
@@ -343,13 +345,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     Enter your registered email to receive a reset code.
                   </p>
                   <div>
-                    <label htmlFor="reset-email" className={labelClasses}>Email address</label>
-                    <input
+                    <Label htmlFor="reset-email" className="tracking-[0.14em]">Email address</Label>
+                    <Input
                       id="reset-email"
                       type="email"
                       value={resetEmail}
                       onChange={e => setResetEmail(e.target.value)}
-                      className={inputClasses}
+                      className="md:py-3.5 text-base disabled:opacity-50"
                       aria-invalid={!!resetError}
                       aria-describedby={resetError ? resetErrorId : undefined}
                       required
@@ -357,13 +359,14 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                       disabled={resetLoading}
                     />
                   </div>
-                  <button
+                  <Button
                     type="submit"
+                    fullWidth
+                    className="py-3"
                     disabled={resetLoading}
-                    className="w-full bg-primary text-on-primary font-semibold text-sm py-3 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
                   >
                     {resetLoading ? 'Sending…' : 'Send reset code'}
-                  </button>
+                  </Button>
                 </form>
               ) : (
                 <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
@@ -371,13 +374,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     Enter the 6-digit code sent to {resetEmail}.
                   </p>
                   <div>
-                    <label htmlFor="reset-code" className={labelClasses}>Reset code</label>
-                    <input
+                    <Label htmlFor="reset-code" className="tracking-[0.14em]">Reset code</Label>
+                    <Input
                       id="reset-code"
                       type="text"
                       value={resetCode}
                       onChange={e => setResetCode(e.target.value)}
-                      className={inputClasses}
+                      className="md:py-3.5 text-base disabled:opacity-50"
                       aria-invalid={!!resetError}
                       aria-describedby={resetError ? resetErrorId : undefined}
                       required
@@ -387,13 +390,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     />
                   </div>
                   <div>
-                    <label htmlFor="new-password" className={labelClasses}>New password</label>
-                    <input
+                    <Label htmlFor="new-password" className="tracking-[0.14em]">New password</Label>
+                    <Input
                       id="new-password"
                       type="password"
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
-                      className={inputClasses}
+                      className="md:py-3.5 text-base disabled:opacity-50"
                       aria-invalid={!!resetError}
                       aria-describedby={resetError ? resetErrorId : undefined}
                       required
@@ -412,13 +415,14 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                       Must include upper, lower, number, and symbol.
                     </p>
                   </div>
-                  <button
+                  <Button
                     type="submit"
+                    fullWidth
+                    className="py-3"
                     disabled={resetLoading}
-                    className="w-full bg-primary text-on-primary font-semibold text-sm py-3 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
                   >
                     {resetLoading ? 'Resetting…' : 'Reset password'}
-                  </button>
+                  </Button>
                 </form>
               )}
             </div>

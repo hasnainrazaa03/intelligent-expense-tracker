@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { IconButton } from './ui';
 
 interface PaginationProps {
   currentPage: number;
@@ -28,31 +29,27 @@ const Pagination: React.FC<PaginationProps> = ({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
+        <IconButton
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           aria-label="Previous page"
-          className={`grid place-items-center w-9 h-9 rounded-xl border transition-colors ${
-            currentPage === 1 ? 'bg-surface-2 border-app-border text-app-faint cursor-not-allowed' : 'bg-surface-2 border-app-border text-app-text hover:border-app-border-strong'
-          }`}
+          className="text-app-text disabled:text-app-faint disabled:cursor-not-allowed"
         >
           <ChevronLeftIcon className="h-5 w-5" />
-        </button>
+        </IconButton>
 
         <span className="px-3.5 py-1.5 rounded-xl bg-surface-2 border border-app-border text-sm font-medium text-app-text tabular-nums">
           {currentPage} / {totalPages}
         </span>
 
-        <button
+        <IconButton
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           aria-label="Next page"
-          className={`grid place-items-center w-9 h-9 rounded-xl border transition-colors ${
-            currentPage === totalPages ? 'bg-surface-2 border-app-border text-app-faint cursor-not-allowed' : 'bg-surface-2 border-app-border text-app-text hover:border-app-border-strong'
-          }`}
+          className="text-app-text disabled:text-app-faint disabled:cursor-not-allowed"
         >
           <ChevronRightIcon className="h-5 w-5" />
-        </button>
+        </IconButton>
       </div>
     </div>
   );

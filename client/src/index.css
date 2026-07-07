@@ -204,24 +204,4 @@
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-  /* Re-typography: the old brutalist display class now maps to the Sora display
-     face app-wide (no per-component edits). Components that still add `uppercase`
-     keep it until they're migrated slice by slice. */
-  .font-loud {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.015em;
-    line-height: 1.12;
-    text-transform: none;
-  }
-
-  /* Subtle technical grid (Auth) using theme tokens instead of hardcoded greys. */
-  .graph-grid {
-    background-color: var(--surface-2);
-    background-image:
-      linear-gradient(var(--border) 1px, transparent 1px),
-      linear-gradient(90deg, var(--border) 1px, transparent 1px);
-    background-size: 32px 32px;
-  }
 }

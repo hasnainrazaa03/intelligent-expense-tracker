@@ -185,10 +185,11 @@ Migrate one slice at a time; after each, compare against Phase 0 baseline screen
 > **Phases 5 & 6 complete — SHIPPED 2026-07-07 (PR #22 merged to `main`), rebranded "USC Ledger → Orbit."**
 > Token layer (two-theme CSS vars → Tailwind utilities), fixed Tailwind-v4 dark variant (**THM-1**), Sora + Inter (**THM-3**), chart theme module + colorblind-validated `CATEGORY_COLORS` (**THM-6**), and an animated→static cosmic starfield all landed. Every feature surface was migrated to `glass` + tokens and screenshot-verified in the running stack; **light and dark both render correctly**; `tsc`/`vite build` clean; **0 neo-brutalist classes and 0 old-brand strings remain in `src`**.
 > Actual slice grouping differed slightly from the plan above (foundation+shell+dashboard → landing/auth → lists/modals → planning/charts → tuition/reports/pivot/ai/manager-modals/small), each committed separately.
-> **Deviations / optional follow-ups (not yet done):**
-> - Surfaces use shared **token utility classes** applied directly, not an extracted `Button`/`Card`/`Input` **primitive component library** — the reusable-primitive extraction (dedup) is still open.
-> - `tailwind.config.js` still holds legacy neo tokens (`bg-usc-*`, `shadow-neo*`) for safety though `src` no longer uses them — safe to delete (**THM-2** cleanup).
-> - `ThemeToggle`/`CurrencyToggle` were restyled to tokens but remain unused (header has inline versions) — deletion deferred.
+>
+> **Follow-up pass — DONE (post-merge):**
+> - **Primitive component library** extracted at `client/src/components/ui/` (`Button`/`IconButton`, `Card`, `Field` = `Input`/`Textarea`/`Select`/`Label`, `Modal` with folded-in focus trap) and adopted across 14 surfaces — dedups the repeated token-class stacks. Verified zero visual change by screenshot.
+> - **Legacy theme code removed** (**THM-2**): `tailwind.config.js` neo tokens (`usc-*`/`ink`/`bone`/`shadow-neo*`) deleted; unused `ThemeToggle`/`CurrencyToggle` deleted; dead `.font-loud`/`.graph-grid` removed from `index.css`. 0 references remained.
+> - **Perf validated:** tab-switch ~30–90 ms (measured), heavy libs (recharts/jsPDF/html2canvas/tesseract) confirmed lazy-loaded chunks — the earlier jank was the animated-blur, now fixed.
 
 > **Visual direction:** you mentioned providing good samples — drop them in and I'll turn them into the token values (color ramps, radius, elevation, type scale) and a `design-direction.md`. Default recommendation if you don't: a clean, calm fintech look — neutral surface with one confident accent, soft elevation, generous radius (8–12px), a humanist sans (e.g. Inter/General Sans) at a proper type scale, WCAG-AA contrast, and USC cardinal reserved as a single accent rather than a dominant field.
 

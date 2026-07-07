@@ -13,6 +13,7 @@ import { List, RowComponentProps } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
 import ConfirmationDialog from './ConfirmationDialog';
 import useUndoableDelete from '../hooks/useUndoableDelete';
+import { Button, IconButton } from './ui';
 
 interface IncomeListProps {
   incomes: Income[];
@@ -100,16 +101,16 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
 
           <div className="flex gap-1.5 flex-shrink-0">
             {isInlineEditing && (
-              <button onClick={saveInlineChanges} aria-label={`Save quick edit for ${income.title}`} className="px-3 h-9 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow-glow">
+              <Button variant="primary" size="sm" onClick={saveInlineChanges} aria-label={`Save quick edit for ${income.title}`} className="px-3 h-9 rounded-xl">
                 Save
-              </button>
+              </Button>
             )}
-            <button onClick={() => onEdit(income)} aria-label={`Edit income ${income.title}`} className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors">
+            <IconButton onClick={() => onEdit(income)} aria-label={`Edit income ${income.title}`}>
               <PencilIcon className="h-4 w-4" />
-            </button>
-            <button onClick={() => onDelete(income.id)} aria-label={`Delete income ${income.title}`} className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-danger hover:bg-danger/10 hover:border-danger/40 transition-colors">
+            </IconButton>
+            <IconButton tone="danger" onClick={() => onDelete(income.id)} aria-label={`Delete income ${income.title}`}>
               <TrashIcon className="h-4 w-4" />
-            </button>
+            </IconButton>
           </div>
         </div>
       </div>
