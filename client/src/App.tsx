@@ -9,7 +9,8 @@ import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
 import { startOfMonth, endOfMonth, isWithinRange } from './utils/dateUtils';
 import { expenseMatchesBudget } from './utils/budgetUtils';
-import { getAllData, getSession, logoutUser, toggleTwoFactor, isAuthError } from './services/api';
+import { getAllData, isAuthError } from './services/api';
+import { useAuth } from './contexts/AuthContext';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from './lib/queryClient';
@@ -52,8 +53,6 @@ const EMPTY_ALL_DATA: AllDataResponse = { expenses: [], incomes: [], budgets: []
 
 const RECURRING_SNOOZE_KEY = 'recurringReminderSnoozeUntil';
 const ONBOARDING_DISMISSED_KEY = 'onboardingDismissed';
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
-const SESSION_WARNING_MS = 2 * 60 * 1000;
 
 const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, colorClass: string }) => {
     return (
@@ -89,9 +88,7 @@ const App: React.FC = () => {
   // cache entry, which is keyed per-query by React Query (fixes the cross-user
   // cache bug where a stale entry could survive a failed logout — APP-M6). ---
   const queryClient = useQueryClient();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('hasSession') === 'true';
-  });
+  const { isAuthenticated, twoFactorEnabled, loginSuccess, logout, toggleTwoFactor } = useAuth();
 
   const allDataQuery = useQuery({
     queryKey: queryKeys.allData,
@@ -143,44 +140,17 @@ const App: React.FC = () => {
 
   // Currency state/logic lives in CurrencyProvider now.
 
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
   const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
     return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true';
   });
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authSuccess = params.get('auth');
-    if (authSuccess === '1') {
-      setIsAuthenticated(true);
-      localStorage.setItem('hasSession', 'true');
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Always reconcile the session on mount — even when optimistically
-    // authenticated from the hasSession flag — so twoFactorEnabled reflects the
-    // server's truth on reload (APP-H6); previously it stayed false and the 2FA
-    // toggle misreported the account's real state.
-    getSession()
-      .then((session) => {
-        if (session.authenticated) {
-          setIsAuthenticated(true);
-          setTwoFactorEnabled(Boolean(session.twoFactorEnabled));
-          localStorage.setItem('hasSession', 'true');
-        }
-      })
-      .catch(() => undefined);
-  }, []);
-
   // Log out on a data-load auth failure (401/403) — keyed off HTTP status, not
   // brittle message matching (APP-H2).
   useEffect(() => {
     if (allDataQuery.error && isAuthError(allDataQuery.error)) {
-      handleLogout();
+      logout();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allDataQuery.error]);
@@ -269,38 +239,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAuthenticated, isExpenseModalOpen, isIncomeModalOpen, isBudgetModalOpen, isDataModalOpen, isCategoryModalOpen, activeView]);
 
-  // S9: Session timeout with warning + automatic logout on inactivity.
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    let warningTimer: ReturnType<typeof setTimeout> | null = null;
-    let logoutTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const resetTimers = () => {
-      if (warningTimer) clearTimeout(warningTimer);
-      if (logoutTimer) clearTimeout(logoutTimer);
-
-      warningTimer = setTimeout(() => {
-        notify.warning('Session expires soon due to inactivity.');
-      }, SESSION_TIMEOUT_MS - SESSION_WARNING_MS);
-
-      logoutTimer = setTimeout(() => {
-        notify.info('Session expired. Please log in again.');
-        handleLogout();
-      }, SESSION_TIMEOUT_MS);
-    };
-
-    const events: Array<keyof WindowEventMap> = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    events.forEach((eventName) => window.addEventListener(eventName, resetTimers, { passive: true }));
-    resetTimers();
-
-    return () => {
-      if (warningTimer) clearTimeout(warningTimer);
-      if (logoutTimer) clearTimeout(logoutTimer);
-      events.forEach((eventName) => window.removeEventListener(eventName, resetTimers));
-    };
-  }, [isAuthenticated]);
-
   // Auto-save semesters to the database whenever they change
   useEffect(() => {
     // Only save if we're logged in AND the user has actually made a change
@@ -325,49 +263,6 @@ const App: React.FC = () => {
 
   }, [semesters, isAuthenticated, isSemestersDirty]);
   
-  // --- MODIFIED ---
-  const handleLoginSuccess = async () => {
-    setIsAuthenticated(true);
-    localStorage.setItem('hasSession', 'true');
-    try {
-      const session = await getSession();
-      setTwoFactorEnabled(Boolean(session.twoFactorEnabled));
-    } catch {
-      setTwoFactorEnabled(false);
-    }
-  };
-
-  const handleLogout = () => {
-    logoutUser().catch(() => undefined);
-    localStorage.removeItem('hasSession');
-    setIsAuthenticated(false);
-    setTwoFactorEnabled(false);
-    // Drop the cached dataset so the next user can't read the previous user's
-    // data from cache (the query is disabled while logged out).
-    queryClient.removeQueries({ queryKey: queryKeys.allData });
-  };
-
-  const handleToggleTwoFactor = async () => {
-    const disabling = twoFactorEnabled;
-    // Disabling 2FA requires re-entering the password (server-enforced).
-    let password: string | undefined;
-    if (disabling) {
-      password = window.prompt('Enter your password to disable two-factor authentication:') ?? undefined;
-      if (!password) return; // cancelled or left blank
-    }
-    try {
-      const result = await toggleTwoFactor(!twoFactorEnabled, password);
-      setTwoFactorEnabled(result.twoFactorEnabled);
-      notify.success(result.message);
-    } catch (error) {
-      notify.error(
-        disabling
-          ? 'Could not disable 2FA. Check your password and try again.'
-          : 'Could not update 2FA setting.'
-      );
-    }
-  };
-
   // Budget alert: check if a category is near or over its monthly budget
   const checkBudgetAlert = useCallback((category: string, allExpenses: Expense[]) => {
     const budget = budgets.find(b => b.category === category);
@@ -895,11 +790,11 @@ const handleDeleteIncome = async (id: string) => {
             
             {/* 1. HEADER (Fixed at top) */}
             <Header 
-              onLogout={handleLogout} 
+              onLogout={logout} 
               onManageBudgets={() => setIsBudgetModalOpen(true)}
               onManageCategories={() => setIsCategoryModalOpen(true)}
               onDataAction={() => setIsDataModalOpen(true)}
-              onToggleTwoFactor={handleToggleTwoFactor}
+              onToggleTwoFactor={toggleTwoFactor}
               twoFactorEnabled={twoFactorEnabled}
               onSearch={setDebouncedSearchQuery}
               activeView={activeView}
@@ -1203,7 +1098,7 @@ const handleDeleteIncome = async (id: string) => {
                 path="/login" 
                 element={!isAuthenticated ? (
                   <Suspense fallback={<SectionSkeleton title="Loading login" rows={2} />}>
-                    <Auth onLoginSuccess={handleLoginSuccess} />
+                    <Auth onLoginSuccess={loginSuccess} />
                   </Suspense>
                 ) : <Navigate to="/app" />} 
               />

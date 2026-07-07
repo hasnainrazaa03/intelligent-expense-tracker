@@ -6,6 +6,7 @@ import './index.css';
 import ErrorBoundary from './components/ErrorBoundary';
 import { queryClient } from './lib/queryClient';
 import { CurrencyProvider } from './contexts/CurrencyContext';
+import { AuthProvider } from './contexts/AuthContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -17,9 +18,11 @@ root.render(
   <React.StrictMode>
     <ErrorBoundary fallbackTitle="Interface crash recovered">
       <QueryClientProvider client={queryClient}>
-        <CurrencyProvider>
-          <App />
-        </CurrencyProvider>
+        <AuthProvider>
+          <CurrencyProvider>
+            <App />
+          </CurrencyProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   </React.StrictMode>
