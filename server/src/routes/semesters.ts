@@ -23,6 +23,14 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ message: `Maximum ${MAX_SEMESTERS} semesters allowed` });
   }
 
+  // Safety: the client always POSTs the full semester list (with default
+  // semesters substituted), so an empty array is never legitimate. Treat it as a
+  // no-op instead of letting the trailing deleteMany wipe every semester (SRV-H2).
+  if (incomingSemesters.length === 0) {
+    const current = await prisma.semester.findMany({ where: { userId }, include: { installments: true } });
+    return res.status(200).json(current);
+  }
+
   // Validate each semester has required fields
   for (const sem of incomingSemesters) {
     if (!sem.id || !sem.name) {
@@ -37,18 +45,22 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   try {
+    // Run the whole reconciliation atomically: a mid-loop failure (or the
+    // destructive cleanup) can no longer leave semesters half-updated (SRV-H2).
+    // Requires a replica set (MongoDB Atlas / local rs) for $transaction.
+    await prisma.$transaction(async (tx) => {
     for (const incoming of incomingSemesters) {
       const parsedTuition = parseFiniteFloat(incoming.totalTuition as any) ?? 0;
-      
+
       // 1. Reconcile the Parent Semester
-      const existing = await prisma.semester.findUnique({
+      const existing = await tx.semester.findUnique({
         where: { id_userId: { id: incoming.id, userId } },
         include: { installments: true }
       });
 
       if (!existing) {
         // Create new semester and all its installments
-        await prisma.semester.create({
+        await tx.semester.create({
           data: {
             id: incoming.id,
             name: incoming.name.trim(),
@@ -66,7 +78,7 @@ router.post('/', async (req: Request, res: Response) => {
         });
       } else {
         // Update basic semester metadata
-        await prisma.semester.update({
+        await tx.semester.update({
           where: { id_internal: existing.id_internal },
           data: {
             name: incoming.name.trim(),
@@ -83,7 +95,7 @@ router.post('/', async (req: Request, res: Response) => {
           .filter(id => typeof id === 'string') as string[];
 
         // A. Delete removed installments
-        await prisma.tuitionInstallment.deleteMany({
+        await tx.tuitionInstallment.deleteMany({
           where: {
             semesterId: incoming.id,
             semesterUserId: userId,
@@ -102,13 +114,13 @@ router.post('/', async (req: Request, res: Response) => {
 
           if (typeof inst.id === 'string' && existingInstIds.includes(inst.id)) {
             // Update existing record
-            await prisma.tuitionInstallment.update({
+            await tx.tuitionInstallment.update({
               where: { id: inst.id },
               data: installmentData
             });
           } else {
             // Create new record (it's either a number ID or null)
-            await prisma.tuitionInstallment.create({
+            await tx.tuitionInstallment.create({
               data: {
                 ...installmentData,
                 semester: { connect: { id_userId: { id: incoming.id, userId } } }
@@ -121,14 +133,15 @@ router.post('/', async (req: Request, res: Response) => {
 
     // 3. Cleanup: Remove semesters that are no longer in the manifest
     const incomingIds = incomingSemesters.map(s => s.id);
-    await prisma.semester.deleteMany({
+    await tx.semester.deleteMany({
       where: {
         userId,
         id: { notIn: incomingIds }
       }
     });
+    }); // end $transaction — all of the above commits atomically or rolls back
 
-    // 4. Return the fully synchronized state
+    // 4. Return the fully synchronized state (read after commit)
     const updatedData = await prisma.semester.findMany({
       where: { userId },
       include: { installments: true }
