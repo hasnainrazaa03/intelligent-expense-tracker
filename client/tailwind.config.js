@@ -9,26 +9,16 @@ export default {
   ],
   theme: {
     extend: {
-      colors: {
-        // Legacy neo-brutalist tokens — kept while components migrate to the
-        // semantic tokens in index.css (bg-surface, text-app-muted, …).
-        'usc-cardinal': '#990000',
-        'usc-gold': '#FFCC00',
-        'ink': '#111111',
-        'bone': '#F5F5F0',
-      },
+      // Semantic color/spacing/radius tokens live in index.css via @theme.
+      // The neo-brutalist legacy tokens (usc-*, ink, bone, shadow-neo*, the
+      // Archivo Black "loud" face) were removed once every surface migrated to
+      // the cosmic-glass system.
       boxShadow: {
-        'neo': '4px 4px 0px 0px #111111',
-        'neo-hover': '2px 2px 0px 0px #111111',
-        'neo-gold': '4px 4px 0px 0px #FFCC00',
-        'neo-cardinal': '4px 4px 0px 0px #990000',
-        // Orbit soft elevation + glow (used by the redesigned surfaces).
         'glow': 'var(--glow)',
         'soft': 'var(--shadow)',
         'soft-sm': 'var(--shadow-sm)',
       },
       fontFamily: {
-        'loud': ['Archivo Black', 'sans-serif'],
         'display': ['Sora', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         'sans': ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       }
