@@ -784,8 +784,8 @@ const handleDeleteIncome = async (id: string) => {
     }
   };
         const DashboardLayout = (
-          <div className="h-screen bg-bone flex flex-col overflow-hidden text-ink font-mono">
-            <div className="noise-overlay" />
+          <div className="h-screen bg-transparent flex flex-col overflow-hidden text-app-text font-sans">
+            <div className="starfield" />
             <p className="sr-only" aria-live="polite" aria-atomic="true">{liveRegionMessage}</p>
             
             {/* 1. HEADER (Fixed at top) */}
@@ -840,7 +840,7 @@ const handleDeleteIncome = async (id: string) => {
               </nav>
 
               {/* 3. MAIN SCROLLABLE VIEWPORT */}
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-bone">
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-transparent">
                 <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-56 md:pb-40">
 
                   {showOnboarding && (

@@ -2,25 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Apply the theme before first paint to avoid a flash. Dark by default
+      // (Orbit is dark-first) unless the user has previously chosen light.
+      try { if (localStorage.getItem('appTheme') !== 'light') document.documentElement.classList.add('dark'); }
+      catch (e) { document.documentElement.classList.add('dark'); }
+    </script>
     <link rel="icon" type="image/png" href="/trojan1.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#990000" />
+    <meta name="theme-color" content="#08060f" />
     <link rel="canonical" href="https://example.com/" />
-    <meta name="description" content="Track expenses, incomes, budgets, and reports with intelligent insights and backup/restore support." />
-    <meta property="og:title" content="Intelligent Expense Tracker" />
-    <meta property="og:description" content="A USC-themed smart finance tracker for expenses, income, budgets, and AI-powered insights." />
+    <meta name="description" content="Orbit — a smart expense, budget, and tuition tracker for USC students, with AI insights and backup/restore." />
+    <meta property="og:title" content="Orbit — Expense Tracker" />
+    <meta property="og:description" content="Track expenses, income, budgets, and USC tuition installments with AI-powered insights." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/trojan1.png" />
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:title" content="Intelligent Expense Tracker" />
+    <meta property="twitter:title" content="Orbit — Expense Tracker" />
     <meta property="twitter:description" content="Stay ahead of spending with dashboards, reports, and proactive budget alerts." />
     <meta property="twitter:image" content="/trojan1.png" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
-        "name": "Intelligent Expense Tracker",
+        "name": "Orbit — Expense Tracker",
         "applicationCategory": "FinanceApplication",
         "operatingSystem": "Web",
         "description": "Track expenses, income, budgets, and tuition payments with analytics and export/backup tools.",
@@ -32,13 +38,13 @@
         }
       }
     </script>
-    <title>TROJAN_LEDGER // USC_FIN_v4.0</title>
-    
+    <title>Orbit — Expense Tracker</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-bone antialiased selection:bg-usc-gold">
+  <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>
   </body>

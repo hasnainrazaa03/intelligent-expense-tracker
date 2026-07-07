@@ -3,6 +3,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import trojanLogo from '../../public/trojan-logo.png';
 import { ExpenseTrackerLogo } from './Branding';
 import useDebouncedValue from '../hooks/useDebouncedValue';
+import { useTheme } from '../hooks/useTheme';
 import { APP_CONFIG } from '../config';
 import { 
   WalletIcon, 
@@ -29,6 +30,7 @@ const Header: React.FC<HeaderProps> = ({
   onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch
 }) => {
   const { displayCurrency, setDisplayCurrency } = useCurrency();
+  const { theme, toggleTheme } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
   // Raw search input is owned here and debounced locally, so keystrokes re-render
@@ -114,6 +116,19 @@ const Header: React.FC<HeaderProps> = ({
           {/* 4. UTILITY CONTROLS (Row 3 on Mobile) */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full lg:w-auto">
             <div className="flex items-center gap-3">
+              {/* Theme toggle (light / cosmic dark) */}
+              <button
+                onClick={toggleTheme}
+                aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                className="grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-full bg-surface-2 border border-app-border text-app-muted hover:text-app-text transition-colors"
+              >
+                {theme === 'dark' ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+                )}
+              </button>
               {/* Currency Switcher */}
               <div className="flex bg-ink border-2 md:border-4 border-ink p-0.5 md:p-1 shadow-neo-gold">
                 <button 

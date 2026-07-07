@@ -141,7 +141,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen graph-grid flex items-center justify-center p-4 antialiased relative overflow-hidden">
-      <div className="noise-overlay" />
+      <div className="starfield" />
 
       <div className="w-full max-w-md md:max-w-lg bg-bone border-4 md:border-8 border-ink shadow-neo relative z-10 transition-all mx-auto">
         
