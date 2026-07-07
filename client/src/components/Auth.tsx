@@ -316,8 +316,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       {/* FORGOT PASSWORD MODAL */}
       {showForgotPassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeForgotPasswordModal} />
-          <div className="relative w-full max-w-md glass rounded-2xl z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-black/70" onClick={closeForgotPasswordModal} />
+          <div className="relative w-full max-w-md modal-surface rounded-2xl z-10 overflow-hidden">
             <div className="p-5 border-b border-app-border flex justify-between items-center">
               <h2 className="font-display text-lg font-bold text-app-text">
                 {resetStep === 'email' ? 'Reset password' : 'Enter reset code'}

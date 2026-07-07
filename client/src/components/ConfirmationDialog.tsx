@@ -23,14 +23,14 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex justify-center items-center p-4"
+      className="fixed inset-0 bg-black/70 z-[110] flex justify-center items-center p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div
-        className="glass glass-blur rounded-2xl w-full max-w-sm overflow-hidden"
+        className="modal-surface rounded-2xl w-full max-w-sm overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5 md:p-6 flex items-center gap-3">

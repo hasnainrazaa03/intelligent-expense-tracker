@@ -12,6 +12,10 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 const RATE_CACHE_KEY = 'usdToInrRate';
 const ONE_HOUR_MS = 60 * 60 * 1000;
+// Last-resort USD→INR rate so INR display never falls back to "..." when the
+// live FX API is unreachable (blocked network / CORS / offline). Overwritten by
+// the live rate as soon as the fetch succeeds; a cached rate always wins over it.
+const FALLBACK_USD_INR = 87.5;
 
 const readRateCache = (): { rate: number; timestamp: number } | null => {
   try {
@@ -34,7 +38,11 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Default INR for India-timezone users (UTC+5:30), else USD.
     return new Date().getTimezoneOffset() === -330 ? 'INR' : 'USD';
   });
-  const [conversionRate, setConversionRate] = useState<number | null>(null);
+  // Seed from cache (or the fallback) so INR renders immediately and never as
+  // "..." — the live fetch below refines it.
+  const [conversionRate, setConversionRate] = useState<number | null>(
+    () => readRateCache()?.rate ?? FALLBACK_USD_INR
+  );
 
   const setDisplayCurrency = (currency: 'USD' | 'INR') => {
     setDisplayCurrencyState(currency);
@@ -62,6 +70,8 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.setItem(RATE_CACHE_KEY, JSON.stringify({ rate, timestamp: Date.now() }));
       } catch (error) {
         console.error('Could not fetch conversion rate:', error);
+        // Keep the cached rate if we have one; otherwise the state already holds
+        // the fallback so INR stays usable offline.
         if (cached) setConversionRate(cached.rate);
       }
     };
