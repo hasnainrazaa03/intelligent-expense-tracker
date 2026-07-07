@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExclamationTriangleIcon } from './Icons';
+import { Button } from './ui';
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -40,20 +41,12 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         </div>
         <div className="px-5 md:px-6 pb-2 text-sm text-app-muted leading-relaxed">{children}</div>
         <div className="flex p-4 gap-3">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all disabled:opacity-50"
-          >
+          <Button variant="secondary" fullWidth className="flex-1" onClick={onClose} disabled={loading}>
             Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-danger text-white hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="danger" fullWidth className="flex-1" onClick={onConfirm} disabled={loading}>
             {loading ? 'Processing…' : 'Confirm'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Income } from '../types';
 import { INCOME_CATEGORIES } from '../constants';
-import { XMarkIcon } from './Icons';
 import { todayCalendar } from '../utils/dateUtils';
-import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useInrToUsd from '../hooks/useInrToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { Modal, Button, Input, Textarea, Label } from './ui';
 
 interface IncomeModalProps {
   isOpen: boolean;
@@ -16,7 +15,6 @@ interface IncomeModalProps {
 
 const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income }) => {
   const { displayCurrency, conversionRate: parentConversionRate } = useCurrency();
-  const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
@@ -139,45 +137,33 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
     onClose();
   };
 
-  if (!isOpen) return null;
-
   const inputBase = "w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-app-faint appearance-none";
-  const labelBase = "text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase";
 
   return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="income-modal-title"
-      tabIndex={-1}
-      className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={income ? 'Edit income' : 'New income'}
+      subtitle={income ? 'Update this income entry.' : 'Log an inflow.'}
+      size="lg"
+      labelledById="income-modal-title"
+      footer={
+        <>
+          <Button variant="secondary" fullWidth onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="income-form" fullWidth>{income ? 'Save changes' : 'Add income'}</Button>
+        </>
+      }
     >
-      <div className="glass glass-blur rounded-2xl w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
-
-        {/* HEADER */}
-        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-center flex-shrink-0">
-          <div>
-            <h2 id="income-modal-title" className="font-display text-xl sm:text-2xl font-bold text-app-text leading-tight">
-                {income ? 'Edit income' : 'New income'}
-            </h2>
-            <p className="text-xs text-app-muted mt-1">{income ? 'Update this income entry.' : 'Log an inflow.'}</p>
-          </div>
-          <button onClick={onClose} aria-label="Close income modal" className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors">
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-5 sm:p-6">
+      <form id="income-form" onSubmit={handleSubmit}>
           <div className="flex flex-col space-y-5">
 
             <div>
-              <label htmlFor="income-title" className={labelBase}>Source</label>
-              <input id="income-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Stipend, freelance" className={inputBase} required />
+              <Label htmlFor="income-title">Source</Label>
+              <Input id="income-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Stipend, freelance" required />
             </div>
 
             <div>
-                <label className={labelBase}>Currency</label>
+                <Label>Currency</Label>
                 <div className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
                     <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'USD' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
                     <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'INR' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>INR (₹)</button>
@@ -187,7 +173,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             {/* INR entry */}
             {selectedCurrency === 'INR' && (
                 <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-                    <label className={labelBase}>Amount in INR</label>
+                    <Label>Amount in INR</Label>
                     <div className="flex items-center gap-2">
                         <span className="font-display text-xl text-app-muted">₹</span>
                         <input
@@ -204,13 +190,13 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             )}
 
             <div>
-              <label htmlFor="income-amount-usd" className={labelBase}>Amount (USD)</label>
+              <Label htmlFor="income-amount-usd">Amount (USD)</Label>
               <div className="relative">
-                  <input
+                  <Input
                     id="income-amount-usd"
                     type="number" value={amount} onChange={e => setAmount(e.target.value)}
                     placeholder="0.00"
-                    className={`${inputBase} ${isAmountUSDReadOnly ? 'opacity-70' : ''}`}
+                    className={isAmountUSDReadOnly ? 'opacity-70' : ''}
                     required readOnly={isAmountUSDReadOnly} step="0.01"
                   />
                   {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
@@ -219,12 +205,12 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             </div>
 
             <div>
-              <label htmlFor="income-date" className={labelBase}>Date</label>
-              <input id="income-date" type="date" value={date} onChange={e => setDate(e.target.value)} className={`${inputBase} [color-scheme:dark]`} required />
+              <Label htmlFor="income-date">Date</Label>
+              <Input id="income-date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
             </div>
 
             <div className="relative" ref={categoryDropdownRef}>
-          <label htmlFor="income-category-toggle" className={labelBase}>Category</label>
+          <Label htmlFor="income-category-toggle">Category</Label>
           <button
             id="income-category-toggle"
             type="button"
@@ -261,51 +247,32 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
         </div>
 
             <div>
-              <label htmlFor="income-notes" className={labelBase}>Notes</label>
-              <textarea id="income-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Source details…" className={`${inputBase} h-24 resize-none`} />
+              <Label htmlFor="income-notes">Notes</Label>
+              <Textarea id="income-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Source details…" className="h-24 resize-none" />
             </div>
 
             <div>
-              <label className={labelBase}>Tags (comma separated)</label>
-              <input
+              <Label>Tags (comma separated)</Label>
+              <Input
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
-                className={inputBase}
                 placeholder="stipend, freelance, passive"
               />
             </div>
 
             <div>
-              <label className={labelBase}>Metadata (one key: value per line)</label>
-              <textarea
+              <Label>Metadata (one key: value per line)</Label>
+              <Textarea
                 value={metadataInput}
                 onChange={(e) => setMetadataInput(e.target.value)}
-                className={`${inputBase} h-24 resize-none`}
+                className="h-24 resize-none"
                 placeholder={'client: Acme\ninvoice: INV-204'}
               />
             </div>
           </div>
-
-          {/* ACTION BUTTONS */}
-          <div className="mt-7 pt-6 border-t border-app-border flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:flex-1 py-3 rounded-xl text-sm font-semibold bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all order-2 sm:order-1"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="w-full sm:flex-1 py-3 rounded-xl text-sm font-semibold bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all order-1 sm:order-2"
-            >
-              {income ? 'Save changes' : 'Add income'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };
 

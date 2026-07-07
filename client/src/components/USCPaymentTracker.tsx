@@ -5,6 +5,7 @@ import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { Button, Input } from './ui';
 
 interface USCPaymentTrackerProps {
   semesters: Semester[];
@@ -121,11 +122,11 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                   <span className="font-display font-bold text-3xl sm:text-4xl md:text-5xl text-app-text leading-none break-all tabular-nums">
                     {formatCurrency(activeSemester.totalTuition, displayCurrency, conversionRate)}
                   </span>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     placeholder="Set amount"
-                    className="w-full max-w-[180px] bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-app-text placeholder:text-app-faint text-center focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+                    className="max-w-[180px] text-center"
                     onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     onBlur={(e) => {
                       const raw = e.target.value.trim();
@@ -222,15 +223,16 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                           />
                         </div>
 
-                        <button
+                        <Button
+                          size="sm"
                           onClick={() => {
                             const dateToUse = selectedDates[inst.id] || todayCalendar();
                             onMarkAsPaid(activeSemester.id, inst.id, dateToUse);
                           }}
-                          className="bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold text-[10px] md:text-xs px-3 md:px-4 py-2 flex-shrink-0"
+                          className="rounded-xl text-[10px] md:text-xs px-3 md:px-4 py-2 flex-shrink-0"
                         >
                           Mark paid
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
