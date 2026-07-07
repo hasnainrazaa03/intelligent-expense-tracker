@@ -925,28 +925,44 @@ const handleDeleteIncome = async (id: string) => {
                 </div>
 
               {/* 4. FLOATING ACTION BUTTON */}
-              <div className="fixed bottom-24 right-5 md:bottom-10 md:right-10 flex flex-col items-end z-50 group">
+              <div className="fixed bottom-24 right-5 md:bottom-8 md:right-8 z-50">
+                  {/* Click-away backdrop */}
                   {isQuickActionsOpen && (
-                    <div className="mb-3 w-52 glass rounded-2xl p-2 space-y-1">
+                    <button
+                      aria-hidden="true"
+                      tabIndex={-1}
+                      onClick={() => setIsQuickActionsOpen(false)}
+                      className="fixed inset-0 -z-10 cursor-default"
+                    />
+                  )}
+                  {isQuickActionsOpen && (
+                    <div
+                      role="menu"
+                      className="absolute bottom-16 right-0 w-56 glass rounded-2xl p-2 space-y-0.5 origin-bottom-right animate-[fabpop_120ms_ease-out]"
+                    >
                       <button
+                        role="menuitem"
                         onClick={handleOpenExpenseModal}
                         className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
                         + Add expense
                       </button>
                       <button
+                        role="menuitem"
                         onClick={handleOpenIncomeModal}
                         className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
                         + Add income
                       </button>
                       <button
+                        role="menuitem"
                         onClick={handleOpenBudgetModal}
                         className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
                         + Manage budgets
                       </button>
                       <button
+                        role="menuitem"
                         onClick={handleOpenDataModal}
                         className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
@@ -956,10 +972,11 @@ const handleDeleteIncome = async (id: string) => {
                   )}
                   <button
                     onClick={() => setIsQuickActionsOpen((prev) => !prev)}
-                    aria-label="Open quick actions"
+                    aria-label="Quick actions"
+                    aria-expanded={isQuickActionsOpen}
                     className="grid place-items-center w-14 h-14 rounded-full bg-primary text-on-primary shadow-glow hover:brightness-110 transition-all active:scale-95"
                   >
-                    <PlusCircleIcon className={`h-7 w-7 transition-transform ${isQuickActionsOpen ? 'rotate-45' : ''}`} />
+                    <PlusCircleIcon className={`h-7 w-7 transition-transform duration-200 ${isQuickActionsOpen ? 'rotate-45' : ''}`} />
                   </button>
               </div>
 

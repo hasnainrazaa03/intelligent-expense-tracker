@@ -1,42 +1,69 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ExpenseTrackerLogo } from './Branding';
+
+const FEATURES: [string, string][] = [
+  ['Budget alerts & templates', 'Set up structured monthly categories in one click.'],
+  ['Tax & accounting exports', 'Generate tax CSV, QuickBooks, and Xero adapter outputs.'],
+  ['Mobile companion', 'Installable PWA with fast load and an offline shell.'],
+];
 
 const LandingPage: React.FC = () => {
   useEffect(() => {
-    document.title = 'USC Ledger | Intelligent Expense Tracker for Students';
+    document.title = 'Orbit | Intelligent Expense Tracker for Students';
     const desc = document.querySelector('meta[name="description"]');
     if (desc) {
-      desc.setAttribute('content', 'USC Ledger helps students track expenses, budgets, tax-ready exports, and net-worth snapshots with secure cookie sessions.');
+      desc.setAttribute('content', 'Orbit helps students track expenses, budgets, tax-ready exports, and net-worth snapshots with secure cookie sessions.');
     }
   }, []);
 
   return (
-    <main className="min-h-screen bg-bone text-ink font-mono p-6 md:p-10">
-      <section className="max-w-5xl mx-auto border-4 border-ink bg-white shadow-neo p-6 md:p-10">
-        <p className="font-loud text-[10px] uppercase tracking-widest text-usc-cardinal">Search-Optimized Landing</p>
-        <h1 className="font-loud text-4xl md:text-6xl uppercase leading-[0.9] mt-2">USC Ledger</h1>
-        <p className="mt-4 text-sm md:text-base max-w-3xl">
-          A secure student-first finance hub for budgets, recurring tracking, split payments, tax-ready exports, and planning insights.
-        </p>
+    <main className="relative min-h-screen text-app-text px-5 md:px-8 py-10 md:py-16 overflow-hidden">
+      <div className="starfield" />
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link to="/login" className="px-4 py-3 border-4 border-ink bg-usc-gold font-loud text-xs uppercase shadow-neo">Launch App</Link>
-          <Link to="/knowledge" className="px-4 py-3 border-4 border-ink bg-white font-loud text-xs uppercase shadow-neo">Knowledge Base</Link>
-        </div>
-      </section>
+      <div className="relative z-10 max-w-5xl mx-auto">
+        <section className="glass rounded-3xl p-7 md:p-12">
+          <div className="flex items-center gap-3 mb-8">
+            <ExpenseTrackerLogo className="h-8 md:h-9 w-auto text-app-text" />
+          </div>
 
-      <section className="max-w-5xl mx-auto mt-8 grid md:grid-cols-3 gap-4">
-        {[
-          ['Budget alerts and templates', 'Set up structured monthly categories in one click.'],
-          ['Tax and accounting exports', 'Generate tax CSV, QuickBooks adapter, and Xero adapter outputs.'],
-          ['Mobile companion support', 'Installable PWA with fast load and offline shell.'],
-        ].map(([title, body]) => (
-          <article key={title} className="border-4 border-ink bg-white p-4 shadow-neo">
-            <h2 className="font-loud text-sm uppercase">{title}</h2>
-            <p className="mt-2 text-xs">{body}</p>
-          </article>
-        ))}
-      </section>
+          <p className="inline-flex items-center gap-2 text-[11px] font-medium tracking-[0.2em] uppercase text-app-muted">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-glow" />
+            Track · Save · Explore
+          </p>
+          <h1 className="font-display text-4xl md:text-6xl font-bold leading-[1.02] tracking-tight mt-4 max-w-3xl text-balance">
+            The finance hub built for student life.
+          </h1>
+          <p className="mt-5 text-base md:text-lg text-app-muted max-w-2xl leading-relaxed">
+            A secure, student-first home for budgets, recurring tracking, split payments,
+            tax-ready exports, and planning insights — including USC Bursar installment tuition.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              to="/login"
+              className="px-6 py-3 rounded-xl bg-primary text-on-primary font-semibold text-sm shadow-glow hover:brightness-110 transition-all"
+            >
+              Launch app
+            </Link>
+            <Link
+              to="/knowledge"
+              className="px-6 py-3 rounded-xl bg-surface-2 border border-app-border text-app-text font-semibold text-sm hover:border-app-border-strong transition-all"
+            >
+              Knowledge base
+            </Link>
+          </div>
+        </section>
+
+        <section className="mt-6 grid md:grid-cols-3 gap-4 md:gap-5">
+          {FEATURES.map(([title, body]) => (
+            <article key={title} className="glass rounded-2xl p-5 md:p-6">
+              <h2 className="font-display text-base font-semibold text-app-text">{title}</h2>
+              <p className="mt-2 text-sm text-app-muted leading-relaxed">{body}</p>
+            </article>
+          ))}
+        </section>
+      </div>
     </main>
   );
 };

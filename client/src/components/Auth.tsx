@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { WalletIcon, GoogleIcon, ExclamationTriangleIcon } from './Icons';
+import { GoogleIcon, ExclamationTriangleIcon } from './Icons';
+import { ExpenseTrackerLogo } from './Branding';
 import { registerUser, loginUser, forgotPassword, resetPassword, verifyLoginOtp } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -134,50 +135,46 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const inputClasses = "w-full bg-white border-4 border-ink p-3 md:p-4 font-loud text-base md:text-lg focus:ring-4 md:ring-8 focus:ring-usc-gold focus:outline-none transition-all placeholder:text-ink/50 text-ink";
-  const labelClasses = "font-loud text-[10px] uppercase tracking-widest text-ink/70 mb-2 block";
+  const inputClasses = "w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 md:py-3.5 text-base text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all disabled:opacity-50";
+  const labelClasses = "text-[11px] font-medium uppercase tracking-[0.14em] text-app-muted mb-2 block";
   const passwordScore = scorePassword(password);
   const newPasswordScore = scorePassword(newPassword);
 
   return (
-    <div className="min-h-screen graph-grid flex items-center justify-center p-4 antialiased relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 antialiased relative overflow-hidden">
       <div className="starfield" />
 
-      <div className="w-full max-w-md md:max-w-lg bg-bone border-4 md:border-8 border-ink shadow-neo relative z-10 transition-all mx-auto">
-        
-        {/* HEADER STAMP: USC CARDINAL */}
-        <div className="bg-usc-cardinal p-6 md:p-8 border-b-4 md:border-b-8 border-ink">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="font-loud text-3xl md:text-5xl text-bone leading-none tracking-tighter uppercase">
-                {isLoginView ? 'SECURE_LOGIN' : 'CREATE_ID'}
-              </h1>
-              <p className="font-mono text-[10px] text-bone/60 mt-2 uppercase tracking-[0.3em]">
-                System_Access // Log_v4.0
-              </p>
-            </div>
-            <WalletIcon className="h-8 w-8 md:h-10 md:w-10 text-usc-gold shrink-0" />
-          </div>
+      <div className="w-full max-w-md md:max-w-lg glass rounded-3xl relative z-10 transition-all mx-auto overflow-hidden">
+
+        {/* HEADER */}
+        <div className="p-7 md:p-9 border-b border-app-border">
+          <ExpenseTrackerLogo className="h-7 md:h-8 w-auto text-app-text mb-5" />
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-app-text leading-tight">
+            {isLoginView ? 'Welcome back' : 'Create your account'}
+          </h1>
+          <p className="text-sm text-app-muted mt-1.5">
+            {isLoginView ? 'Sign in to your Orbit dashboard.' : 'Start tracking in under a minute.'}
+          </p>
         </div>
-        
-        <div className="p-6 md:p-10">
-          <form onSubmit={handleFormSubmit} className="space-y-6 md:space-y-8">
+
+        <div className="p-7 md:p-9">
+          <form onSubmit={handleFormSubmit} className="space-y-6">
             {/* ALERT BOX */}
             {error && (
-              <div id={authErrorId} role="alert" aria-live="assertive" className="bg-ink text-usc-cardinal p-4 border-4 border-usc-cardinal flex items-center font-loud text-xs italic uppercase">
-                <ExclamationTriangleIcon className="h-5 w-5 mr-3" />
+              <div id={authErrorId} role="alert" aria-live="assertive" className="bg-danger/10 border border-danger/30 text-danger rounded-xl p-3.5 flex items-center text-sm font-medium">
+                <ExclamationTriangleIcon className="h-5 w-5 mr-3 shrink-0" />
                 {error}
               </div>
             )}
             {successMsg && (
-              <div className="bg-green-700 text-bone p-4 border-4 border-ink flex items-center font-loud text-xs uppercase">
+              <div className="bg-ok/10 border border-ok/30 text-ok rounded-xl p-3.5 flex items-center text-sm font-medium">
                 {successMsg}
               </div>
             )}
 
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <label htmlFor="email" className={labelClasses}>CREDENTIAL_EMAIL</label>
+                <label htmlFor="email" className={labelClasses}>Email</label>
                 <input
                   id="email"
                   type="email"
@@ -187,13 +184,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                   aria-invalid={!!error}
                   aria-describedby={error ? authErrorId : undefined}
                   required
-                  placeholder="USER@USC.EDU"
+                  placeholder="you@email.com"
                   autoComplete="email"
                   disabled={loading}
                 />
               </div>
               <div>
-                <label htmlFor="password" className={labelClasses}>SECURE_PASSCODE</label>
+                <label htmlFor="password" className={labelClasses}>Password</label>
                 <input
                   id="password"
                   type="password"
@@ -209,15 +206,15 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 />
                 {!isLoginView && (
                   <>
-                    <div className="mt-2 grid grid-cols-5 gap-1" aria-hidden="true">
+                    <div className="mt-2.5 grid grid-cols-5 gap-1.5" aria-hidden="true">
                       {Array.from({ length: 5 }, (_, idx) => (
                         <div
                           key={idx}
-                          className={`h-1.5 border border-ink ${idx < passwordScore ? 'bg-usc-gold' : 'bg-white'}`}
+                          className={`h-1.5 rounded-full transition-colors ${idx < passwordScore ? 'bg-primary' : 'bg-surface-2 border border-app-border'}`}
                         />
                       ))}
                     </div>
-                    <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-ink/60">
+                    <p className="mt-2 text-[11px] text-app-muted">
                       Use 8+ chars with upper, lower, number, and symbol.
                     </p>
                   </>
@@ -233,106 +230,108 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                       setResetCode('');
                       setNewPassword('');
                     }}
-                    className="mt-2 font-loud text-[9px] uppercase tracking-widest text-usc-cardinal hover:text-ink transition-colors underline decoration-1 underline-offset-2"
+                    className="mt-2.5 text-xs font-medium text-primary hover:brightness-125 transition-all"
                   >
-                    FORGOT_PASSCODE?
+                    Forgot password?
                   </button>
                 )}
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              className="w-full bg-usc-gold text-ink font-loud text-lg md:text-2xl py-4 md:py-5 border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
+            <button
+              type="submit"
+              className="w-full bg-primary text-on-primary font-semibold text-base py-3.5 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
               disabled={loading}
             >
-              {loading 
-                ? (isLoginView ? 'SYNCING...' : 'INITIALIZING...') 
-                : (isLoginView ? 'INITIALIZE_SESSION' : 'GENERATE_CREDENTIALS')}
+              {loading
+                ? (isLoginView ? 'Signing in…' : 'Creating…')
+                : (isLoginView ? 'Sign in' : 'Create account')}
             </button>
           </form>
 
           {requiresTwoFactor && (
-            <form onSubmit={handleTwoFactorSubmit} className="mt-6 space-y-4 border-4 border-ink p-4 bg-white">
-              <p className="font-loud text-xs uppercase tracking-widest text-ink/70">SECOND_FACTOR_REQUIRED</p>
+            <form onSubmit={handleTwoFactorSubmit} className="mt-6 space-y-4 rounded-2xl border border-app-border bg-surface-2 p-5">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-app-muted">Two-factor required</p>
               <input
                 type="text"
                 value={loginOtp}
                 onChange={(e) => setLoginOtp(e.target.value)}
                 className={inputClasses}
-                placeholder="ENTER_6_DIGIT_CODE"
+                placeholder="Enter 6-digit code"
                 maxLength={6}
                 required
                 disabled={loading}
               />
               <button
                 type="submit"
-                className="w-full bg-ink text-bone font-loud text-sm py-3 border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
+                className="w-full bg-primary text-on-primary font-semibold text-sm py-3 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
                 disabled={loading}
               >
-                {loading ? 'VERIFYING...' : 'VERIFY_AND_LOGIN'}
+                {loading ? 'Verifying…' : 'Verify & sign in'}
               </button>
             </form>
           )}
-          
+
           {/* VISUAL DIVIDER */}
-          <div className="relative my-10 flex items-center justify-center">
+          <div className="relative my-7 flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t-4 border-dashed border-ink/20" />
+              <div className="w-full border-t border-app-border" />
             </div>
-            <span className="relative bg-bone px-4 font-loud text-[10px] text-ink/40 uppercase">
-              Auth_Gateway_Switch
+            <span className="relative bg-surface px-4 text-[11px] text-app-faint uppercase tracking-[0.14em]">
+              or
             </span>
           </div>
 
           {/* GOOGLE SSO BUTTON */}
-          <a 
-            href={`${API_BASE_URL}/auth/google`} 
-            className="w-full flex items-center justify-center py-4 md:py-5 px-4 bg-white border-4 border-ink text-ink font-loud text-base md:text-lg shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all"
+          <a
+            href={`${API_BASE_URL}/auth/google`}
+            className="w-full flex items-center justify-center py-3.5 px-4 bg-surface-2 border border-app-border rounded-xl text-app-text font-semibold text-sm hover:border-app-border-strong transition-all"
           >
-            <GoogleIcon className="h-5 w-5 md:h-6 md:w-6 mr-3 md:mr-4" />
-            <span>GOOGLE_SSO_ACCESS</span>
+            <GoogleIcon className="h-5 w-5 mr-3" />
+            <span>Continue with Google</span>
           </a>
 
           {/* VIEW TOGGLE */}
-          <p className="text-center mt-8 md:mt-10">
-            <a 
-              href="#" 
-              onClick={toggleView} 
-              className="font-loud text-[10px] md:text-xs uppercase tracking-widest text-ink hover:text-usc-cardinal transition-colors underline decoration-2 md:decoration-4 decoration-usc-gold underline-offset-4"
+          <p className="text-center mt-7 text-sm text-app-muted">
+            {isLoginView ? "Don't have an account? " : 'Already have an account? '}
+            <a
+              href="#"
+              onClick={toggleView}
+              className="font-semibold text-primary hover:brightness-125 transition-all"
             >
-              {isLoginView ? 'Switch to [Account_Registration]' : 'Switch to [Secure_Login]'}
+              {isLoginView ? 'Sign up' : 'Sign in'}
             </a>
           </p>
         </div>
 
-        {/* FOOTER TECHNICAL STAMP */}
-        <div className="p-4 bg-ink text-white font-mono text-[8px] flex justify-between uppercase select-none tracking-[0.2em]">
-          <span>Fight_On_Security_Shield</span>
-          <span>© TROJAN_FIN_SYSTEM_2025</span>
+        {/* FOOTER */}
+        <div className="px-7 py-4 border-t border-app-border text-app-faint text-[10px] flex justify-between uppercase select-none tracking-[0.16em]">
+          <span>Bank-level security</span>
+          <span>© Orbit {'2026'}</span>
         </div>
       </div>
 
       {/* FORGOT PASSWORD MODAL */}
       {showForgotPassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={closeForgotPasswordModal} />
-          <div className="relative w-full max-w-md bg-bone border-4 border-ink shadow-neo z-10">
-            <div className="bg-usc-cardinal p-5 border-b-4 border-ink flex justify-between items-center">
-              <h2 className="font-loud text-xl text-bone uppercase tracking-tight">
-                {resetStep === 'email' ? 'RESET_PASSCODE' : 'ENTER_RESET_CODE'}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeForgotPasswordModal} />
+          <div className="relative w-full max-w-md glass rounded-2xl z-10 overflow-hidden">
+            <div className="p-5 border-b border-app-border flex justify-between items-center">
+              <h2 className="font-display text-lg font-bold text-app-text">
+                {resetStep === 'email' ? 'Reset password' : 'Enter reset code'}
               </h2>
               <button
                 type="button"
                 onClick={closeForgotPasswordModal}
-                className="text-bone hover:text-usc-gold transition-colors font-loud text-2xl leading-none"
+                aria-label="Close"
+                className="grid place-items-center w-8 h-8 rounded-lg text-app-muted hover:text-app-text hover:bg-surface-2 transition-colors text-xl leading-none"
               >
                 ✕
               </button>
             </div>
             <div className="p-6 space-y-5">
               {resetError && (
-                <div id={resetErrorId} role="alert" aria-live="assertive" className="bg-ink text-usc-cardinal p-3 border-4 border-usc-cardinal font-loud text-xs italic uppercase flex items-center">
+                <div id={resetErrorId} role="alert" aria-live="assertive" className="bg-danger/10 border border-danger/30 text-danger rounded-xl p-3 text-sm font-medium flex items-center">
                   <ExclamationTriangleIcon className="h-4 w-4 mr-2 shrink-0" />
                   {resetError}
                 </div>
@@ -340,11 +339,11 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
               {resetStep === 'email' ? (
                 <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-ink/60">
+                  <p className="text-sm text-app-muted">
                     Enter your registered email to receive a reset code.
                   </p>
                   <div>
-                    <label htmlFor="reset-email" className={labelClasses}>EMAIL_ADDRESS</label>
+                    <label htmlFor="reset-email" className={labelClasses}>Email address</label>
                     <input
                       id="reset-email"
                       type="email"
@@ -354,25 +353,25 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                       aria-invalid={!!resetError}
                       aria-describedby={resetError ? resetErrorId : undefined}
                       required
-                      placeholder="USER@USC.EDU"
+                      placeholder="you@email.com"
                       disabled={resetLoading}
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={resetLoading}
-                    className="w-full bg-usc-gold text-ink font-loud text-base py-3 border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 uppercase"
+                    className="w-full bg-primary text-on-primary font-semibold text-sm py-3 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
                   >
-                    {resetLoading ? 'TRANSMITTING...' : 'SEND_RESET_CODE'}
+                    {resetLoading ? 'Sending…' : 'Send reset code'}
                   </button>
                 </form>
               ) : (
                 <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-ink/60">
+                  <p className="text-sm text-app-muted">
                     Enter the 6-digit code sent to {resetEmail}.
                   </p>
                   <div>
-                    <label htmlFor="reset-code" className={labelClasses}>RESET_CODE</label>
+                    <label htmlFor="reset-code" className={labelClasses}>Reset code</label>
                     <input
                       id="reset-code"
                       type="text"
@@ -388,7 +387,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     />
                   </div>
                   <div>
-                    <label htmlFor="new-password" className={labelClasses}>NEW_PASSCODE</label>
+                    <label htmlFor="new-password" className={labelClasses}>New password</label>
                     <input
                       id="new-password"
                       type="password"
@@ -401,24 +400,24 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                       placeholder="••••••••"
                       disabled={resetLoading}
                     />
-                    <div className="mt-2 grid grid-cols-5 gap-1" aria-hidden="true">
+                    <div className="mt-2.5 grid grid-cols-5 gap-1.5" aria-hidden="true">
                       {Array.from({ length: 5 }, (_, idx) => (
                         <div
                           key={idx}
-                          className={`h-1.5 border border-ink ${idx < newPasswordScore ? 'bg-usc-gold' : 'bg-white'}`}
+                          className={`h-1.5 rounded-full transition-colors ${idx < newPasswordScore ? 'bg-primary' : 'bg-surface-2 border border-app-border'}`}
                         />
                       ))}
                     </div>
-                    <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-ink/60">
+                    <p className="mt-2 text-[11px] text-app-muted">
                       Must include upper, lower, number, and symbol.
                     </p>
                   </div>
                   <button
                     type="submit"
                     disabled={resetLoading}
-                    className="w-full bg-usc-gold text-ink font-loud text-base py-3 border-4 border-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 uppercase"
+                    className="w-full bg-primary text-on-primary font-semibold text-sm py-3 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
                   >
-                    {resetLoading ? 'RESETTING...' : 'RESET_PASSCODE'}
+                    {resetLoading ? 'Resetting…' : 'Reset password'}
                   </button>
                 </form>
               )}

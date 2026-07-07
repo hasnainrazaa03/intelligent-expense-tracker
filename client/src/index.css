@@ -115,7 +115,6 @@
       radial-gradient(55% 50% at 78% 92%, rgba(80, 120, 255, 0.14), transparent 72%),
       radial-gradient(120% 120% at 50% 0%, var(--bg-tint), var(--bg) 68%),
       var(--bg);
-    background-attachment: fixed;
   }
 
   ::selection { background: var(--primary-soft); color: var(--text); }
@@ -166,12 +165,15 @@
     background-size: 320px 320px;
     opacity: 0.7;
   }
-  @media (prefers-reduced-motion: no-preference) {
-    .dark .starfield { animation: orbit-drift 240s linear infinite; }
-    .dark .starfield::after { animation: orbit-twinkle 6s ease-in-out infinite; }
+  /* The starfield is intentionally STATIC. A continuously-animated full-viewport
+     layer behind ~10 backdrop-blur panels forces the compositor to re-blur every
+     panel every frame — the main source of navigation/scroll jank. Static stars
+     let the browser cache each panel's blur. */
+
+  @keyframes fabpop {
+    from { opacity: 0; transform: scale(0.94) translateY(6px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
   }
-  @keyframes orbit-drift { to { background-position: 560px 560px; } }
-  @keyframes orbit-twinkle { 0%,100% { opacity: .4; } 50% { opacity: .85; } }
 
   /* ---- Glass surface helper for panels ---- */
   .glass {
@@ -179,7 +181,7 @@
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
   }
-  .dark .glass { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .dark .glass { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 
   /* AI markdown (retuned to the sans display face) */
   .ai-markdown h1, .ai-markdown h2, .ai-markdown h3, .ai-markdown h4 {
