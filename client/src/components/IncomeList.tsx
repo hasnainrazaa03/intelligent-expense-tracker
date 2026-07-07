@@ -30,7 +30,6 @@ interface IncomeItemProps {
   onDelete: (id: string) => void;
 }
 
-// --- NEO-BRUTALIST INCOME ITEM ---
 const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, onDelete }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const [isInlineEditing, setIsInlineEditing] = useState(false);
@@ -54,11 +53,11 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
 
   return (
     <li className="relative group">
-      <div className="bg-white border-4 border-ink p-4 md:p-6 shadow-neo-gold hover:shadow-neo-hover active:translate-y-0.5 md:hover:-translate-y-1 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 overflow-hidden">
-        
-        <div className="flex items-center space-x-3 md:space-x-4 flex-1 min-w-0">
-          <div className="p-2 md:p-3 border-2 md:border-4 border-ink bg-usc-gold text-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[4px_4px_0px_0px_#111111] flex-shrink-0">
-            <BanknotesIcon className="h-4 w-4 md:h-6 md:w-6" />
+      <div className="glass rounded-2xl p-4 md:p-5 hover:border-app-border-strong transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 overflow-hidden">
+
+        <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+          <div className="grid place-items-center w-10 h-10 md:w-11 md:h-11 rounded-xl bg-ok/15 text-ok flex-shrink-0">
+            <BanknotesIcon className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             {isInlineEditing ? (
@@ -66,58 +65,58 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
                 type="text"
                 value={draftSource}
                 onChange={(e) => setDraftSource(e.target.value)}
-                className="border-2 border-ink px-2 py-1 font-loud text-sm bg-white"
+                className="bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             ) : (
-              <h4 className="font-loud text-base md:text-xl leading-none text-ink uppercase truncate" onDoubleClick={() => setIsInlineEditing(true)}>{income.title}</h4>
+              <h4 className="font-display text-sm md:text-base font-semibold leading-tight text-app-text truncate" onDoubleClick={() => setIsInlineEditing(true)}>{income.title}</h4>
             )}
-            <div className="flex flex-wrap gap-1.5 md:gap-2 mt-2">
-              <span className="bg-ink text-usc-gold px-1.5 py-0.5 text-[8px] md:text-[10px] font-bold border border-ink uppercase">
-                {income.category.toUpperCase()}
+            <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mt-1.5">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-ok/15 text-ok">
+                {income.category}
               </span>
-              <span className="flex items-center text-[8px] md:text-[10px] font-bold text-ink/40 uppercase">
-                <CalendarDaysIcon className="h-2.5 w-2.5 md:h-3 md:w-3 mr-1" /> {income.date}
+              <span className="flex items-center text-[11px] text-app-muted">
+                <CalendarDaysIcon className="h-3 w-3 mr-1" /> {income.date}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 border-t-2 md:border-t-0 border-ink/10 pt-3 md:pt-0">
+        <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 border-t md:border-t-0 border-app-border pt-3 md:pt-0">
           <div className="text-left md:text-right">
             {isInlineEditing ? (
               <input
                 type="number"
                 value={draftAmount}
                 onChange={(e) => setDraftAmount(e.target.value)}
-                className="w-28 border-2 border-ink px-2 py-1 font-loud text-sm bg-white"
+                className="w-28 bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             ) : (
-              <p className="font-loud text-xl md:text-2xl text-green-600 leading-none" onDoubleClick={() => setIsInlineEditing(true)}>
+              <p className="font-display text-lg md:text-xl font-bold text-ok leading-none tabular-nums cursor-default" onDoubleClick={() => setIsInlineEditing(true)}>
                 +{formatCurrency(income.amount, displayCurrency, conversionRate)}
               </p>
             )}
-            <p className="text-[8px] md:text-[9px] font-mono opacity-50 uppercase tracking-tighter text-ink mt-1">Verified_Inflow</p>
+            <p className="text-[11px] text-app-muted mt-1">Verified inflow</p>
           </div>
 
-          <div className="flex space-x-2 flex-shrink-0">
+          <div className="flex gap-1.5 flex-shrink-0">
             {isInlineEditing && (
-              <button onClick={saveInlineChanges} aria-label={`Save quick edit for ${income.title}`} className="px-2 py-1 border-2 border-ink bg-ink text-bone text-xs font-bold shadow-[2px_2px_0px_0px_#111111]">
-                SAVE
+              <button onClick={saveInlineChanges} aria-label={`Save quick edit for ${income.title}`} className="px-3 h-9 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow-glow">
+                Save
               </button>
             )}
-            <button onClick={() => onEdit(income)} aria-label={`Edit income ${income.title}`} className="p-2 border-2 border-ink bg-usc-gold text-ink shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 transition-all">
-              <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
+            <button onClick={() => onEdit(income)} aria-label={`Edit income ${income.title}`} className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors">
+              <PencilIcon className="h-4 w-4" />
             </button>
-            <button onClick={() => onDelete(income.id)} aria-label={`Delete income ${income.title}`} className="p-2 border-2 border-ink bg-usc-cardinal text-bone shadow-[2px_2px_0px_0px_#111111] active:translate-x-0.5 active:translate-y-0.5 transition-all">
-              <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
+            <button onClick={() => onDelete(income.id)} aria-label={`Delete income ${income.title}`} className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-danger hover:bg-danger/10 hover:border-danger/40 transition-colors">
+              <TrashIcon className="h-4 w-4" />
             </button>
           </div>
         </div>
       </div>
-      
+
       {income.notes && (
-        <div className="hidden md:group-hover:block absolute -top-12 left-1/2 -translate-x-1/2 bg-ink text-bone p-2 text-xs font-mono border-2 border-usc-gold z-20 whitespace-nowrap shadow-neo uppercase">
-           <ChatBubbleBottomCenterTextIcon className="h-3 w-3 inline mr-1" />
+        <div className="hidden md:group-hover:block absolute -top-10 left-1/2 -translate-x-1/2 glass glass-blur rounded-lg px-3 py-2 text-xs text-app-text z-20 whitespace-nowrap max-w-xs truncate">
+           <ChatBubbleBottomCenterTextIcon className="h-3.5 w-3.5 inline mr-1.5 text-primary" />
            {income.notes}
         </div>
       )}
@@ -173,8 +172,8 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-4 border-ink pb-2 gap-2">
-        <h2 className="font-loud text-2xl md:text-4xl text-ink uppercase truncate">INCOME_STREAM</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-app-border pb-3 gap-2">
+        <h2 className="font-display text-xl md:text-2xl font-bold text-app-text truncate">Income stream</h2>
         <div className="flex items-center gap-2">
           {!shouldVirtualize && (
             <select
@@ -184,15 +183,15 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
                 setItemsPerPage(Number(e.target.value) as PageSizeOption);
                 setCurrentPage(1);
               }}
-              className="border-2 border-ink bg-white px-2 py-1 font-mono text-[10px] md:text-xs"
+              className="bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-xs text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               {PAGE_SIZE_OPTIONS.map((option) => (
                 <option key={option} value={option}>{option}/page</option>
               ))}
             </select>
           )}
-          <span className="bg-usc-gold text-ink px-2 md:px-3 py-1 font-loud text-[10px] md:text-xs border-2 border-ink w-fit">
-            TOTAL_SOURCES: {incomes.length}
+          <span className="bg-surface-2 border border-app-border text-app-muted px-2.5 py-1.5 rounded-lg text-xs font-medium w-fit tabular-nums">
+            {incomes.length} sources
           </span>
         </div>
       </div>
@@ -202,7 +201,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
       ) : incomes.length > 0 ? (
         <>
         {shouldVirtualize ? (
-          <div className="border-4 border-ink bg-white">
+          <div className="glass rounded-2xl p-2">
             <List
               defaultHeight={APP_CONFIG.virtualListHeight}
               style={{ height: APP_CONFIG.virtualListHeight }}
@@ -244,20 +243,20 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
         </>
       ) : (
         <EmptyState
-          title="AWAITING_REVENUE_DATA"
-          subtitle="STATUS: ZERO_INFLOW_DETECTED. START BY ADDING YOUR FIRST INCOME ENTRY."
-          ctaLabel="ADD_FIRST_INCOME"
+          title="No income yet"
+          subtitle="Add your first income entry to start tracking inflow."
+          ctaLabel="Add first income"
           onCta={onCreate}
         />
       )}
-      
+
       <ConfirmationDialog
         isOpen={!!incomeToDeleteId}
         onClose={() => setIncomeToDeleteId(null)}
         onConfirm={handleConfirmDelete}
-        title="SYSTEM_ALERT"
+        title="Delete income?"
       >
-        IDENTIFIED RECORD WILL BE DELETED FROM THE CENTRAL DATABASE. PROCEED WITH PERMANENT ERASURE?
+        This income record will be permanently deleted. This action cannot be undone.
       </ConfirmationDialog>
     </div>
   );

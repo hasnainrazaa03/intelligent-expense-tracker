@@ -16,44 +16,6 @@ interface ExpenseModalProps {
   expense: Expense | null;
 }
 
-// --- WHIMSICAL COMPONENT: THE TRACKING EYES ---
-const TrojanEyes = () => {
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  
-  useEffect(() => {
-    let rafId: number;
-    const handleMouseMove = (e: MouseEvent) => {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const x = (e.clientX / window.innerWidth - 0.5) * 12;
-        const y = (e.clientY / window.innerHeight - 0.5) * 12;
-        setMousePos({ x, y });
-      });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      cancelAnimationFrame(rafId);
-    };
-  }, []);
-
-  return (
-    <div className="flex space-x-2 bg-ink p-2 border-2 border-usc-gold shadow-[4px_4px_0px_0px_#990000]">
-      {[1, 2].map((i) => (
-        <div key={i} className="w-6 h-6 bg-bone rounded-full relative overflow-hidden border-2 border-ink">
-          <div 
-            className="w-3 h-3 bg-ink rounded-full absolute transition-transform duration-75 ease-out"
-            style={{ 
-              top: '50%', left: '50%',
-              transform: `translate(calc(-50% + ${mousePos.x}px), calc(-50% + ${mousePos.y}px))` 
-            }}
-          />
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense }) => {
   const { displayCurrency, conversionRate: parentConversionRate } = useCurrency();
   const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
@@ -301,9 +263,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   };
 
   // --- STYLING CONSTANTS ---
-  const inputBase = "w-full bg-white border-4 border-ink p-4 font-loud text-base text-ink focus:outline-none focus:ring-4 focus:ring-usc-gold transition-all placeholder:text-ink/10 min-h-[56px] appearance-none";
-  const labelBase = "font-loud text-[10px] tracking-widest text-ink/40 mb-2 block uppercase leading-none antialiased";
-  
+  const inputBase = "w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-app-faint appearance-none";
+  const labelBase = "text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase";
+
   return (
     <div
       ref={modalRef}
@@ -311,136 +273,126 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       aria-modal="true"
       aria-labelledby="expense-modal-title"
       tabIndex={-1}
-      className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4"
     >
-      <div className="bg-bone border-4 border-ink shadow-neo-gold w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
-        
-        {/* HEADER STAMP */}
-        <div className="bg-usc-cardinal p-4 sm:p-6 border-b-4 border-ink flex justify-between items-center flex-shrink-0">
+      <div className="glass glass-blur rounded-2xl w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+
+        {/* HEADER */}
+        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-center flex-shrink-0">
           <div className="min-w-0 pr-2">
-            <h2 id="expense-modal-title" className="font-loud text-xl sm:text-3xl text-bone leading-none uppercase truncate">
-                {expense ? 'UPDATE_MANIFEST' : 'INITIALIZE_ENTRY'}
+            <h2 id="expense-modal-title" className="font-display text-xl sm:text-2xl font-bold text-app-text leading-tight truncate">
+                {expense ? 'Edit expense' : 'New expense'}
             </h2>
-            <div className="flex items-center mt-1 sm:mt-2">
-              <span className="bg-ink text-usc-gold px-1.5 py-0.5 text-[7px] sm:text-[8px] font-bold border border-ink">v4.0_SECURE</span>
-              <span className="ml-2 text-[7px] sm:text-[8px] font-mono text-bone/40 uppercase tracking-widest leading-none hidden xs:inline">AUTO_SYNC: ON</span>
+            <p className="text-xs text-app-muted mt-1">{expense ? 'Update this transaction.' : 'Log a new transaction.'}</p>
           </div>
-        </div>
-          <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-            <div className="scale-75 sm:scale-100 origin-right">
-              <TrojanEyes />
-            </div>
-            <button onClick={onClose} aria-label="Close expense modal" className="bg-ink text-bone p-1 border-2 border-bone hover:bg-bone hover:text-ink transition-colors">
-              <XMarkIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-            </button>
-          </div>
+          <button onClick={onClose} aria-label="Close expense modal" className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors flex-shrink-0">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-4 sm:p-8">
-          <div className="flex flex-col space-y-8">
-            
+        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-5 sm:p-6">
+          <div className="flex flex-col space-y-5">
+
             {/* Title */}
             <div>
-              <label className={labelBase}>TRANSACTION_TITLE</label>
-              <input 
+              <label className={labelBase}>Title</label>
+              <input
                 type="text" value={title} onChange={e => setTitle(e.target.value)}
-                placeholder="Eg. USC_VILLAGE" 
-                className={inputBase} required 
+                placeholder="e.g. Groceries"
+                className={inputBase} required
               />
             </div>
 
             {/* Currency Segmented Control */}
             <div>
-              <label className={labelBase}>CURRENCY_FILTER</label>
-              <div className="grid grid-cols-2 bg-ink border-4 border-ink p-1">
-                  <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-3 font-loud text-[10px] sm:text-xs transition-all ${selectedCurrency === 'USD' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}>USD_($)</button>
-                  <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-3 font-loud text-[10px] sm:text-xs transition-all ${selectedCurrency === 'INR' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}>INR_(₹)</button>
+              <label className={labelBase}>Currency</label>
+              <div className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
+                  <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'USD' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
+                  <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'INR' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>INR (₹)</button>
               </div>
           </div>
 
             {/* Conditional INR Input */}
             {selectedCurrency === 'INR' && (
-              <div className="bg-usc-gold border-4 border-ink p-4 relative overflow-hidden">
-                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-bone border-r-4 border-ink rounded-full" />
-                
-                <label className={`${labelBase} text-ink/60`}>FOREIGN_EXCHANGE_ENTRY (INR)</label>
-                <div className="flex items-center gap-3">
-                  <span className="font-loud text-2xl">₹</span>
-                  <input 
-                    type="number" 
-                    value={originalAmount} 
+              <div className="rounded-xl border border-app-border bg-surface-2 p-4">
+                <label className={labelBase}>Amount in INR</label>
+                <div className="flex items-center gap-2">
+                  <span className="font-display text-xl text-app-muted">₹</span>
+                  <input
+                    type="number"
+                    value={originalAmount}
                     onChange={e => setOriginalAmount(e.target.value)}
-                    placeholder="0.00" 
-                    className="w-full bg-bone border-4 border-ink p-3 font-loud text-lg focus:outline-none" 
+                    placeholder="0.00"
+                    className="w-full bg-surface border border-app-border rounded-lg px-3 py-2.5 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                     required min="0.01" step="0.01"
                   />
                 </div>
-                <p className="mt-2 font-mono text-[9px] text-ink/60 uppercase">System will auto-calculate USD equivalent via Frankfurter_API</p>
+                <p className="mt-2 text-[11px] text-app-muted">USD equivalent is auto-calculated via the Frankfurter API.</p>
               </div>
             )}
 
             {/* USD Amount */}
             <div>
-              <label className={labelBase}>TOTAL_USD_VALUE</label>
+              <label className={labelBase}>Amount (USD)</label>
               <div className="relative">
-                  <input 
+                  <input
                     type="number" value={amount} onChange={e => setAmount(e.target.value)}
-                    placeholder="0.00" 
-                    className={`${inputBase} ${isAmountUSDReadOnly ? 'bg-ink/5' : ''}`} 
+                    placeholder="0.00"
+                    className={`${inputBase} ${isAmountUSDReadOnly ? 'opacity-70' : ''}`}
                     required readOnly={isAmountUSDReadOnly} min="0.01" step="0.01"
                   />
-                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-usc-gold border-t-transparent rounded-full" />}
+                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
               </div>
-                {conversionError && <p role="alert" aria-live="assertive" className="text-[10px] text-usc-cardinal font-bold mt-1 uppercase italic">{conversionError}</p>}
+                {conversionError && <p role="alert" aria-live="assertive" className="text-xs text-danger font-medium mt-1.5">{conversionError}</p>}
               {conversionRate && selectedCurrency === 'INR' && (
-                  <p aria-live="polite" className="text-[9px] font-mono mt-1 opacity-50">FX: 1 INR = {conversionRate.toFixed(4)} USD</p>
+                  <p aria-live="polite" className="text-[11px] text-app-muted mt-1.5 tabular-nums">FX: 1 INR = {conversionRate.toFixed(4)} USD</p>
               )}
             </div>
 
             {/* Date */}
             <div>
-              <label className={labelBase}>TIMESTAMP_ENTRY</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputBase} required />
+              <label className={labelBase}>Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className={`${inputBase} [color-scheme:dark]`} required />
             </div>
 
-            {/* Category Dropdown (Neo-Brutalist Rebuild) */}
-            <div className="col-span-2">
-              <label className={labelBase}>CLASSIFICATION</label>
+            {/* Category Dropdown */}
+            <div>
+              <label className={labelBase}>Category</label>
               <div className="relative" ref={categoryDropdownRef}>
                 <button
                     type="button"
                     onClick={() => { setIsCategoryDropdownOpen(!isCategoryDropdownOpen); setCategorySearchTerm(''); }}
                     className={`${inputBase} flex justify-between items-center text-left`}
                 >
-                    <div className="flex items-center uppercase overflow-hidden">
-                        <div className="w-3 h-3 border-2 border-ink mr-3 flex-shrink-0" style={{ backgroundColor: getCategoryColor(category) }}></div>
+                    <div className="flex items-center overflow-hidden">
+                        <div className="w-2.5 h-2.5 rounded-full mr-3 flex-shrink-0" style={{ backgroundColor: getCategoryColor(category) }}></div>
                         <span className="truncate">{category}</span>
                     </div>
-                    <ChevronUpDownIcon className="h-5 w-5 text-ink/30" />
+                    <ChevronUpDownIcon className="h-5 w-5 text-app-faint" />
                 </button>
-                
+
                 {isCategoryDropdownOpen && (
-                  <div className="absolute z-50 mt-2 w-full bg-bone border-4 border-ink shadow-neo overflow-hidden flex flex-col max-h-64">
-                      <div className="p-3 border-b-4 border-ink bg-white sticky top-0">
+                  <div className="absolute z-50 mt-2 w-full glass glass-blur rounded-xl overflow-hidden flex flex-col max-h-64">
+                      <div className="p-2.5 border-b border-app-border sticky top-0">
                           <input
-                              type="text" placeholder="SEARCH_CATEGORIES..." value={categorySearchTerm}
+                              type="text" placeholder="Search categories…" value={categorySearchTerm}
                               onChange={(e) => setCategorySearchTerm(e.target.value)}
-                              className="w-full bg-bone border-2 border-ink p-2 text-xs font-loud focus:outline-none"
+                              className="w-full bg-surface-2 border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                               autoFocus
                           />
                       </div>
-                      <div className="overflow-y-auto bg-white">
+                      <div className="overflow-y-auto">
                           {(Object.entries(filteredCategories) as [string, string[]][]).map(([main, subs]) => (
                               <div key={main}>
-                                  <div className="px-3 py-1 text-[9px] font-loud bg-ink text-bone uppercase">{main}</div>
+                                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-faint bg-surface-2/60">{main}</div>
                                   {subs.map(sub => (
                                       <button
                                           type="button"
                                           key={sub} onClick={() => handleCategorySelect(sub)}
-                                          className="w-full text-left px-4 py-2 text-xs font-bold text-ink hover:bg-usc-gold focus:bg-usc-gold focus:outline-none cursor-pointer flex items-center transition-colors border-b border-ink/5"
+                                          className="w-full text-left px-4 py-2.5 text-sm text-app-text hover:bg-surface-2 focus:bg-surface-2 focus:outline-none cursor-pointer flex items-center transition-colors"
                                       >
-                                          <div className="w-2 h-2 border border-ink mr-3" style={{ backgroundColor: getCategoryColor(sub) }}></div>
-                                          {sub.toUpperCase()}
+                                          <div className="w-2 h-2 rounded-full mr-3" style={{ backgroundColor: getCategoryColor(sub) }}></div>
+                                          {sub}
                                       </button>
                                   ))}
                               </div>
@@ -451,26 +403,25 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               </div>
             </div>
 
-            {/* Recurring & Payment */}
-            <div className="col-span-1 flex items-center">
-                <label className="flex items-center cursor-pointer group">
-                    <div className="relative">
-                        <input 
-                            type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)}
-                            className="sr-only" 
-                        />
-                        <div className={`w-10 h-6 border-4 border-ink transition-colors ${isRecurring ? 'bg-usc-gold' : 'bg-bone'}`}></div>
-                        <div className={`absolute top-1 left-1 w-2 h-2 bg-ink transition-transform ${isRecurring ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                    </div>
-                    <span className="ml-3 font-loud text-[10px] uppercase">RECURRING_TX</span>
-                </label>
+            {/* Recurring toggle */}
+            <div className="flex items-center justify-between rounded-xl border border-app-border bg-surface-2 px-4 py-3">
+                <span className="text-sm font-medium text-app-text">Recurring transaction</span>
+                <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isRecurring}
+                    onClick={() => setIsRecurring(!isRecurring)}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-primary' : 'bg-surface border border-app-border'}`}
+                >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${isRecurring ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
             </div>
 
-            <div className="col-span-1">
-                <label className={labelBase}>PAYMENT_METHOD</label>
-                <input 
+            <div>
+                <label className={labelBase}>Payment method</label>
+                <input
                     list="methods" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
-                    placeholder="TYPE..." className={inputBase}
+                    placeholder="Card, cash, transfer…" className={inputBase}
                 />
                 <datalist id="methods">
                     {PAYMENT_METHODS.map(m => <option key={m} value={m} />)}
@@ -478,31 +429,31 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             {/* Notes */}
-            <div className="col-span-2">
-              <label className={labelBase}>TECHNICAL_NOTES</label>
-              <textarea 
+            <div>
+              <label className={labelBase}>Notes</label>
+              <textarea
                 value={notes} onChange={e => setNotes(e.target.value)}
-                placeholder="INPUT_ADDITIONAL_METADATA..." className={`${inputBase} h-24 resize-none`}
+                placeholder="Any additional details…" className={`${inputBase} h-24 resize-none`}
               />
             </div>
 
             <div>
-              <label className={labelBase}>TAX_CATEGORY</label>
+              <label className={labelBase}>Tax category</label>
               <input
                 type="text"
                 value={taxCategory}
                 onChange={(e) => setTaxCategory(e.target.value)}
-                placeholder="e.g. EDUCATION, CHARITY"
+                placeholder="e.g. Education, Charity"
                 className={inputBase}
               />
-              <label className="mt-2 inline-flex items-center gap-2 font-mono text-[11px] uppercase">
-                <input type="checkbox" checked={isTaxDeductible} onChange={(e) => setIsTaxDeductible(e.target.checked)} />
+              <label className="mt-2.5 inline-flex items-center gap-2 text-sm text-app-muted cursor-pointer">
+                <input type="checkbox" checked={isTaxDeductible} onChange={(e) => setIsTaxDeductible(e.target.checked)} className="accent-[color:var(--primary)]" />
                 Mark as tax deductible
               </label>
             </div>
 
             <div>
-              <label className={labelBase}>CUSTOM_TAGS (comma separated)</label>
+              <label className={labelBase}>Tags (comma separated)</label>
               <input
                 type="text"
                 value={tagsInput}
@@ -513,7 +464,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div>
-              <label className={labelBase}>SPLIT_PARTICIPANTS (comma separated)</label>
+              <label className={labelBase}>Split participants (comma separated)</label>
               <input
                 type="text"
                 value={splitParticipantsInput}
@@ -524,7 +475,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div>
-              <label className={labelBase}>CUSTOM_METADATA (one key:value per line)</label>
+              <label className={labelBase}>Metadata (one key: value per line)</label>
               <textarea
                 value={metadataInput}
                 onChange={(e) => setMetadataInput(e.target.value)}
@@ -533,33 +484,33 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               />
             </div>
 
-            <div className="col-span-2 border-4 border-ink p-4 bg-white">
-              <label className={labelBase}>RECEIPT_UPLOAD_WITH_OCR</label>
-              <input type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full font-mono text-xs" />
-              {isOcrProcessing && <p className="font-mono text-[10px] uppercase mt-2">Scanning receipt text...</p>}
-              {receiptFileName && <p className="font-mono text-[10px] uppercase mt-2">Attached: {receiptFileName}</p>}
+            <div className="rounded-xl border border-app-border bg-surface-2 p-4">
+              <label className={labelBase}>Receipt upload (OCR)</label>
+              <input type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
+              {isOcrProcessing && <p className="text-[11px] text-app-muted mt-2">Scanning receipt text…</p>}
+              {receiptFileName && <p className="text-[11px] text-app-muted mt-2">Attached: {receiptFileName}</p>}
               <textarea
                 value={receiptText}
                 onChange={(e) => setReceiptText(e.target.value)}
-                className="mt-2 w-full border-2 border-ink p-2 h-28 font-mono text-xs"
+                className="mt-2 w-full bg-surface border border-app-border rounded-lg p-2.5 h-24 text-xs text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="OCR text appears here"
               />
             </div>
           </div>
 
           {/* ACTIONS */}
-          <div className="mt-8 sm:mt-10 pt-6 sm:pt-8 border-t-4 border-dashed border-ink/10 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:col-span-2">
-            <button 
+          <div className="mt-7 pt-6 border-t border-app-border flex flex-col sm:flex-row gap-3">
+            <button
               type="button" onClick={onClose}
-              className="w-full sm:flex-1 py-3 sm:py-4 font-loud text-xs sm:text-sm border-4 border-ink bg-white text-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all order-2 sm:order-1"
+              className="w-full sm:flex-1 py-3 rounded-xl text-sm font-semibold bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all order-2 sm:order-1"
             >
-              ABORT_MANIFEST
+              Cancel
             </button>
-            <button 
+            <button
               type="submit"
-              className="w-full sm:flex-1 py-3 sm:py-4 font-loud text-xs sm:text-sm border-4 border-ink bg-usc-gold text-ink shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all order-1 sm:order-2"
+              className="w-full sm:flex-1 py-3 rounded-xl text-sm font-semibold bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all order-1 sm:order-2"
             >
-              COMMIT_RECORD
+              {expense ? 'Save changes' : 'Add expense'}
             </button>
           </div>
         </form>

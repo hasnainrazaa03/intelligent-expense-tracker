@@ -141,8 +141,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
 
   if (!isOpen) return null;
 
-  const inputBase = "w-full bg-white border-4 border-ink p-4 font-loud text-base text-ink focus:outline-none focus:ring-4 focus:ring-usc-gold transition-all placeholder:text-ink/10 min-h-[56px]";
-  const labelBase = "font-loud text-[10px] tracking-widest text-ink/40 mb-2 block uppercase leading-none antialiased";
+  const inputBase = "w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-app-faint appearance-none";
+  const labelBase = "text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase";
 
   return (
     <div
@@ -151,100 +151,97 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       aria-modal="true"
       aria-labelledby="income-modal-title"
       tabIndex={-1}
-      className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4"
     >
-      <div className="bg-bone border-4 border-ink shadow-neo-gold w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
-        
-        {/* HEADER STAMP: REVENUE CONTROL */}
-        <div className="bg-usc-gold p-6 border-b-4 border-ink flex justify-between items-center flex-shrink-0">
+      <div className="glass glass-blur rounded-2xl w-full max-w-xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+
+        {/* HEADER */}
+        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-center flex-shrink-0">
           <div>
-            <h2 id="income-modal-title" className="font-loud text-3xl text-ink leading-none uppercase">
-                {income ? 'ADJUST_REVENUE' : 'LOG_INFLOW'}
+            <h2 id="income-modal-title" className="font-display text-xl sm:text-2xl font-bold text-app-text leading-tight">
+                {income ? 'Edit income' : 'New income'}
             </h2>
-            <div className="flex items-center mt-2">
-                <span className="bg-ink text-usc-gold px-2 py-0.5 text-[8px] font-bold border border-ink uppercase tracking-widest">Revenue_Control_v4.0</span>
-                <span className="ml-2 text-[8px] font-mono text-ink/40 uppercase tracking-widest leading-none">Status: Connected</span>
-            </div>
+            <p className="text-xs text-app-muted mt-1">{income ? 'Update this income entry.' : 'Log an inflow.'}</p>
           </div>
-          <button onClick={onClose} aria-label="Close income modal" className="bg-ink text-bone p-1 border-2 border-bone hover:bg-bone hover:text-ink transition-colors">
-            <XMarkIcon className="h-6 w-6" />
+          <button onClick={onClose} aria-label="Close income modal" className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors">
+            <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-4 sm:p-8">
-          <div className="flex flex-col space-y-8">
-            
+        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-5 sm:p-6">
+          <div className="flex flex-col space-y-5">
+
             <div>
-              <label htmlFor="income-title" className={labelBase}>REVENUE_SOURCE</label>
-              <input id="income-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="E.G. USC_TA_STIPEND" className={inputBase} required />
+              <label htmlFor="income-title" className={labelBase}>Source</label>
+              <input id="income-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Stipend, freelance" className={inputBase} required />
             </div>
 
             <div>
-                <label className={labelBase}>CURRENCY_SELECT</label>
-                <div className="grid grid-cols-2 bg-ink border-4 border-ink p-1">
-                    <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-3 font-loud text-[10px] sm:text-xs transition-all ${selectedCurrency === 'USD' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}>USD_($)</button>
-                    <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-3 font-loud text-[10px] sm:text-xs transition-all ${selectedCurrency === 'INR' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}>INR_(₹)</button>
+                <label className={labelBase}>Currency</label>
+                <div className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
+                    <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'USD' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
+                    <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'INR' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>INR (₹)</button>
                 </div>
             </div>
 
-            {/* CURRENCY VOUCHER FOR INR */}
+            {/* INR entry */}
             {selectedCurrency === 'INR' && (
-                <div className="bg-usc-gold border-4 border-ink p-4 relative overflow-hidden">
-                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-bone border-r-4 border-ink rounded-full" />
-                    <label className={`${labelBase} text-ink`}>FOREIGN_INFLOW_VALUE (INR)</label>
-                    <div className="flex items-center gap-4">
-                        <span className="font-loud text-3xl text-ink">₹</span>
-                        <input 
-                          type="number" 
-                          value={originalAmount} 
-                          onChange={e => setOriginalAmount(e.target.value)} 
-                          placeholder="0.00" 
-                          className={`${inputBase} w-full bg-bone border-4 border-ink p-3 font-loud text-lg focus:outline-none`} 
-                          required step="0.01" 
+                <div className="rounded-xl border border-app-border bg-surface-2 p-4">
+                    <label className={labelBase}>Amount in INR</label>
+                    <div className="flex items-center gap-2">
+                        <span className="font-display text-xl text-app-muted">₹</span>
+                        <input
+                          type="number"
+                          value={originalAmount}
+                          onChange={e => setOriginalAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full bg-surface border border-app-border rounded-lg px-3 py-2.5 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          required step="0.01"
                         />
                     </div>
+                    <p className="mt-2 text-[11px] text-app-muted">USD equivalent is auto-calculated via the Frankfurter API.</p>
                 </div>
             )}
 
             <div>
-              <label htmlFor="income-amount-usd" className={labelBase}>VALUATION_USD</label>
+              <label htmlFor="income-amount-usd" className={labelBase}>Amount (USD)</label>
               <div className="relative">
-                  <input 
+                  <input
                     id="income-amount-usd"
-                    type="number" value={amount} onChange={e => setAmount(e.target.value)} 
-                    placeholder="$ 0.00" 
-                    className={`${inputBase} ${isAmountUSDReadOnly ? 'bg-ink/5' : ''}`} 
-                    required readOnly={isAmountUSDReadOnly} step="0.01" 
+                    type="number" value={amount} onChange={e => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    className={`${inputBase} ${isAmountUSDReadOnly ? 'opacity-70' : ''}`}
+                    required readOnly={isAmountUSDReadOnly} step="0.01"
                   />
-                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-usc-gold border-t-transparent rounded-full" />}
+                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
               </div>
-              {conversionError && <p role="alert" aria-live="assertive" className="text-[10px] text-usc-cardinal font-bold mt-1 uppercase italic">{conversionError}</p>}
+              {conversionError && <p role="alert" aria-live="assertive" className="text-xs text-danger font-medium mt-1.5">{conversionError}</p>}
             </div>
 
             <div>
-              <label htmlFor="income-date" className={labelBase}>DATE_STAMP</label>
-              <input id="income-date" type="date" value={date} onChange={e => setDate(e.target.value)} className={inputBase} required />
+              <label htmlFor="income-date" className={labelBase}>Date</label>
+              <input id="income-date" type="date" value={date} onChange={e => setDate(e.target.value)} className={`${inputBase} [color-scheme:dark]`} required />
             </div>
 
             <div className="relative" ref={categoryDropdownRef}>
-          <label htmlFor="income-category-toggle" className={labelBase}>ASSET_CLASS</label>
+          <label htmlFor="income-category-toggle" className={labelBase}>Category</label>
           <button
             id="income-category-toggle"
             type="button"
             onClick={() => { setIsCategoryDropdownOpen(!isCategoryDropdownOpen); setCategorySearchTerm(''); }}
             className={`${inputBase} flex justify-between items-center text-left`}
           >
-            <span className="truncate">{category.toUpperCase()}</span>
-            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-ink opacity-30"></div>
+            <span className="truncate">{category}</span>
+            <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-app-faint"></div>
           </button>
-          
+
           {isCategoryDropdownOpen && (
-            <div className="absolute z-50 mt-2 w-full bg-white border-4 border-ink shadow-neo overflow-hidden flex flex-col max-h-64">
-              <div className="p-3 border-b-4 border-ink bg-bone sticky top-0">
+            <div className="absolute z-50 mt-2 w-full glass glass-blur rounded-xl overflow-hidden flex flex-col max-h-64">
+              <div className="p-2.5 border-b border-app-border sticky top-0">
                 <input
-                  type="text" placeholder="SEARCH_ASSETS..." value={categorySearchTerm}
+                  type="text" placeholder="Search categories…" value={categorySearchTerm}
                   onChange={(e) => setCategorySearchTerm(e.target.value)}
-                  className="w-full bg-white border-2 border-ink p-2 text-xs font-loud focus:outline-none"
+                  className="w-full bg-surface-2 border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                   autoFocus
                 />
               </div>
@@ -253,7 +250,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
                   <button
                     type="button"
                     key={cat} onClick={() => handleCategorySelect(cat)}
-                    className="w-full text-left px-4 py-3 text-xs font-bold text-ink hover:bg-usc-gold focus:bg-usc-gold focus:outline-none cursor-pointer transition-colors border-b border-ink/5 uppercase"
+                    className="w-full text-left px-4 py-2.5 text-sm text-app-text hover:bg-surface-2 focus:bg-surface-2 focus:outline-none cursor-pointer transition-colors"
                   >
                     {cat}
                   </button>
@@ -263,13 +260,13 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
           )}
         </div>
 
-            <div className="col-span-2">
-              <label htmlFor="income-notes" className={labelBase}>ADDITIONAL_METADATA</label>
-              <textarea id="income-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="SOURCE_DETAILS..." className={`${inputBase} h-24 resize-none`} />
+            <div>
+              <label htmlFor="income-notes" className={labelBase}>Notes</label>
+              <textarea id="income-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Source details…" className={`${inputBase} h-24 resize-none`} />
             </div>
 
             <div>
-              <label className={labelBase}>CUSTOM_TAGS</label>
+              <label className={labelBase}>Tags (comma separated)</label>
               <input
                 type="text"
                 value={tagsInput}
@@ -280,30 +277,30 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             </div>
 
             <div>
-              <label className={labelBase}>METADATA (key:value per line)</label>
+              <label className={labelBase}>Metadata (one key: value per line)</label>
               <textarea
                 value={metadataInput}
                 onChange={(e) => setMetadataInput(e.target.value)}
                 className={`${inputBase} h-24 resize-none`}
-                placeholder={'client: USC\ninvoice: INV-204'}
+                placeholder={'client: Acme\ninvoice: INV-204'}
               />
             </div>
           </div>
 
           {/* ACTION BUTTONS */}
-          <div className="mt-10 pt-8 border-t-4 border-dashed border-ink/10 flex flex-col sm:flex-row gap-4">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="w-full sm:flex-1 py-4 font-loud text-sm border-4 border-ink bg-white text-ink shadow-neo active:translate-y-1 transition-all order-2 sm:order-1"
+          <div className="mt-7 pt-6 border-t border-app-border flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full sm:flex-1 py-3 rounded-xl text-sm font-semibold bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all order-2 sm:order-1"
             >
-              TERMINATE
+              Cancel
             </button>
-            <button 
-              type="submit" 
-              className="w-full sm:flex-1 py-4 font-loud text-sm border-4 border-ink bg-usc-gold text-ink shadow-neo active:translate-y-1 transition-all order-1 sm:order-2"
+            <button
+              type="submit"
+              className="w-full sm:flex-1 py-3 rounded-xl text-sm font-semibold bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all order-1 sm:order-2"
             >
-              COMMIT_ASSET
+              {income ? 'Save changes' : 'Add income'}
             </button>
           </div>
         </form>

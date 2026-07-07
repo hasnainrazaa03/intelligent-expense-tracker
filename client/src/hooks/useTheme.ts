@@ -7,7 +7,9 @@ const STORAGE_KEY = 'appTheme';
 const getInitialTheme = (): Theme => {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === 'light' || stored === 'dark') return stored;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // Orbit is a cosmic dark-first product — default to dark unless the user has
+  // explicitly chosen light before.
+  return 'dark';
 };
 
 export const useTheme = () => {

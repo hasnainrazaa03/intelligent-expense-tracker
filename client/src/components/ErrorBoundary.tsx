@@ -8,25 +8,25 @@ interface AppErrorBoundaryProps {
 
 const ErrorFallback: React.FC<FallbackProps & { title?: string }> = ({ error, title, resetErrorBoundary }) => {
   return (
-    <div className="min-h-screen bg-bone flex items-center justify-center p-6">
-      <div className="max-w-2xl w-full border-4 border-ink bg-white shadow-neo p-8">
-        <p className="font-mono text-xs uppercase tracking-wider text-ink/70">System Recovery</p>
-        <h1 className="font-loud text-3xl mt-2 uppercase text-usc-cardinal">
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="max-w-2xl w-full glass rounded-2xl p-8 text-center">
+        <p className="text-xs uppercase tracking-wider text-app-faint">System recovery</p>
+        <h1 className="font-display font-bold text-3xl mt-2 text-app-text">
           {title || 'Something went wrong'}
         </h1>
-        <p className="font-bold mt-4 text-ink/80">
+        <p className="mt-4 text-app-muted">
           The interface hit an unexpected error. Your data is safe. Reload to continue.
         </p>
         {error?.message && (
-          <p className="mt-4 font-mono text-xs text-ink/70 border-2 border-ink p-3 bg-bone">
+          <p className="mt-4 text-xs text-app-muted bg-surface-2 border border-app-border rounded-xl p-3">
             {error.message}
           </p>
         )}
         <button
           onClick={resetErrorBoundary}
-          className="mt-6 font-loud text-sm uppercase px-5 py-3 border-4 border-ink bg-usc-gold text-ink shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+          className="mt-6 font-semibold text-sm px-5 py-3 rounded-xl bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all"
         >
-          Retry View
+          Try again
         </button>
       </div>
     </div>

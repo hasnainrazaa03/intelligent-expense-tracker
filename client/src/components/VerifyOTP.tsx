@@ -94,18 +94,18 @@ const VerifyOTP: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bone flex items-center justify-center p-4 font-loud">
-      <div className="max-w-md w-full bg-white border-8 border-ink shadow-neo p-8 relative overflow-hidden">
-        {/* Decorative Technical Header */}
-        <div className="absolute top-0 left-0 w-full bg-usc-cardinal h-2" />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="starfield" />
+
+      <div className="max-w-md w-full glass glass-blur rounded-2xl p-8 relative z-10 overflow-hidden">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl text-ink uppercase tracking-tighter">Identity_Check</h2>
-          <span className="text-[10px] bg-ink text-bone px-2 py-1">V_2.0</span>
+          <h2 className="font-display font-bold text-3xl text-app-text tracking-tight">Identity check</h2>
+          <span className="text-[10px] bg-surface-2 border border-app-border text-app-muted rounded-lg px-2 py-1">v2.0</span>
         </div>
 
-        <p className="text-xs text-ink/60 mb-8 uppercase leading-tight">
-          A verification dispatch has been sent to: <br/>
-          <span className="text-usc-cardinal font-bold">{email}</span>
+        <p className="text-xs text-app-muted mb-8 leading-relaxed">
+          A verification code has been sent to: <br/>
+          <span className="text-app-text font-semibold">{email}</span>
         </p>
 
         <form onSubmit={handleVerify} className="space-y-8">
@@ -123,44 +123,44 @@ const VerifyOTP: React.FC = () => {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 aria-label={`Verification digit ${index + 1}`}
-                className="w-full h-14 border-4 border-ink text-center text-2xl font-loud focus:bg-usc-gold focus:outline-none transition-colors shadow-[4px_4px_0px_0px_#111111]"
+                className="w-full h-14 bg-surface-2 border border-app-border rounded-xl text-center text-2xl text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
               />
             ))}
           </div>
 
           {error && (
-            <div className="bg-usc-cardinal/10 border-2 border-usc-cardinal p-3 text-usc-cardinal text-[10px] uppercase">
-              Error_Log: {error}
+            <div role="alert" aria-live="assertive" className="bg-danger/10 border border-danger/30 text-danger rounded-xl p-3 text-xs font-medium">
+              Error: {error}
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading || otp.join("").length < 6}
-            className="w-full bg-ink text-bone py-4 border-4 border-ink shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed uppercase text-sm"
+            className="w-full bg-primary text-on-primary font-semibold text-sm py-4 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Processing_Voucher..." : "Verify_Identity"}
+            {loading ? "Verifying…" : "Verify identity"}
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t-2 border-dashed border-ink/20 text-center">
-          <p className="text-[10px] text-ink/40 uppercase">
-            Didn't receive the code? 
-            <button 
+        <div className="mt-8 pt-6 border-t border-app-border text-center space-y-1.5">
+          <p className="text-[11px] text-app-faint">
+            Didn't receive the code?
+            <button
               onClick={handleResendOtp}
               disabled={resendCooldown > 0}
-              className="ml-2 text-usc-cardinal hover:underline font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+              className="ml-2 text-primary hover:brightness-125 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
-              {resendCooldown > 0 ? `Resend_in_${resendCooldown}s` : 'Request_Resend'}
+              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
             </button>
           </p>
-          <p className="text-[10px] text-ink/40 uppercase">
-            Wrong account? 
-            <button 
-            onClick={() => navigate('/login')} 
-            className="ml-2 text-ink hover:text-usc-cardinal hover:underline font-bold underline decoration-usc-gold decoration-2 underline-offset-2"
+          <p className="text-[11px] text-app-faint">
+            Wrong account?
+            <button
+            onClick={() => navigate('/login')}
+            className="ml-2 text-app-text hover:text-primary font-semibold transition-colors"
             >
-            Return_to_Login
+            Return to login
             </button>
         </p>
         </div>

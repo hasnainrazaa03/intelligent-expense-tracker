@@ -24,22 +24,22 @@ const MobileInstallPrompt: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-3 left-3 right-3 z-50 border-4 border-ink bg-usc-gold p-3 shadow-neo md:max-w-sm md:left-auto">
-      <p className="font-loud text-[10px] uppercase">Install USC Ledger Mobile Companion?</p>
-      <div className="mt-2 flex gap-2">
+    <div className="fixed bottom-3 left-3 right-3 z-50 glass glass-blur rounded-2xl p-4 md:max-w-sm md:left-auto">
+      <p className="text-sm font-medium text-app-text">Install the Orbit mobile companion?</p>
+      <div className="mt-3 flex gap-2">
         <button
           onClick={async () => {
             await deferredPrompt.prompt();
             await deferredPrompt.userChoice;
             setDeferredPrompt(null);
           }}
-          className="px-3 py-1 border-2 border-ink bg-ink text-bone font-loud text-[10px] uppercase"
+          className="px-4 py-2 rounded-xl bg-primary text-on-primary font-semibold text-sm shadow-glow hover:brightness-110 active:scale-[0.99] transition-all"
         >
           Install
         </button>
         <button
           onClick={() => setHidden(true)}
-          className="px-3 py-1 border-2 border-ink bg-white text-ink font-loud text-[10px] uppercase"
+          className="px-4 py-2 rounded-xl bg-surface-2 border border-app-border text-app-text font-semibold text-sm hover:border-app-border-strong transition-all"
         >
           Later
         </button>

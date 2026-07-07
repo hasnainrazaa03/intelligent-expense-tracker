@@ -7,14 +7,14 @@ interface CurrencyToggleProps {
 
 const CurrencyToggle: React.FC<CurrencyToggleProps> = ({ currency, onCurrencyChange }) => {
   return (
-    <div className="flex bg-ink border-[3px] md:border-4 border-ink p-1 shadow-neo flex-shrink-0">
+    <div className="flex bg-surface-2 border border-app-border rounded-xl p-1 flex-shrink-0">
       {/* USD Button */}
-      <button 
+      <button
         onClick={() => onCurrencyChange('USD')}
-        className={`px-3 md:px-4 py-1.5 md:py-1 font-loud text-[10px] md:text-xs transition-all duration-200 ${
-          currency === 'USD' 
-            ? 'bg-usc-gold text-ink' 
-            : 'text-bone hover:bg-white/10'
+        className={`px-3 md:px-4 py-1.5 md:py-1 font-semibold text-[10px] md:text-xs rounded-lg transition-all duration-200 ${
+          currency === 'USD'
+            ? 'bg-primary text-on-primary shadow-glow'
+            : 'text-app-muted hover:text-app-text'
         }`}
       >
         <span className="md:hidden">USD</span>
@@ -22,12 +22,12 @@ const CurrencyToggle: React.FC<CurrencyToggleProps> = ({ currency, onCurrencyCha
       </button>
 
       {/* INR Button */}
-      <button 
+      <button
         onClick={() => onCurrencyChange('INR')}
-        className={`px-3 md:px-4 py-1.5 md:py-1 font-loud text-[10px] md:text-xs transition-all duration-200 ${
-          currency === 'INR' 
-            ? 'bg-usc-gold text-ink' 
-            : 'text-bone hover:bg-white/10'
+        className={`px-3 md:px-4 py-1.5 md:py-1 font-semibold text-[10px] md:text-xs rounded-lg transition-all duration-200 ${
+          currency === 'INR'
+            ? 'bg-primary text-on-primary shadow-glow'
+            : 'text-app-muted hover:text-app-text'
         }`}
       >
         <span className="md:hidden">INR</span>

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
+import { useTheme } from '../hooks/useTheme';
+import { getChartColors } from '../utils/chartTheme';
 
 interface ChartData {
   name: string;
@@ -16,14 +18,13 @@ interface BudgetPerformanceChartProps {
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
     return (
-      // Reduced padding and border thickness for mobile
-      <div className="bg-white border-2 md:border-4 border-ink p-2 md:p-3 shadow-neo z-50">
-        <p className="font-loud text-[10px] md:text-xs mb-1 md:mb-2 border-b-2 border-ink pb-1">{label}</p>
-        <p className="font-bold text-usc-cardinal text-[10px] md:text-sm">
-          {`SPENT: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}
+      <div className="glass glass-blur rounded-xl px-3 py-2 z-50">
+        <p className="text-[11px] font-medium text-app-muted mb-1.5">{label}</p>
+        <p className="font-display text-sm font-bold text-danger tabular-nums">
+          {`Spent: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}
         </p>
-        <p className="font-bold text-ink/60 text-[10px] md:text-sm">
-          {`BUDGET: ${formatCurrency(payload[1].value, displayCurrency, conversionRate)}`}
+        <p className="text-xs font-medium text-app-muted tabular-nums">
+          {`Budget: ${formatCurrency(payload[1].value, displayCurrency, conversionRate)}`}
         </p>
       </div>
     );
@@ -34,6 +35,8 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 
 const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const { theme } = useTheme();
+  const c = getChartColors(theme);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -44,67 +47,65 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data })
 
     if (data.length === 0) {
         return (
-          <div className="flex items-center justify-center h-full font-loud text-xs text-ink/30 italic uppercase">
-            Insufficient_Data_Stream
+          <div className="flex items-center justify-center h-full text-sm text-app-faint">
+            Not enough data yet
           </div>
         );
     }
-    
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart
         data={data}
         margin={{ top: 10, right: 5, left: -15, bottom: 0 }}
       >
-        {/* Hard vertical and horizontal grid lines */}
-        <CartesianGrid strokeDasharray="0" stroke="#111111" strokeOpacity={0.05} />
-        
-        <XAxis 
-          dataKey="name" 
-          tick={{ fill: '#111111', fontSize: 8, fontWeight: 900 }}
-          axisLine={{ stroke: '#111111', strokeWidth: 2 }}
-          tickLine={{ stroke: '#111111' }}
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+
+        <XAxis
+          dataKey="name"
+          tick={{ fill: c.tick, fontSize: 10 }}
+          axisLine={{ stroke: c.axisLine }}
+          tickLine={false}
           interval="preserveStartEnd"
         />
-        <YAxis 
-          tick={{ fill: '#111111', fontSize: 8, fontWeight: 900 }} 
-          tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)} 
-          axisLine={{ stroke: '#111111', strokeWidth: 2 }}
+        <YAxis
+          tick={{ fill: c.tick, fontSize: 10 }}
+          tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)}
+          axisLine={false}
+          tickLine={false}
           width={40}
         />
-        
-        <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate} />} cursor={{ stroke: '#111111', strokeWidth: 2 }} position={{ y: 0 }} />
-        
-        <Legend 
-          wrapperStyle={{ 
-            paddingTop: '10px', 
-            fontWeight: 900, 
-            fontSize: '8px', 
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em'
+
+        <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate} />} cursor={{ stroke: c.axisLine, strokeWidth: 1 }} position={{ y: 0 }} />
+
+        <Legend
+          wrapperStyle={{
+            paddingTop: '10px',
+            fontSize: '11px',
+            color: c.tick,
           }}
-          iconSize={8}
+          iconSize={9}
         />
 
-        {/* Actual Spending: USC Cardinal with thick line */}
-        <Line 
-          type="stepAfter" 
-          dataKey="spent" 
-          name="Actual_Spent" 
-          stroke="#990000" 
-          strokeWidth={isMobile ? 2 : 4} 
-          dot={{ r: 3, fill: '#990000', strokeWidth: 1, stroke: '#FFFFFF' }}
-          activeDot={{ r: 6, stroke: '#111111', strokeWidth: 2 }}
+        {/* Actual spending */}
+        <Line
+          type="stepAfter"
+          dataKey="spent"
+          name="Spent"
+          stroke={c.danger}
+          strokeWidth={isMobile ? 2 : 2.5}
+          dot={{ r: 2.5, fill: c.danger, strokeWidth: 0 }}
+          activeDot={{ r: 5, stroke: c.surface, strokeWidth: 2 }}
         />
-        
-        {/* Budget: Heavy Dashed Black Line */}
-        <Line 
-          type="monotone" 
-          dataKey="budgeted" 
-          name="Projected_Limit" 
-          stroke="#111111" 
-          strokeWidth={1} 
-          strokeDasharray="4 4" 
+
+        {/* Budget limit */}
+        <Line
+          type="monotone"
+          dataKey="budgeted"
+          name="Budget"
+          stroke={c.tick}
+          strokeWidth={1.5}
+          strokeDasharray="4 4"
           dot={false}
         />
       </LineChart>

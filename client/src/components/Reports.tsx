@@ -93,79 +93,79 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-20">
       {/* 1. AUDIT HEADER */}
-      <div className="border-b-4 md:border-b-8 border-ink pb-6 md:pb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
+      <div className="border-b border-app-border pb-6 md:pb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
         <div className="min-w-0">
-          <div className="flex items-center space-x-2 mb-3">
-            <span className="bg-usc-cardinal text-bone px-2 py-1 font-loud text-[8px] md:text-[10px] border-2 border-ink whitespace-nowrap">FISCAL_YEAR_2025</span>
-            <span className="font-mono text-[8px] md:text-[10px] opacity-40 uppercase tracking-tighter text-ink truncate max-w-[150px] md:max-w-none">Report_Reference: AUDIT_ANNUAL</span>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold whitespace-nowrap">Fiscal year 2025</span>
+            <span className="text-[10px] md:text-xs text-app-faint truncate max-w-[150px] md:max-w-none">Annual audit report</span>
           </div>
-          <h2 className="font-loud text-4xl sm:text-6xl md:text-8xl text-ink leading-[0.85] tracking-tighter uppercase break-words">
-            Annual_Audit
+          <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl text-app-text leading-tight tracking-tight break-words">
+            Annual audit
           </h2>
         </div>
-        <button 
+        <button
           onClick={handleDownloadPDF}
-          className="w-full lg:w-auto bg-ink text-usc-gold font-loud px-6 md:px-8 py-3 md:py-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all flex items-center justify-center gap-3 text-xs md:text-base"
+          className="w-full lg:w-auto bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold px-6 md:px-8 py-3 md:py-3.5 flex items-center justify-center gap-3 text-sm md:text-base"
         >
           <ClipboardDocumentListIcon className="h-5 w-5 md:h-6 md:w-6" />
-          GET_HARD_COPY_(PDF)
+          Download PDF
         </button>
       </div>
 
       {/* 2. BENTO ANALYTICS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-        
+
         {/* Total Expenditure Log */}
-        <div className="lg:col-span-2 bg-bone border-4 border-ink p-5 md:p-8 shadow-neo relative overflow-hidden group min-w-0">
-          <div className="absolute -right-8 -top-8 opacity-5 group-hover:scale-110 transition-transform hidden sm:block">
-            <BanknotesIcon className="h-48 w-48 text-ink" />
+        <div className="lg:col-span-2 glass rounded-2xl p-5 md:p-8 relative overflow-hidden group min-w-0">
+          <div className="absolute -right-8 -top-8 opacity-[0.06] group-hover:scale-110 transition-transform hidden sm:block">
+            <BanknotesIcon className="h-48 w-48 text-app-text" />
           </div>
-          <p className="font-loud text-[10px] md:text-xs opacity-40 mb-2 uppercase text-ink">TOTAL_EXPENDITURE_LOG</p>
-          <h3 className="font-loud text-3xl sm:text-5xl md:text-8xl text-usc-cardinal mb-6 break-all leading-none">
+          <p className="text-[11px] md:text-xs text-app-muted mb-2">Total expenditure</p>
+          <h3 className="font-display font-bold text-3xl sm:text-5xl md:text-7xl text-app-text mb-6 break-all leading-none tabular-nums">
             {formatCurrency(stats.totalSpent, displayCurrency, conversionRate)}
           </h3>
-          <div className="flex flex-wrap gap-3">
-            <span className="bg-ink text-bone px-2 py-1 font-bold text-[8px] md:text-[10px] border-2 border-ink">STATUS: AUDITED</span>
-            <span className="bg-usc-gold text-ink px-2 py-1 font-bold text-[8px] md:text-[10px] border-2 border-ink uppercase">Period: FULL_YEAR</span>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold">Status: audited</span>
+            <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold">Period: full year</span>
           </div>
         </div>
 
         {/* Budget Variance Sticker */}
-        <div className={`lg:col-span-1 border-4 border-ink p-5 md:p-8 shadow-neo flex flex-col justify-center ${stats.budgetUtilization > 100 ? 'bg-usc-cardinal text-bone' : 'bg-usc-gold text-ink'}`}>
-          <p className="font-loud text-[10px] md:text-xs uppercase opacity-70 mb-2">BUDGET_LOAD_FACTOR</p>
-          <h3 className="font-loud text-5xl md:text-6xl leading-none">
+        <div className="lg:col-span-1 glass rounded-2xl p-5 md:p-8 flex flex-col justify-center">
+          <p className="text-[11px] md:text-xs text-app-muted mb-2">Budget load factor</p>
+          <h3 className={`font-display font-bold text-5xl md:text-6xl leading-none tabular-nums ${stats.budgetUtilization > 100 ? 'text-danger' : 'text-app-text'}`}>
             {stats.budgetUtilization.toFixed(1)}%
           </h3>
-          <div className="mt-4 md:mt-6 flex items-center gap-2 font-bold text-[10px] md:text-xs uppercase">
+          <div className={`mt-4 md:mt-6 flex items-center gap-2 font-semibold text-[11px] md:text-xs ${stats.budgetUtilization > 100 ? 'text-danger' : 'text-ok'}`}>
             {stats.budgetUtilization > 100 ? (
-              <><ExclamationTriangleIcon className="h-4 w-4 md:h-5 md:w-5" /> CRITICAL_OVERRUN</>
+              <><ExclamationTriangleIcon className="h-4 w-4 md:h-5 md:w-5" /> Critical overrun</>
             ) : (
-              <><ChartPieIcon className="h-4 w-4 md:h-5 md:w-5" /> WITHIN_TOLERANCE</>
+              <><ChartPieIcon className="h-4 w-4 md:h-5 md:w-5" /> Within tolerance</>
             )}
           </div>
         </div>
 
         {/* Category Breakdown Ledger */}
-        <div className="lg:col-span-3 bg-white border-4 border-ink shadow-neo overflow-hidden">
-          <div className="bg-ink p-3 md:p-4 flex justify-between items-center">
-            <h4 className="font-loud text-bone text-base md:text-xl uppercase tracking-widest">Sector_Breakdown</h4>
-            <span className="text-bone/40 font-mono text-[8px] md:text-[10px] hidden xs:inline">VERIFIED_BY_SYSTEM_CORE</span>
+        <div className="lg:col-span-3 glass rounded-2xl overflow-hidden">
+          <div className="border-b border-app-border p-4 md:p-5 flex justify-between items-center">
+            <h4 className="font-display font-semibold text-app-text text-base md:text-xl">Category breakdown</h4>
+            <span className="text-app-faint text-[10px] md:text-xs hidden xs:inline">Verified by system</span>
           </div>
-          <div className="p-5 md:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
+          <div className="p-5 md:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {(Object.entries(stats.categoryTotals) as [string, number][])
               .sort((a, b) => b[1] - a[1])
               .map(([name, amount]) => (
-                <div key={name} className="flex flex-col border-l-4 border-ink pl-4 md:pl-6 py-1 md:py-2 group min-w-0">
-                  <p className="font-loud text-[8px] md:text-[10px] opacity-40 uppercase mb-1 text-ink">Sector_Class</p>
-                  <p className="font-loud text-lg md:text-2xl text-ink group-hover:text-usc-cardinal transition-colors truncate uppercase">
-                    {name.toUpperCase()}
+                <div key={name} className="flex flex-col rounded-2xl border border-app-border bg-surface-2 p-4 md:p-5 group min-w-0">
+                  <p className="text-[10px] md:text-xs text-app-faint mb-1">Category</p>
+                  <p className="font-display font-semibold text-lg md:text-2xl text-app-text truncate">
+                    {name}
                   </p>
-                  <p className="font-loud text-base md:text-xl text-ink opacity-60">
+                  <p className="font-display text-base md:text-xl text-app-muted tabular-nums">
                     {formatCurrency(amount, displayCurrency, conversionRate)}
                   </p>
-                  <div className="h-1 bg-ink/10 mt-3 md:mt-4 relative w-full">
-                    <div 
-                      className="h-full bg-usc-gold absolute left-0"
+                  <div className="h-1.5 rounded-full bg-surface border border-app-border mt-3 md:mt-4 relative w-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary absolute left-0"
                       style={{ width: `${(amount / stats.totalSpent) * 100}%` }}
                     />
                   </div>
@@ -178,8 +178,8 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
       {/* 3. DETAILED REPORT CHARTS */}
       <div className="space-y-8 md:space-y-12">
         {/* Budget vs Actual */}
-        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
-          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">BUDGET_VS_ACTUAL</h4>
+        <div className="glass rounded-2xl p-5 md:p-7">
+          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Budget vs actual</h4>
           <div className="h-64 md:h-80">
             <BudgetActualChart expenses={allExpenses} budgets={budgets} />
           </div>
@@ -187,15 +187,15 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
 
         {/* Two-column grid for smaller charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-          <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
-            <h4 className="font-loud text-sm md:text-lg text-ink uppercase mb-4 border-b-2 border-ink pb-2">PAYMENT_METHOD_DISTRIBUTION</h4>
+          <div className="glass rounded-2xl p-5 md:p-7">
+            <h4 className="font-display font-semibold text-sm md:text-lg text-app-text mb-4 border-b border-app-border pb-2">Payment method distribution</h4>
             <div className="h-64">
               <PaymentMethodChart expenses={allExpenses} />
             </div>
           </div>
 
-          <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
-            <h4 className="font-loud text-sm md:text-lg text-ink uppercase mb-4 border-b-2 border-ink pb-2">RECURRING_VS_ONE_TIME</h4>
+          <div className="glass rounded-2xl p-5 md:p-7">
+            <h4 className="font-display font-semibold text-sm md:text-lg text-app-text mb-4 border-b border-app-border pb-2">Recurring vs one-time</h4>
             <div className="h-64">
               <RecurringVsOneTimeChart expenses={allExpenses} />
             </div>
@@ -203,43 +203,43 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         </div>
 
         {/* Monthly Category Breakdown */}
-        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
-          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">MONTHLY_CATEGORY_FLOW</h4>
+        <div className="glass rounded-2xl p-5 md:p-7">
+          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Monthly category flow</h4>
           <div className="h-72 md:h-96">
             <MonthlyCategoryChart expenses={allExpenses} />
           </div>
         </div>
 
         {/* Category Drilldown */}
-        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
-          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">CATEGORY_DRILLDOWN</h4>
+        <div className="glass rounded-2xl p-5 md:p-7">
+          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Category drilldown</h4>
           <CategoryDrilldown expenses={allExpenses} />
         </div>
 
         {/* Year over Year */}
-        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
-          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">YEAR_OVER_YEAR_COMPARISON</h4>
+        <div className="glass rounded-2xl p-5 md:p-7">
+          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Year over year comparison</h4>
           <div className="h-64 md:h-80">
             <YearOverYearChart expenses={allExpenses} />
           </div>
         </div>
 
         {/* Time Period Summaries */}
-        <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
-          <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">TIME_PERIOD_SUMMARIES</h4>
+        <div className="glass rounded-2xl p-5 md:p-7">
+          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Time period summaries</h4>
           <TimePeriodSummaries allExpenses={allExpenses} />
         </div>
       </div>
 
       {/* 4. FINAL CERTIFICATION */}
       <div className="flex flex-col items-center justify-center pt-12">
-        <div className="w-32 h-32 border-8 border-ink/10 rounded-full flex items-center justify-center relative rotate-12 group hover:rotate-0 transition-transform">
-          <div className="text-center font-loud text-xs text-ink/10">
-            TROJAN<br/>CERTIFIED<br/>AUDIT
+        <div className="w-32 h-32 border border-app-border rounded-full flex items-center justify-center relative group hover:scale-105 transition-transform">
+          <div className="text-center font-display font-semibold text-xs text-app-faint">
+            Certified<br/>audit
           </div>
         </div>
-        <p className="mt-6 font-mono text-[9px] opacity-30 text-ink uppercase tracking-[0.3em]">
-          End_of_Statement // Fight_On
+        <p className="mt-6 text-[11px] text-app-faint tracking-[0.2em]">
+          End of statement
         </p>
       </div>
     </div>

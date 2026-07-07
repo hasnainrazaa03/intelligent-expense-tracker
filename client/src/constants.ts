@@ -30,15 +30,17 @@ export const INCOME_CATEGORIES = [
     'Other'
 ];
 
+// Validated cosmic categorical palette (dataviz skill — colorblind-checked on the
+// dark surface, fixed order, never cycled). See docs/design-direction.md.
 export const CATEGORY_COLORS: { [key: string]: string } = {
-  'Education': '#990000',      // Cardinal
-  'Housing': '#FFCC00',        // Gold
-  'Food': '#767676',           // Gray
-  'Healthcare': '#540115',     // Darker Cardinal
-  'Transportation': '#E1C27A', // Muted Gold
-  'Personal': '#000000',       // Black
-  'Travel': '#B2B2B2',         // Light Gray
-  'Miscellaneous': '#666666', 
+  'Education': '#6d5cf0',      // indigo
+  'Housing': '#d97706',        // amber
+  'Food': '#0284c7',           // sky
+  'Healthcare': '#ec4899',     // rose
+  'Transportation': '#16a34a', // green
+  'Personal': '#9333ea',       // violet
+  'Travel': '#0d9488',         // teal
+  'Miscellaneous': '#64748b',  // neutral slate ("Other")
 };
 
 export const PAYMENT_METHODS = [

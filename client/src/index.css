@@ -1,111 +1,227 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
-@layer base {
-  /* 1. SELECTION COLOR (USC GOLD) */
-  ::selection {
-    background: #FFCC00;
-    color: #111111;
-  }
+/* Fix dark mode (THM-1): key the `dark:` variant off a `.dark` class on <html>
+   (Tailwind v4 defaults to prefers-color-scheme; the app toggles a class). */
+@custom-variant dark (&:where(.dark, .dark *));
 
-  /* 2. GLOBAL BRUTALIST SCROLLBARS */
-  ::-webkit-scrollbar {
-    width: 12px;
-  }
-  ::-webkit-scrollbar-track {
-    background: #F2F2F2;
-    border-left: 4px solid #111111;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #111111;
-    border: 2px solid #F2F2F2;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #990000;
-  }
+/* ------------------------------------------------------------------ *
+ * Orbit design tokens — one semantic set, redefined per theme.
+ * Components style through these (bg-surface, text-app-muted, …) so both
+ * themes stay in sync. Dark is the signature cosmic world; light is a
+ * clean neutral (no starfield).
+ * ------------------------------------------------------------------ */
+:root {
+  /* light theme (clean neutral, airy) */
+  --bg: #f5f6fb;
+  --bg-tint: transparent;
+  --surface: #ffffff;
+  --surface-2: #f2f3f9;
+  --border: rgba(20, 20, 45, 0.09);
+  --border-strong: rgba(20, 20, 45, 0.16);
+  --text: #17162b;
+  --muted: #63627e;
+  --faint: #9a99b3;
+  --primary: #6d5cf0;
+  --primary-soft: rgba(109, 92, 240, 0.12);
+  --on-primary: #ffffff;
+  --success: #16a34a;
+  --danger: #e11d63;
+  --warning: #d97706;
+  --glow: 0 8px 30px rgba(109, 92, 240, 0.22);
+  --shadow-sm: 0 2px 8px rgba(20, 20, 45, 0.06);
+  --shadow: 0 12px 34px rgba(20, 20, 45, 0.10);
+  --ring: rgba(109, 92, 240, 0.45);
+}
+
+.dark {
+  /* cosmic dark (deep space + glass) */
+  --bg: #08060f;
+  --bg-tint: #0f0b24;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.075);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f3f1fb;
+  --muted: #a19fc0;
+  --faint: #6f6c8e;
+  --primary: #8b7ff6;
+  --primary-soft: rgba(139, 127, 246, 0.16);
+  --on-primary: #ffffff;
+  --success: #34d399;
+  --danger: #fb7185;
+  --warning: #fbbf24;
+  --glow: 0 10px 40px rgba(124, 108, 255, 0.40);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow: 0 16px 48px rgba(0, 0, 0, 0.50);
+  --ring: rgba(139, 127, 246, 0.6);
+}
+
+/* Expose the semantic tokens (and the fixed category palette) as Tailwind
+   utilities: bg-surface, text-app-muted, border-app, rounded-xl2, … */
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-app-border: var(--border);
+  --color-app-border-strong: var(--border-strong);
+  --color-app-text: var(--text);
+  --color-app-muted: var(--muted);
+  --color-app-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-ok: var(--success);
+  --color-danger: var(--danger);
+  --color-warn: var(--warning);
+
+  /* fixed, colorblind-validated category palette (never cycled) */
+  --color-cat-indigo: #6d5cf0;
+  --color-cat-amber: #d97706;
+  --color-cat-sky: #0284c7;
+  --color-cat-rose: #ec4899;
+  --color-cat-green: #16a34a;
+  --color-cat-violet: #9333ea;
+  --color-cat-teal: #0d9488;
+
+  --radius-lg2: 16px;
+  --radius-xl2: 22px;
+
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html { color-scheme: light dark; }
 
   body {
-    @apply bg-bone antialiased;
     margin: 0;
+    background:
+      radial-gradient(120% 120% at 50% 0%, var(--bg-tint), var(--bg) 70%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  :focus-visible {
-    outline: 3px solid #FFCC00;
-    outline-offset: 2px;
+  /* Ambient nebula glows — give the dark world depth and glow instead of flat
+     black. Fixed so they don't scroll; behind all content. */
+  .dark body {
+    background:
+      radial-gradient(45% 40% at 12% 8%, rgba(124, 108, 255, 0.22), transparent 70%),
+      radial-gradient(42% 45% at 92% 12%, rgba(217, 70, 160, 0.14), transparent 70%),
+      radial-gradient(55% 50% at 78% 92%, rgba(80, 120, 255, 0.14), transparent 72%),
+      radial-gradient(120% 120% at 50% 0%, var(--bg-tint), var(--bg) 68%),
+      var(--bg);
   }
+
+  ::selection { background: var(--primary-soft); color: var(--text); }
+
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
+
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 6px; }
 }
 
 @layer components {
-  /* 3. CINEMATIC NOISE OVERLAY */
-  .noise-overlay {
+  /* ---- Cosmic starfield background (dark theme only) ---- */
+  .starfield { display: none; }
+  .dark .starfield {
+    display: block;
     position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background-image:
-      radial-gradient(rgba(17, 17, 17, 0.08) 0.5px, transparent 0.5px),
-      radial-gradient(rgba(17, 17, 17, 0.04) 0.5px, transparent 0.5px);
-    background-position: 0 0, 3px 3px;
-    background-size: 6px 6px;
-    opacity: 0.03;
+    inset: 0;
+    z-index: 0;
     pointer-events: none;
-    z-index: 9999;
+    background-image:
+      radial-gradient(1.4px 1.4px at 20% 30%, rgba(255,255,255,.55), transparent),
+      radial-gradient(1.2px 1.2px at 70% 60%, rgba(255,255,255,.45), transparent),
+      radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,.6), transparent),
+      radial-gradient(1.5px 1.5px at 85% 22%, rgba(203,213,255,.6), transparent),
+      radial-gradient(1px 1px at 55% 15%, rgba(255,255,255,.4), transparent),
+      radial-gradient(1.2px 1.2px at 33% 55%, rgba(233,213,255,.5), transparent),
+      radial-gradient(1px 1px at 90% 78%, rgba(255,255,255,.45), transparent),
+      radial-gradient(1.3px 1.3px at 12% 68%, rgba(255,255,255,.4), transparent);
+    background-size: 560px 560px;
+    opacity: 0.8;
+  }
+  .dark .starfield::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 15% 45%, rgba(255,255,255,.5), transparent),
+      radial-gradient(1px 1px at 60% 25%, rgba(199,210,254,.5), transparent),
+      radial-gradient(1.2px 1.2px at 80% 70%, rgba(255,255,255,.45), transparent),
+      radial-gradient(1px 1px at 35% 88%, rgba(251,199,255,.4), transparent);
+    background-size: 320px 320px;
+    opacity: 0.7;
+  }
+  /* The starfield is intentionally STATIC. A continuously-animated full-viewport
+     layer behind ~10 backdrop-blur panels forces the compositor to re-blur every
+     panel every frame — the main source of navigation/scroll jank. Static stars
+     let the browser cache each panel's blur. */
+
+  @keyframes fabpop {
+    from { opacity: 0; transform: scale(0.94) translateY(6px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
   }
 
-  .ai-markdown h1,
-  .ai-markdown h2,
-  .ai-markdown h3,
-  .ai-markdown h4 {
-    font-family: 'Bebas Neue', sans-serif;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    margin: 0 0 0.35rem 0;
-    line-height: 1.05;
+  /* ---- Glass surface helper for panels ----
+     NOTE: no backdrop-filter here on purpose. backdrop-blur is recomputed
+     whenever anything in front repaints, so blurring every content panel makes
+     each navigation trigger a blur-storm across all on-screen panels. Over the
+     dark nebula the translucent surface + border + shadow already reads as glass.
+     Blur is reserved for the stable chrome via `.glass-blur` (header/sidebar). */
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
   }
+  /* Opt-in frosted blur for a small, stable set of always-mounted surfaces. */
+  .dark .glass-blur { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 
-  .ai-markdown h3,
-  .ai-markdown h4 {
-    font-size: 0.8rem;
+  /* AI markdown (retuned to the sans display face) */
+  .ai-markdown h1, .ai-markdown h2, .ai-markdown h3, .ai-markdown h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.4rem 0;
+    line-height: 1.15;
   }
+  .ai-markdown h3, .ai-markdown h4 { font-size: 0.9rem; }
+  .ai-markdown ul { margin: 0; padding-left: 1rem; display: grid; gap: 0.2rem; }
+  .ai-markdown p { margin: 0 0 0.4rem 0; line-height: 1.45; }
+  .ai-markdown li { line-height: 1.4; }
 
-  .ai-markdown ul {
-    margin: 0;
-    padding-left: 1rem;
-    display: grid;
-    gap: 0.15rem;
-  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  .ai-markdown p {
-    margin: 0 0 0.3rem 0;
-    line-height: 1.3;
-  }
-
-  .ai-markdown li {
-    line-height: 1.25;
-  }
-
-  /* 4. TECHNICAL GRAPH GRID */
-  .graph-grid {
-    background-color: #F2F2F2;
-    background-image: 
-      linear-gradient(#e5e5e5 1px, transparent 1px),
-      linear-gradient(90deg, #e5e5e5 1px, transparent 1px);
-    background-size: 32px 32px;
-  }
-
-  /* 5. LOUD TYPOGRAPHY CLASS */
+  /* Re-typography: the old brutalist display class now maps to the Sora display
+     face app-wide (no per-component edits). Components that still add `uppercase`
+     keep it until they're migrated slice by slice. */
   .font-loud {
-    font-family: 'Inter', sans-serif;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: -0.05em;
-    line-height: 0.95;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.12;
+    text-transform: none;
   }
 
-  /* 6. HIDE SCROLLBARS */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  /* Subtle technical grid (Auth) using theme tokens instead of hardcoded greys. */
+  .graph-grid {
+    background-color: var(--surface-2);
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
 }

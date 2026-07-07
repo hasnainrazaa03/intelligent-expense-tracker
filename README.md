@@ -1,8 +1,10 @@
-# ⚔️ USC Ledger v4.0
+# 🪐 Orbit
 
 **The precision financial engine for international students at USC.**
 
-Most budgeting apps treat *Tuition* as a one-off expense and *International FX* as an afterthought. **USC Ledger** is different. It’s a high‑performance, full‑stack manifest built to handle the unique financial realities of life at the University of Southern California—from massive Bursar installments to the daily **USD ↔ INR** mental gymnastics.
+Most budgeting apps treat *Tuition* as a one-off expense and *International FX* as an afterthought. **Orbit** is different. It’s a high‑performance, full‑stack expense tracker built to handle the unique financial realities of life at the University of Southern California—from massive Bursar installments to the daily **USD ↔ INR** mental gymnastics.
+
+> Orbit is a cosmic-themed rebrand of the app formerly called *USC Ledger* — same USC-focused features (Bursar tuition installments, Fryft, USC Village, meal-plan awareness), new name and a dark, space-inspired interface.
 
 ---
 
@@ -278,18 +280,17 @@ Both should complete without TypeScript errors.
 
 ---
 
-## 🎨 Design Philosophy (in transition)
-USC Ledger shipped with a **Neo‑Brutalist aesthetic** — high contrast, heavy borders,
-zero‑nonsense typography, loud and fast.
+## 🎨 Design — Cosmic Dark ("Orbit")
+The app shipped as *USC Ledger* with a **Neo‑Brutalist** look. It is migrating to
+**Orbit** — a **dark, cosmic "glassmorphism"** interface: an animated starfield,
+translucent glass panels, an indigo accent, soft glow, and clean **Sora + Inter**
+typography, with a working **light/dark** toggle (dark is the signature theme).
 
-It is **migrating to a modern, clean design**: a tokenized theme layer, reusable primitives,
-working light/dark modes, soft elevation, and WCAG-AA contrast. The migration is phased and
-does not change financial calculations or data schemas. See
-[roadmap Phases 5–6](./docs/02-roadmap.md#phase-5--design-system-foundation-tokens--primitives)
-for the design-system foundation and slice-by-slice restyle plan.
-
-> Contributing a visual direction? Drop sample designs/tokens and they'll be captured in
-> `docs/design-direction.md` and translated into the token layer.
+The full token spec, palette (colorblind-validated), and slice-by-slice migration
+plan live in **[docs/design-direction.md](./docs/design-direction.md)**. The
+foundation (design tokens for both themes, fixed dark mode, fonts, starfield,
+theme toggle) is in place; feature surfaces are being restyled slice by slice.
+Financial calculations and data schemas are unchanged.
 
 ---
 

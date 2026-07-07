@@ -50,41 +50,41 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
-      
+
       {/* 1. HERO HEADER */}
-      <div className="relative border-b-4 md:border-b-8 border-ink pb-6 md:pb-8 overflow-hidden">
-        <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none hidden sm:block">
-          <AcademicCapIcon className="h-64 w-64 text-ink" />
+      <div className="relative border-b border-app-border pb-6 md:pb-8 overflow-hidden">
+        <div className="absolute right-0 bottom-0 opacity-[0.06] pointer-events-none hidden sm:block">
+          <AcademicCapIcon className="h-64 w-64 text-app-text" />
         </div>
         <div className="relative z-10">
-          <div className="bg-usc-cardinal text-bone px-3 py-1 font-loud text-[10px] w-fit border-2 md:border-4 border-ink shadow-neo mb-4 uppercase">
-            OFFICIAL_BURSAR_MANIFEST // 2024-2026
+          <div className="bg-primary/15 text-primary px-3 py-1 text-[10px] w-fit rounded-full font-semibold uppercase tracking-[0.16em] mb-4">
+            Official Bursar statement // 2024-2026
           </div>
-          <h2 className="font-loud text-4xl sm:text-6xl md:text-8xl text-ink leading-[0.85] tracking-tighter uppercase">
-            TUITION_LEDGER
+          <h2 className="font-display font-bold text-4xl sm:text-6xl md:text-7xl text-app-text leading-[0.9] tracking-tight">
+            Tuition ledger
           </h2>
         </div>
       </div>
 
-      {/* 2. SEMESTER SELECTION TABS (Folder Style) */}
-      <div className="flex bg-ink p-1 border-4 border-ink shadow-neo w-full overflow-x-auto no-scrollbar scroll-smooth">
+      {/* 2. SEMESTER SELECTION TABS */}
+      <div className="flex glass rounded-2xl p-1 w-full overflow-x-auto no-scrollbar scroll-smooth">
         {semesters.map((s) => {
           const isActive = s.id === activeSemesterId;
           const isCurrentAuto = s.id === detectCurrentSemesterId();
-          
+
           return (
             <button
               key={s.id}
               onClick={() => setActiveSemesterId(s.id)}
-              className={`px-4 md:px-6 py-2 font-loud text-[10px] md:text-xs transition-all relative flex-shrink-0 whitespace-nowrap ${
-                isActive 
-                  ? 'bg-usc-gold text-ink' 
-                  : 'text-bone hover:bg-white/10'
+              className={`px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-xs font-semibold transition-all relative flex-shrink-0 whitespace-nowrap ${
+                isActive
+                  ? 'bg-primary text-on-primary shadow-glow'
+                  : 'text-app-muted hover:text-app-text'
               }`}
             >
-              {s.name.toUpperCase()}
+              {s.name}
               {isCurrentAuto && (
-                <div className="absolute top-0 right-0 w-2 h-2 bg-usc-cardinal border border-bone" title="CURRENT_TERM" />
+                <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-warn" title="Current term" />
               )}
             </button>
           );
@@ -93,39 +93,39 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
 
       {/* 3. ACTIVE SEMESTER VIEW */}
       {activeSemester ? (
-        <div className="bg-bone border-4 border-ink shadow-neo flex flex-col animate-in slide-in-from-right-4 duration-300">
+        <div className="glass rounded-2xl flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300">
           {/* Header */}
-          <div className="bg-ink p-6 border-b-4 border-ink flex justify-between items-center text-bone">
+          <div className="p-6 border-b border-app-border flex justify-between items-center">
             <div>
-              <h3 className="font-loud text-3xl text-usc-gold tracking-tight">
-                {activeSemester.name.toUpperCase()}
+              <h3 className="font-display font-bold text-2xl md:text-3xl text-app-text tracking-tight">
+                {activeSemester.name}
               </h3>
-              <p className="font-mono text-[10px] opacity-50 uppercase">Active_Session_Focused</p>
+              <p className="text-[10px] text-app-faint uppercase tracking-[0.16em] mt-1">Active session</p>
             </div>
             <div className="text-right">
-              <span className="block font-mono text-[10px] text-bone/40 leading-none">SEMESTER_ID</span>
-              <span className="font-loud text-bone text-xs">{activeSemester.id}</span>
+              <span className="block text-[10px] text-app-faint uppercase tracking-[0.16em] leading-none">Semester ID</span>
+              <span className="font-display font-semibold text-app-text text-xs">{activeSemester.id}</span>
             </div>
           </div>
 
-          <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          <div className="p-5 md:p-7 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
           {/* SEMESTER CONFIGURATION PANEL */}
           <div className="space-y-6">
-            <div className="bg-white border-4 border-ink p-6 md:p-10 shadow-neo-gold relative overflow-hidden flex flex-col items-center justify-center text-center min-w-0">
-              <div className="absolute top-0 right-0 bg-ink text-usc-gold px-2 py-0.5 font-loud text-[8px]">REQUIRED_CONFIG</div>
-              
+            <div className="rounded-2xl border border-app-border bg-surface-2 p-4 md:p-6 relative overflow-hidden flex flex-col items-center justify-center text-center min-w-0">
+              <div className="absolute top-3 right-3 text-app-faint text-[9px] uppercase tracking-[0.16em]">Required</div>
+
               {/* Total Valuation Field */}
               <div className="mb-8 md:mb-10 w-full">
-                <label className="font-loud text-[9px] md:text-[10px] text-ink/40 mb-3 block tracking-widest uppercase">Total_Tuition_Valuation</label> 
+                <label className="text-[9px] md:text-[10px] text-app-faint mb-3 block tracking-[0.16em] uppercase">Total tuition</label>
                 <div className="flex flex-col items-center gap-4">
-                  <span className="font-loud text-3xl sm:text-4xl md:text-5xl text-ink leading-none break-all">
+                  <span className="font-display font-bold text-3xl sm:text-4xl md:text-5xl text-app-text leading-none break-all tabular-nums">
                     {formatCurrency(activeSemester.totalTuition, displayCurrency, conversionRate)}
                   </span>
                   <input
                     type="number"
                     min="0"
-                    placeholder="SET_VAL"
-                    className="w-full max-w-[180px] bg-bone border-4 border-ink p-3 font-loud text-sm focus:ring-4 focus:ring-usc-gold focus:outline-none text-center"
+                    placeholder="Set amount"
+                    className="w-full max-w-[180px] bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-app-text placeholder:text-app-faint text-center focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
                     onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     onBlur={(e) => {
                       const raw = e.target.value.trim();
@@ -145,24 +145,24 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
               </div>
 
               {/* Dynamic Installment Splitter */}
-              <div className="pt-10 border-t-4 border-dashed border-ink/10 w-full flex flex-col items-center">
-                <label className="font-loud text-[10px] text-ink/40 mb-3 block tracking-widest uppercase">Installment_Split_Quantity</label>
+              <div className="pt-10 border-t border-app-border w-full flex flex-col items-center">
+                <label className="text-[10px] text-app-faint mb-3 block tracking-[0.16em] uppercase">Installment count</label>
                 <div className="flex flex-col items-center gap-4">
-                  <span className="font-loud text-3xl text-ink">
-                    {activeSemester.installments.length} <span className="text-xs opacity-40">UNITS</span>
+                  <span className="font-display font-bold text-3xl text-app-text tabular-nums">
+                    {activeSemester.installments.length} <span className="text-xs text-app-faint">installments</span>
                   </span>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     // Calculate the minimum allowed count based on the last paid installment index
-                    min={activeSemester.installments.reduce((max, inst, idx) => 
+                    min={activeSemester.installments.reduce((max, inst, idx) =>
                       inst.status === 'paid' ? Math.max(max, idx + 1) : max, 1
                     )}
                     max="12"
-                    defaultValue={activeSemester.installments.length} 
-                    className="w-24 bg-bone border-4 border-ink p-2 font-loud text-xs focus:ring-4 focus:ring-usc-gold focus:outline-none text-center"
+                    defaultValue={activeSemester.installments.length}
+                    className="w-24 bg-surface-2 border border-app-border rounded-xl px-4 py-2 text-app-text text-center focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
                     onBlur={(e) => {
                       const val = parseInt(e.target.value);
-                      const minRequired = activeSemester.installments.reduce((max, inst, idx) => 
+                      const minRequired = activeSemester.installments.reduce((max, inst, idx) =>
                         inst.status === 'paid' ? Math.max(max, idx + 1) : max, 1
                       );
 
@@ -171,40 +171,40 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                         e.target.value = activeSemester.installments.length.toString();
                         return;
                       }
-                      
+
                       if (val > 0 && val !== activeSemester.installments.length) {
                         onUpdateInstallmentCount(activeSemester.id, val);
                       }
                     }}
                   />
                 </div>
-                <p className="mt-6 text-[9px] font-mono opacity-40 italic max-w-[200px]">Note: Changing count will re-calculate all unpaid vouchers.</p>
+                <p className="mt-6 text-[10px] text-app-faint italic max-w-[200px]">Note: Changing count will re-calculate all unpaid installments.</p>
               </div>
             </div>
           </div>
 
-            {/* Installment Voucher List */}
+            {/* Installment Schedule List */}
             <div className="space-y-4">
-              <p className="font-loud text-xs opacity-30 border-b-2 border-ink/10 pb-2">PAYMENT_SCHEDULE_VOUCHERS</p>
+              <p className="text-[10px] text-app-faint uppercase tracking-[0.16em] border-b border-app-border pb-2">Payment schedule</p>
               {activeSemester.installments.map((inst, index) => (
-                <div key={inst.id} className="relative flex items-stretch border-4 border-ink bg-white shadow-neo active:translate-y-1 transition-all min-h-[80px]">
-                  
-                  <div className={`w-8 md:w-12 flex items-center justify-center border-r-4 border-ink font-loud text-[8px] md:text-xs ${inst.status === 'paid' ? 'bg-green-600 text-bone' : 'bg-usc-gold text-ink'}`}>
-                    <span className="-rotate-90 whitespace-nowrap">VCHR_{index + 1}</span>
+                <div key={inst.id} className="relative flex items-stretch rounded-2xl border border-app-border bg-surface-2 overflow-hidden transition-all min-h-[80px]">
+
+                  <div className={`w-8 md:w-12 flex items-center justify-center text-[8px] md:text-xs font-semibold ${inst.status === 'paid' ? 'bg-ok/15 text-ok' : 'bg-primary/15 text-primary'}`}>
+                    <span className="-rotate-90 whitespace-nowrap">#{index + 1}</span>
                   </div>
 
                   <div className="p-3 md:p-4 flex-grow flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-loud text-lg md:text-xl text-ink leading-none truncate">
+                      <p className="font-display font-bold text-lg md:text-xl text-app-text leading-none truncate tabular-nums">
                         {formatCurrency(inst.amount, displayCurrency, conversionRate)}
                       </p>
                       {inst.status === 'paid' ? (
-                        <div className="flex items-center mt-2 text-green-600 font-bold text-[10px]">
-                          <TagIcon className="h-3 w-3 mr-1" /> PROCESSED: {inst.paidDate}
+                        <div className="flex items-center mt-2 text-ok font-semibold text-[10px]">
+                          <TagIcon className="h-3 w-3 mr-1" /> Paid: {inst.paidDate}
                         </div>
                       ) : (
-                        <div className="flex items-center mt-2 text-ink/40 font-mono text-[9px]">
-                          <CalendarDaysIcon className="h-3 w-3 mr-1" /> AWAITING_SETTLEMENT
+                        <div className="flex items-center mt-2 text-app-faint text-[10px]">
+                          <CalendarDaysIcon className="h-3 w-3 mr-1" /> Awaiting payment
                         </div>
                       )}
                     </div>
@@ -212,49 +212,48 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                     {inst.status !== 'paid' && inst.amount > 0 && (
                       <div className="flex flex-col md:flex-row items-center gap-3">
                         <div className="flex flex-col">
-                          <label className="font-mono text-[8px] opacity-40 uppercase mb-1">Payment_Date</label>
-                          <input 
-                            type="date" 
+                          <label className="text-[9px] text-app-faint uppercase tracking-[0.16em] mb-1">Payment date</label>
+                          <input
+                            type="date"
                             // Default to today if no date is selected yet
                             value={selectedDates[inst.id] || todayCalendar()}
                             onChange={(e) => setSelectedDates(prev => ({ ...prev, [inst.id]: e.target.value }))}
-                            className="bg-bone border-2 border-ink p-1 font-loud text-[10px] focus:ring-2 focus:ring-usc-gold focus:outline-none"
+                            className="bg-surface-2 border border-app-border rounded-xl px-3 py-1.5 text-[11px] text-app-text [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
                           />
                         </div>
-                        
-                        <button 
+
+                        <button
                           onClick={() => {
                             const dateToUse = selectedDates[inst.id] || todayCalendar();
                             onMarkAsPaid(activeSemester.id, inst.id, dateToUse);
                           }}
-                          className="bg-usc-cardinal text-bone font-loud text-[9px] md:text-[10px] px-3 md:px-4 py-2 border-2 md:border-4 border-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[4px_4px_0px_0px_#111111] active:shadow-none active:translate-y-0.5 transition-all flex-shrink-0 uppercase"
+                          className="bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold text-[10px] md:text-xs px-3 md:px-4 py-2 flex-shrink-0"
                         >
-                          PAY_INST
+                          Mark paid
                         </button>
                       </div>
                     )}
                   </div>
-                  <div className="hidden sm:block absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 bg-bone border-l-4 border-ink rounded-full" />
                 </div>
               ))}
             </div>
           </div>
 
           {/* Footer Ledger */}
-          <div className="p-6 bg-ink text-bone border-t-4 border-ink flex justify-between items-center">
+          <div className="p-6 border-t border-app-border flex justify-between items-center">
             <div>
-              <p className="text-[10px] font-mono opacity-50 uppercase">Settled_Sum</p>
-              <p className="font-loud text-2xl text-usc-gold">
+              <p className="text-[10px] text-app-faint uppercase tracking-[0.16em]">Total paid</p>
+              <p className="font-display font-bold text-2xl text-ok tabular-nums">
                 {formatCurrency(
-                  activeSemester.installments.reduce((acc, i) => i.status === 'paid' ? acc + i.amount : acc, 0), 
-                  displayCurrency, 
+                  activeSemester.installments.reduce((acc, i) => i.status === 'paid' ? acc + i.amount : acc, 0),
+                  displayCurrency,
                   conversionRate
                 )}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-mono opacity-50 uppercase">Remaining_Balance</p>
-              <p className="font-loud text-2xl text-usc-cardinal">
+              <p className="text-[10px] text-app-faint uppercase tracking-[0.16em]">Remaining balance</p>
+              <p className="font-display font-bold text-2xl text-app-text tabular-nums">
                 {formatCurrency(
                   activeSemester.totalTuition - activeSemester.installments.reduce((acc, i) => i.status === 'paid' ? acc + i.amount : acc, 0),
                   displayCurrency,
@@ -265,8 +264,8 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
           </div>
         </div>
       ) : (
-        <div className="border-4 border-ink border-dashed p-20 text-center bg-bone/50">
-          <p className="font-loud text-2xl text-ink/20">NO_SEMESTER_DATA_FOUND</p>
+        <div className="glass rounded-2xl border border-dashed border-app-border p-20 text-center">
+          <p className="font-display font-bold text-2xl text-app-faint">No semester data found</p>
         </div>
       )}
     </div>

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
+import { useTheme } from '../hooks/useTheme';
+import { getChartColors } from '../utils/chartTheme';
 
 interface ChartData {
   label: string;
@@ -15,9 +17,9 @@ interface SpendingBarChartProps {
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white border-2 md:border-4 border-ink p-2 md:p-3 shadow-neo z-50">
-        <p className="font-loud text-[10px] md:text-xs mb-1 border-b-2 border-ink pb-1 uppercase">{label}</p>
-        <p className="font-bold text-[10px] md:text-sm text-ink">
+      <div className="glass glass-blur rounded-xl px-3 py-2 z-50">
+        <p className="text-[11px] font-medium text-app-muted mb-1">{label}</p>
+        <p className="font-display text-sm font-bold text-app-text tabular-nums">
           {formatCurrency(payload[0].value, displayCurrency, conversionRate)}
         </p>
       </div>
@@ -28,6 +30,8 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 
 const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const { theme } = useTheme();
+  const c = getChartColors(theme);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -38,12 +42,12 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
 
     if (data.length === 0) {
         return (
-          <div className="flex items-center justify-center h-full font-loud text-xs text-ink/30 italic uppercase">
-            NO_DATA_STREAM_FOUND
+          <div className="flex items-center justify-center h-full text-sm text-app-faint">
+            No spending data yet
           </div>
         );
     }
-    
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart
@@ -51,34 +55,33 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
         // Reclaiming horizontal space for mobile
         margin={{ top: 10, right: 5, left: -20, bottom: 0 }}
       >
-        <CartesianGrid strokeDasharray="0" stroke="#111111" strokeOpacity={0.05} />
-        
-        <XAxis 
-          dataKey="label" 
-          tick={{ fill: '#111111', fontSize: 8, fontWeight: 900 }} 
-          axisLine={{ stroke: '#111111', strokeWidth: 2 }}
-          tickLine={{ stroke: '#111111', strokeWidth: 1 }}
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+
+        <XAxis
+          dataKey="label"
+          tick={{ fill: c.tick, fontSize: 10 }}
+          axisLine={{ stroke: c.axisLine }}
+          tickLine={false}
           interval={isMobile ? (data.length > 10 ? 4 : 0) : 0}
         />
-        <YAxis 
-          tick={{ fill: '#111111', fontSize: 8, fontWeight: 900 }} 
-          tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)} 
-          axisLine={{ stroke: '#111111', strokeWidth: 2 }}
-          tickLine={{ stroke: '#111111', strokeWidth: 1 }}
-          width={45} 
+        <YAxis
+          tick={{ fill: c.tick, fontSize: 10 }}
+          tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)}
+          axisLine={false}
+          tickLine={false}
+          width={45}
         />
-        
-        <Tooltip 
-          content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate}/>} 
-          cursor={{ fill: '#111111', fillOpacity: 0.05 }} 
+
+        <Tooltip
+          content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate}/>}
+          cursor={{ fill: c.cursor }}
         />
-        
-        <Bar 
-          dataKey="amount" 
-          fill="#FFCC00" 
-          stroke="#111111" 
-          strokeWidth={isMobile ? 1.5 : 3}
-          radius={[0, 0, 0, 0]} 
+
+        <Bar
+          dataKey="amount"
+          fill={c.primary}
+          radius={[4, 4, 0, 0]}
+          maxBarSize={48}
         />
       </BarChart>
     </ResponsiveContainer>

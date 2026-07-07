@@ -33,10 +33,10 @@ interface DataModalProps {
 }
 
 const ranges: { id: DateRange; label: string }[] = [
-  { id: 'this_month', label: 'THIS_MONTH' },
-  { id: 'last_month', label: 'LAST_MONTH' },
-  { id: 'last_90_days', label: '90_DAYS' },
-  { id: 'all_time', label: 'ALL_TIME' },
+  { id: 'this_month', label: 'This month' },
+  { id: 'last_month', label: 'Last month' },
+  { id: 'last_90_days', label: 'Last 90 days' },
+  { id: 'all_time', label: 'All time' },
 ];
 
 const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onRestoreBackup }) => {
@@ -340,39 +340,39 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
       aria-modal="true"
       aria-labelledby="data-modal-title"
       tabIndex={-1}
-      className="fixed inset-0 bg-ink/90 backdrop-blur-md z-[100] flex justify-center items-center p-2 sm:p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4"
     >
-      <div className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-xl overflow-hidden flex flex-col max-h-[95vh]">
-        
+      <div className="glass glass-blur rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+
         {/* HEADER */}
-        <div className="bg-usc-cardinal p-4 md:p-6 border-b-4 md:border-b-8 border-ink flex justify-between items-center flex-shrink-0">
+        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-center flex-shrink-0">
           <div className="min-w-0">
-            <h2 id="data-modal-title" className="font-loud text-xl md:text-3xl text-bone leading-none uppercase truncate">DATA_TRANSFER_HUB</h2>
-            <p className="text-[8px] md:text-[10px] font-mono text-bone/60 mt-1 uppercase">Link: Secure_Active</p>
+            <h2 id="data-modal-title" className="font-display text-xl sm:text-2xl font-bold text-app-text truncate">Export data</h2>
+            <p className="text-xs text-app-muted mt-1">Export, import, or back up your data.</p>
           </div>
-          <button onClick={onClose} aria-label="Close data modal" className="bg-ink text-bone p-1 border-2 border-bone">
+          <button onClick={onClose} aria-label="Close export modal" className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors flex-shrink-0">
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-4 md:p-8 space-y-8 overflow-y-auto bg-bone">
-          
+        <div className="flex-grow overflow-y-auto p-5 sm:p-6 space-y-8">
+
           {/* EXPORT */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-2">
-                <TableCellsIcon className="h-5 w-5 text-usc-gold" />
-                <h3 className="font-loud text-lg md:text-xl text-ink uppercase">Export_Data_Manifest</h3>
+          <div className="space-y-5">
+            <div className="flex items-center gap-2">
+                <TableCellsIcon className="h-5 w-5 text-primary" />
+                <h3 className="font-display text-lg md:text-xl font-bold text-app-text">Export data</h3>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div className="col-span-1 sm:col-span-2">
-                <label className="font-loud text-[9px] text-ink/40 mb-2 block">DATE_RANGE_SELECTOR</label>
-                <div className="grid grid-cols-2 lg:grid-cols-4 bg-ink border-4 border-ink p-1">
+                <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase">Date range</label>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
                   {ranges.map(range => (
-                    <button 
-                      key={range.id} 
+                    <button
+                      key={range.id}
                       onClick={() => setDateRange(range.id)}
-                      className={`py-2 text-[9px] font-loud transition-all ${dateRange === range.id ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}
+                      className={`py-2 text-xs font-semibold transition-all rounded-lg ${dateRange === range.id ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}
                     >
                       {range.label}
                     </button>
@@ -381,112 +381,108 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               </div>
 
               <div className="col-span-1">
-                <label className="font-loud text-[9px] text-ink/40 mb-2 block uppercase">Format</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 bg-ink border-4 border-ink p-1 gap-1">
-                  <button onClick={() => setFormat('pdf')} className={`py-2 font-loud text-xs ${format === 'pdf' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>PDF</button>
-                  <button onClick={() => setFormat('csv')} className={`py-2 font-loud text-xs ${format === 'csv' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>CSV</button>
-                  <button onClick={() => setFormat('quickbooks')} className={`py-2 font-loud text-xs ${format === 'quickbooks' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>QB</button>
-                  <button onClick={() => setFormat('xero')} className={`py-2 font-loud text-xs ${format === 'xero' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>XERO</button>
-                  <button onClick={() => setFormat('tax_csv')} className={`py-2 font-loud text-xs ${format === 'tax_csv' ? 'bg-usc-gold text-ink' : 'text-bone'}`}>TAX</button>
+                <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase">Format</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
+                  <button onClick={() => setFormat('pdf')} className={`py-2 text-xs font-semibold transition-all rounded-lg ${format === 'pdf' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>PDF</button>
+                  <button onClick={() => setFormat('csv')} className={`py-2 text-xs font-semibold transition-all rounded-lg ${format === 'csv' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>CSV</button>
+                  <button onClick={() => setFormat('quickbooks')} className={`py-2 text-xs font-semibold transition-all rounded-lg ${format === 'quickbooks' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>QuickBooks</button>
+                  <button onClick={() => setFormat('xero')} className={`py-2 text-xs font-semibold transition-all rounded-lg ${format === 'xero' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>Xero</button>
+                  <button onClick={() => setFormat('tax_csv')} className={`py-2 text-xs font-semibold transition-all rounded-lg ${format === 'tax_csv' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>Tax CSV</button>
                 </div>
               </div>
 
               <div className="col-span-1">
-                <label className="font-loud text-[10px] text-ink/40 dark:text-bone/40 mb-2 block uppercase">Inclusion</label>
+                <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase">Include</label>
                 <div className="flex flex-col gap-2">
-                    <button onClick={() => setIncludeExpenses(!includeExpenses)} className={`text-left font-loud text-[10px] px-2 py-1 border-2 border-ink ${includeExpenses ? 'bg-usc-cardinal text-bone' : 'bg-white text-ink opacity-30'}`}>
-                        EXPENSES: {includeExpenses ? 'ON' : 'OFF'}
+                    <button onClick={() => setIncludeExpenses(!includeExpenses)} className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition-all ${includeExpenses ? 'bg-primary text-on-primary border-transparent shadow-glow' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}>
+                        Expenses: {includeExpenses ? 'On' : 'Off'}
                     </button>
-                    <button onClick={() => setIncludeBudgets(!includeBudgets)} className={`text-left font-loud text-[10px] px-2 py-1 border-2 border-ink ${includeBudgets ? 'bg-usc-cardinal text-bone' : 'bg-white text-ink opacity-30'}`}>
-                        BUDGETS: {includeBudgets ? 'ON' : 'OFF'}
+                    <button onClick={() => setIncludeBudgets(!includeBudgets)} className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition-all ${includeBudgets ? 'bg-primary text-on-primary border-transparent shadow-glow' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}>
+                        Budgets: {includeBudgets ? 'On' : 'Off'}
                     </button>
                 </div>
               </div>
             </div>
 
-            <button 
-              onClick={handleDownload} 
+            <button
+              onClick={handleDownload}
               disabled={!includeExpenses && !includeBudgets}
-              className="w-full bg-usc-gold text-ink font-loud text-lg py-4 border-4 border-ink shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30"
+              className="w-full bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold py-3.5 disabled:opacity-40 disabled:pointer-events-none"
             >
-              DOWNLOAD_MANIFEST
+              Download export
             </button>
 
             <button
               onClick={handleExportFullBackup}
-              className="w-full bg-ink text-bone font-loud text-sm py-3 border-4 border-ink shadow-neo-gold hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+              className="w-full bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold py-3"
             >
-              EXPORT_FULL_BACKUP_(JSON)
+              Export full backup (JSON)
             </button>
           </div>
 
-          <div className="relative flex items-center justify-center py-2">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t-4 border-dashed border-ink/10" /></div>
-            <span className="relative bg-bone px-4 font-loud text-[10px] opacity-30 uppercase">Direction_Swap</span>
+          <div className="relative flex items-center justify-center py-1">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-app-border" /></div>
+            <span className="relative bg-surface px-4 text-[11px] font-medium tracking-[0.12em] text-app-muted uppercase">Import</span>
           </div>
 
           {/* IMPORT */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-2">
-                <ClipboardDocumentListIcon className="h-5 w-5 text-usc-gold" />
-                <h3 className="font-loud text-lg md:text-xl text-ink uppercase">Import_Stream</h3>
+          <div className="space-y-5">
+            <div className="flex items-center gap-2">
+                <ClipboardDocumentListIcon className="h-5 w-5 text-primary" />
+                <h3 className="font-display text-lg md:text-xl font-bold text-app-text">Import data</h3>
             </div>
-            
+
             <input type="file" ref={fileInputRef} accept=".csv" onChange={handleFileChange} className="hidden" />
-            <button 
+            <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full bg-white border-4 border-ink border-dashed p-6 font-loud text-ink flex flex-col items-center text-center"
+              className="w-full rounded-xl border border-dashed border-app-border bg-surface-2 p-6 text-sm font-medium text-app-muted hover:border-app-border-strong hover:text-app-text transition-colors flex flex-col items-center text-center"
             >
-              {importFile ? <span className="text-usc-gold break-all">{importFile.name.toUpperCase()}</span> : "UPLOAD_LOCAL_CSV_MANIFEST"}
+              {importFile ? <span className="text-primary break-all">{importFile.name}</span> : "Upload a CSV file"}
             </button>
 
             {importError && (
-              <div role="alert" aria-live="assertive" className="bg-ink text-usc-cardinal p-3 border-2 border-ink shadow-neo flex items-center font-bold text-[10px] uppercase italic">
-                <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
+              <div role="alert" aria-live="assertive" className="rounded-xl border border-danger/40 bg-danger/10 p-3 flex items-center text-sm font-medium text-danger">
+                <ExclamationTriangleIcon className="h-4 w-4 mr-2 flex-shrink-0" />
                 Error: {importError}
               </div>
             )}
 
-            <button 
-              onClick={handleImport} 
+            <button
+              onClick={handleImport}
               disabled={isImporting || !importFile}
-              className="w-full bg-ink text-bone font-loud text-lg py-4 border-4 border-ink shadow-neo-gold hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30"
+              className="w-full bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold py-3.5 disabled:opacity-40 disabled:pointer-events-none"
             >
-              {isImporting ? 'INGESTING...' : 'INITIALIZE_IMPORT'}
+              {isImporting ? 'Importing…' : 'Import CSV'}
             </button>
 
-            <div className="relative flex items-center justify-center py-2">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t-4 border-dashed border-ink/10" /></div>
-              <span className="relative bg-bone px-4 font-loud text-[10px] opacity-30 uppercase">Backup_Restore</span>
+            <div className="relative flex items-center justify-center py-1">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-app-border" /></div>
+              <span className="relative bg-surface px-4 text-[11px] font-medium tracking-[0.12em] text-app-muted uppercase">Restore backup</span>
             </div>
 
             <input type="file" ref={backupFileInputRef} accept=".json" onChange={handleBackupFileChange} className="hidden" />
             <button
               onClick={() => backupFileInputRef.current?.click()}
-              className="w-full bg-white border-4 border-ink border-dashed p-6 font-loud text-ink flex flex-col items-center text-center"
+              className="w-full rounded-xl border border-dashed border-app-border bg-surface-2 p-6 text-sm font-medium text-app-muted hover:border-app-border-strong hover:text-app-text transition-colors flex flex-col items-center text-center"
             >
-              {backupFile ? <span className="text-usc-cardinal break-all">{backupFile.name.toUpperCase()}</span> : 'UPLOAD_BACKUP_JSON_FILE'}
+              {backupFile ? <span className="text-primary break-all">{backupFile.name}</span> : 'Upload a backup JSON file'}
             </button>
 
             {backupError && (
-              <div role="alert" aria-live="assertive" className="bg-ink text-usc-cardinal p-3 border-2 border-ink shadow-neo flex items-center font-bold text-[10px] uppercase italic">
-                <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
-                Restore Error: {backupError}
+              <div role="alert" aria-live="assertive" className="rounded-xl border border-danger/40 bg-danger/10 p-3 flex items-center text-sm font-medium text-danger">
+                <ExclamationTriangleIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                Restore error: {backupError}
               </div>
             )}
 
             <button
               onClick={handleRestoreBackup}
               disabled={isRestoringBackup || !backupFile}
-              className="w-full bg-usc-cardinal text-bone font-loud text-sm py-3 border-4 border-ink shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-30"
+              className="w-full bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold py-3 disabled:opacity-40 disabled:pointer-events-none"
             >
-              {isRestoringBackup ? 'RESTORING_BACKUP...' : 'RESTORE_FULL_BACKUP'}
+              {isRestoringBackup ? 'Restoring backup…' : 'Restore full backup'}
             </button>
           </div>
-        </div>
-        
-        <div className="bg-ink p-4 flex justify-center border-t-4 border-ink">
-          <p className="font-mono text-[8px] text-bone/20 uppercase tracking-[0.4em] select-none italic">Verified_by_Trojan_Audit</p>
         </div>
       </div>
     </div>

@@ -98,74 +98,75 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-ink/80 backdrop-blur-sm z-[100] flex justify-center items-center p-2 md:p-4">
-      <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Category taxonomy editor" className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-3xl flex flex-col h-full max-h-[95vh] md:max-h-[85vh] overflow-hidden">
-        
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Category manager" className="glass glass-blur rounded-2xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
+
         {/* HEADER */}
-        <div className="bg-ink p-4 md:p-8 border-b-4 md:border-b-8 border-ink flex justify-between items-center flex-shrink-0">
+        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-center flex-shrink-0">
           <div className="min-w-0">
-            <h2 className="font-loud text-xl md:text-4xl text-usc-gold leading-none uppercase truncate">TAXONOMY_EDITOR</h2>
-            <p className="font-mono text-[8px] md:text-[10px] text-bone/40 mt-1 md:mt-2 tracking-widest uppercase">Protocol: CAT_MGMT_v1.0</p>
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-app-text truncate">Categories</h2>
+            <p className="text-xs text-app-muted mt-1">Organize your spending categories.</p>
           </div>
-          <button onClick={onClose} className="bg-usc-cardinal text-bone p-1 md:p-2 border-2 md:border-4 border-ink shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all flex-shrink-0 ml-4">
-            <XMarkIcon className="h-5 w-5 md:h-6 md:w-6" />
+          <button onClick={onClose} aria-label="Close category manager" className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors flex-shrink-0 ml-4">
+            <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
 
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0">
           {/* Sidebar: Main Categories */}
-          <div className="w-full md:w-1/3 border-b-4 md:border-b-0 md:border-r-8 border-ink bg-white/50 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto no-scrollbar flex-shrink-0">
+          <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-app-border bg-surface-2 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto no-scrollbar flex-shrink-0">
             {Object.keys(CATEGORIES).map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveTab(cat)}
-                className={`whitespace-nowrap md:whitespace-normal text-left px-4 py-3 md:p-4 font-loud text-[10px] md:text-xs border-r-4 md:border-r-0 md:border-b-4 border-ink transition-all flex items-center justify-between flex-shrink-0 md:flex-shrink ${
-                  activeTab === cat ? 'bg-usc-gold text-ink' : 'text-ink hover:bg-usc-gold/20'
+                className={`whitespace-nowrap md:whitespace-normal text-left px-4 py-3 md:p-4 text-xs font-semibold transition-colors flex items-center justify-between flex-shrink-0 md:flex-shrink ${
+                  activeTab === cat ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text hover:bg-surface'
                 }`}
               >
-                {cat.toUpperCase()}
-                <TagIcon className="h-3 w-3 md:h-4 md:w-4 opacity-30 ml-2" />
+                {cat}
+                <TagIcon className={`h-3 w-3 md:h-4 md:w-4 ml-2 ${activeTab === cat ? 'opacity-70' : 'opacity-30'}`} />
               </button>
             ))}
           </div>
 
           {/* Content: Subcategories */}
-          <div className="w-full md:w-2/3 p-4 md:p-8 overflow-y-auto space-y-4 md:space-y-6 flex-1 custom-scrollbar">
-            <div className="flex justify-between items-end border-b-2 md:border-b-4 border-ink pb-2 md:pb-4">
-              <h3 className="font-loud text-lg md:text-2xl text-ink uppercase truncate pr-2">{activeTab}_SUBSYSTEMS</h3>
-              <span className="font-mono text-[8px] md:text-[10px] opacity-40 uppercase tracking-tighter text-ink flex-shrink-0">Count: {(categories[activeTab] || []).length}</span>
+          <div className="w-full md:w-2/3 p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+            <div className="flex justify-between items-end border-b border-app-border pb-4">
+              <h3 className="font-display text-lg md:text-2xl font-bold text-app-text truncate pr-2">{activeTab}</h3>
+              <span className="text-[11px] font-medium tracking-[0.12em] text-app-muted flex-shrink-0 uppercase">{(categories[activeTab] || []).length} items</span>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:gap-4">
+            <div className="grid grid-cols-1 gap-3">
               {(categories[activeTab] || []).map((sub: string) => (
-                <div key={sub} className="flex items-center justify-between bg-white border-2 md:border-4 border-ink p-3 md:p-4 shadow-neo">
-                  <span className="font-loud text-xs md:text-sm text-ink uppercase tracking-tight truncate pr-4">{sub}</span>
+                <div key={sub} className="rounded-xl border border-app-border bg-surface-2 p-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-app-text truncate pr-4">{sub}</span>
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={() => handleDeleteSubcategory(activeTab, sub)}
-                      className="p-1 text-ink/20 hover:text-usc-cardinal transition-colors flex-shrink-0"
+                      aria-label={`Delete ${sub}`}
+                      className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-danger hover:bg-danger/10 hover:border-danger/40 transition-colors flex-shrink-0"
                     >
                       <TrashIcon className="h-4 w-4 md:h-5 md:w-5" />
                     </button>
                   </div>
                 </div>
               ))}
-              
+
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={newSubcategory}
                   onChange={(e) => setNewSubcategory(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddSubcategory(activeTab); }}
-                  placeholder="NEW_SUBCATEGORY_NAME"
-                  className="flex-1 border-2 md:border-4 border-dashed border-ink/20 p-3 md:p-4 font-loud text-[10px] md:text-sm text-ink focus:border-usc-gold focus:outline-none placeholder:text-ink/20 uppercase"
+                  placeholder="New subcategory name"
+                  className="flex-1 bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
                 />
-                <button 
+                <button
                   onClick={() => handleAddSubcategory(activeTab)}
-                  className="border-2 md:border-4 border-dashed border-ink/20 p-3 md:p-4 font-loud text-[10px] md:text-sm text-ink/20 hover:border-usc-gold hover:text-usc-gold transition-all flex items-center justify-center gap-2 uppercase flex-shrink-0"
+                  className="bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold px-4 py-3 flex items-center justify-center gap-2 flex-shrink-0"
                 >
                   <PlusCircleIcon className="h-4 w-4 md:h-5 md:w-5" />
-                  ADD
+                  Add
                 </button>
               </div>
             </div>
@@ -173,12 +174,12 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
         </div>
 
         {/* Footer */}
-        <div className="p-4 md:p-6 border-t-4 md:border-t-8 border-ink flex justify-end bg-bone flex-shrink-0">
-          <button 
+        <div className="p-5 sm:p-6 border-t border-app-border flex justify-end flex-shrink-0">
+          <button
             onClick={onClose}
-            className="w-full md:w-auto px-6 md:px-12 py-3 md:py-4 bg-usc-gold text-ink font-loud text-base md:text-lg border-2 md:border-4 border-ink shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all uppercase"
+            className="w-full md:w-auto px-6 md:px-12 py-3 bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold"
           >
-            CLOSE_EDITOR
+            Done
           </button>
         </div>
       </div>

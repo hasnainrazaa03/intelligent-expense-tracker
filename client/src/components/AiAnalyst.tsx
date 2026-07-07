@@ -50,9 +50,9 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
   const dataStatusLabel = useMemo(() => {
     const transactionCount = expenses.length + incomes.length;
     if (transactionCount === 0) {
-      return 'System: Waiting_for_transactions';
+      return 'Waiting for transactions';
     }
-    return `System: Context_loaded (${transactionCount}_records)`;
+    return `Context loaded (${transactionCount} records)`;
   }, [expenses.length, incomes.length]);
 
   const handleSend = async () => {
@@ -80,7 +80,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
 
       setMessages((prev) => [...prev, { role: 'assistant', content: result.reply }]);
     } catch (e: any) {
-      setError(e.message || "SYSTEM_ERROR: ANALYSIS_FAILED");
+      setError(e.message || "Analysis failed");
     } finally {
       setIsLoading(false);
       scrollToBottom();
@@ -111,33 +111,33 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
   };
 
   return (
-    <div className="bg-bone border-4 border-ink p-5 md:p-8 shadow-neo-gold relative overflow-hidden group">
+    <div className="glass rounded-2xl p-5 md:p-7 relative overflow-hidden group">
       <div className="absolute -right-8 -bottom-8 opacity-5 group-hover:opacity-10 transition-opacity hidden sm:block">
-        <SparklesIcon className="h-48 w-48 text-ink" />
+        <SparklesIcon className="h-48 w-48 text-app-text" />
       </div>
 
       <div className="relative z-10">
         <div className="flex items-center space-x-3 mb-6">
-          <div className="bg-ink text-usc-gold p-2 border-2 border-ink shadow-[3px_3px_0px_0px_#FFCC00] flex-shrink-0">
+          <div className="bg-surface-2 border border-app-border text-primary p-2 rounded-xl flex-shrink-0">
             <DocumentMagnifyingGlassIcon className="h-5 w-5 md:h-6 md:w-6" />
           </div>
-          <h3 className="font-loud text-xl md:text-2xl text-ink leading-none break-words">AI_SPENDING_COPILOT</h3>
+          <h3 className="font-display font-bold text-xl md:text-2xl text-app-text leading-none break-words">AI analyst</h3>
         </div>
 
         <div className="space-y-4 mb-4">
-          <p className="font-bold text-xs md:text-sm text-ink/70 leading-tight border-l-4 border-usc-gold pl-4 max-w-full">
-            CHAT WITH YOUR DATA. ASK ABOUT TRENDS, OVERSPENDING RISK, CATEGORY SHIFTS, OR QUICK SAVING MOVES.
+          <p className="text-xs md:text-sm text-app-muted leading-tight border-l-2 border-primary/50 pl-4 max-w-full">
+            Chat with your data. Ask about trends, overspending risk, category shifts, or quick saving moves.
           </p>
           <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
-            <span className="font-mono text-[9px] md:text-[10px] uppercase tracking-tighter opacity-50">{dataStatusLabel}</span>
+            <div className="w-2 h-2 rounded-full bg-ok animate-pulse flex-shrink-0" />
+            <span className="text-[9px] md:text-[10px] tracking-tight text-app-faint">{dataStatusLabel}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {QUICK_PROMPTS.map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => handleQuickPrompt(prompt)}
-                className="px-2 py-1 border-2 border-ink bg-white text-ink font-mono text-[10px] uppercase hover:bg-usc-gold"
+                className="rounded-full bg-surface-2 border border-app-border px-3 py-1.5 text-sm text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
               >
                 {prompt}
               </button>
@@ -147,7 +147,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
 
         <div
           ref={scrollRef}
-          className="h-72 md:h-80 overflow-y-auto border-4 border-ink bg-white/50 p-3 md:p-4 space-y-3 mb-4"
+          className="h-72 md:h-80 overflow-y-auto rounded-2xl border border-app-border bg-surface-2 p-3 md:p-4 space-y-3 mb-4"
         >
           {messages.map((message, index) => (
             <div
@@ -155,10 +155,10 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
               className={`w-full flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[90%] md:max-w-[80%] px-3 py-2 border-2 border-ink text-sm md:text-base whitespace-pre-wrap ${
+                className={`max-w-[90%] md:max-w-[80%] px-3 py-2 rounded-2xl text-sm md:text-base whitespace-pre-wrap ${
                   message.role === 'user'
-                    ? 'bg-usc-gold text-ink shadow-[2px_2px_0px_0px_#2B2B2B]'
-                    : 'bg-bone text-ink'
+                    ? 'bg-primary text-on-primary'
+                    : 'glass text-app-text'
                 }`}
               >
                 {message.role === 'assistant' ? renderAssistantMessage(message.content) : message.content}
@@ -167,8 +167,8 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
           ))}
           {isLoading && (
             <div className="w-full flex justify-start">
-              <div className="max-w-[90%] md:max-w-[80%] px-3 py-2 border-2 border-ink bg-bone text-ink text-sm md:text-base">
-                Analyzing your account context...
+              <div className="max-w-[90%] md:max-w-[80%] px-3 py-2 rounded-2xl glass text-app-text text-sm md:text-base">
+                Analyzing…
               </div>
             </div>
           )}
@@ -179,30 +179,30 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask one focused question for a brief answer..."
-            className="w-full h-24 md:h-28 resize-none border-4 border-ink bg-white px-3 py-2 font-mono text-sm focus:outline-none focus:ring-0"
+            placeholder="Ask one focused question for a brief answer…"
+            className="w-full h-24 md:h-28 resize-none bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
             disabled={isLoading}
           />
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => void handleSend()}
               disabled={isLoading || !input.trim()}
-              className="font-loud text-base md:text-lg flex items-center justify-center px-4 md:px-6 py-3 md:py-4 bg-usc-gold text-ink border-4 border-ink shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-xl font-semibold text-base md:text-lg flex items-center justify-center px-4 md:px-6 py-3 md:py-4 bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'PROCESSING...' : 'SEND'}
+              {isLoading ? 'Processing…' : 'Send'}
             </button>
             <button
               onClick={handleReset}
               disabled={isLoading}
-              className="font-loud text-base md:text-lg flex items-center justify-center px-4 md:px-6 py-3 md:py-4 bg-white text-ink border-4 border-ink shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-xl font-semibold text-base md:text-lg flex items-center justify-center px-4 md:px-6 py-3 md:py-4 bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              RESET
+              Reset
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="mt-4 p-3 bg-usc-cardinal text-bone border-2 border-ink shadow-neo flex items-center font-bold text-xs uppercase italic">
+          <div className="mt-4 p-3 rounded-xl bg-surface-2 border border-danger/40 text-danger flex items-center text-xs">
             <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
             {error}
           </div>

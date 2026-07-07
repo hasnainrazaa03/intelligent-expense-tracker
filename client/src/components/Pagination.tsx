@@ -22,33 +22,33 @@ const Pagination: React.FC<PaginationProps> = ({
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
   return (
-    <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t-4 border-ink pt-6">
-      <div className="font-mono text-[10px] md:text-xs text-ink/40 uppercase font-bold tracking-widest">
-        Showing <span className="text-ink">{startItem}-{endItem}</span> of <span className="text-ink">{totalItems}</span> Entries
+    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-app-border pt-5">
+      <div className="text-xs text-app-muted tabular-nums">
+        Showing <span className="text-app-text font-medium">{startItem}–{endItem}</span> of <span className="text-app-text font-medium">{totalItems}</span> entries
       </div>
-      
-      <div className="flex items-center space-x-2">
+
+      <div className="flex items-center gap-2">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className={`p-2 border-4 border-ink shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all ${
-            currentPage === 1 ? 'bg-ink/5 text-ink/20 cursor-not-allowed shadow-none' : 'bg-white text-ink hover:bg-usc-gold'
+          aria-label="Previous page"
+          className={`grid place-items-center w-9 h-9 rounded-xl border transition-colors ${
+            currentPage === 1 ? 'bg-surface-2 border-app-border text-app-faint cursor-not-allowed' : 'bg-surface-2 border-app-border text-app-text hover:border-app-border-strong'
           }`}
         >
           <ChevronLeftIcon className="h-5 w-5" />
         </button>
 
-        <div className="flex items-center bg-ink p-1 border-2 border-ink">
-          <span className="px-4 font-loud text-bone text-sm md:text-base">
-            PAGE_{currentPage}_OF_{totalPages}
-          </span>
-        </div>
+        <span className="px-3.5 py-1.5 rounded-xl bg-surface-2 border border-app-border text-sm font-medium text-app-text tabular-nums">
+          {currentPage} / {totalPages}
+        </span>
 
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className={`p-2 border-4 border-ink shadow-neo active:translate-x-0.5 active:translate-y-0.5 transition-all ${
-            currentPage === totalPages ? 'bg-ink/5 text-ink/20 cursor-not-allowed shadow-none' : 'bg-white text-ink hover:bg-usc-gold'
+          aria-label="Next page"
+          className={`grid place-items-center w-9 h-9 rounded-xl border transition-colors ${
+            currentPage === totalPages ? 'bg-surface-2 border-app-border text-app-faint cursor-not-allowed' : 'bg-surface-2 border-app-border text-app-text hover:border-app-border-strong'
           }`}
         >
           <ChevronRightIcon className="h-5 w-5" />

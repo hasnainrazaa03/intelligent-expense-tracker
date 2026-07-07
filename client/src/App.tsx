@@ -54,28 +54,22 @@ const EMPTY_ALL_DATA: AllDataResponse = { expenses: [], incomes: [], budgets: []
 const RECURRING_SNOOZE_KEY = 'recurringReminderSnoozeUntil';
 const ONBOARDING_DISMISSED_KEY = 'onboardingDismissed';
 
-const VerticalTab = ({ icon, label, isActive, onClick, colorClass }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, colorClass: string }) => {
+const VerticalTab = ({ icon, label, isActive, onClick }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, colorClass?: string }) => {
     return (
         <button
             onClick={onClick}
-      role="tab"
-      aria-selected={isActive}
-      aria-current={isActive ? 'page' : undefined}
-      aria-label={label}
-            // Changed w-20 to w-16 on mobile, w-20 on md+
-            className={`flex-1 flex flex-col items-center justify-center w-16 md:w-20 border-b-4 border-r-4 border-ink transition-all relative overflow-hidden flex-shrink-0
-                ${isActive 
-                    ? `${colorClass} text-bone shadow-[inset_4px_0px_0px_0px_#111111]` 
-                    : 'bg-white text-ink/40 hover:text-ink hover:bg-bone'
+            role="tab"
+            aria-selected={isActive}
+            aria-current={isActive ? 'page' : undefined}
+            aria-label={label}
+            className={`group relative flex flex-col items-center justify-center gap-1.5 w-16 md:w-full py-3 rounded-xl transition-all flex-shrink-0
+                ${isActive
+                    ? 'bg-primary text-on-primary shadow-glow'
+                    : 'text-app-muted hover:text-app-text hover:bg-surface-2'
                 }`}
         >
-            {/* Desktop: Rotated Sticker | Mobile: Simple Stack */}
-            <div className="flex flex-col items-center gap-1 md:gap-4 md:transform md:-rotate-90 whitespace-nowrap">
-                <span className="font-loud text-[8px] md:text-[9px] tracking-[0.1em]">{label}</span>
-                <div className="md:rotate-90 scale-90 md:scale-100">{icon}</div>
-            </div>
-            
-            {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 md:w-2 bg-ink" />}
+            <span className={`transition-transform ${isActive ? '' : 'group-hover:scale-110'}`}>{icon}</span>
+            <span className="text-[9px] md:text-[10px] font-semibold tracking-wide">{label}</span>
         </button>
     );
 }
@@ -784,8 +778,8 @@ const handleDeleteIncome = async (id: string) => {
     }
   };
         const DashboardLayout = (
-          <div className="h-screen bg-bone flex flex-col overflow-hidden text-ink font-mono">
-            <div className="noise-overlay" />
+          <div className="h-screen bg-transparent flex flex-col overflow-hidden text-app-text font-sans px-3 md:px-6 py-3 md:py-4">
+            <div className="starfield" />
             <p className="sr-only" aria-live="polite" aria-atomic="true">{liveRegionMessage}</p>
             
             {/* 1. HEADER (Fixed at top) */}
@@ -801,7 +795,7 @@ const handleDeleteIncome = async (id: string) => {
             />
 
             {/* 2. BODY WRAPPER */}
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden gap-4 md:gap-6">
               
               {/* SIDE NAVIGATION (Vertical Sticker Tabs) */}
               <nav
@@ -829,79 +823,79 @@ const handleDeleteIncome = async (id: string) => {
                   const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
                   tabs[nextIndex].focus();
                 }}
-                className="hidden md:flex w-16 md:w-20 flex-col border-r-4 border-ink bg-bone z-30 flex-shrink-0 overflow-hidden no-scrollbar h-full"
+                className="hidden md:flex w-24 flex-col gap-1.5 glass glass-blur rounded-2xl p-2.5 z-30 flex-shrink-0 overflow-y-auto no-scrollbar h-full"
               >
-                <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="TXNS" colorClass="bg-usc-cardinal" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
-                <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="REVENUE" colorClass="bg-green-600" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
-                <VerticalTab icon={<ChatBubbleBottomCenterTextIcon className="h-5 w-5" />} label="AI" colorClass="bg-usc-gold text-ink" isActive={activeView === 'ai'} onClick={() => setActiveView('ai')} />
-                <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="MATRIX" colorClass="bg-ink" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
-                <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="AUDIT" colorClass="bg-ink" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
-                <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="BURSAR" colorClass="bg-usc-gold text-ink" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
+                <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="Spend" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
+                <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="Income" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
+                <VerticalTab icon={<ChatBubbleBottomCenterTextIcon className="h-5 w-5" />} label="AI" isActive={activeView === 'ai'} onClick={() => setActiveView('ai')} />
+                <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="Pivot" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
+                <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="Reports" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
+                <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="Tuition" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
               </nav>
 
               {/* 3. MAIN SCROLLABLE VIEWPORT */}
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 md:p-12 custom-scrollbar relative bg-bone">
-                <div className="w-full max-w-full overflow-hidden space-y-6 md:space-y-12 pb-56 md:pb-40">
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-1 md:pr-2 custom-scrollbar relative bg-transparent">
+                <div className="w-full max-w-full overflow-hidden space-y-5 md:space-y-7 pb-56 md:pb-40">
 
                   {showOnboarding && (
-                    <section className="bg-white border-4 border-ink p-4 md:p-6 shadow-neo">
-                      <h3 className="font-loud text-lg md:text-2xl uppercase mb-2">WELCOME_ONBOARDING</h3>
-                      <p className="font-mono text-[11px] text-ink/70 uppercase mb-4">
+                    <section className="glass rounded-2xl p-5 md:p-6">
+                      <h3 className="font-display text-lg md:text-xl font-bold text-app-text mb-1.5">Welcome to Orbit</h3>
+                      <p className="text-sm text-app-muted mb-4">
                         Start by adding one expense, one income, then set a budget for your top category.
                       </p>
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-wrap gap-2.5">
                         <button
                           onClick={handleOpenExpenseModal}
-                          className="bg-usc-gold text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo uppercase"
+                          className="bg-primary text-on-primary shadow-glow font-semibold text-sm py-2 px-4 rounded-xl hover:brightness-110 transition-all"
                         >
-                          ADD_FIRST_EXPENSE
+                          Add first expense
                         </button>
                         <button
                           onClick={handleOpenIncomeModal}
-                          className="bg-bone text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo uppercase"
+                          className="bg-surface-2 border border-app-border text-app-text font-semibold text-sm py-2 px-4 rounded-xl hover:border-app-border-strong transition-all"
                         >
-                          ADD_FIRST_INCOME
+                          Add first income
                         </button>
                         <button
                           onClick={() => {
                             localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true');
                             setOnboardingDismissed(true);
                           }}
-                          className="bg-ink text-bone font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo uppercase"
+                          className="text-app-muted hover:text-app-text font-semibold text-sm py-2 px-4 rounded-xl transition-all"
                         >
-                          DISMISS
+                          Dismiss
                         </button>
                       </div>
                     </section>
                   )}
-                  
+
                   {/* F3: Recurring expense prompt */}
                   {pendingRecurring.length > 0 && (
-                    <div className="bg-usc-gold/20 border-4 border-ink p-4 shadow-neo">
-                      <p className="font-loud text-sm uppercase mb-2">
+                    <div className="glass rounded-2xl p-5 border border-warn/30">
+                      <p className="font-display text-sm md:text-base font-semibold text-app-text mb-1">
                         🔁 {pendingRecurring.length} recurring expense{pendingRecurring.length > 1 ? 's' : ''} from last month
                       </p>
-                      <p className="font-mono text-[10px] text-ink/70 mb-3">
+                      <p className="text-xs text-app-muted mb-4">
                         {recurringSummary}
                       </p>
-                      <div className="flex gap-3">
+                      <div className="flex flex-wrap gap-2.5">
                         <button
                           onClick={handleAcceptRecurring}
-                          className="bg-usc-gold text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all uppercase"
+                          className="bg-primary text-on-primary shadow-glow font-semibold text-sm py-2 px-4 rounded-xl hover:brightness-110 transition-all"
                         >
-                          ADD_ALL
+                          Add all
                         </button>
                         <button
                           onClick={handleDismissRecurring}
-                          className="bg-bone text-ink font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all uppercase"
+                          className="bg-surface-2 border border-app-border text-app-text font-semibold text-sm py-2 px-4 rounded-xl hover:border-app-border-strong transition-all"
                         >
-                          DISMISS
+                          Dismiss
                         </button>
                         <button
                           onClick={handleSnoozeRecurring}
-                          className="bg-ink text-bone font-loud text-xs py-2 px-4 border-4 border-ink shadow-neo active:translate-y-1 transition-all uppercase"
+                          className="text-app-muted hover:text-app-text font-semibold text-sm py-2 px-4 rounded-xl transition-all"
                         >
-                          SNOOZE_24H
+                          Snooze 24h
                         </button>
                       </div>
                     </div>
@@ -923,7 +917,7 @@ const handleDeleteIncome = async (id: string) => {
                     </Suspense>
                   )}
 
-                  <div className="border-t-8 border-ink pt-8 md:pt-12">
+                  <div className="border-t border-app-border pt-6 md:pt-8">
                     <Suspense fallback={<SectionSkeleton title="Loading section" rows={4} />}>
                       {renderActiveView()}
                     </Suspense>
@@ -931,84 +925,78 @@ const handleDeleteIncome = async (id: string) => {
                 </div>
 
               {/* 4. FLOATING ACTION BUTTON */}
-              <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 flex flex-col items-center z-50 group">
+              <div className="fixed bottom-24 right-5 md:bottom-8 md:right-8 z-50">
+                  {/* Click-away backdrop */}
                   {isQuickActionsOpen && (
-                    <div className="mb-3 w-44 bg-bone border-4 border-ink shadow-neo p-2 space-y-2">
+                    <button
+                      aria-hidden="true"
+                      tabIndex={-1}
+                      onClick={() => setIsQuickActionsOpen(false)}
+                      className="fixed inset-0 -z-10 cursor-default"
+                    />
+                  )}
+                  {isQuickActionsOpen && (
+                    <div
+                      role="menu"
+                      className="absolute bottom-16 right-0 w-56 glass rounded-2xl p-2 space-y-0.5 origin-bottom-right animate-[fabpop_120ms_ease-out]"
+                    >
                       <button
+                        role="menuitem"
                         onClick={handleOpenExpenseModal}
-                        className="w-full text-left bg-white border-2 border-ink px-3 py-2 font-loud text-[10px] uppercase hover:bg-usc-gold"
+                        className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
-                        + ADD_EXPENSE
+                        + Add expense
                       </button>
                       <button
+                        role="menuitem"
                         onClick={handleOpenIncomeModal}
-                        className="w-full text-left bg-white border-2 border-ink px-3 py-2 font-loud text-[10px] uppercase hover:bg-usc-gold"
+                        className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
-                        + ADD_INCOME
+                        + Add income
                       </button>
                       <button
+                        role="menuitem"
                         onClick={handleOpenBudgetModal}
-                        className="w-full text-left bg-white border-2 border-ink px-3 py-2 font-loud text-[10px] uppercase hover:bg-usc-gold"
+                        className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
-                        + MANAGE_BUDGETS
+                        + Manage budgets
                       </button>
                       <button
+                        role="menuitem"
                         onClick={handleOpenDataModal}
-                        className="w-full text-left bg-white border-2 border-ink px-3 py-2 font-loud text-[10px] uppercase hover:bg-usc-gold"
+                        className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
-                        + DATA_HUB
+                        + Data hub
                       </button>
                     </div>
                   )}
                   <button
                     onClick={() => setIsQuickActionsOpen((prev) => !prev)}
-                    aria-label="Open quick actions"
-                    className="bg-usc-gold text-ink border-4 border-ink p-3 md:p-4 shadow-neo hover:bg-white hover:text-usc-cardinal hover:shadow-neo-hover transition-all flex flex-col items-center active:scale-95"
+                    aria-label="Quick actions"
+                    aria-expanded={isQuickActionsOpen}
+                    className="grid place-items-center w-14 h-14 rounded-full bg-primary text-on-primary shadow-glow hover:brightness-110 transition-all active:scale-95"
                   >
-                    <PlusCircleIcon className="h-8 w-8 md:h-10 md:w-10" />
-                    <span className="font-loud text-[8px] md:text-[10px] mt-1 md:mt-2 leading-none uppercase tracking-tighter">
-                      QUICK_ACTIONS
-                    </span>
+                    <PlusCircleIcon className={`h-7 w-7 transition-transform duration-200 ${isQuickActionsOpen ? 'rotate-45' : ''}`} />
                   </button>
               </div>
 
-              <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t-4 border-ink bg-bone grid grid-cols-6">
-                <button
-                  onClick={() => setActiveView('expenses')}
-                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'expenses' ? 'bg-usc-cardinal text-bone' : 'bg-white text-ink'}`}
-                >
-                  TXNS
-                </button>
-                <button
-                  onClick={() => setActiveView('income')}
-                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'income' ? 'bg-green-600 text-bone' : 'bg-white text-ink'}`}
-                >
-                  INCOME
-                </button>
-                <button
-                  onClick={() => setActiveView('pivot')}
-                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'pivot' ? 'bg-ink text-bone' : 'bg-white text-ink'}`}
-                >
-                  MATRIX
-                </button>
-                <button
-                  onClick={() => setActiveView('ai')}
-                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'ai' ? 'bg-usc-gold text-ink' : 'bg-white text-ink'}`}
-                >
-                  AI
-                </button>
-                <button
-                  onClick={() => setActiveView('reports')}
-                  className={`py-2 border-r-2 border-ink font-loud text-[9px] ${activeView === 'reports' ? 'bg-ink text-bone' : 'bg-white text-ink'}`}
-                >
-                  AUDIT
-                </button>
-                <button
-                  onClick={() => setActiveView('usc')}
-                  className={`py-2 font-loud text-[9px] ${activeView === 'usc' ? 'bg-usc-gold text-ink' : 'bg-white text-ink'}`}
-                >
-                  BURSAR
-                </button>
+              <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass glass-blur border-t border-app-border grid grid-cols-6 px-1 pt-1.5 pb-2">
+                {[
+                  { view: 'expenses' as const, label: 'Spend' },
+                  { view: 'income' as const, label: 'Income' },
+                  { view: 'pivot' as const, label: 'Pivot' },
+                  { view: 'ai' as const, label: 'AI' },
+                  { view: 'reports' as const, label: 'Reports' },
+                  { view: 'usc' as const, label: 'Tuition' },
+                ].map(({ view, label }) => (
+                  <button
+                    key={view}
+                    onClick={() => setActiveView(view)}
+                    className={`py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${activeView === view ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </nav>
             </main>
           </div>
