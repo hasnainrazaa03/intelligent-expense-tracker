@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense, Budget } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
@@ -19,12 +20,11 @@ import SectionSkeleton from './SectionSkeleton';
 interface ReportsProps {
   allExpenses: Expense[];
   budgets: Budget[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
   isLoading?: boolean;
 }
 
-const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency, conversionRate, isLoading = false }) => {
+const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = false }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const stats = useMemo(() => {
     const totalSpent = allExpenses.reduce((sum, e) => sum + e.amount, 0);
     const categoryTotals: Record<string, number> = {};
@@ -51,7 +51,6 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
     return { totalSpent, topCategory, budgetUtilization, categoryTotals };
   }, [allExpenses, budgets]);
 
-  const currencyProps = { displayCurrency, conversionRate };
 
   if (isLoading) {
     return <SectionSkeleton title="Loading reports" rows={5} />;
@@ -182,7 +181,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
         <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
           <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">BUDGET_VS_ACTUAL</h4>
           <div className="h-64 md:h-80">
-            <BudgetActualChart expenses={allExpenses} budgets={budgets} {...currencyProps} />
+            <BudgetActualChart expenses={allExpenses} budgets={budgets} />
           </div>
         </div>
 
@@ -191,14 +190,14 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
           <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
             <h4 className="font-loud text-sm md:text-lg text-ink uppercase mb-4 border-b-2 border-ink pb-2">PAYMENT_METHOD_DISTRIBUTION</h4>
             <div className="h-64">
-              <PaymentMethodChart expenses={allExpenses} {...currencyProps} />
+              <PaymentMethodChart expenses={allExpenses} />
             </div>
           </div>
 
           <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
             <h4 className="font-loud text-sm md:text-lg text-ink uppercase mb-4 border-b-2 border-ink pb-2">RECURRING_VS_ONE_TIME</h4>
             <div className="h-64">
-              <RecurringVsOneTimeChart expenses={allExpenses} {...currencyProps} />
+              <RecurringVsOneTimeChart expenses={allExpenses} />
             </div>
           </div>
         </div>
@@ -214,21 +213,21 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, displayCurrency
         {/* Category Drilldown */}
         <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
           <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">CATEGORY_DRILLDOWN</h4>
-          <CategoryDrilldown expenses={allExpenses} {...currencyProps} />
+          <CategoryDrilldown expenses={allExpenses} />
         </div>
 
         {/* Year over Year */}
         <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
           <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">YEAR_OVER_YEAR_COMPARISON</h4>
           <div className="h-64 md:h-80">
-            <YearOverYearChart expenses={allExpenses} {...currencyProps} />
+            <YearOverYearChart expenses={allExpenses} />
           </div>
         </div>
 
         {/* Time Period Summaries */}
         <div className="bg-white border-4 border-ink shadow-neo p-5 md:p-8">
           <h4 className="font-loud text-lg md:text-2xl text-ink uppercase mb-6 border-b-4 border-ink pb-3">TIME_PERIOD_SUMMARIES</h4>
-          <TimePeriodSummaries allExpenses={allExpenses} {...currencyProps} />
+          <TimePeriodSummaries allExpenses={allExpenses} />
         </div>
       </div>
 

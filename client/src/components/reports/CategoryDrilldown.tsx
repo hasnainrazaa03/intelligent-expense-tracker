@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../../constants';
@@ -7,8 +8,6 @@ import { formatCurrency } from '../../utils/currencyUtils';
 
 interface CategoryDrilldownProps {
   expenses: Expense[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
@@ -23,7 +22,8 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
   return null;
 };
 
-const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses, displayCurrency, conversionRate }) => {
+const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const mainCategoryData = useMemo(() => {

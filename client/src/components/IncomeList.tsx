@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { Income } from '../types';
 import { 
   PencilIcon, TrashIcon, CalendarDaysIcon, TagIcon, 
@@ -20,8 +21,6 @@ interface IncomeListProps {
   onDelete: (id: string) => Promise<void> | void;
   onCreate?: () => void;
   isLoading?: boolean;
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 interface IncomeItemProps {
@@ -29,12 +28,11 @@ interface IncomeItemProps {
   onEdit: (i: Income) => void;
   onQuickSave?: (income: Income) => Promise<void> | void;
   onDelete: (id: string) => void;
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 // --- NEO-BRUTALIST INCOME ITEM ---
-const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, onDelete, displayCurrency, conversionRate }) => {
+const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, onDelete }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const [isInlineEditing, setIsInlineEditing] = useState(false);
   const [draftAmount, setDraftAmount] = useState(income.amount.toString());
   const [draftSource, setDraftSource] = useState(income.title);
@@ -132,11 +130,9 @@ interface VirtualRowData {
   onEdit: (income: Income) => void;
   onQuickSave?: (income: Income) => Promise<void> | void;
   onDelete: (id: string) => void;
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
-const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, incomes, onEdit, onQuickSave, onDelete, displayCurrency, conversionRate }) => {
+const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, incomes, onEdit, onQuickSave, onDelete }) => {
   const income = incomes[index];
   return (
     <div style={style} className="pr-2 pb-4">
@@ -145,14 +141,12 @@ const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, 
         onEdit={onEdit}
         onQuickSave={onQuickSave}
         onDelete={onDelete}
-        displayCurrency={displayCurrency}
-        conversionRate={conversionRate}
       />
     </div>
   );
 };
 
-const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
+const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
   const scheduleDelete = useUndoableDelete(onDelete);
   const [currentPage, setCurrentPage] = useState(1);
@@ -220,8 +214,6 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
                 onEdit,
                 onQuickSave,
                 onDelete: (id: string) => setIncomeToDeleteId(id),
-                displayCurrency,
-                conversionRate,
               }}
             >
               {null}
@@ -237,8 +229,6 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
                   onEdit={onEdit} 
                   onQuickSave={onQuickSave}
                   onDelete={(id) => setIncomeToDeleteId(id)}
-                  displayCurrency={displayCurrency}
-                  conversionRate={conversionRate}
                 />
               ))}
             </ul>

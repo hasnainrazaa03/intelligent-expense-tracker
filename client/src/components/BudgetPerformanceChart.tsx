@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 
@@ -10,8 +11,6 @@ interface ChartData {
 
 interface BudgetPerformanceChartProps {
   data: ChartData[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
@@ -33,7 +32,8 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 };
 
 
-const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data, displayCurrency, conversionRate }) => {
+const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {

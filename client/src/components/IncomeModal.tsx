@@ -5,17 +5,17 @@ import { XMarkIcon } from './Icons';
 import { todayCalendar } from '../utils/dateUtils';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useInrToUsd from '../hooks/useInrToUsd';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface IncomeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (income: any) => void;
   income: Income | null;
-  displayCurrency: 'USD' | 'INR';
-  parentConversionRate?: number | null;
 }
 
-const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, displayCurrency, parentConversionRate }) => {
+const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income }) => {
+  const { displayCurrency, conversionRate: parentConversionRate } = useCurrency();
   const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');

@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
 
 interface PaymentMethodChartProps {
   expenses: Expense[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const COLORS = ['#14b8a6', '#0f766e', '#f97316', '#eab308', '#84cc16', '#22c55e', '#3b82f6', '#8b5cf6', '#a8a29e'];
@@ -23,7 +22,8 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
   return null;
 };
 
-const PaymentMethodChart: React.FC<PaymentMethodChartProps> = ({ expenses, displayCurrency, conversionRate }) => {
+const PaymentMethodChart: React.FC<PaymentMethodChartProps> = ({ expenses }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const data = useMemo(() => {
     const paymentMethodTotals = expenses.reduce((acc, exp) => {
       const method = exp.paymentMethod || 'Unspecified';

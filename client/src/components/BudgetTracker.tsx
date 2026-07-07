@@ -3,15 +3,15 @@ import { Expense, Budget } from '../types';
 import { BanknotesIcon, ExclamationTriangleIcon, ChartPieIcon } from './Icons'; // Swapped to ChartPieIcon
 import { formatCurrency } from '../utils/currencyUtils';
 import { computeBudgetSpend, computeTotalBudgetedSpend } from '../utils/budgetUtils';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface BudgetTrackerProps {
   expenses: Expense[];
   budgets: Budget[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
-const BudgetProgressItem: React.FC<{ category: string; spent: number; budget: number; displayCurrency: 'USD' | 'INR'; conversionRate: number | null; }> = ({ category, spent, budget, displayCurrency, conversionRate }) => {
+const BudgetProgressItem: React.FC<{ category: string; spent: number; budget: number; }> = ({ category, spent, budget }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const percentage = budget > 0 ? (spent / budget) * 100 : 0;
   const isOverBudget = percentage > 100;
   
@@ -60,7 +60,8 @@ const BudgetProgressItem: React.FC<{ category: string; spent: number; budget: nu
   );
 };
 
-const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets, displayCurrency, conversionRate }) => {
+const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const { categorySpending, totalSpentInBudgetedCategories, totalBudgeted } = useMemo(() => {
     // Per-budget spend uses the shared matcher so a subcategory budget (e.g.
     // "Groceries") is populated correctly and a main-category budget aggregates
@@ -127,8 +128,6 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets, displa
             category={budget.category}
             budget={budget.amount}
             spent={categorySpending[budget.category] || 0}
-            displayCurrency={displayCurrency}
-            conversionRate={conversionRate}
           />
         ))}
       </div>

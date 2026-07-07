@@ -4,6 +4,7 @@ import { Semester } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface USCPaymentTrackerProps {
   semesters: Semester[];
@@ -11,8 +12,6 @@ interface USCPaymentTrackerProps {
   onUpdateInstallmentCount: (semesterId: string, count: number) => void;
   onMarkAsPaid: (semesterId: string, installmentId: number, paymentDate: string) => void;
   onUpdateDate: (semesterId: string, installmentId: number, newDate: string) => void;
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 // --- INTELLIGENT SEMESTER DETECTOR ---
@@ -29,9 +28,10 @@ const detectCurrentSemesterId = () => {
   return `${season}-${year}`;
 };
 
-const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({ 
-  semesters, onUpdateTuition, onUpdateInstallmentCount, onMarkAsPaid, onUpdateDate, displayCurrency, conversionRate 
+const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
+  semesters, onUpdateTuition, onUpdateInstallmentCount, onMarkAsPaid, onUpdateDate
 }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   
   const [selectedDates, setSelectedDates] = useState<Record<number, string>>({});
   

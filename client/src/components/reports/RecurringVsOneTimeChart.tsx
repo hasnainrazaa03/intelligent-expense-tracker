@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
 
 interface RecurringVsOneTimeChartProps {
   expenses: Expense[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const COLORS = ['#ef4444', '#3b82f6'];
@@ -24,7 +23,8 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
 };
 
 
-const RecurringVsOneTimeChart: React.FC<RecurringVsOneTimeChartProps> = ({ expenses, displayCurrency, conversionRate }) => {
+const RecurringVsOneTimeChart: React.FC<RecurringVsOneTimeChartProps> = ({ expenses }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const data = useMemo(() => {
     const totals = expenses.reduce(
       (acc, exp) => {

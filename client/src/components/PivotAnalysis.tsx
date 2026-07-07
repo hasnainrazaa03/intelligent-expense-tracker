@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
@@ -6,11 +7,10 @@ import { TableCellsIcon, ClipboardDocumentListIcon } from './Icons'; // Swapped 
 
 interface PivotAnalysisProps {
   expenses: Expense[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
-const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses, displayCurrency, conversionRate }) => {
+const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const [groupBy, setGroupBy] = useState<'category' | 'month' | 'paymentMethod'>('category');
 
   const pivotData = useMemo(() => {

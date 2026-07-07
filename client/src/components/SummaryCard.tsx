@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowUpIcon, ArrowDownIcon } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface SummaryCardProps {
   title: string;
@@ -9,14 +10,13 @@ interface SummaryCardProps {
   icon: React.ReactNode;
   percentageChange?: number;
   isNetFlow?: boolean;
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ 
-  title, value, isString = false, icon, percentageChange, 
-  isNetFlow = false, displayCurrency, conversionRate 
+const SummaryCard: React.FC<SummaryCardProps> = ({
+  title, value, isString = false, icon, percentageChange,
+  isNetFlow = false
 }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const isNumeric = !isString && typeof value === 'number';
 
   // Format the value. Net flow must keep its sign — a -$1,250 net flow previously

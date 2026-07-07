@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 
@@ -9,8 +10,6 @@ interface ChartData {
 
 interface SpendingBarChartProps {
   data: ChartData[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
@@ -27,7 +26,8 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
   return null;
 };
 
-const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data, displayCurrency, conversionRate }) => {
+const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
