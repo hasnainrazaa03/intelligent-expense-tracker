@@ -12,6 +12,7 @@ import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { startOfMonth, endOfMonth, isWithinRange, addMonths, parseCalendarDate, monthKey } from '../utils/dateUtils';
 import { formatCurrency } from '../utils/currencyUtils';
 import { computeBudgetSpend } from '../utils/budgetUtils';
+import { useCurrency } from '../contexts/CurrencyContext';
 import SectionSkeleton from './SectionSkeleton';
 
 export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
@@ -57,15 +58,14 @@ interface DashboardProps {
   selectedRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   budgets: Budget[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
   isLoading?: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ 
-  expenses, incomes, allIncomes, allExpenses, previousPeriodExpenses, 
-  selectedRange, onDateRangeChange, budgets, displayCurrency, conversionRate, isLoading = false
+const Dashboard: React.FC<DashboardProps> = ({
+  expenses, incomes, allIncomes, allExpenses, previousPeriodExpenses,
+  selectedRange, onDateRangeChange, budgets, isLoading = false
 }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
 
   const budgetAlerts = useMemo(() => {
     if (budgets.length === 0) return [] as Array<{ category: string; spent: number; budget: number; pct: number; severity: 'warning' | 'danger' }>;
@@ -190,7 +190,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 }, [allExpenses, budgets]);
 
   const barChartTitle = (selectedRange === 'this_month' || selectedRange === 'last_month') ? 'DAILY_SPENDING_TREND' : 'MONTHLY_SPENDING_TREND';
-  const currencyProps = { displayCurrency, conversionRate };
 
   if (isLoading) {
     return <SectionSkeleton title="Loading dashboard" rows={5} />;
@@ -230,15 +229,15 @@ const Dashboard: React.FC<DashboardProps> = ({
         {/* 2. BENTO GRID: SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="md:col-span-1 border-4 border-ink shadow-neo bg-bone hover:-translate-y-1 transition-transform">
-              <SummaryCard title="EXPENSES" value={periodTotalExpense} icon={<CalendarDaysIcon className="h-6 w-6" />} percentageChange={periodChange} {...currencyProps} />
+              <SummaryCard title="EXPENSES" value={periodTotalExpense} icon={<CalendarDaysIcon className="h-6 w-6" />} percentageChange={periodChange} />
           </div>
 
           <div className="md:col-span-1 border-4 border-ink shadow-neo bg-bone hover:-translate-y-1 transition-transform">
-              <SummaryCard title="INCOME" value={periodTotalIncome} icon={<BanknotesIcon className="h-6 w-6" />} {...currencyProps} />
+              <SummaryCard title="INCOME" value={periodTotalIncome} icon={<BanknotesIcon className="h-6 w-6" />} />
           </div>
 
           <div className="md:col-span-1 border-4 border-ink shadow-neo bg-bone hover:-translate-y-1 transition-transform">
-              <SummaryCard title="NET_FLOW" value={netFlow} icon={<TrendingUpIcon className="h-6 w-6" />} isNetFlow={true} {...currencyProps} />
+              <SummaryCard title="NET_FLOW" value={netFlow} icon={<TrendingUpIcon className="h-6 w-6" />} isNetFlow={true} />
           </div>
 
           {/* The RED BOX - Cleaned of dark variants */}
@@ -268,14 +267,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <p className="text-[8px] md:text-[10px] font-mono leading-none text-ink opacity-40">AUTH: TROJAN_SECURE</p>
                 </div>
             </div>
-              <BudgetTracker expenses={expenses} budgets={budgets} {...currencyProps} />
+              <BudgetTracker expenses={expenses} budgets={budgets} />
           </div>
 
             {/* Perforated Bottom Section */}
             <div className="border-t-4 border-dashed border-ink/20 p-4 md:p-6 bg-black/5">
               <div className="h-48 md:h-64 min-w-0">
                 <h4 className="text-center font-loud text-[10px] md:text-sm mb-4 text-ink opacity-50 italic uppercase">HISTORICAL_ANALYTICS // 6_MONTH_WINDOW</h4>
-                  <BudgetPerformanceChart data={budgetPerformanceData} {...currencyProps} />
+                  <BudgetPerformanceChart data={budgetPerformanceData} />
               </div>
           </div>
       </div>
@@ -286,7 +285,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="absolute top-0 right-0 bg-ink text-bone px-2 py-0.5 font-loud text-[8px] md:text-[10px]">DATA_VIZ_01</div>
               <h3 className="font-loud text-lg md:text-xl mb-6 border-b-2 border-ink pb-2 text-ink uppercase">CATEGORICAL_SPLIT</h3>
               <div className="h-64 md:h-72">
-                  <CategoryPieChart data={categoryData} {...currencyProps} />
+                  <CategoryPieChart data={categoryData} />
               </div>
           </div>
           
@@ -294,7 +293,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="absolute top-0 right-0 bg-usc-gold text-ink px-2 py-0.5 font-loud text-[8px] md:text-[10px]">DATA_VIZ_02</div>
             <h3 className="font-loud text-lg md:text-xl mb-6 border-b-2 border-ink pb-2 text-ink uppercase">{barChartTitle}</h3>
             <div className="h-64 md:h-72">
-                <SpendingBarChart data={barChartData} {...currencyProps} />
+                <SpendingBarChart data={barChartData} />
             </div>
         </div>
       </div>
@@ -302,8 +301,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       <FinancialPlanningPanel
         expenses={allExpenses}
         incomes={allIncomes}
-        displayCurrency={displayCurrency}
-        conversionRate={conversionRate}
       />
 
         {/* 5. FOOTER STAMP */}

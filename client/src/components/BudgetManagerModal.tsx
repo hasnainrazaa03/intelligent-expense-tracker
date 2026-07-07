@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { Budget } from '../types';
 import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 
@@ -7,11 +8,10 @@ interface BudgetManagerModalProps {
   onClose: () => void;
   onSave: (budgets: Budget[]) => void;
   currentBudgets: Budget[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
-const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose, onSave, currentBudgets, displayCurrency, conversionRate }) => {
+const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose, onSave, currentBudgets }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const [budgets, setBudgets] = useState<{ [key: string]: string }>({});
   const [isDirty, setIsDirty] = useState(false);
 

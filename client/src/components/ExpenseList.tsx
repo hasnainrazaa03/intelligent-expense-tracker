@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense } from '../types';
 import { getCategoryColor } from '../utils/colorUtils';
 import { 
@@ -21,8 +22,6 @@ interface ExpenseListProps {
   onDelete: (id: string) => Promise<void> | void;
   onCreate?: () => void;
   isLoading?: boolean;
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 // --- TYPES FOR SUB-COMPONENTS ---
@@ -31,12 +30,11 @@ interface ExpenseItemProps {
     onEdit: (e: Expense) => void;
   onQuickSave?: (expense: Expense) => Promise<void> | void;
     onDelete: (id: string) => void;
-    displayCurrency: 'USD' | 'INR';
-    conversionRate: number | null;
 }
 
 // --- NEO-BRUTALIST EXPENSE ITEM ---
-const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave, onDelete, displayCurrency, conversionRate }) => {
+const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave, onDelete }) => {
+    const { displayCurrency, conversionRate } = useCurrency();
     const categoryColor = getCategoryColor(expense.category);
     const [isInlineEditing, setIsInlineEditing] = useState(false);
     const [draftAmount, setDraftAmount] = useState(expense.amount.toString());
@@ -153,11 +151,9 @@ interface VirtualRowData {
   onEdit: (expense: Expense) => void;
   onQuickSave?: (expense: Expense) => Promise<void> | void;
   onDelete: (id: string) => void;
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
-const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, expenses, onEdit, onQuickSave, onDelete, displayCurrency, conversionRate }) => {
+const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, expenses, onEdit, onQuickSave, onDelete }) => {
   const expense = expenses[index];
   return (
     <div style={style} className="pr-2 pb-4">
@@ -166,14 +162,12 @@ const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index,
         onEdit={onEdit}
         onQuickSave={onQuickSave}
         onDelete={onDelete}
-        displayCurrency={displayCurrency}
-        conversionRate={conversionRate}
       />
     </div>
   );
 };
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, displayCurrency, conversionRate }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
   const scheduleDelete = useUndoableDelete(onDelete);
   const [currentPage, setCurrentPage] = useState(1);
@@ -239,8 +233,6 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave
                 onEdit,
                 onQuickSave,
                 onDelete: (id: string) => setExpenseToDeleteId(id),
-                displayCurrency,
-                conversionRate,
               }}
             >
               {null}
@@ -255,8 +247,6 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave
                 onEdit={onEdit} 
                 onQuickSave={onQuickSave}
                 onDelete={(id) => setExpenseToDeleteId(id)}
-                displayCurrency={displayCurrency}
-                conversionRate={conversionRate}
               />
             ))}
           </ul>

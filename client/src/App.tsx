@@ -9,7 +9,6 @@ import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
 import { startOfMonth, endOfMonth, isWithinRange } from './utils/dateUtils';
 import { expenseMatchesBudget } from './utils/budgetUtils';
-import { useCurrency } from './contexts/CurrencyContext';
 import { getAllData, getSession, logoutUser, toggleTwoFactor, isAuthError } from './services/api';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -143,7 +142,6 @@ const App: React.FC = () => {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
   // Currency state/logic lives in CurrencyProvider now.
-  const { displayCurrency, setDisplayCurrency, conversionRate: usdToInrRate } = useCurrency();
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
@@ -848,11 +846,6 @@ const handleDeleteIncome = async (id: string) => {
     return `Viewing ${activeView}.`;
   }, [isLoadingData, pendingRecurring.length, activeView]);
 
-  const commonCurrencyProps = useMemo(
-    () => ({ displayCurrency, conversionRate: usdToInrRate }),
-    [displayCurrency, usdToInrRate]
-  );
-
   // ... (renderActiveView function remains the same) ...
   const renderActiveView = () => {
     switch (activeView) {
@@ -866,7 +859,7 @@ const handleDeleteIncome = async (id: string) => {
               onDelete={handleDeleteExpense}
               onCreate={handleOpenModal}
               isLoading={isLoadingData}
-              {...commonCurrencyProps}
+             
               />
                 </div>
             );
@@ -880,18 +873,18 @@ const handleDeleteIncome = async (id: string) => {
                 onDelete={handleDeleteIncome}
                 onCreate={handleOpenModal}
                 isLoading={isLoadingData}
-                 {...commonCurrencyProps}
+                
               />
                 </div>
             );
         case 'ai':
           return <AiAnalyst expenses={expenses} incomes={incomes} />;
         case 'pivot':
-            return <PivotAnalysis expenses={expenses} {...commonCurrencyProps} />;
+            return <PivotAnalysis expenses={expenses} />;
         case 'usc':
-            return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onUpdateInstallmentCount={handleUpdateInstallmentCount} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} {...commonCurrencyProps} />;
+            return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onUpdateInstallmentCount={handleUpdateInstallmentCount} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} />;
         case 'reports':
-          return <Reports allExpenses={expenses} budgets={budgets} isLoading={isLoadingData} {...commonCurrencyProps} />;
+          return <Reports allExpenses={expenses} budgets={budgets} isLoading={isLoadingData} />;
         default: return null;
     }
   };
@@ -910,8 +903,6 @@ const handleDeleteIncome = async (id: string) => {
               twoFactorEnabled={twoFactorEnabled}
               onSearch={setDebouncedSearchQuery}
               activeView={activeView}
-              displayCurrency={displayCurrency}
-              onCurrencyChange={setDisplayCurrency}
             />
 
             {/* 2. BODY WRAPPER */}
@@ -1032,8 +1023,6 @@ const handleDeleteIncome = async (id: string) => {
                         selectedRange={dateRange}
                         onDateRangeChange={setDateRange}
                         budgets={budgets}
-                        displayCurrency={displayCurrency}
-                        conversionRate={usdToInrRate}
                         isLoading={isLoadingData}
                       />
                     </Suspense>
@@ -1137,8 +1126,6 @@ const handleDeleteIncome = async (id: string) => {
                   onClose={() => setIsExpenseModalOpen(false)} 
                   onSave={editingExpense ? handleUpdateExpense : handleAddExpense} 
                   expense={editingExpense} 
-                  displayCurrency={displayCurrency}
-                  parentConversionRate={usdToInrRate}
                 />
               </Suspense>
             )}
@@ -1149,8 +1136,6 @@ const handleDeleteIncome = async (id: string) => {
                   onClose={() => setIsIncomeModalOpen(false)} 
                   onSave={editingIncome ? handleUpdateIncome : handleAddIncome} 
                   income={editingIncome} 
-                  displayCurrency={displayCurrency}
-                  parentConversionRate={usdToInrRate}
                 />
               </Suspense>
             )}
@@ -1161,8 +1146,6 @@ const handleDeleteIncome = async (id: string) => {
                   onClose={() => setIsBudgetModalOpen(false)} 
                   onSave={handleSaveBudgets} 
                   currentBudgets={budgets} 
-                  displayCurrency={displayCurrency} 
-                  conversionRate={usdToInrRate} 
                 />
               </Suspense>
             )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import trojanLogo from '../../public/trojan-logo.png';
 import { ExpenseTrackerLogo } from './Branding';
 import useDebouncedValue from '../hooks/useDebouncedValue';
@@ -22,14 +23,12 @@ interface HeaderProps {
   twoFactorEnabled: boolean;
   onSearch: (query: string) => void;
   activeView: string;
-  displayCurrency: 'USD' | 'INR';
-  onCurrencyChange: (currency: 'USD' | 'INR') => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
-  onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch,
-  displayCurrency, onCurrencyChange
+  onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch
 }) => {
+  const { displayCurrency, setDisplayCurrency } = useCurrency();
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
   // Raw search input is owned here and debounced locally, so keystrokes re-render
@@ -118,14 +117,14 @@ const Header: React.FC<HeaderProps> = ({
               {/* Currency Switcher */}
               <div className="flex bg-ink border-2 md:border-4 border-ink p-0.5 md:p-1 shadow-neo-gold">
                 <button 
-                  onClick={() => onCurrencyChange('USD')}
+                  onClick={() => setDisplayCurrency('USD')}
                   aria-label="Display currency USD"
                   className={`px-3 py-1 font-loud text-[10px] transition-all ${displayCurrency === 'USD' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}
                 >
                   USD$
                 </button>
                 <button 
-                  onClick={() => onCurrencyChange('INR')}
+                  onClick={() => setDisplayCurrency('INR')}
                   aria-label="Display currency INR"
                   className={`px-3 py-1 font-loud text-[10px] transition-all ${displayCurrency === 'INR' ? 'bg-usc-gold text-ink' : 'text-bone hover:bg-white/10'}`}
                 >

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
@@ -11,15 +12,14 @@ const FAMILY_MEMBERS_KEY = 'familyBudgetMembers';
 interface FinancialPlanningPanelProps {
   expenses: Expense[];
   incomes: Income[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const todayIso = () => todayCalendar();
 
 const templateKey = (e: Expense): string => `${e.title}|${e.category}|${e.amount}`;
 
-const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expenses, incomes, displayCurrency, conversionRate }) => {
+const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expenses, incomes }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
   const [goalInput, setGoalInput] = useState<string>(() => localStorage.getItem(GOAL_KEY) || '');
   const [pausedRecurring, setPausedRecurring] = useState<Record<string, boolean>>(() => {
     try {

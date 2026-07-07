@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense, Budget } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
@@ -8,8 +9,6 @@ import { startOfMonth, endOfMonth, isWithinRange } from '../../utils/dateUtils';
 interface BudgetActualChartProps {
   expenses: Expense[];
   budgets: Budget[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
@@ -25,7 +24,8 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
   return null;
 };
 
-const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets, displayCurrency, conversionRate }) => {
+const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
     
   const data = useMemo(() => {
     if (budgets.length === 0) return [];

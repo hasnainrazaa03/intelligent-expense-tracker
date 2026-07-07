@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 // Track the mobile breakpoint reactively so rotating the device / resizing
 // re-lays-out the chart (CMP-M25: window.innerWidth was read once at render).
@@ -26,8 +27,6 @@ interface ChartData {
 
 interface CategoryPieChartProps {
   data: ChartData[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any) => {
@@ -44,7 +43,8 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
   return null;
 };
 
-const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data, displayCurrency, conversionRate }) => {
+const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
     const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
     const isMobile = useIsMobile();
 

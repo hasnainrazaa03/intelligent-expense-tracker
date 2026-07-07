@@ -1,15 +1,15 @@
 import React, { useMemo } from 'react';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import SummaryCard from '../SummaryCard';
 import { CalendarDaysIcon } from '../Icons';
 
 interface TimePeriodSummariesProps {
   allExpenses: Expense[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
-const TimePeriodSummaries: React.FC<TimePeriodSummariesProps> = ({ allExpenses, displayCurrency, conversionRate }) => {
+const TimePeriodSummaries: React.FC<TimePeriodSummariesProps> = ({ allExpenses }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
 
   const summaries = useMemo(() => {
     const now = new Date();

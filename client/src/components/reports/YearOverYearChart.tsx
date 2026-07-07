@@ -1,17 +1,17 @@
 import React, { useMemo } from 'react';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
 
 interface YearOverYearChartProps {
   expenses: Expense[];
-  displayCurrency: 'USD' | 'INR';
-  conversionRate: number | null;
 }
 
 const COLORS = ['#14b8a6', '#f97316', '#3b82f6', '#ef4444', '#8b5cf6'];
 
-const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses, displayCurrency, conversionRate }) => {
+const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses }) => {
+  const { displayCurrency, conversionRate } = useCurrency();
 
   const { data, years } = useMemo(() => {
     // FIX: Update type to allow string for 'name' property and number for year properties, resolving the index signature error.

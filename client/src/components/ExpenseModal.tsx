@@ -7,14 +7,13 @@ import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 import useInrToUsd from '../hooks/useInrToUsd';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (expense: any) => void;
   expense: Expense | null;
-  displayCurrency: 'USD' | 'INR';
-  parentConversionRate?: number | null;
 }
 
 // --- WHIMSICAL COMPONENT: THE TRACKING EYES ---
@@ -55,7 +54,8 @@ const TrojanEyes = () => {
   );
 };
 
-const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, displayCurrency, parentConversionRate }) => {
+const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense }) => {
+  const { displayCurrency, conversionRate: parentConversionRate } = useCurrency();
   const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   // --- CORE STATE (PRESERVED) ---
   const [title, setTitle] = useState(expense?.title || '');
