@@ -72,8 +72,13 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 - **Search no longer re-renders the whole app** (`APP-H5`): the raw search input moved into Header and is debounced there; App re-renders only when the debounced term changes.
 - **Autosave only when it matters** (`APP-M1`): editing an ordinary expense no longer POSTs the entire semesters array — only tuition-linked edits do.
 
-### Planned — Phase 4 remaining (optional structural refactors; no functional impact)
-- CurrencyContext / AuthContext / DashboardLayout extraction; item-level semester CRUD (`SRV-H2` follow-up); optional further memoization / `TransactionList<T>` extraction.
+- **CurrencyContext complete** (PRs #15, #18): all money-displaying components read `displayCurrency`/`conversionRate` from `useCurrency()`; App-level prop-drilling removed.
+- **AuthContext** (PR #19): auth state, session reconcile, OAuth redirect, idle timeout, and login/logout/2FA extracted from `App.tsx` into an `AuthProvider`.
+- **Transactional semester sync** (`SRV-H2`, PR #20): the reconciliation is atomic and an empty payload can't wipe every semester.
+- **Component bug sweep** (PRs #14, #16, #17): category drilldown, two-way pie hiding, persistent subcategory deletions, keyboard-accessible dropdowns, OTP paste, reactive pie sizing, YoY/monthly chart fixes, modal focus traps, missing neo shadows, budget-chart overflow.
+
+### Phase 4 complete
+Data-layer migration, search re-render, over-eager autosave, currency + auth contexts, and the transactional semester sync are all done and verified against a real backend. `DashboardLayout` extraction and the generic `TransactionList<T>` DOM dedup were intentionally not pursued (would reintroduce prop-drilling / is cosmetic and will be absorbed by the Phase 6 redesign).
 
 ### Planned — Phases 5–6: Modern redesign
 - Tokenized, dark-mode-correct design system with reusable primitives (`THM-1`, `THM-2`, `THM-5`).
