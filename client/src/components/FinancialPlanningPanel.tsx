@@ -214,152 +214,159 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
     return cells;
   }, [expenses, currentMonthPrefix, now]);
 
+  const cardCls = "rounded-2xl border border-app-border bg-surface-2 p-4 md:p-5";
+  const subLabelCls = "font-display text-sm font-semibold text-app-text mb-3";
+  const fieldCls = "bg-surface border border-app-border rounded-lg px-3 py-2 text-sm text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50";
+  const addBtnCls = "mt-2.5 px-3.5 py-2 rounded-lg bg-primary text-on-primary font-semibold text-xs shadow-glow hover:brightness-110 transition-all";
+  const rowCls = "text-xs rounded-lg border border-app-border bg-surface px-2.5 py-2 flex justify-between items-center tabular-nums";
+
   return (
-    <section className="bg-white border-4 border-ink p-4 md:p-6 shadow-neo space-y-6">
-      <h3 className="font-loud text-lg md:text-2xl uppercase">FINANCIAL_PLANNING_CENTER</h3>
+    <section className="glass rounded-2xl p-5 md:p-7 space-y-5">
+      <h3 className="font-display text-xl md:text-2xl font-bold text-app-text">Financial planning</h3>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">SAVINGS_GOAL_TRACKER</p>
+        <div className={cardCls}>
+          <p className={subLabelCls}>Savings goal</p>
           <div className="flex gap-2">
             <input
               type="number"
               value={goalInput}
               onChange={(e) => setGoalInput(e.target.value)}
-              className="flex-1 border-2 border-ink p-2 font-mono text-sm"
+              className={`flex-1 ${fieldCls}`}
               placeholder="Set monthly goal"
             />
             <button
               onClick={() => localStorage.setItem(GOAL_KEY, goalInput)}
-              className="px-3 border-2 border-ink bg-usc-gold font-loud text-[10px]"
+              className="px-4 rounded-lg bg-primary text-on-primary font-semibold text-xs shadow-glow hover:brightness-110 transition-all"
             >
-              SAVE
+              Save
             </button>
           </div>
-          <p className="font-mono text-[11px] mt-2">Monthly net: {formatCurrency(monthlyNet, displayCurrency, conversionRate)}</p>
-          <div className="mt-2 h-3 border-2 border-ink bg-white">
-            <div className="h-full bg-usc-cardinal" style={{ width: `${progressPct}%` }} />
+          <p className="text-xs text-app-muted mt-2.5 tabular-nums">Monthly net: <span className="text-app-text font-medium">{formatCurrency(monthlyNet, displayCurrency, conversionRate)}</span></p>
+          <div className="mt-2 h-2.5 rounded-full border border-app-border bg-surface overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
           </div>
         </div>
 
-        <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">TRAILING_30D_NET_FLOW</p>
-          <p className="font-loud text-xl">{formatCurrency(forecast30d, displayCurrency, conversionRate)}</p>
-          <p className="font-mono text-[11px] mt-2 uppercase text-ink/70">Net of the last 30 days (income minus expenses); a simple forward proxy.</p>
+        <div className={cardCls}>
+          <p className={subLabelCls}>Trailing 30-day net flow</p>
+          <p className={`font-display text-2xl font-bold tabular-nums ${forecast30d < 0 ? 'text-danger' : 'text-ok'}`}>{formatCurrency(forecast30d, displayCurrency, conversionRate)}</p>
+          <p className="text-xs text-app-muted mt-2">Net of the last 30 days (income minus expenses) — a simple forward proxy.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">CALENDAR_EXPENSE_VIEW</p>
-          <div className="grid grid-cols-7 gap-1 text-[10px] font-mono">
-            {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d) => (
-              <div key={d} className="text-center font-bold">{d}</div>
+        <div className={cardCls}>
+          <p className={subLabelCls}>Calendar spending</p>
+          <div className="grid grid-cols-7 gap-1 text-[10px]">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+              <div key={d} className="text-center font-semibold text-app-faint uppercase tracking-wide">{d}</div>
             ))}
             {calendarCells.map((cell, idx) => (
-              <div key={`${cell.day ?? 'x'}-${idx}`} className="border border-ink min-h-[42px] p-1 bg-white">
-                <div className="font-bold">{cell.day ?? ''}</div>
-                {cell.total > 0 && <div className="text-[9px]">{formatCurrency(cell.total, displayCurrency, conversionRate, true)}</div>}
+              <div key={`${cell.day ?? 'x'}-${idx}`} className="rounded-md border border-app-border min-h-[42px] p-1 bg-surface">
+                <div className="font-semibold text-app-muted">{cell.day ?? ''}</div>
+                {cell.total > 0 && <div className="text-[9px] text-danger tabular-nums">{formatCurrency(cell.total, displayCurrency, conversionRate, true)}</div>}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">RECURRING_MANAGEMENT_CENTER</p>
+        <div className={cardCls}>
+          <p className={subLabelCls}>Recurring management</p>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {recurringTemplates.slice(0, 8).map((e) => {
               const paused = !!pausedRecurring[templateKey(e)];
               return (
-                <div key={templateKey(e)} className="flex items-center justify-between border border-ink p-2 bg-white">
-                  <div>
-                    <p className="font-loud text-[10px] uppercase">{e.title}</p>
-                    <p className="font-mono text-[10px]">{formatCurrency(e.amount, displayCurrency, conversionRate)}</p>
+                <div key={templateKey(e)} className="flex items-center justify-between rounded-lg border border-app-border p-2.5 bg-surface">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-app-text truncate">{e.title}</p>
+                    <p className="text-xs text-app-muted tabular-nums">{formatCurrency(e.amount, displayCurrency, conversionRate)}</p>
                   </div>
                   <button
                     onClick={() => togglePauseRecurring(e)}
-                    className={`px-2 py-1 border border-ink font-loud text-[9px] ${paused ? 'bg-usc-cardinal text-bone' : 'bg-usc-gold text-ink'}`}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors flex-shrink-0 ${paused ? 'bg-warn/15 border-warn/30 text-warn' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
                   >
-                    {paused ? 'RESUME' : 'PAUSE'}
+                    {paused ? 'Resume' : 'Pause'}
                   </button>
                 </div>
               );
             })}
+            {recurringTemplates.length === 0 && <p className="text-xs text-app-muted">No recurring templates yet.</p>}
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">INVESTMENTS_AND_POSITION</p>
-          <p className="font-mono text-[11px] mb-1">Portfolio value: {formatCurrency(totalInvestments, displayCurrency, conversionRate)}</p>
-          <p className="font-loud text-lg">Estimated position: {formatCurrency(netWorth, displayCurrency, conversionRate)}</p>
-          <p className="font-mono text-[10px] text-ink/60 mt-1">This month's net cash flow + portfolio value (not full net worth).</p>
+        <div className={cardCls}>
+          <p className={subLabelCls}>Investments & position</p>
+          <p className="text-xs text-app-muted mb-1 tabular-nums">Portfolio value: <span className="text-app-text font-medium">{formatCurrency(totalInvestments, displayCurrency, conversionRate)}</span></p>
+          <p className="font-display text-lg font-bold text-app-text tabular-nums">Est. position: {formatCurrency(netWorth, displayCurrency, conversionRate)}</p>
+          <p className="text-[11px] text-app-muted mt-1">This month's net cash flow + portfolio value (not full net worth).</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
-            <input value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Account" />
-            <select value={newAccountType} onChange={(e) => setNewAccountType(e.target.value as InvestmentAccount['type'])} className="border-2 border-ink p-2 text-xs bg-white">
-              <option value="cash">CASH</option>
-              <option value="brokerage">BROKERAGE</option>
-              <option value="crypto">CRYPTO</option>
-              <option value="retirement">RETIREMENT</option>
-              <option value="loan">LOAN</option>
-              <option value="other">OTHER</option>
+            <input value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} className={fieldCls} placeholder="Account" />
+            <select value={newAccountType} onChange={(e) => setNewAccountType(e.target.value as InvestmentAccount['type'])} className={fieldCls}>
+              <option value="cash">Cash</option>
+              <option value="brokerage">Brokerage</option>
+              <option value="crypto">Crypto</option>
+              <option value="retirement">Retirement</option>
+              <option value="loan">Loan</option>
+              <option value="other">Other</option>
             </select>
-            <input type="number" value={newAccountValue} onChange={(e) => setNewAccountValue(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Value" />
+            <input type="number" value={newAccountValue} onChange={(e) => setNewAccountValue(e.target.value)} className={fieldCls} placeholder="Value" />
           </div>
-          <button onClick={addInvestmentAccount} className="mt-2 px-3 py-1 border-2 border-ink bg-usc-gold font-loud text-[10px]">ADD_ACCOUNT</button>
-          <div className="mt-3 space-y-1 max-h-28 overflow-y-auto">
+          <button onClick={addInvestmentAccount} className={addBtnCls}>Add account</button>
+          <div className="mt-3 space-y-1.5 max-h-28 overflow-y-auto">
             {investmentAccounts.slice(-6).map((account) => (
-              <div key={account.id} className="text-[10px] font-mono border border-ink p-1 bg-white flex justify-between">
-                <span>{account.name} ({account.type})</span>
-                <span>{formatCurrency(account.value, displayCurrency, conversionRate)}</span>
+              <div key={account.id} className={rowCls}>
+                <span className="text-app-muted truncate">{account.name} <span className="text-app-faint">({account.type})</span></span>
+                <span className="text-app-text font-medium">{formatCurrency(account.value, displayCurrency, conversionRate)}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">COLLABORATIVE_FAMILY_BUDGETING</p>
-          <p className="font-mono text-[11px]">Shared contributions: {formatCurrency(familyContributionTotal, displayCurrency, conversionRate)}</p>
-          <p className="font-mono text-[11px]">Shared expense load: {formatCurrency(monthlyExpense - familyContributionTotal, displayCurrency, conversionRate)}</p>
+        <div className={cardCls}>
+          <p className={subLabelCls}>Collaborative budgeting</p>
+          <p className="text-xs text-app-muted tabular-nums">Shared contributions: <span className="text-app-text font-medium">{formatCurrency(familyContributionTotal, displayCurrency, conversionRate)}</span></p>
+          <p className="text-xs text-app-muted tabular-nums">Shared expense load: <span className="text-app-text font-medium">{formatCurrency(monthlyExpense - familyContributionTotal, displayCurrency, conversionRate)}</span></p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-            <input value={memberName} onChange={(e) => setMemberName(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Member name" />
-            <input type="number" value={memberContribution} onChange={(e) => setMemberContribution(e.target.value)} className="border-2 border-ink p-2 text-xs" placeholder="Contribution" />
+            <input value={memberName} onChange={(e) => setMemberName(e.target.value)} className={fieldCls} placeholder="Member name" />
+            <input type="number" value={memberContribution} onChange={(e) => setMemberContribution(e.target.value)} className={fieldCls} placeholder="Contribution" />
           </div>
-          <button onClick={addFamilyMember} className="mt-2 px-3 py-1 border-2 border-ink bg-usc-gold font-loud text-[10px]">ADD_MEMBER</button>
-          <div className="mt-3 space-y-1 max-h-28 overflow-y-auto">
+          <button onClick={addFamilyMember} className={addBtnCls}>Add member</button>
+          <div className="mt-3 space-y-1.5 max-h-28 overflow-y-auto">
             {familyMembers.slice(-6).map((member) => (
-              <div key={member.id} className="text-[10px] font-mono border border-ink p-1 bg-white flex justify-between">
-                <span>{member.name}</span>
-                <span>{formatCurrency(member.contribution, displayCurrency, conversionRate)}</span>
+              <div key={member.id} className={rowCls}>
+                <span className="text-app-muted truncate">{member.name}</span>
+                <span className="text-app-text font-medium">{formatCurrency(member.contribution, displayCurrency, conversionRate)}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">BILLS_AND_SUBSCRIPTIONS_TRACKER</p>
+        <div className={cardCls}>
+          <p className={subLabelCls}>Bills & subscriptions</p>
           {upcomingBills.length === 0 ? (
-            <p className="font-mono text-[11px]">No recurring bills due in next 10 days.</p>
+            <p className="text-xs text-app-muted">No recurring bills due in the next 10 days.</p>
           ) : (
             <ul className="space-y-2">
               {upcomingBills.map((bill) => (
-                <li key={`${templateKey(bill)}-${bill.dueDate.toISOString()}`} className="border border-ink p-2 bg-white flex justify-between">
-                  <span className="font-loud text-[10px] uppercase">{bill.title}</span>
-                  <span className="font-mono text-[10px]">{bill.dueDate.toISOString().slice(0, 10)}</span>
+                <li key={`${templateKey(bill)}-${bill.dueDate.toISOString()}`} className={rowCls}>
+                  <span className="text-app-text font-medium truncate">{bill.title}</span>
+                  <span className="text-app-muted">{bill.dueDate.toISOString().slice(0, 10)}</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        <div className="border-2 border-ink p-4 bg-bone">
-          <p className="font-loud text-xs uppercase mb-2">PROACTIVE_INSIGHTS</p>
+        <div className={cardCls}>
+          <p className={subLabelCls}>Insights</p>
           <ul className="space-y-2">
             {proactiveInsights.map((insight, idx) => (
-              <li key={idx} className="border border-ink p-2 bg-white font-mono text-[11px]">{insight}</li>
+              <li key={idx} className="rounded-lg border border-app-border bg-surface px-3 py-2.5 text-xs text-app-muted leading-relaxed">{insight}</li>
             ))}
-            {proactiveInsights.length === 0 && <li className="font-mono text-[11px]">No insights yet. Add more transactions.</li>}
+            {proactiveInsights.length === 0 && <li className="text-xs text-app-muted">No insights yet. Add more transactions.</li>}
           </ul>
         </div>
       </div>
