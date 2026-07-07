@@ -3,6 +3,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useTheme } from '../hooks/useTheme';
+import { getChartColors } from '../utils/chartTheme';
 
 // Track the mobile breakpoint reactively so rotating the device / resizing
 // re-lays-out the chart (CMP-M25: window.innerWidth was read once at render).
@@ -32,9 +34,12 @@ interface CategoryPieChartProps {
 const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white border-2 md:border-4 border-ink p-2 md:p-3 shadow-neo z-50">
-        <p className="font-loud text-[10px] md:text-xs mb-1 border-b-2 border-ink pb-1">{payload[0].name}</p>
-        <p className="font-bold text-[10px] md:text-sm" style={{ color: payload[0].payload.fill }}>
+      <div className="glass glass-blur rounded-xl px-3 py-2 z-50">
+        <p className="text-[11px] font-medium text-app-muted mb-1 flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: payload[0].payload.fill }} />
+          {payload[0].name}
+        </p>
+        <p className="font-display text-sm font-bold text-app-text tabular-nums">
           {formatCurrency(payload[0].value, displayCurrency, conversionRate)}
         </p>
       </div>
@@ -45,6 +50,8 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
 
 const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const { theme } = useTheme();
+  const c = getChartColors(theme);
     const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
     const isMobile = useIsMobile();
 
@@ -62,7 +69,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
           value: item.name,
           type: 'rect' as const,
           id: item.name,
-          color: hiddenCategories.includes(item.name) ? '#9ca3af' : item.fill,
+          color: hiddenCategories.includes(item.name) ? c.tick : item.fill,
         })),
       [data, hiddenCategories]
     );
@@ -75,8 +82,8 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
 
     if (data.length === 0) {
         return (
-          <div className="flex items-center justify-center h-full font-loud text-xs text-ink/60 italic">
-            NO_DATA_AVAILABLE
+          <div className="flex items-center justify-center h-full text-sm text-app-faint">
+            No data available
           </div>
         );
     }
@@ -84,12 +91,12 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
     if (interactiveData.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3">
-          <p className="font-loud text-xs text-ink/70 italic">ALL_CATEGORIES_HIDDEN</p>
+          <p className="text-sm text-app-muted">All categories hidden</p>
           <button
             onClick={() => setHiddenCategories([])}
-            className="px-3 py-1 border-2 border-ink bg-usc-gold font-loud text-[10px]"
+            className="px-3.5 py-1.5 rounded-lg bg-primary text-on-primary font-semibold text-xs shadow-glow hover:brightness-110 transition-all"
           >
-            RESET_FILTERS
+            Reset filters
           </button>
         </div>
       );
@@ -102,9 +109,9 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
           data={interactiveData}
           innerRadius={isMobile ? 45 : 60}
           outerRadius={isMobile ? 65 : 80}
-          paddingAngle={5}
-          strokeWidth={isMobile ? 2 : 4}
-          stroke="#111111"
+          paddingAngle={3}
+          strokeWidth={2}
+          stroke={c.surface}
           dataKey="value"
           isAnimationActive={true}
         >
@@ -129,16 +136,12 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
             isMobile
               ? {
                   paddingTop: '10px',
-                  fontSize: '8px',
-                  fontWeight: 900,
-                  textTransform: 'uppercase',
+                  fontSize: '11px',
                   width: '100%',
                 }
               : {
                   paddingLeft: '20px',
-                  fontSize: '10px',
-                  fontWeight: 900,
-                  textTransform: 'uppercase',
+                  fontSize: '12px',
                 }
           }
           formatter={(value: string) => {
@@ -148,6 +151,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
                 onClick={() => toggleCategory(value)}
                 style={{
                   cursor: 'pointer',
+                  color: c.tick,
                   opacity: isHidden ? 0.35 : 1,
                   textDecoration: isHidden ? 'line-through' : 'none',
                 }}
