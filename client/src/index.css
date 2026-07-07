@@ -106,6 +106,18 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
+  /* Ambient nebula glows — give the dark world depth and glow instead of flat
+     black. Fixed so they don't scroll; behind all content. */
+  .dark body {
+    background:
+      radial-gradient(45% 40% at 12% 8%, rgba(124, 108, 255, 0.22), transparent 70%),
+      radial-gradient(42% 45% at 92% 12%, rgba(217, 70, 160, 0.14), transparent 70%),
+      radial-gradient(55% 50% at 78% 92%, rgba(80, 120, 255, 0.14), transparent 72%),
+      radial-gradient(120% 120% at 50% 0%, var(--bg-tint), var(--bg) 68%),
+      var(--bg);
+    background-attachment: fixed;
+  }
+
   ::selection { background: var(--primary-soft); color: var(--text); }
 
   ::-webkit-scrollbar { width: 11px; height: 11px; }
@@ -140,7 +152,7 @@
       radial-gradient(1px 1px at 90% 78%, rgba(255,255,255,.45), transparent),
       radial-gradient(1.3px 1.3px at 12% 68%, rgba(255,255,255,.4), transparent);
     background-size: 560px 560px;
-    opacity: 0.55;
+    opacity: 0.8;
   }
   .dark .starfield::after {
     content: "";

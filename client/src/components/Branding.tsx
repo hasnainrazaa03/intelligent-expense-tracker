@@ -14,8 +14,8 @@ export const ExpenseTrackerLogo: React.FC<{ className?: string }> = ({ className
   >
     <defs>
       <linearGradient id="orbit-mark" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#8b7ff6" />
-        <stop offset="1" stop-color="#6d5cf0" />
+        <stop offset="0" stopColor="#8b7ff6" />
+        <stop offset="1" stopColor="#6d5cf0" />
       </linearGradient>
     </defs>
     {/* planet */}
@@ -23,7 +23,7 @@ export const ExpenseTrackerLogo: React.FC<{ className?: string }> = ({ className
     <circle cx="38" cy="40" r="7" fill="#ffffff" opacity="0.35" />
     {/* orbit ring */}
     <ellipse cx="46" cy="48" rx="40" ry="15" fill="none" stroke="url(#orbit-mark)"
-      stroke-width="5" transform="rotate(-22 46 48)" />
+      strokeWidth="5" transform="rotate(-22 46 48)" />
     {/* wordmark */}
     <text x="96" y="49" dominantBaseline="central"
       fill="currentColor"

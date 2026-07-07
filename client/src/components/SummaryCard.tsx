@@ -3,6 +3,8 @@ import { ArrowUpIcon, ArrowDownIcon } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
 
+type Accent = 'indigo' | 'green' | 'rose' | 'amber' | 'sky';
+
 interface SummaryCardProps {
   title: string;
   value: number | string;
@@ -10,75 +12,62 @@ interface SummaryCardProps {
   icon: React.ReactNode;
   percentageChange?: number;
   isNetFlow?: boolean;
+  accent?: Accent;
 }
 
+const ACCENT: Record<Accent, { chip: string; text: string }> = {
+  indigo: { chip: 'bg-[color:var(--color-cat-indigo)]/15 text-[color:var(--color-cat-indigo)]', text: '' },
+  green: { chip: 'bg-ok/15 text-ok', text: '' },
+  rose: { chip: 'bg-[color:var(--color-cat-rose)]/15 text-[color:var(--color-cat-rose)]', text: '' },
+  amber: { chip: 'bg-warn/15 text-warn', text: '' },
+  sky: { chip: 'bg-[color:var(--color-cat-sky)]/15 text-[color:var(--color-cat-sky)]', text: '' },
+};
+
 const SummaryCard: React.FC<SummaryCardProps> = ({
-  title, value, isString = false, icon, percentageChange,
-  isNetFlow = false
+  title, value, isString = false, icon, percentageChange, isNetFlow = false, accent = 'indigo'
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const isNumeric = !isString && typeof value === 'number';
 
-  // Format the value. Net flow must keep its sign — a -$1,250 net flow previously
-  // rendered as "$1,250.00" (sign conveyed by color only, an accessibility gap too).
   const showSign = isNetFlow && isNumeric && (value as number) < 0;
   const formattedValue = isNumeric
     ? `${showSign ? '-' : ''}${formatCurrency(Math.abs(value as number), displayCurrency, conversionRate)}`
     : value;
 
-  // Neo-Brutalist Color Logic
-  let valueColor = 'text-ink'; 
-
+  let valueColor = 'text-app-text';
   if (isNetFlow && isNumeric) {
-    if (value > 0) valueColor = 'text-green-600';
-    // USC Cardinal for negative flow (High Contrast)
-    if (value < 0) valueColor = 'text-usc-cardinal';
+    if ((value as number) > 0) valueColor = 'text-ok';
+    if ((value as number) < 0) valueColor = 'text-danger';
   }
 
-  const renderPercentageChange = () => {
-    if (percentageChange === undefined || !isFinite(percentageChange)) {
-      return null;
-    }
+  const label = title.replace(/_/g, ' ');
 
-    const isPositive = percentageChange >= 0;
-    // Streetwear "Status Tag" look
-    const tagBg = isPositive ? 'bg-usc-cardinal' : 'bg-green-600';
-    const tagText = 'text-bone';
-    const Icon = isPositive ? ArrowUpIcon : ArrowDownIcon;
-
+  const renderDelta = () => {
+    if (percentageChange === undefined || !isFinite(percentageChange)) return null;
+    const isUp = percentageChange >= 0;
+    const Icon = isUp ? ArrowUpIcon : ArrowDownIcon;
     return (
-      <div className={`mt-2 flex items-center w-fit px-2 py-0.5 border-2 border-ink shadow-[2px_2px_0px_0px_#111111] ${tagBg} ${tagText}`}>
-        <Icon className="h-3 w-3 mr-1 stroke-[3px]" />
-        <span className="font-loud text-[10px]">{Math.abs(percentageChange).toFixed(1)}%</span>
+      <div className={`mt-2.5 inline-flex items-center gap-1 text-xs font-semibold ${isUp ? 'text-ok' : 'text-danger'}`}>
+        <Icon className="h-3.5 w-3.5" />
+        {Math.abs(percentageChange).toFixed(1)}%
+        <span className="text-app-muted font-medium">vs last month</span>
       </div>
     );
   };
 
   return (
-    <div className="h-full p-4 md:p-6 bg-bone flex flex-col justify-between group transition-all relative overflow-hidden">
-      {/* Top Row: Icon and Title */}
-      <div className="flex items-start justify-between mb-3 md:mb-4 gap-2">
-        <div className="bg-usc-gold text-ink p-1.5 md:p-2 border-2 border-ink shadow-[2px_2px_0px_0px_#111111] md:shadow-[3px_3px_0px_0px_#111111] group-hover:translate-x-0.5 group-hover:translate-y-0.5 group-hover:shadow-none transition-all flex-shrink-0">
-          {React.cloneElement(icon as React.ReactElement, { className: 'h-5 w-5 md:h-6 md:w-6 stroke-[2.5px]' })}
+    <div className="glass rounded-2xl p-4 md:p-5 h-full flex flex-col justify-between transition-all hover:-translate-y-0.5">
+      <div className="flex items-center gap-3">
+        <div className={`grid place-items-center w-10 h-10 rounded-xl flex-shrink-0 ${ACCENT[accent].chip}`}>
+          {React.cloneElement(icon as React.ReactElement, { className: 'h-5 w-5' })}
         </div>
-        <span className="font-loud text-[9px] md:text-[10px] text-ink/60 tracking-widest uppercase text-right leading-tight truncate md:whitespace-normal">
-          {title.replace(/\s+/g, '_')}
-        </span>
+        <span className="text-xs md:text-[13px] font-medium text-app-muted capitalize">{label.toLowerCase()}</span>
       </div>
-
-      {/* Bottom Row: Value and Trend */}
-      <div className="min-w-0">
-        <h4 className={`font-loud text-xl sm:text-2xl md:text-3xl leading-none break-all sm:break-words ${valueColor}`}>
+      <div className="mt-3">
+        <h4 className={`font-display text-2xl md:text-[26px] font-bold leading-none tracking-tight tabular-nums break-words ${valueColor}`}>
           {formattedValue}
         </h4>
-        {renderPercentageChange()}
-      </div>
-
-      {/* Decorative Technical ID (Streetwear Detail) */}
-      <div className="absolute bottom-1 right-2 opacity-10 pointer-events-none hidden xs:block">
-      <span className="font-mono text-[7px] md:text-[8px] text-ink">
-          METRIC_REF_{title.slice(0,3).toUpperCase()}
-        </span>
+        {renderDelta()}
       </div>
     </div>
   );
