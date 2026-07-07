@@ -135,52 +135,54 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
   const currencySymbol = displayCurrency === 'INR' ? '₹' : '$';
 
   return (
-    <div className="fixed inset-0 bg-ink/90 backdrop-blur-sm z-[100] flex justify-center items-center p-2 sm:p-4" onClick={handleRequestClose}>
-      <div className="bg-bone border-4 md:border-8 border-ink shadow-neo-gold w-full max-w-2xl max-h-[95vh] flex flex-col transform transition-all" onClick={e => e.stopPropagation()}>
-        <div className="p-4 md:p-8 bg-ink border-b-4 md:border-b-8 border-ink flex justify-between items-center flex-shrink-0">
-            <h2 className="font-loud text-lg md:text-3xl text-bone leading-none uppercase tracking-tighter truncate pr-4">BUDGET_ALLOCATION_MATRIX</h2>
-            <button onClick={handleRequestClose} className="text-bone hover:text-usc-gold font-mono text-xl flex-shrink-0"> [X] </button>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4" onClick={handleRequestClose}>
+      <div className="glass glass-blur rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-center flex-shrink-0">
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-app-text truncate pr-4">Manage budgets</h2>
+            <button onClick={handleRequestClose} aria-label="Close budget manager" className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors flex-shrink-0">
+              <span className="text-lg leading-none">&times;</span>
+            </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden">
-            <div className="p-4 md:p-8 h-[60vh] md:h-[50vh] overflow-y-auto bg-white custom-scrollbar space-y-12">
-              <div className="border-4 border-ink bg-usc-gold/20 p-4">
-                <h3 className="font-loud text-sm md:text-base uppercase mb-3">TEMPLATE_LIBRARY</h3>
+            <div className="flex-grow overflow-y-auto p-5 sm:p-6 space-y-5">
+              <div className="rounded-xl border border-app-border bg-surface-2 p-4">
+                <h3 className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-3 block uppercase">Budget templates</h3>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => handleApplyTemplate('student_essential')} className="bg-bone border-2 border-ink px-3 py-1 font-loud text-[10px] uppercase">STUDENT_ESSENTIAL</button>
-                  <button type="button" onClick={() => handleApplyTemplate('balanced_growth')} className="bg-bone border-2 border-ink px-3 py-1 font-loud text-[10px] uppercase">BALANCED_GROWTH</button>
-                  <button type="button" onClick={() => handleApplyTemplate('cost_control')} className="bg-bone border-2 border-ink px-3 py-1 font-loud text-[10px] uppercase">COST_CONTROL</button>
+                  <button type="button" onClick={() => handleApplyTemplate('student_essential')} className="bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold px-3 py-1.5 text-xs">Student essential</button>
+                  <button type="button" onClick={() => handleApplyTemplate('balanced_growth')} className="bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold px-3 py-1.5 text-xs">Balanced growth</button>
+                  <button type="button" onClick={() => handleApplyTemplate('cost_control')} className="bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold px-3 py-1.5 text-xs">Cost control</button>
                 </div>
               </div>
 
               {Object.keys(groupedCategories).sort().map(parent => (
-                <div key={parent} className="border-4 border-ink p-4 md:p-6 bg-bone shadow-neo">
+                <div key={parent} className="rounded-xl border border-app-border bg-surface-2 p-4 md:p-6">
                   {/* CATEGORY HEADER */}
-                  <div className="flex justify-between items-end border-b-4 border-ink pb-4 mb-6">
+                  <div className="flex justify-between items-end border-b border-app-border pb-4 mb-6">
                     <div>
-                      <label className="font-loud text-[8px] md:text-[10px] text-ink/40 uppercase tracking-widest block">CATEGORY_HEADER</label>
-                      <h3 className="font-loud text-xl md:text-2xl text-usc-cardinal leading-none">{parent.toUpperCase()}</h3>
+                      <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-1 block uppercase">Category</label>
+                      <h3 className="font-display text-xl md:text-2xl font-bold text-app-text leading-none">{parent}</h3>
                     </div>
                     <div className="text-right">
-                      <span className="font-mono text-[8px] md:text-[10px] text-ink/40 uppercase block mb-1">AGGREGATE_VALUATION</span>
-                      <span className="font-loud text-lg text-ink">
+                      <span className="text-[11px] font-medium tracking-[0.12em] text-app-muted block mb-1 uppercase">Total</span>
+                      <span className="font-display text-lg font-bold text-app-text tabular-nums">
                         {currencySymbol}{getCategoryTotal(parent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
 
                   {/* SUB-SECTOR GRID */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* General/Other Category Input */}
-                    <div className="bg-white/50 p-3 border-2 border-dashed border-ink/20">
-                      <label className="font-loud text-[8px] text-ink/40 uppercase mb-2 block">GENERAL_{parent.toUpperCase()}</label>
+                    <div className="rounded-xl border border-app-border bg-surface p-3">
+                      <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase">General {parent}</label>
                       <div className="flex items-center">
-                        <span className="font-loud text-xs opacity-30 mr-2">{currencySymbol}</span>
+                        <span className="text-sm text-app-faint mr-2">{currencySymbol}</span>
                         <input
                           type="number"
                           value={budgets[parent] || ''}
                           onChange={e => handleBudgetChange(parent, e.target.value)}
-                          className="w-full bg-transparent font-loud text-sm focus:outline-none border-b-2 border-transparent focus:border-ink transition-all"
+                          className="w-full bg-transparent text-sm text-app-text placeholder:text-app-faint focus:outline-none tabular-nums transition-all"
                           placeholder="0.00"
                         />
                       </div>
@@ -188,15 +190,15 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
 
                     {/* Specific Subcategories */}
                     {groupedCategories[parent].map(sub => (
-                      <div key={sub} className="bg-white p-3 border-2 border-ink shadow-neo">
-                        <label className="font-loud text-[8px] text-ink/60 uppercase mb-2 block">{sub.replace(/\s+/g, '_')}_SECTOR</label>
+                      <div key={sub} className="rounded-xl border border-app-border bg-surface p-3">
+                        <label className="text-[11px] font-medium tracking-[0.12em] text-app-muted mb-2 block uppercase">{sub}</label>
                         <div className="flex items-center">
-                          <span className="font-loud text-xs opacity-30 mr-2">{currencySymbol}</span>
+                          <span className="text-sm text-app-faint mr-2">{currencySymbol}</span>
                           <input
                             type="number"
                             value={budgets[sub] || ''}
                             onChange={e => handleBudgetChange(sub, e.target.value)}
-                            className="w-full bg-transparent font-loud text-sm focus:outline-none"
+                            className="w-full bg-transparent text-sm text-app-text placeholder:text-app-faint focus:outline-none tabular-nums transition-all"
                             placeholder="0.00"
                             step="0.01"
                           />
@@ -207,19 +209,19 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
                 </div>
               ))}
             </div>
-            
-            <div className="p-4 md:p-8 border-t-4 md:border-t-8 border-ink bg-bone flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6 flex-shrink-0">
-              <div className="bg-ink p-3 md:p-4 border-4 border-ink shadow-[4px_4px_0px_0px_#FFCC00] w-full md:w-auto">
-                <span className="font-loud text-[8px] md:text-[10px] text-bone/60 uppercase block mb-1">GLOBAL_LEDGER_LIMIT:</span>
-                <span className="font-loud text-xl md:text-2xl text-usc-gold">{currencySymbol}{totalBudget.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+
+            <div className="p-5 sm:p-6 border-t border-app-border flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">
+              <div className="rounded-xl border border-app-border bg-surface-2 px-4 py-3 w-full md:w-auto">
+                <span className="text-[11px] font-medium tracking-[0.12em] text-app-muted block mb-1 uppercase">Total budget</span>
+                <span className="font-display text-xl md:text-2xl font-bold text-primary tabular-nums">{currencySymbol}{totalBudget.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
-              
-              <div className="flex space-x-3 md:space-x-4 w-full md:w-auto">
-                <button type="button" onClick={onClose} className="flex-1 px-4 md:px-6 py-3 md:py-4 bg-white text-ink border-4 border-ink font-loud text-xs md:text-sm hover:bg-ink hover:text-white transition-all uppercase">
-                  CANCEL
+
+              <div className="flex gap-3 w-full md:w-auto">
+                <button type="button" onClick={onClose} className="flex-1 md:flex-none px-6 py-3 bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong transition-all rounded-xl font-semibold">
+                  Cancel
                 </button>
-                <button type="submit" className="flex-1 px-6 md:px-8 py-3 md:py-4 bg-usc-gold text-ink border-4 border-ink font-loud text-base md:text-lg shadow-neo active:translate-x-1 active:translate-y-1 active:shadow-none transition-all uppercase">
-                  SAVE_CHANGES
+                <button type="submit" className="flex-1 md:flex-none px-6 py-3 bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold">
+                  Save changes
                 </button>
               </div>
             </div>

@@ -14,10 +14,10 @@ interface BudgetActualChartProps {
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white border-2 border-ink p-2 shadow-neo">
-        <p className="font-bold text-ink">{label}</p>
-        <p style={{color: payload[0].fill}}>{`Actual: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}</p>
-        <p style={{color: payload[1].fill}}>{`Budget: ${formatCurrency(payload[1].value, displayCurrency, conversionRate)}`}</p>
+      <div className="glass glass-blur rounded-xl px-3 py-2">
+        <p className="text-[11px] font-medium text-app-muted mb-1">{label}</p>
+        <p className="text-sm tabular-nums" style={{color: payload[0].fill}}>{`Actual: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}</p>
+        <p className="text-sm tabular-nums" style={{color: payload[1].fill}}>{`Budget: ${formatCurrency(payload[1].value, displayCurrency, conversionRate)}`}</p>
       </div>
     );
   }
