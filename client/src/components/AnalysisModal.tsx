@@ -19,7 +19,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, analysis
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+      className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center p-4"
       onClick={onClose}
     >
       <div
@@ -27,7 +27,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, analysis
         role="dialog"
         aria-modal="true"
         aria-label="AI financial audit report"
-        className="glass glass-blur rounded-2xl w-full max-w-2xl mx-auto transform transition-all duration-200 overflow-hidden"
+        className="modal-surface rounded-2xl w-full max-w-2xl mx-auto transform transition-all duration-200 overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-4 md:p-6 border-b border-app-border flex justify-between items-center">

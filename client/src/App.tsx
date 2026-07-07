@@ -61,15 +61,14 @@ const VerticalTab = ({ icon, label, isActive, onClick }: { icon: React.ReactNode
             role="tab"
             aria-selected={isActive}
             aria-current={isActive ? 'page' : undefined}
-            aria-label={label}
-            className={`group relative flex flex-col items-center justify-center gap-1.5 w-16 md:w-full py-3 rounded-xl transition-all flex-shrink-0
+            className={`group relative flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl transition-all flex-shrink-0 text-left
                 ${isActive
                     ? 'bg-primary text-on-primary shadow-glow'
                     : 'text-app-muted hover:text-app-text hover:bg-surface-2'
                 }`}
         >
-            <span className={`transition-transform ${isActive ? '' : 'group-hover:scale-110'}`}>{icon}</span>
-            <span className="text-[9px] md:text-[10px] font-semibold tracking-wide">{label}</span>
+            <span className={`flex-shrink-0 transition-transform ${isActive ? '' : 'group-hover:scale-110'}`}>{icon}</span>
+            <span className="text-sm font-semibold tracking-tight">{label}</span>
         </button>
     );
 }
@@ -823,11 +822,12 @@ const handleDeleteIncome = async (id: string) => {
                   const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
                   tabs[nextIndex].focus();
                 }}
-                className="hidden md:flex w-24 flex-col gap-1.5 glass glass-blur rounded-2xl p-2.5 z-30 flex-shrink-0 overflow-y-auto no-scrollbar h-full"
+                className="hidden md:flex w-48 flex-col gap-1 glass glass-blur rounded-2xl p-2.5 z-30 flex-shrink-0 overflow-y-auto no-scrollbar h-full"
               >
-                <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="Spend" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-faint px-3.5 pt-1 pb-2">Menu</p>
+                <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="Expenses" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
                 <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="Income" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
-                <VerticalTab icon={<ChatBubbleBottomCenterTextIcon className="h-5 w-5" />} label="AI" isActive={activeView === 'ai'} onClick={() => setActiveView('ai')} />
+                <VerticalTab icon={<ChatBubbleBottomCenterTextIcon className="h-5 w-5" />} label="AI Analyst" isActive={activeView === 'ai'} onClick={() => setActiveView('ai')} />
                 <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="Pivot" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
                 <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="Reports" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
                 <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="Tuition" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
@@ -953,20 +953,6 @@ const handleDeleteIncome = async (id: string) => {
                         className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
                         + Add income
-                      </button>
-                      <button
-                        role="menuitem"
-                        onClick={handleOpenBudgetModal}
-                        className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
-                      >
-                        + Manage budgets
-                      </button>
-                      <button
-                        role="menuitem"
-                        onClick={handleOpenDataModal}
-                        className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
-                      >
-                        + Data hub
                       </button>
                     </div>
                   )}

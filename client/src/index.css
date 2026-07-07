@@ -17,6 +17,8 @@
   --bg-tint: transparent;
   --surface: #ffffff;
   --surface-2: #f2f3f9;
+  /* Opaque elevated panel for modals (no backdrop-filter → cheap to scroll). */
+  --modal-surface: #ffffff;
   --border: rgba(20, 20, 45, 0.09);
   --border-strong: rgba(20, 20, 45, 0.16);
   --text: #17162b;
@@ -40,6 +42,8 @@
   --bg-tint: #0f0b24;
   --surface: rgba(255, 255, 255, 0.045);
   --surface-2: rgba(255, 255, 255, 0.075);
+  /* Opaque elevated panel for modals (no backdrop-filter → cheap to scroll). */
+  --modal-surface: #17142c;
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.16);
   --text: #f3f1fb;
@@ -188,6 +192,16 @@
   }
   /* Opt-in frosted blur for a small, stable set of always-mounted surfaces. */
   .dark .glass-blur { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+  /* Solid elevated modal panel — deliberately NO backdrop-filter. Modals have
+     large scrollable bodies; a translucent-blur panel forces a full re-blur on
+     every scroll/keystroke (the #1 source of modal jank). An opaque surface
+     composites once and scrolls cheaply. */
+  .modal-surface {
+    background: var(--modal-surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
 
   /* AI markdown (retuned to the sans display face) */
   .ai-markdown h1, .ai-markdown h2, .ai-markdown h3, .ai-markdown h4 {

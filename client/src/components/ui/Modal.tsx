@@ -36,7 +36,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center items-center p-4"
+      className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -45,7 +45,7 @@ export const Modal: React.FC<ModalProps> = ({
         aria-modal="true"
         aria-labelledby={labelledById}
         tabIndex={-1}
-        className={cn('glass glass-blur rounded-2xl w-full flex flex-col max-h-[90vh]', SIZES[size])}
+        className={cn('modal-surface rounded-2xl w-full flex flex-col max-h-[90vh]', SIZES[size])}
       >
         <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-start gap-3 flex-shrink-0">
           <div className="min-w-0">

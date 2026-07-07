@@ -3,6 +3,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { Budget } from '../types';
 import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { Modal, Button, Label } from './ui';
+import ConfirmationDialog from './ConfirmationDialog';
 
 interface BudgetManagerModalProps {
   isOpen: boolean;
@@ -15,11 +16,11 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
   const { displayCurrency, conversionRate } = useCurrency();
   const [budgets, setBudgets] = useState<{ [key: string]: string }>({});
   const [isDirty, setIsDirty] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
 
-  // Close, but guard against discarding unsaved edits on an accidental
-  // backdrop click. Explicit [X]/CANCEL still close directly.
+  // Close, guarding unsaved edits with an in-app dialog (no native window.confirm).
   const handleRequestClose = () => {
-    if (isDirty && !window.confirm('Discard your unsaved budget changes?')) return;
+    if (isDirty) { setShowDiscard(true); return; }
     onClose();
   };
 
@@ -107,7 +108,9 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
       acc[categoryName] = displayAmount.toFixed(2);
       return acc;
     }, {} as Record<string, string>);
-    setBudgets((prev) => ({ ...prev, ...mapped }));
+    // Replace the whole allocation with the chosen template — don't merge, or
+    // categories from a previously-clicked template linger (bug #2).
+    setBudgets(mapped);
     setIsDirty(true);
   };
 
@@ -134,6 +137,7 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
   const currencySymbol = displayCurrency === 'INR' ? '₹' : '$';
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={handleRequestClose}
@@ -147,7 +151,7 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
           </div>
 
           <div className="flex gap-3 w-full md:w-auto">
-            <Button variant="secondary" onClick={onClose} className="flex-1 md:flex-none px-6 py-3">
+            <Button variant="secondary" onClick={handleRequestClose} className="flex-1 md:flex-none px-6 py-3">
               Cancel
             </Button>
             <Button type="submit" form="budget-form" className="flex-1 md:flex-none px-6 py-3">
@@ -222,6 +226,15 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
               ))}
       </form>
     </Modal>
+    <ConfirmationDialog
+      isOpen={showDiscard}
+      onClose={() => setShowDiscard(false)}
+      onConfirm={() => { setShowDiscard(false); onClose(); }}
+      title="Discard changes?"
+    >
+      You have unsaved budget changes. Close without saving?
+    </ConfirmationDialog>
+    </>
   );
 };
 
