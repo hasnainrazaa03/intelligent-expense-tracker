@@ -9,13 +9,13 @@ interface EmptyStateProps {
 
 const EmptyState: React.FC<EmptyStateProps> = ({ title, subtitle, ctaLabel, onCta }) => {
   return (
-    <div className="border-4 border-ink border-dashed p-8 md:p-16 text-center bg-bone/50">
-      <p className="font-loud text-lg md:text-2xl text-ink/40 uppercase">{title}</p>
-      <p className="text-[10px] md:text-xs font-mono text-ink/60 mt-2 uppercase">{subtitle}</p>
+    <div className="glass rounded-2xl border-dashed p-10 md:p-16 text-center">
+      <p className="font-display text-lg md:text-xl font-semibold text-app-text">{title}</p>
+      <p className="text-sm text-app-muted mt-2 max-w-sm mx-auto">{subtitle}</p>
       {ctaLabel && onCta && (
         <button
           onClick={onCta}
-          className="mt-5 px-5 py-2 border-4 border-ink bg-usc-gold text-ink font-loud text-xs uppercase shadow-neo hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
+          className="mt-6 px-5 py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-sm shadow-glow hover:brightness-110 active:scale-[0.99] transition-all"
           aria-label={ctaLabel}
         >
           {ctaLabel}
