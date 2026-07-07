@@ -45,7 +45,7 @@ const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="glass rounded-2xl sticky top-2 md:top-3 z-40 overflow-hidden mb-4 md:mb-6">
+    <header className="glass glass-blur rounded-2xl sticky top-2 md:top-3 z-40 overflow-hidden mb-4 md:mb-6">
       {/* 1. STATUS BAR (subtle) */}
       <div className="hidden sm:flex text-app-faint py-1.5 px-5 justify-between items-center border-b border-app-border">
         <div className="flex gap-4 font-mono text-[9px] tracking-[0.25em] uppercase">

@@ -175,13 +175,19 @@
     to   { opacity: 1; transform: scale(1) translateY(0); }
   }
 
-  /* ---- Glass surface helper for panels ---- */
+  /* ---- Glass surface helper for panels ----
+     NOTE: no backdrop-filter here on purpose. backdrop-blur is recomputed
+     whenever anything in front repaints, so blurring every content panel makes
+     each navigation trigger a blur-storm across all on-screen panels. Over the
+     dark nebula the translucent surface + border + shadow already reads as glass.
+     Blur is reserved for the stable chrome via `.glass-blur` (header/sidebar). */
   .glass {
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
   }
-  .dark .glass { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  /* Opt-in frosted blur for a small, stable set of always-mounted surfaces. */
+  .dark .glass-blur { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 
   /* AI markdown (retuned to the sans display face) */
   .ai-markdown h1, .ai-markdown h2, .ai-markdown h3, .ai-markdown h4 {

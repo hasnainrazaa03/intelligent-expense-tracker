@@ -823,7 +823,7 @@ const handleDeleteIncome = async (id: string) => {
                   const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
                   tabs[nextIndex].focus();
                 }}
-                className="hidden md:flex w-24 flex-col gap-1.5 glass rounded-2xl p-2.5 z-30 flex-shrink-0 overflow-y-auto no-scrollbar h-full"
+                className="hidden md:flex w-24 flex-col gap-1.5 glass glass-blur rounded-2xl p-2.5 z-30 flex-shrink-0 overflow-y-auto no-scrollbar h-full"
               >
                 <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="Spend" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
                 <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="Income" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
@@ -980,7 +980,7 @@ const handleDeleteIncome = async (id: string) => {
                   </button>
               </div>
 
-              <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass border-t border-app-border grid grid-cols-6 px-1 pt-1.5 pb-2">
+              <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass glass-blur border-t border-app-border grid grid-cols-6 px-1 pt-1.5 pb-2">
                 {[
                   { view: 'expenses' as const, label: 'Spend' },
                   { view: 'income' as const, label: 'Income' },
