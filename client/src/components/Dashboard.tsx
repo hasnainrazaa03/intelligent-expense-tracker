@@ -67,14 +67,18 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
 
-  const budgetAlerts = useMemo(() => {
-    if (budgets.length === 0) return [] as Array<{ category: string; spent: number; budget: number; pct: number; severity: 'warning' | 'danger' }>;
-
-    // Budget utilization is always a current-calendar-month figure, independent
-    // of the dashboard's selected period (CMP-M15), using local month bounds.
+  // Budgets are monthly, so budget utilization is ALWAYS the current calendar
+  // month — independent of the dashboard's selected period (CMP-M15). Both the
+  // alerts and the Budget-protocols tracker use this, so "All time" no longer
+  // shows 700%+ (multi-month spend vs a one-month allocation).
+  const monthExpenses = useMemo(() => {
     const monthStart = startOfMonth();
     const monthEnd = endOfMonth();
-    const monthExpenses = allExpenses.filter((e) => isWithinRange(e.date, monthStart, monthEnd));
+    return allExpenses.filter((e) => isWithinRange(e.date, monthStart, monthEnd));
+  }, [allExpenses]);
+
+  const budgetAlerts = useMemo(() => {
+    if (budgets.length === 0) return [] as Array<{ category: string; spent: number; budget: number; pct: number; severity: 'warning' | 'danger' }>;
 
     return budgets
       .map((budget) => {
@@ -92,7 +96,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       })
       .filter((item): item is { category: string; spent: number; budget: number; pct: number; severity: 'warning' | 'danger' } => item !== null)
       .sort((a, b) => b.pct - a.pct);
-  }, [budgets, allExpenses]);
+  }, [budgets, monthExpenses]);
   
   const { periodTotalExpense, periodTotalIncome, topCategory, periodChange, netFlow } = useMemo(() => {
     const periodTotalExpense = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
@@ -245,9 +249,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="p-5 md:p-7">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 md:mb-6 gap-2">
                 <h3 className="font-display text-xl md:text-2xl font-bold text-app-text">Budget protocols</h3>
-                <p className="text-[11px] font-medium text-app-muted">Spending vs. allocation</p>
+                <p className="text-[11px] font-medium text-app-muted">This month vs. allocation</p>
             </div>
-              <BudgetTracker expenses={expenses} budgets={budgets} />
+              <BudgetTracker expenses={monthExpenses} budgets={budgets} />
           </div>
 
             {/* Historical analytics */}

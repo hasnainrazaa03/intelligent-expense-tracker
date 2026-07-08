@@ -61,14 +61,15 @@ const VerticalTab = ({ icon, label, isActive, onClick }: { icon: React.ReactNode
             role="tab"
             aria-selected={isActive}
             aria-current={isActive ? 'page' : undefined}
-            className={`group relative flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl transition-all flex-shrink-0 text-left
+            title={label}
+            className={`group relative flex items-center gap-3 w-full pl-[10px] pr-2 py-2.5 rounded-xl transition-colors flex-shrink-0 text-left
                 ${isActive
                     ? 'bg-primary text-on-primary shadow-glow'
                     : 'text-app-muted hover:text-app-text hover:bg-surface-2'
                 }`}
         >
             <span className={`flex-shrink-0 transition-transform ${isActive ? '' : 'group-hover:scale-110'}`}>{icon}</span>
-            <span className="text-sm font-semibold tracking-tight">{label}</span>
+            <span className="text-sm font-semibold tracking-tight whitespace-nowrap opacity-0 group-hover/nav:opacity-100 transition-opacity duration-150">{label}</span>
         </button>
     );
 }
@@ -796,7 +797,8 @@ const handleDeleteIncome = async (id: string) => {
             {/* 2. BODY WRAPPER */}
             <div className="flex flex-1 overflow-hidden gap-4 md:gap-6">
               
-              {/* SIDE NAVIGATION (Vertical Sticker Tabs) */}
+              {/* SIDE NAVIGATION — slim icon rail that expands to reveal labels on hover */}
+              <div className="hidden md:block relative w-[64px] flex-shrink-0 h-full z-30">
               <nav
                 ref={navRef}
                 role="tablist"
@@ -822,9 +824,9 @@ const handleDeleteIncome = async (id: string) => {
                   const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
                   tabs[nextIndex].focus();
                 }}
-                className="hidden md:flex w-48 flex-col gap-1 glass glass-blur rounded-2xl p-2.5 z-30 flex-shrink-0 overflow-y-auto no-scrollbar h-full"
+                className="group/nav absolute left-0 top-0 h-full w-[64px] hover:w-52 hover:shadow-soft transition-[width] duration-200 ease-out flex flex-col gap-1 modal-surface rounded-2xl p-2 overflow-hidden"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-faint px-3.5 pt-1 pb-2">Menu</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-faint px-3 h-4 pt-1 mb-1 whitespace-nowrap opacity-0 group-hover/nav:opacity-100 transition-opacity duration-150">Menu</p>
                 <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="Expenses" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
                 <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="Income" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
                 <VerticalTab icon={<ChatBubbleBottomCenterTextIcon className="h-5 w-5" />} label="AI Analyst" isActive={activeView === 'ai'} onClick={() => setActiveView('ai')} />
@@ -832,6 +834,7 @@ const handleDeleteIncome = async (id: string) => {
                 <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="Reports" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
                 <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="Tuition" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
               </nav>
+              </div>
 
               {/* 3. MAIN SCROLLABLE VIEWPORT */}
               <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-1 md:pr-2 custom-scrollbar relative bg-transparent">
