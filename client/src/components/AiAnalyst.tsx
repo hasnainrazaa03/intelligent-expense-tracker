@@ -7,6 +7,7 @@ import {
 } from './Icons';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
+import cosmicRobot from '../assets/cosmic-robot.svg';
 
 interface AiAnalystProps {
   expenses: Expense[];
@@ -22,12 +23,16 @@ const QUICK_PROMPTS: Array<{ text: string; icon: React.ReactNode; tint: string }
   { text: 'Summarize this month in 5 bullet points.', icon: <ClipboardDocumentListIcon className="h-4 w-4" />, tint: 'text-warn bg-warn/15' },
 ];
 
-// Friendly gradient "mascot" orb (no external image — CSP-safe, high contrast).
-const Mascot: React.FC<{ className?: string }> = ({ className = 'w-14 h-14 text-3xl' }) => (
-  <div className={`relative grid place-items-center rounded-2xl flex-shrink-0 ${className}`}
-    style={{ background: 'radial-gradient(circle at 30% 25%, #8b7ff6, #5b45d6 70%)', boxShadow: '0 8px 30px rgba(124,108,255,0.45)' }}>
-    <span aria-hidden="true">🤖</span>
-  </div>
+// Cosmic robot mascot (custom SVG asset). The SVG has a transparent background
+// and its own soft glow; a drop-shadow adds a little extra lift on dark surfaces.
+const Mascot: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) => (
+  <img
+    src={cosmicRobot}
+    alt="Orbit AI mascot"
+    aria-hidden="true"
+    className={`flex-shrink-0 object-contain select-none ${className}`}
+    style={{ filter: 'drop-shadow(0 6px 20px rgba(124,108,255,0.4))' }}
+  />
 );
 
 const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
@@ -119,8 +124,8 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
       <div className="relative z-10">
         {/* HEADER */}
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5 mb-7">
-          <div className="flex items-start gap-4 min-w-0">
-            <Mascot />
+          <div className="flex items-start gap-3 min-w-0">
+            <Mascot className="w-20 h-20 -my-1 -ml-1 flex-shrink-0" />
             <div className="min-w-0">
               <h2 className="font-display text-2xl md:text-3xl font-bold text-app-text leading-tight flex items-center gap-2">
                 AI Analyst <SparklesIcon className="h-5 w-5 text-primary" />
@@ -193,8 +198,8 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
           {!hasConversation ? (
             <div className="relative overflow-hidden rounded-xl h-full min-h-[14rem] flex items-center p-5 md:p-7"
               style={{ background: 'radial-gradient(120% 120% at 85% 20%, rgba(124,108,255,0.20), transparent 60%)' }}>
-              <div className="flex items-center gap-4 md:gap-5">
-                <Mascot className="w-16 h-16 md:w-20 md:h-20 text-4xl md:text-5xl" />
+              <div className="flex items-center gap-3 md:gap-4">
+                <Mascot className="w-24 h-24 md:w-28 md:h-28 flex-shrink-0" />
                 <div>
                   <p className="font-display text-xl md:text-2xl font-bold text-app-text">Hi, Explorer! 👋</p>
                   <p className="text-sm md:text-base text-app-muted mt-1.5 max-w-md leading-relaxed">
