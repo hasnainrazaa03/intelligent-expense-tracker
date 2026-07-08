@@ -25,6 +25,17 @@ interface HeaderProps {
   activeView: string;
 }
 
+// Wraps a header action so its purpose shows as a labelled tooltip on hover —
+// the icon-only buttons were hard to identify at a glance.
+const ActionTip: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="relative group/tip flex">
+    {children}
+    <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg modal-surface px-2.5 py-1 text-[11px] font-medium text-app-text opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50 shadow-soft">
+      {label}
+    </span>
+  </div>
+);
+
 const Header: React.FC<HeaderProps> = ({
   onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch
 }) => {
@@ -46,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="glass glass-blur rounded-2xl sticky top-2 md:top-3 z-40 overflow-hidden mb-4 md:mb-6">
+    <header className="glass glass-blur rounded-2xl sticky top-2 md:top-3 z-40 overflow-visible mb-4 md:mb-6">
       {/* 1. STATUS BAR (subtle) */}
       <div className="hidden sm:flex text-app-faint py-1.5 px-5 justify-between items-center border-b border-app-border">
         <div className="flex gap-4 font-mono text-[9px] tracking-[0.25em] uppercase">
@@ -130,48 +141,41 @@ const Header: React.FC<HeaderProps> = ({
 
               {/* Action Buttons Group */}
               <div className="flex items-center gap-2">
-                <IconButton
-                  onClick={onManageBudgets}
-                  aria-label="Manage budgets"
-                  className="md:w-10 md:h-10"
-                  title="Manage budgets"
-                >
-                  <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </IconButton>
-                <IconButton
-                  onClick={onManageCategories}
-                  aria-label="Manage categories"
-                  className="md:w-10 md:h-10"
-                  title="Manage categories"
-                >
-                  <TagIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </IconButton>
-                <IconButton
-                  onClick={onDataAction}
-                  aria-label="Open data import and export"
-                  className="md:w-10 md:h-10"
-                  title="Import / export"
-                >
-                  <TableCellsIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </IconButton>
-                <button
-                  onClick={onToggleTwoFactor}
-                  aria-label="Toggle optional two factor authentication"
-                  className={`grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl border transition-colors ${twoFactorEnabled ? 'bg-primary-soft border-primary/40 text-primary' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
-                  title={twoFactorEnabled ? 'Two-factor: on' : 'Two-factor: off'}
-                >
-                  <Cog6ToothIcon className="h-4 w-4 md:h-5 md:w-5" />
-                </button>
+                <ActionTip label="Budgets">
+                  <IconButton onClick={onManageBudgets} aria-label="Manage budgets" className="md:w-10 md:h-10">
+                    <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
+                  </IconButton>
+                </ActionTip>
+                <ActionTip label="Categories">
+                  <IconButton onClick={onManageCategories} aria-label="Manage categories" className="md:w-10 md:h-10">
+                    <TagIcon className="h-4 w-4 md:h-5 md:w-5" />
+                  </IconButton>
+                </ActionTip>
+                <ActionTip label="Import / export">
+                  <IconButton onClick={onDataAction} aria-label="Open data import and export" className="md:w-10 md:h-10">
+                    <TableCellsIcon className="h-4 w-4 md:h-5 md:w-5" />
+                  </IconButton>
+                </ActionTip>
+                <ActionTip label={twoFactorEnabled ? 'Two-factor: on' : 'Two-factor: off'}>
+                  <button
+                    onClick={onToggleTwoFactor}
+                    aria-label="Toggle optional two factor authentication"
+                    className={`grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl border transition-colors ${twoFactorEnabled ? 'bg-primary-soft border-primary/40 text-primary' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
+                  >
+                    <Cog6ToothIcon className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                </ActionTip>
 
                 {/* Desktop-Only Logout */}
-                <button
-                  onClick={onLogout}
-                  aria-label="Logout"
-                  className="hidden lg:grid place-items-center w-10 h-10 rounded-xl bg-surface-2 border border-app-border text-danger hover:bg-danger/10 transition-colors"
-                  title="Log out"
-                >
-                  <ArrowRightStartOnRectangleIcon className="h-5 w-5" />
-                </button>
+                <ActionTip label="Log out">
+                  <button
+                    onClick={onLogout}
+                    aria-label="Logout"
+                    className="hidden lg:grid place-items-center w-10 h-10 rounded-xl bg-surface-2 border border-app-border text-danger hover:bg-danger/10 transition-colors"
+                  >
+                    <ArrowRightStartOnRectangleIcon className="h-5 w-5" />
+                  </button>
+                </ActionTip>
               </div>
             </div>
           </div>
