@@ -1,0 +1,125 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 512) rotate(90) scale(420)">
+      <stop offset="0" stop-color="#7C3AED" stop-opacity="0.18"/>
+      <stop offset="0.55" stop-color="#24123E" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#050816" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="256" y1="180" x2="768" y2="860" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F8FAFF"/>
+      <stop offset="0.45" stop-color="#C7D2FE"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="metalDark" x1="324" y1="236" x2="700" y2="830" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2B2E4A"/>
+      <stop offset="1" stop-color="#121527"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="380" y1="250" x2="644" y2="496" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A78BFA" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#60A5FA" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="384" y1="676" x2="640" y2="836" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="
+        1 0 0 0 0.40
+        0 1 0 0 0.20
+        0 0 1 0 0.95
+        0 0 0 1 0"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="transparent"/>
+  <circle cx="512" cy="512" r="380" fill="url(#bgGlow)"/>
+
+  <!-- subtle stars -->
+  <g opacity="0.75">
+    <circle cx="120" cy="190" r="2.5" fill="#D8D8FF"/>
+    <circle cx="180" cy="740" r="1.8" fill="#D8D8FF"/>
+    <circle cx="860" cy="160" r="2.2" fill="#D8D8FF"/>
+    <circle cx="820" cy="740" r="1.7" fill="#D8D8FF"/>
+    <circle cx="310" cy="120" r="1.7" fill="#D8D8FF"/>
+    <circle cx="720" cy="260" r="1.5" fill="#D8D8FF"/>
+    <circle cx="240" cy="860" r="2.1" fill="#D8D8FF"/>
+    <circle cx="660" cy="860" r="1.6" fill="#D8D8FF"/>
+  </g>
+
+  <!-- halo -->
+  <circle cx="512" cy="540" r="244" fill="#7C3AED" opacity="0.12" filter="url(#softGlow)"/>
+
+  <!-- floating ring -->
+  <g opacity="0.95" filter="url(#shadow)">
+    <ellipse cx="512" cy="500" rx="252" ry="92" transform="rotate(-12 512 500)" fill="none" stroke="#A78BFA" stroke-width="16" stroke-opacity="0.55"/>
+    <ellipse cx="512" cy="500" rx="252" ry="92" transform="rotate(-12 512 500)" fill="none" stroke="#22D3EE" stroke-width="4" stroke-opacity="0.35"/>
+  </g>
+
+  <!-- robot body -->
+  <g filter="url(#shadow)">
+    <!-- body -->
+    <path d="M336 492C336 407 405 338 490 338H534C619 338 688 407 688 492V702C688 787 619 856 534 856H490C405 856 336 787 336 702V492Z" fill="url(#metal)"/>
+    <path d="M366 518C366 446 424 388 496 388H528C600 388 658 446 658 518V684C658 756 600 814 528 814H496C424 814 366 756 366 684V518Z" fill="url(#metalDark)" opacity="0.9"/>
+
+    <!-- chest screen -->
+    <rect x="414" y="560" width="196" height="144" rx="38" fill="url(#glass)" opacity="0.96"/>
+    <rect x="440" y="590" width="32" height="32" rx="16" fill="#F5F3FF"/>
+    <rect x="552" y="590" width="32" height="32" rx="16" fill="#F5F3FF"/>
+    <path d="M452 656C482 688 542 688 572 656" stroke="#F8FAFF" stroke-width="10" stroke-linecap="round"/>
+
+    <!-- torso lights -->
+    <circle cx="496" cy="472" r="9" fill="#22D3EE"/>
+    <circle cx="528" cy="472" r="9" fill="#8B5CF6"/>
+    <circle cx="512" cy="506" r="7" fill="#F8FAFF" opacity="0.85"/>
+
+    <!-- arms -->
+    <g>
+      <path d="M318 548C274 560 248 598 252 642C256 686 291 720 335 720" stroke="url(#metal)" stroke-width="30" stroke-linecap="round"/>
+      <path d="M706 548C750 560 776 598 772 642C768 686 733 720 689 720" stroke="url(#metal)" stroke-width="30" stroke-linecap="round"/>
+      <circle cx="248" cy="642" r="26" fill="url(#accent)"/>
+      <circle cx="776" cy="642" r="26" fill="url(#accent)"/>
+    </g>
+
+    <!-- shoulders -->
+    <circle cx="352" cy="522" r="42" fill="#D8D8FF" opacity="0.92"/>
+    <circle cx="672" cy="522" r="42" fill="#D8D8FF" opacity="0.92"/>
+    <circle cx="352" cy="522" r="18" fill="#7C3AED"/>
+    <circle cx="672" cy="522" r="18" fill="#7C3AED"/>
+
+    <!-- head -->
+    <g>
+      <path d="M392 228C392 173 437 128 492 128H532C587 128 632 173 632 228V320C632 375 587 420 532 420H492C437 420 392 375 392 320V228Z" fill="url(#metal)"/>
+      <path d="M420 240C420 198 454 164 496 164H528C570 164 604 198 604 240V300C604 342 570 376 528 376H496C454 376 420 342 420 300V240Z" fill="url(#glass)"/>
+      <circle cx="475" cy="263" r="12" fill="#F8FAFF"/>
+      <circle cx="549" cy="263" r="12" fill="#F8FAFF"/>
+      <circle cx="475" cy="263" r="5" fill="#0F1020"/>
+      <circle cx="549" cy="263" r="5" fill="#0F1020"/>
+      <path d="M486 309C503 325 521 325 538 309" stroke="#F8FAFF" stroke-width="10" stroke-linecap="round"/>
+
+      <!-- antenna -->
+      <path d="M512 110V84" stroke="#C4B5FD" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="512" cy="74" r="16" fill="#22D3EE"/>
+      <circle cx="512" cy="74" r="30" fill="#22D3EE" opacity="0.18" filter="url(#softGlow)"/>
+    </g>
+
+    <!-- legs -->
+    <path d="M444 858V910" stroke="url(#metal)" stroke-width="34" stroke-linecap="round"/>
+    <path d="M580 858V910" stroke="url(#metal)" stroke-width="34" stroke-linecap="round"/>
+    <path d="M414 918H474" stroke="#A78BFA" stroke-width="30" stroke-linecap="round"/>
+    <path d="M550 918H610" stroke="#A78BFA" stroke-width="30" stroke-linecap="round"/>
+  </g>
+
+  <!-- tiny orbiting sparkles -->
+  <g opacity="0.9">
+    <circle cx="290" cy="370" r="5" fill="#A78BFA"/>
+    <circle cx="742" cy="392" r="4" fill="#22D3EE"/>
+    <circle cx="238" cy="520" r="4" fill="#F5F3FF"/>
+    <circle cx="786" cy="544" r="5" fill="#F5F3FF"/>
+    <circle cx="360" cy="806" r="4" fill="#22D3EE"/>
+    <circle cx="662" cy="794" r="4" fill="#A78BFA"/>
+  </g>
+</svg>
