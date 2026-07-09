@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useTheme } from '../hooks/useTheme';
 import { getChartColors } from '../utils/chartTheme';
@@ -55,10 +55,17 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data })
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart
+      <ComposedChart
         data={data}
-        margin={{ top: 10, right: 5, left: -15, bottom: 0 }}
+        margin={{ top: 10, right: 8, left: -15, bottom: 0 }}
       >
+        <defs>
+          <linearGradient id="spentFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={c.danger} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={c.danger} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
 
         <XAxis
@@ -87,28 +94,30 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data })
           iconSize={9}
         />
 
-        {/* Actual spending */}
-        <Line
-          type="stepAfter"
-          dataKey="spent"
-          name="Spent"
-          stroke={c.danger}
-          strokeWidth={isMobile ? 2 : 2.5}
-          dot={{ r: 2.5, fill: c.danger, strokeWidth: 0 }}
-          activeDot={{ r: 5, stroke: c.surface, strokeWidth: 2 }}
-        />
-
-        {/* Budget limit */}
+        {/* Budget limit — smooth dashed reference */}
         <Line
           type="monotone"
           dataKey="budgeted"
           name="Budget"
           stroke={c.tick}
           strokeWidth={1.5}
-          strokeDasharray="4 4"
+          strokeDasharray="5 5"
           dot={false}
+          activeDot={false}
         />
-      </LineChart>
+
+        {/* Actual spending — smooth curve with a soft gradient area */}
+        <Area
+          type="monotone"
+          dataKey="spent"
+          name="Spent"
+          stroke={c.danger}
+          strokeWidth={isMobile ? 2 : 2.5}
+          fill="url(#spentFill)"
+          dot={{ r: 2.5, fill: c.danger, strokeWidth: 0 }}
+          activeDot={{ r: 5, stroke: c.surface, strokeWidth: 2 }}
+        />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 };

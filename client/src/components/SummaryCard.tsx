@@ -56,15 +56,15 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   };
 
   return (
-    <div className="glass rounded-2xl p-4 md:p-5 h-full flex flex-col justify-between transition-all hover:-translate-y-0.5">
-      <div className="flex items-center gap-3">
-        <div className={`grid place-items-center w-10 h-10 rounded-xl flex-shrink-0 ${ACCENT[accent].chip}`}>
+    <div className="glass rounded-2xl p-4 h-full flex flex-col justify-between transition-all hover:-translate-y-0.5">
+      <div className="flex items-center gap-2.5">
+        <div className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${ACCENT[accent].chip}`}>
           {React.cloneElement(icon as React.ReactElement, { className: 'h-5 w-5' })}
         </div>
         <span className="text-xs md:text-[13px] font-medium text-app-muted capitalize">{label.toLowerCase()}</span>
       </div>
-      <div className="mt-3">
-        <h4 className={`font-display text-2xl md:text-[26px] font-bold leading-none tracking-tight tabular-nums break-words ${valueColor}`}>
+      <div className="mt-2.5">
+        <h4 className={`font-display text-xl md:text-2xl font-bold leading-none tracking-tight tabular-nums break-words ${valueColor}`}>
           {formattedValue}
         </h4>
         {renderDelta()}

@@ -50,7 +50,7 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
             </span>
             <span className="text-[8px] md:text-[10px] uppercase tracking-widest text-app-faint truncate">Data pivot processing</span>
           </div>
-          <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-7xl text-app-text leading-none tracking-tighter break-words">
+          <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight break-words">
             Pivot analysis
           </h2>
         </div>
@@ -80,8 +80,8 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
         <table className="w-full text-left relative z-10 border-collapse">
           <thead>
             <tr className="text-app-muted text-xs uppercase tracking-wide border-b border-app-border">
-              <th className="p-3 md:p-6 font-semibold text-[10px] md:text-sm tracking-wide">Data point</th>
-              <th className="p-3 md:p-6 font-semibold text-[10px] md:text-sm tracking-wide text-right">Volume sum</th>
+              <th className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide">Data point</th>
+              <th className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide text-right">Volume sum</th>
               <th className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right">Freq count</th>
               <th className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right whitespace-nowrap">Mean value</th>
             </tr>
@@ -89,11 +89,11 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
           <tbody>
             {pivotData.map((row) => (
               <tr key={row.name} className="border-b border-app-border odd:bg-surface-2/40 hover:bg-surface-2/60 transition-colors group">
-                <td className="p-3 md:p-6 font-display font-semibold text-sm md:text-xl text-app-text truncate max-w-[120px] md:max-w-none">
+                <td className="p-3 md:p-4 font-display font-semibold text-sm md:text-base text-app-text truncate max-w-[120px] md:max-w-none">
                   {row.name.replace('-', '/')}
                 </td>
-                <td className="p-3 md:p-6 text-right">
-                  <span className="font-display font-bold text-base md:text-2xl text-app-text tabular-nums block">
+                <td className="p-3 md:p-4 text-right">
+                  <span className="font-display font-bold text-sm md:text-lg text-app-text tabular-nums block">
                     {formatCurrency(row.total, displayCurrency, conversionRate)}
                   </span>
                   <div className="h-1 bg-surface-2 rounded-full mt-1 relative w-full overflow-hidden">
@@ -103,10 +103,10 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
                   />
                 </div>
                 </td>
-                <td className="hidden md:table-cell p-6 text-right text-sm text-app-muted tabular-nums">
+                <td className="hidden md:table-cell p-4 text-right text-sm text-app-muted tabular-nums">
                   {row.count.toString().padStart(3, '0')}
                 </td>
-                <td className="hidden md:table-cell p-6 text-right font-display font-semibold text-lg text-app-muted tabular-nums">
+                <td className="hidden md:table-cell p-4 text-right font-display font-semibold text-base text-app-muted tabular-nums">
                   {formatCurrency(row.avg, displayCurrency, conversionRate)}
                 </td>
               </tr>
@@ -114,8 +114,8 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
           </tbody>
           <tfoot>
             <tr className="border-t border-app-border bg-surface-2/40">
-              <td className="p-3 md:p-6 font-display font-bold text-sm md:text-2xl text-app-text">Aggregate total</td>
-              <td className="p-3 md:p-6 text-right font-display font-bold text-lg md:text-3xl text-app-text tabular-nums">
+              <td className="p-3 md:p-4 font-display font-bold text-sm md:text-lg text-app-text">Aggregate total</td>
+              <td className="p-3 md:p-4 text-right font-display font-bold text-base md:text-xl text-app-text tabular-nums">
                 {formatCurrency(totalVolume, displayCurrency, conversionRate)}
               </td>
               <td colSpan={2} className="hidden md:table-cell p-6 text-right italic text-[10px] text-app-faint">

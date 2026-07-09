@@ -96,7 +96,10 @@
 }
 
 @layer base {
-  html { color-scheme: light dark; }
+  /* Global density: 1rem = 15px (down from the 16px default) scales all
+     rem-based type and spacing down ~6% so screens read tighter and fit more
+     without touching every component. Breakpoints are px-based, so unaffected. */
+  html { color-scheme: light dark; font-size: 15px; }
 
   body {
     margin: 0;
