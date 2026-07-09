@@ -61,7 +61,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
           <div className="bg-primary/15 text-primary px-3 py-1 text-[10px] w-fit rounded-full font-semibold uppercase tracking-[0.16em] mb-4">
             Official Bursar statement // 2024-2026
           </div>
-          <h2 className="font-display font-bold text-4xl sm:text-6xl md:text-7xl text-app-text leading-[0.9] tracking-tight">
+          <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight">
             Tuition ledger
           </h2>
         </div>
@@ -116,10 +116,10 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
               <div className="absolute top-3 right-3 text-app-faint text-[9px] uppercase tracking-[0.16em]">Required</div>
 
               {/* Total Valuation Field */}
-              <div className="mb-8 md:mb-10 w-full">
+              <div className="mb-5 md:mb-6 w-full">
                 <label className="text-[9px] md:text-[10px] text-app-faint mb-3 block tracking-[0.16em] uppercase">Total tuition</label>
                 <div className="flex flex-col items-center gap-4">
-                  <span className="font-display font-bold text-3xl sm:text-4xl md:text-5xl text-app-text leading-none break-all tabular-nums">
+                  <span className="font-display font-bold text-2xl md:text-3xl text-app-text leading-none break-all tabular-nums">
                     {formatCurrency(activeSemester.totalTuition, displayCurrency, conversionRate)}
                   </span>
                   <Input

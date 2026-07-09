@@ -31,7 +31,7 @@ const LandingPage: React.FC = () => {
             <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-glow" />
             Track · Save · Explore
           </p>
-          <h1 className="font-display text-4xl md:text-6xl font-bold leading-[1.02] tracking-tight mt-4 max-w-3xl text-balance">
+          <h1 className="font-display text-3xl md:text-5xl font-bold leading-[1.02] tracking-tight mt-4 max-w-3xl text-balance">
             The finance hub built for student life.
           </h1>
           <p className="mt-5 text-base md:text-lg text-app-muted max-w-2xl leading-relaxed">

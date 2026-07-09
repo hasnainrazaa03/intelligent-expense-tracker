@@ -200,15 +200,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   }
 
   return (
-    <div className="space-y-6 md:space-y-8">
+    <div className="space-y-5 md:space-y-6">
         {/* 1. HEADER SECTION */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 md:gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4">
           <div className="flex flex-col min-w-0">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium tracking-[0.18em] uppercase text-app-muted mb-2">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium tracking-[0.18em] uppercase text-app-muted mb-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-ok shadow-glow" />
               Live overview
             </span>
-              <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-app-text leading-[1.05] tracking-tight break-words">
+              <h2 className="font-display text-2xl md:text-3xl font-bold text-app-text leading-tight tracking-tight break-words">
                 Financial hub
               </h2>
           </div>
@@ -246,9 +246,9 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* 3. BUDGET PERFORMANCE */}
         <div className="glass rounded-2xl overflow-hidden">
-            <div className="p-5 md:p-7">
+            <div className="p-4 md:p-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 md:mb-6 gap-2">
-                <h3 className="font-display text-xl md:text-2xl font-bold text-app-text">Budget protocols</h3>
+                <h3 className="font-display text-lg md:text-xl font-bold text-app-text">Budget protocols</h3>
                 <p className="text-[11px] font-medium text-app-muted">This month vs. allocation</p>
             </div>
               <BudgetTracker expenses={monthExpenses} budgets={budgets} />
@@ -265,14 +265,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* 4. ANALYTICS: CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5">
-          <div className="lg:col-span-2 glass rounded-2xl p-5 md:p-7 min-w-0">
+          <div className="lg:col-span-2 glass rounded-2xl p-4 md:p-5 min-w-0">
               <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Categorical split</h3>
               <div className="h-64 md:h-72">
                   <CategoryPieChart data={categoryData} />
               </div>
           </div>
 
-          <div className="lg:col-span-3 glass rounded-2xl p-5 md:p-7 min-w-0">
+          <div className="lg:col-span-3 glass rounded-2xl p-4 md:p-5 min-w-0">
             <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">{barChartTitle}</h3>
             <div className="h-64 md:h-72">
                 <SpendingBarChart data={barChartData} />

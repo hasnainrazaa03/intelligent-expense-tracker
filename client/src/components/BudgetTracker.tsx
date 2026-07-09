@@ -98,7 +98,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-3 gap-2">
-                <p className="font-display text-3xl md:text-4xl font-bold text-app-text leading-none tabular-nums">
+                <p className="font-display text-2xl md:text-3xl font-bold text-app-text leading-none tabular-nums">
                   {totalPercentage.toFixed(0)}<span className="text-lg md:text-xl text-app-muted">%</span>
                 </p>
                 <div className="text-left sm:text-right text-xs md:text-sm tabular-nums">

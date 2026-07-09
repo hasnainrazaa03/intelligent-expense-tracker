@@ -99,7 +99,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
             <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold whitespace-nowrap">Fiscal year 2025</span>
             <span className="text-[10px] md:text-xs text-app-faint truncate max-w-[150px] md:max-w-none">Annual audit report</span>
           </div>
-          <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl text-app-text leading-tight tracking-tight break-words">
+          <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight break-words">
             Annual audit
           </h2>
         </div>
@@ -113,15 +113,15 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
       </div>
 
       {/* 2. BENTO ANALYTICS GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
 
         {/* Total Expenditure Log */}
-        <div className="lg:col-span-2 glass rounded-2xl p-5 md:p-8 relative overflow-hidden group min-w-0">
+        <div className="lg:col-span-2 glass rounded-2xl p-4 md:p-6 relative overflow-hidden group min-w-0">
           <div className="absolute -right-8 -top-8 opacity-[0.06] group-hover:scale-110 transition-transform hidden sm:block">
             <BanknotesIcon className="h-48 w-48 text-app-text" />
           </div>
           <p className="text-[11px] md:text-xs text-app-muted mb-2">Total expenditure</p>
-          <h3 className="font-display font-bold text-3xl sm:text-5xl md:text-7xl text-app-text mb-6 break-all leading-none tabular-nums">
+          <h3 className="font-display font-bold text-3xl md:text-4xl text-app-text mb-4 break-all leading-none tabular-nums">
             {formatCurrency(stats.totalSpent, displayCurrency, conversionRate)}
           </h3>
           <div className="flex flex-wrap gap-2">
@@ -131,9 +131,9 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         </div>
 
         {/* Budget Variance Sticker */}
-        <div className="lg:col-span-1 glass rounded-2xl p-5 md:p-8 flex flex-col justify-center">
+        <div className="lg:col-span-1 glass rounded-2xl p-4 md:p-6 flex flex-col justify-center">
           <p className="text-[11px] md:text-xs text-app-muted mb-2">Budget load factor</p>
-          <h3 className={`font-display font-bold text-5xl md:text-6xl leading-none tabular-nums ${stats.budgetUtilization > 100 ? 'text-danger' : 'text-app-text'}`}>
+          <h3 className={`font-display font-bold text-3xl md:text-4xl leading-none tabular-nums ${stats.budgetUtilization > 100 ? 'text-danger' : 'text-app-text'}`}>
             {stats.budgetUtilization.toFixed(1)}%
           </h3>
           <div className={`mt-4 md:mt-6 flex items-center gap-2 font-semibold text-[11px] md:text-xs ${stats.budgetUtilization > 100 ? 'text-danger' : 'text-ok'}`}>
