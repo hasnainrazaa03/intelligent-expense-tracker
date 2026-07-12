@@ -32,6 +32,11 @@ export const Modal: React.FC<ModalProps> = ({
   isOpen, onClose, title, subtitle, size = 'lg', footer, children, bodyClassName, labelledById,
 }) => {
   const ref = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
+  // Every modal is labelled by its own title for screen readers — callers can
+  // override with `labelledById`, otherwise a stable generated id is used so no
+  // dialog is left unlabeled.
+  const autoId = React.useId();
+  const titleId = labelledById ?? autoId;
   if (!isOpen) return null;
 
   return (
@@ -43,13 +48,13 @@ export const Modal: React.FC<ModalProps> = ({
         ref={ref}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={labelledById}
+        aria-labelledby={titleId}
         tabIndex={-1}
         className={cn('modal-surface rounded-2xl w-full flex flex-col max-h-[90vh]', SIZES[size])}
       >
         <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-start gap-3 flex-shrink-0">
           <div className="min-w-0">
-            <h2 id={labelledById} className="font-display text-xl sm:text-2xl font-bold text-app-text leading-tight truncate">
+            <h2 id={titleId} className="font-display text-xl sm:text-2xl font-bold text-app-text leading-tight truncate">
               {title}
             </h2>
             {subtitle && <p className="text-xs text-app-muted mt-1">{subtitle}</p>}

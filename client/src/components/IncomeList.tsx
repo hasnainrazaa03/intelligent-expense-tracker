@@ -9,7 +9,7 @@ import { formatCurrency } from '../utils/currencyUtils';
 import Pagination from './Pagination';
 import EmptyState from './EmptyState';
 import SectionSkeleton from './SectionSkeleton';
-import { List, RowComponentProps } from 'react-window';
+import { List, RowComponentProps, useDynamicRowHeight } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
 import ConfirmationDialog from './ConfirmationDialog';
 import useUndoableDelete from '../hooks/useUndoableDelete';
@@ -153,6 +153,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
   const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
 
   const shouldVirtualize = incomes.length >= APP_CONFIG.maxVirtualizedItemsThreshold;
+  const rowHeight = useDynamicRowHeight({ defaultRowHeight: APP_CONFIG.virtualRowHeight });
 
   React.useEffect(() => {
     setCurrentPage(1);
@@ -207,7 +208,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
               defaultHeight={APP_CONFIG.virtualListHeight}
               style={{ height: APP_CONFIG.virtualListHeight }}
               rowCount={incomes.length}
-              rowHeight={APP_CONFIG.virtualRowHeight}
+              rowHeight={rowHeight}
               rowComponent={VirtualIncomeRow}
               rowProps={{
                 incomes,
