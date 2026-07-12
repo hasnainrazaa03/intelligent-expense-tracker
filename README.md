@@ -8,10 +8,12 @@ Most budgeting apps treat *Tuition* as a one-off expense and *International FX* 
 
 ---
 
-> ### 🚧 Status: under active hardening & redesign
-> A full codebase review was completed on **2026-07-05**. The app is functional but has known
-> data-integrity, security, and styling issues being worked through in phases, and the UI is
-> migrating from the neo-brutalist look to a modern design.
+> ### ✅ Status: redesign shipped · quality hardening
+> A full codebase review was completed on **2026-07-05**. Data-integrity, security, and
+> architecture phases (1–4) are done, and the UI has fully migrated from the neo-brutalist
+> look to the **cosmic-glass "Orbit"** design (both light & dark themes) — see
+> [docs/design-direction.md](./docs/design-direction.md). Remaining work is quality
+> hardening (accessibility audit, broader E2E, the Prisma 7 migration).
 >
 > - **Findings catalog:** [docs/01-codebase-review.md](./docs/01-codebase-review.md)
 > - **Phased plan with checklists:** [docs/02-roadmap.md](./docs/02-roadmap.md)
