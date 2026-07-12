@@ -209,14 +209,21 @@ Migrate one slice at a time; after each, compare against Phase 0 baseline screen
 **Done when:** all critical/high findings are closed, E2E covers the core journeys, both themes pass a contrast audit, and docs reflect reality.
 
 > **Phase 7 — in progress (2026-07).**
-> Done: mobile + light/dark QA sweep across the redesigned screens (no layout/contrast
-> issues); category-grouping bug fixed + regression-tested (`getMainCategory`); dev CORS
-> widened (strict in prod); nav tabs given explicit `aria-label`; unit suite at 36 passing;
-> Dependabot bumps applied (React 19.2.4, TypeScript 6.0.2, @types/node 25, …).
-> Still open: a **comprehensive** keyboard-only a11y audit of every flow; **broader E2E**
-> (auth/CRUD/import-restore/reports/AI/tuition beyond the current smoke spec); the
-> **virtualization sizing** fix (CMP-H8); and `/code-review` + `/security-review` on the
-> cumulative diff.
+> Done: mobile + light/dark QA sweep (no layout/contrast issues); category-grouping bug fixed
+> + regression-tested (`getMainCategory`); dev CORS widened (strict in prod); Dependabot bumps
+> applied (React 19.2.4, TypeScript 6.0.2, @types/node 25, …).
+> **A11y:** nav tabs `aria-label`; every modal is labelled by its title (Modal auto-`aria-labelledby`);
+> skip-to-content link + `<main>` landmark; mobile nav `aria-current`.
+> **Virtualization (CMP-H8):** Expense/Income lists use react-window `useDynamicRowHeight`
+> (measured, ResizeObserver-driven) instead of one fixed height — mobile stacked cards no
+> longer clip.
+> **E2E:** rewrote the stale (pre-rebrand) spec into a Playwright setup + public + authenticated
+> project layout (storageState so login runs once vs the 5/15min limiter; `localhost` origin so
+> the same-site session cookie survives). 9 tests green: public pages, login, dashboard, tab
+> nav, currency + theme toggles, add-expense create→search.
+> Still open: **comprehensive** keyboard-only a11y audit of every flow (+ entry-modal form
+> fields still need `<label htmlFor>`/`id` association — they rely on placeholders today);
+> import/restore + AI + tuition E2E; and `/code-review` + `/security-review` on the cumulative diff.
 >
 > **Prisma 7 upgrade — BLOCKED upstream (won't do for now).** Investigated 2026-07: Prisma 7
 > removed the datasource `url` from `schema.prisma` and requires the connection via a driver

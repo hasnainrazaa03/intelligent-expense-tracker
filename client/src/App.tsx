@@ -782,7 +782,15 @@ const handleDeleteIncome = async (id: string) => {
           <div className="h-screen bg-transparent flex flex-col overflow-hidden text-app-text font-sans px-3 md:px-6 py-3 md:py-4">
             <div className="starfield" />
             <p className="sr-only" aria-live="polite" aria-atomic="true">{liveRegionMessage}</p>
-            
+
+            {/* Skip link — visible only when focused, jumps keyboard users past the chrome */}
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:z-[200] focus:top-3 focus:left-3 focus:px-4 focus:py-2 focus:rounded-xl focus:bg-primary focus:text-on-primary focus:shadow-glow focus:font-semibold focus:outline-none focus:ring-2 focus:ring-primary/60"
+            >
+              Skip to main content
+            </a>
+
             {/* 1. HEADER (Fixed at top) */}
             <Header 
               onLogout={logout} 
@@ -838,7 +846,7 @@ const handleDeleteIncome = async (id: string) => {
               </div>
 
               {/* 3. MAIN SCROLLABLE VIEWPORT */}
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-1 md:pr-2 custom-scrollbar relative bg-transparent">
+              <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-1 md:pr-2 custom-scrollbar relative bg-transparent focus:outline-none">
                 <div className="w-full max-w-full overflow-hidden space-y-5 md:space-y-7 pb-56 md:pb-40">
 
                   {showOnboarding && (
@@ -970,7 +978,7 @@ const handleDeleteIncome = async (id: string) => {
                   </button>
               </div>
 
-              <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass glass-blur border-t border-app-border grid grid-cols-6 px-1 pt-1.5 pb-2">
+              <nav aria-label="Primary" className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass glass-blur border-t border-app-border grid grid-cols-6 px-1 pt-1.5 pb-2">
                 {[
                   { view: 'expenses' as const, label: 'Spend' },
                   { view: 'income' as const, label: 'Income' },
@@ -982,6 +990,7 @@ const handleDeleteIncome = async (id: string) => {
                   <button
                     key={view}
                     onClick={() => setActiveView(view)}
+                    aria-current={activeView === view ? 'page' : undefined}
                     className={`py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${activeView === view ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}
                   >
                     {label}

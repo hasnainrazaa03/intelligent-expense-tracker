@@ -26,3 +26,10 @@ server/backups/
 
 # Runtime logs
 server/logs/
+# Playwright auth state + results
+client/tests/e2e/.auth/
+client/test-results/
+client/playwright-report/
+
+# server runtime logs
+server/logs/

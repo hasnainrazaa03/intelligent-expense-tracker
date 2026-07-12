@@ -10,7 +10,7 @@ import { formatCurrency } from '../utils/currencyUtils';
 import Pagination from './Pagination';
 import EmptyState from './EmptyState';
 import SectionSkeleton from './SectionSkeleton';
-import { List, RowComponentProps } from 'react-window';
+import { List, RowComponentProps, useDynamicRowHeight } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
 import ConfirmationDialog from './ConfirmationDialog';
 import useUndoableDelete from '../hooks/useUndoableDelete';
@@ -178,6 +178,10 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave
   const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
 
   const shouldVirtualize = expenses.length >= APP_CONFIG.maxVirtualizedItemsThreshold;
+  // CMP-H8: measured row heights (auto-observed by react-window) instead of one
+  // fixed value — rows are taller on mobile (the card stacks) and vary with
+  // content, so a single fixed height clipped/mis-sized them.
+  const rowHeight = useDynamicRowHeight({ defaultRowHeight: APP_CONFIG.virtualRowHeight });
 
   React.useEffect(() => {
     setCurrentPage(1);
@@ -230,7 +234,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave
               defaultHeight={APP_CONFIG.virtualListHeight}
               style={{ height: APP_CONFIG.virtualListHeight }}
               rowCount={expenses.length}
-              rowHeight={APP_CONFIG.virtualRowHeight}
+              rowHeight={rowHeight}
               rowComponent={VirtualExpenseRow}
               rowProps={{
                 expenses,
