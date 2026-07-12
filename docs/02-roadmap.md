@@ -215,8 +215,17 @@ Migrate one slice at a time; after each, compare against Phase 0 baseline screen
 > Dependabot bumps applied (React 19.2.4, TypeScript 6.0.2, @types/node 25, …).
 > Still open: a **comprehensive** keyboard-only a11y audit of every flow; **broader E2E**
 > (auth/CRUD/import-restore/reports/AI/tuition beyond the current smoke spec); the
-> **virtualization sizing** fix (CMP-H8); the **Prisma 7** migration; and `/code-review` +
-> `/security-review` on the cumulative diff.
+> **virtualization sizing** fix (CMP-H8); and `/code-review` + `/security-review` on the
+> cumulative diff.
+>
+> **Prisma 7 upgrade — BLOCKED upstream (won't do for now).** Investigated 2026-07: Prisma 7
+> removed the datasource `url` from `schema.prisma` and requires the connection via a driver
+> `adapter` or `accelerateUrl`. **MongoDB has no driver adapter** (`@prisma/adapter-mongodb`
+> does not exist), the legacy `datasources`/`datasourceUrl` client options are rejected at
+> runtime, and the only remaining MongoDB connection path is **Prisma Accelerate** (a paid
+> hosted proxy). Since this app connects directly to MongoDB, adopting v7 would mean taking a
+> dependency on Accelerate — not worth it. Staying on Prisma 6.19 until a MongoDB adapter
+> ships for v7. Dependabot PR #7 closed with this rationale.
 
 ---
 
