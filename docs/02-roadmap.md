@@ -208,6 +208,16 @@ Migrate one slice at a time; after each, compare against Phase 0 baseline screen
 
 **Done when:** all critical/high findings are closed, E2E covers the core journeys, both themes pass a contrast audit, and docs reflect reality.
 
+> **Phase 7 — in progress (2026-07).**
+> Done: mobile + light/dark QA sweep across the redesigned screens (no layout/contrast
+> issues); category-grouping bug fixed + regression-tested (`getMainCategory`); dev CORS
+> widened (strict in prod); nav tabs given explicit `aria-label`; unit suite at 36 passing;
+> Dependabot bumps applied (React 19.2.4, TypeScript 6.0.2, @types/node 25, …).
+> Still open: a **comprehensive** keyboard-only a11y audit of every flow; **broader E2E**
+> (auth/CRUD/import-restore/reports/AI/tuition beyond the current smoke spec); the
+> **virtualization sizing** fix (CMP-H8); the **Prisma 7** migration; and `/code-review` +
+> `/security-review` on the cumulative diff.
+
 ---
 
 ## Progress tracking

@@ -11,6 +11,27 @@ Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 [codebase review](./docs/01-codebase-review.md). Items under **Fixed** have landed on the
 `fixes/phases-1-4` branch; items under **Planned** are still queued.
 
+### Redesign & hardening (2026-07, on `main`)
+- **Cosmic-glass "Orbit" redesign** shipped across every surface (landing, auth, shell/nav,
+  dashboard, lists, modals, planning, charts, reports, pivot, AI, tuition) with a two-theme
+  token system, light/dark toggle, and a reusable UI primitive library (`components/ui/`).
+- **Rebrand** USC Ledger → **Orbit** (USC/Bursar features & copy retained).
+- **Category grouping fix**: Reports breakdown and the dashboard pie collapsed every expense
+  into "Miscellaneous" when it was stored as a main category — new `getMainCategory()` helper
+  handles main + subcategory values (regression-tested).
+- **Perf**: modal jank fixed (opaque panels instead of stacked backdrop-blur); static
+  starfield with blur limited to fixed chrome; measured ~30–90 ms tab switches.
+- **Budget period fix**: the Budget-protocols panel measures current-month spend vs the
+  monthly allocation (no more 700% on "All time").
+- **Charts**: colorblind-validated cosmic palette; historical chart is a smooth area curve.
+- **Currency**: INR display falls back to a cached/last-resort rate instead of "…".
+- **AI Analyst**: redesigned (mascot, status pill, cosmic tip, quick-prompt chips); wired to
+  Gemini via `GEMINI_API_KEY`.
+- **Density pass**: global 15px root + trimmed oversized heroes/values so screens scan in one view.
+- **Dev CORS**: any localhost origin accepted in development; strict allowlist in production.
+- **Dependencies**: applied all passing Dependabot bumps (React 19.2.4, TypeScript 6.0.2,
+  @types/node 25, cors/resend/marked/autoprefixer); held @prisma/client 7 (breaking migration).
+
 ### Fixed — Component bugs (branch `fix/component-bugs`)
 - **Category drilldown works again** (`CMP-H2`): clicking a main-category bar in Reports opens its subcategory breakdown (the handler read a chart-level field that a bar-click event doesn't have).
 - **Pie-chart category hiding is two-way** (`CMP-H7`): a hidden category stays in the legend (struck-through) and can be clicked to restore, instead of disappearing with no way back.
