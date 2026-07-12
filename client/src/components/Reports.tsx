@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense, Budget } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
-import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
+import { getMainCategory } from '../utils/colorUtils';
 import { computeTotalBudgetedSpend } from '../utils/budgetUtils';
 import { startOfMonth, endOfMonth, isWithinRange, todayCalendar } from '../utils/dateUtils';
 import { ClipboardDocumentListIcon, ChartPieIcon, BanknotesIcon, ExclamationTriangleIcon } from './Icons';
@@ -30,7 +30,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
     const categoryTotals: Record<string, number> = {};
     
     allExpenses.forEach(e => {
-      const mainCat = SUBCATEGORY_TO_CATEGORY_MAP[e.category] || 'Miscellaneous';
+      const mainCat = getMainCategory(e.category);
       categoryTotals[mainCat] = (categoryTotals[mainCat] || 0) + e.amount;
     });
 

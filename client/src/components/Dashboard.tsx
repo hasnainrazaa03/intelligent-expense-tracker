@@ -6,9 +6,8 @@ import SpendingBarChart from './SpendingBarChart';
 import BudgetTracker from './BudgetTracker';
 import BudgetPerformanceChart from './BudgetPerformanceChart';
 import FinancialPlanningPanel from './FinancialPlanningPanel';
-import { getCategoryColor } from '../utils/colorUtils';
+import { getCategoryColor, getMainCategory } from '../utils/colorUtils';
 import { CalendarDaysIcon, TagIcon, TrendingUpIcon, BanknotesIcon } from './Icons';
-import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { startOfMonth, endOfMonth, isWithinRange, addMonths, parseCalendarDate, monthKey } from '../utils/dateUtils';
 import { formatCurrency } from '../utils/currencyUtils';
 import { computeBudgetSpend } from '../utils/budgetUtils';
@@ -124,7 +123,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const categoryData = useMemo(() => {
     const mainCategoryTotals = expenses.reduce((acc, exp) => {
-      const mainCategory = SUBCATEGORY_TO_CATEGORY_MAP[exp.category] || 'Miscellaneous';
+      const mainCategory = getMainCategory(exp.category);
       acc[mainCategory] = (acc[mainCategory] || 0) + Number(exp.amount);
       return acc;
     }, {} as { [key: string]: number });

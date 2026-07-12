@@ -63,16 +63,23 @@ const allowedOrigins = [
   ...configuredOrigins,
 ];
 
+// In development, accept any localhost / 127.0.0.1 origin regardless of port so
+// the dev server and `vite preview` (5173, 4173, …) both work without config.
+// Production stays on the strict allowlist (localhost:5173 + FRONTEND_URL).
+const isDev = process.env.NODE_ENV !== 'production';
+const isLocalhostOrigin = (origin: string) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     const normalized = normalizeOrigin(origin);
-    if (!allowedOrigins.includes(normalized)) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    if (allowedOrigins.includes(normalized) || (isDev && isLocalhostOrigin(normalized))) {
+      return callback(null, true);
     }
-    return callback(null, true);
+    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+    return callback(new Error(msg), false);
   },
   credentials: true
 }));
