@@ -130,7 +130,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
           iconType="rect"
           iconSize={isMobile ? 8 : 10}
           layout={isMobile ? 'horizontal' : 'vertical'}
-          align="center"
+          align={isMobile ? 'center' : 'right'}
           verticalAlign={isMobile ? 'bottom' : 'middle'}
           wrapperStyle={
             isMobile
@@ -140,8 +140,9 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
                   width: '100%',
                 }
               : {
-                  paddingLeft: '20px',
+                  paddingLeft: '16px',
                   fontSize: '12px',
+                  lineHeight: '1.8',
                 }
           }
           formatter={(value: string) => {

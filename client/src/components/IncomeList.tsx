@@ -22,6 +22,8 @@ interface IncomeListProps {
   onDelete: (id: string) => Promise<void> | void;
   onCreate?: () => void;
   isLoading?: boolean;
+  /** Optional date-range control rendered in the list header. */
+  dateFilter?: React.ReactNode;
 }
 
 interface IncomeItemProps {
@@ -146,7 +148,7 @@ const VirtualIncomeRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, 
   );
 };
 
-const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false }) => {
+const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
   const scheduleDelete = useUndoableDelete(onDelete);
   const [currentPage, setCurrentPage] = useState(1);
@@ -176,7 +178,8 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-app-border pb-3 gap-2">
         <h2 className="font-display text-xl md:text-2xl font-bold text-app-text truncate">Income stream</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {dateFilter}
           {!shouldVirtualize && (
             <select
               aria-label="Income rows per page"
