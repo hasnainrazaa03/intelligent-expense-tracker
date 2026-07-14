@@ -39,8 +39,10 @@ test('adds an expense and finds it via search', async ({ page }) => {
 
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'New expense' })).toBeVisible();
-  await dialog.getByPlaceholder('e.g. Groceries').fill(title);
-  await dialog.getByPlaceholder('0.00').fill('42.50');
+  // getByLabel resolves only if the <label> is programmatically associated with
+  // the input (htmlFor/id) — so this also guards the field-label a11y wiring.
+  await dialog.getByLabel('Title').fill(title);
+  await dialog.getByLabel('Amount (USD)').fill('42.50');
   await dialog.getByRole('button', { name: 'Add expense' }).click();
 
   await expect(dialog).toBeHidden({ timeout: 10_000 });

@@ -221,8 +221,10 @@ Migrate one slice at a time; after each, compare against Phase 0 baseline screen
 > project layout (storageState so login runs once vs the 5/15min limiter; `localhost` origin so
 > the same-site session cookie survives). 9 tests green: public pages, login, dashboard, tab
 > nav, currency + theme toggles, add-expense create→search.
-> Still open: **comprehensive** keyboard-only a11y audit of every flow (+ entry-modal form
-> fields still need `<label htmlFor>`/`id` association — they rely on placeholders today);
+> **Entry-modal field labels associated:** every field in the Expense/Income modals now has
+> `<label htmlFor>` ↔ input `id` (currency toggles use `role="group"` + `aria-labelledby`); the
+> E2E add-expense test drives fields via `getByLabel`, so it regression-guards the wiring.
+> Still open: **comprehensive** keyboard-only a11y audit of every remaining flow/component;
 > import/restore + AI + tuition E2E; and `/code-review` + `/security-review` on the cumulative diff.
 >
 > **Prisma 7 upgrade — BLOCKED upstream (won't do for now).** Investigated 2026-07: Prisma 7
