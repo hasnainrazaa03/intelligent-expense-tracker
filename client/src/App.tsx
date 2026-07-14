@@ -913,10 +913,12 @@ const handleDeleteIncome = async (id: string) => {
                     </div>
                   )}
 
-                  {(activeView === 'expenses' || activeView === 'income') && (
+                  {/* The Financial-hub overview is the Expenses tab's home; the Income
+                      tab shows its own focused list so the two tabs don't look identical. */}
+                  {activeView === 'expenses' && (
                     <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>
-                      <Dashboard 
-                        expenses={filteredExpenses} 
+                      <Dashboard
+                        expenses={filteredExpenses}
                         incomes={filteredIncomes}
                         allIncomes={incomes}
                         allExpenses={expenses}
@@ -929,7 +931,7 @@ const handleDeleteIncome = async (id: string) => {
                     </Suspense>
                   )}
 
-                  <div className="border-t border-app-border pt-6 md:pt-8">
+                  <div className={activeView === 'expenses' ? 'border-t border-app-border pt-6 md:pt-8' : ''}>
                     <Suspense fallback={<SectionSkeleton title="Loading section" rows={4} />}>
                       {renderActiveView()}
                     </Suspense>

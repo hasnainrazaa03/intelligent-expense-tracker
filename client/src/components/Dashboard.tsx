@@ -243,26 +243,16 @@ const Dashboard: React.FC<DashboardProps> = ({
           <SummaryCard title="TOP_CATEGORY" value={topCategory} isString={true} icon={<TagIcon className="h-6 w-6" />} accent="amber" />
       </div>
 
-        {/* 3. BUDGET PERFORMANCE */}
-        <div className="glass rounded-2xl overflow-hidden">
-            <div className="p-4 md:p-5">
+        {/* 3. BUDGET PROTOCOLS */}
+        <div className="glass rounded-2xl p-4 md:p-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 md:mb-6 gap-2">
                 <h3 className="font-display text-lg md:text-xl font-bold text-app-text">Budget protocols</h3>
                 <p className="text-[11px] font-medium text-app-muted">This month vs. allocation</p>
             </div>
               <BudgetTracker expenses={monthExpenses} budgets={budgets} />
-          </div>
-
-            {/* Historical analytics */}
-            <div className="border-t border-app-border p-5 md:p-6 bg-surface-2/40">
-              <div className="h-48 md:h-64 min-w-0">
-                <h4 className="font-display text-xs md:text-sm font-semibold mb-4 text-app-muted">Historical analytics · 6-month window</h4>
-                  <BudgetPerformanceChart data={budgetPerformanceData} />
-              </div>
-          </div>
       </div>
 
-        {/* 4. ANALYTICS: CHARTS */}
+        {/* 4. CATEGORY SPLIT + HISTORICAL ANALYTICS (side by side) */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5">
           <div className="lg:col-span-2 glass rounded-2xl p-4 md:p-5 min-w-0">
               <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Categorical split</h3>
@@ -272,11 +262,19 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="lg:col-span-3 glass rounded-2xl p-4 md:p-5 min-w-0">
-            <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">{barChartTitle}</h3>
+            <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Historical analytics · 6-month window</h3>
             <div className="h-64 md:h-72">
-                <SpendingBarChart data={barChartData} />
+                <BudgetPerformanceChart data={budgetPerformanceData} />
             </div>
         </div>
+      </div>
+
+        {/* 5. DAILY SPENDING TREND (full width) */}
+        <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
+          <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">{barChartTitle}</h3>
+          <div className="h-64 md:h-72">
+              <SpendingBarChart data={barChartData} />
+          </div>
       </div>
 
       <FinancialPlanningPanel
