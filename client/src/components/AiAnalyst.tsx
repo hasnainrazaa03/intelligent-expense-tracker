@@ -116,24 +116,26 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
   const hasConversation = messages.length > 0;
 
   return (
-    <div className="glass rounded-2xl p-5 md:p-7 relative overflow-hidden">
+    <div className="glass rounded-2xl p-4 md:p-5 relative overflow-hidden flex flex-col md:h-[calc(100dvh-12rem)]">
       {/* ambient cosmic glow */}
       <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 w-80 h-80 rounded-full opacity-40"
         style={{ background: 'radial-gradient(circle, rgba(124,108,255,0.28), transparent 70%)' }} />
 
-      <div className="relative z-10">
+      {/* On desktop the panel is bounded to the viewport and the chat area flexes
+          to fill, so the whole tab fits on screen without page scrolling. */}
+      <div className="relative z-10 flex flex-col flex-1 min-h-0">
         {/* HEADER */}
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5 mb-7">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 lg:gap-5 mb-4">
           <div className="flex items-start gap-3 min-w-0">
-            <Mascot className="w-20 h-20 -my-1 -ml-1 flex-shrink-0" />
+            <Mascot className="w-14 h-14 md:w-16 md:h-16 -my-0.5 -ml-1 flex-shrink-0" />
             <div className="min-w-0">
-              <h2 className="font-display text-2xl md:text-3xl font-bold text-app-text leading-tight flex items-center gap-2">
+              <h2 className="font-display text-xl md:text-2xl font-bold text-app-text leading-tight flex items-center gap-2">
                 AI Analyst <SparklesIcon className="h-5 w-5 text-primary" />
               </h2>
-              <p className="text-sm text-app-muted mt-1.5 max-w-lg leading-relaxed">
+              <p className="text-sm text-app-muted mt-1 max-w-lg leading-snug">
                 Your smart financial companion. Ask anything about your spending and get personalized, actionable insights.
               </p>
-              <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
                 <span className="w-2 h-2 rounded-full bg-ok animate-pulse" />
                 <span className="text-xs font-medium text-app-muted">{recordCount === 0 ? 'Waiting for transactions' : 'Context loaded'}</span>
                 {recordCount > 0 && (
@@ -146,7 +148,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
           </div>
 
           {/* Cosmic tip */}
-          <div className="rounded-2xl border border-app-border bg-surface-2 p-4 w-full lg:max-w-xs flex gap-3 items-start flex-shrink-0">
+          <div className="rounded-2xl border border-app-border bg-surface-2 p-3 w-full lg:max-w-xs flex gap-3 items-start flex-shrink-0">
             <div className="grid place-items-center w-10 h-10 rounded-xl flex-shrink-0 text-xl"
               style={{ background: 'radial-gradient(circle at 35% 30%, #7c6cff, #2a2350 75%)' }}>
               <span aria-hidden="true">🪐</span>
@@ -159,8 +161,8 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
         </div>
 
         {/* TRY ASKING */}
-        <div className="mb-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2.5">
             <p className="text-sm font-semibold text-app-text flex items-center gap-1.5">
               Try asking <SparklesIcon className="h-4 w-4 text-primary" />
             </p>
@@ -181,7 +183,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
                 key={p.text}
                 onClick={() => void handleSend(p.text)}
                 disabled={isLoading}
-                className="flex items-center gap-3 text-left rounded-xl bg-surface-2 border border-app-border px-3.5 py-3 hover:border-app-border-strong hover:bg-surface transition-colors disabled:opacity-50"
+                className="flex items-center gap-3 text-left rounded-xl bg-surface-2 border border-app-border px-3.5 py-2.5 hover:border-app-border-strong hover:bg-surface transition-colors disabled:opacity-50"
               >
                 <span className={`grid place-items-center w-8 h-8 rounded-lg flex-shrink-0 ${p.tint}`}>{p.icon}</span>
                 <span className="text-sm font-medium text-app-text leading-snug">{p.text}</span>
@@ -193,10 +195,10 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
         {/* CHAT AREA */}
         <div
           ref={scrollRef}
-          className="min-h-[16rem] max-h-[26rem] overflow-y-auto rounded-2xl border border-app-border bg-surface-2 p-4 md:p-5 mb-4"
+          className="min-h-[14rem] max-h-[24rem] md:min-h-0 md:max-h-none md:flex-1 overflow-y-auto rounded-2xl border border-app-border bg-surface-2 p-4 mb-3"
         >
           {!hasConversation ? (
-            <div className="relative overflow-hidden rounded-xl h-full min-h-[14rem] flex items-center p-5 md:p-7"
+            <div className="relative overflow-hidden rounded-xl h-full min-h-[12rem] flex items-center p-5 md:p-6"
               style={{ background: 'radial-gradient(120% 120% at 85% 20%, rgba(124,108,255,0.20), transparent 60%)' }}>
               <div className="flex items-center gap-3 md:gap-4">
                 <Mascot className="w-24 h-24 md:w-28 md:h-28 flex-shrink-0" />
@@ -240,7 +242,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask anything about your spending, categories, or budget performance…"
-            className="w-full h-24 resize-none bg-surface-2 border border-app-border rounded-2xl pl-4 pr-32 py-3.5 text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+            className="w-full h-20 resize-none bg-surface-2 border border-app-border rounded-2xl pl-4 pr-32 py-3.5 text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
             disabled={isLoading}
           />
           <button
@@ -260,7 +262,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
           </div>
         )}
 
-        <p className="mt-4 text-center text-xs text-app-muted flex items-center justify-center gap-1.5">
+        <p className="mt-3 text-center text-xs text-app-muted flex items-center justify-center gap-1.5">
           <span aria-hidden="true">🔒</span> Your data is secure and private. AI insights are for informational purposes only.
         </p>
       </div>
