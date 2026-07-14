@@ -163,8 +163,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             </div>
 
             <div>
-                <Label>Currency</Label>
-                <div className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
+                <Label id="income-currency-label">Currency</Label>
+                <div role="group" aria-labelledby="income-currency-label" className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
                     <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'USD' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
                     <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'INR' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>INR (₹)</button>
                 </div>
@@ -173,10 +173,11 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             {/* INR entry */}
             {selectedCurrency === 'INR' && (
                 <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-                    <Label>Amount in INR</Label>
+                    <Label htmlFor="income-inr-amount">Amount in INR</Label>
                     <div className="flex items-center gap-2">
                         <span className="font-display text-xl text-app-muted">₹</span>
                         <input
+                          id="income-inr-amount"
                           type="number"
                           value={originalAmount}
                           onChange={e => setOriginalAmount(e.target.value)}
@@ -252,8 +253,9 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             </div>
 
             <div>
-              <Label>Tags (comma separated)</Label>
+              <Label htmlFor="income-tags">Tags (comma separated)</Label>
               <Input
+                id="income-tags"
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
@@ -262,8 +264,9 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             </div>
 
             <div>
-              <Label>Metadata (one key: value per line)</Label>
+              <Label htmlFor="income-metadata">Metadata (one key: value per line)</Label>
               <Textarea
+                id="income-metadata"
                 value={metadataInput}
                 onChange={(e) => setMetadataInput(e.target.value)}
                 className="h-24 resize-none"

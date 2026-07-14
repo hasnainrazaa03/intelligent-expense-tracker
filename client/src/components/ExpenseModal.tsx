@@ -282,8 +282,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             {/* Title */}
             <div>
-              <Label>Title</Label>
+              <Label htmlFor="exp-title">Title</Label>
               <Input
+                id="exp-title"
                 type="text" value={title} onChange={e => setTitle(e.target.value)}
                 placeholder="e.g. Groceries"
                 required
@@ -292,8 +293,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             {/* Currency Segmented Control */}
             <div>
-              <Label>Currency</Label>
-              <div className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
+              <Label id="exp-currency-label">Currency</Label>
+              <div role="group" aria-labelledby="exp-currency-label" className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
                   <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'USD' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
                   <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'INR' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>INR (₹)</button>
               </div>
@@ -302,10 +303,11 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             {/* Conditional INR Input */}
             {selectedCurrency === 'INR' && (
               <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-                <Label>Amount in INR</Label>
+                <Label htmlFor="exp-inr-amount">Amount in INR</Label>
                 <div className="flex items-center gap-2">
                   <span className="font-display text-xl text-app-muted">₹</span>
                   <input
+                    id="exp-inr-amount"
                     type="number"
                     value={originalAmount}
                     onChange={e => setOriginalAmount(e.target.value)}
@@ -320,9 +322,10 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             {/* USD Amount */}
             <div>
-              <Label>Amount (USD)</Label>
+              <Label htmlFor="exp-amount">Amount (USD)</Label>
               <div className="relative">
                   <Input
+                    id="exp-amount"
                     type="number" value={amount} onChange={e => setAmount(e.target.value)}
                     placeholder="0.00"
                     className={isAmountUSDReadOnly ? 'opacity-70' : ''}
@@ -338,16 +341,19 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             {/* Date */}
             <div>
-              <Label>Date</Label>
-              <Input type="date" value={date} onChange={e => setDate(e.target.value)} required />
+              <Label htmlFor="exp-date">Date</Label>
+              <Input id="exp-date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
             </div>
 
             {/* Category Dropdown */}
             <div>
-              <Label>Category</Label>
+              <Label htmlFor="exp-category">Category</Label>
               <div className="relative" ref={categoryDropdownRef}>
                 <button
+                    id="exp-category"
                     type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={isCategoryDropdownOpen}
                     onClick={() => { setIsCategoryDropdownOpen(!isCategoryDropdownOpen); setCategorySearchTerm(''); }}
                     className={`${inputBase} flex justify-between items-center text-left`}
                 >
@@ -405,8 +411,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div>
-                <Label>Payment method</Label>
+                <Label htmlFor="exp-payment">Payment method</Label>
                 <Input
+                    id="exp-payment"
                     list="methods" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
                     placeholder="Card, cash, transfer…"
                 />
@@ -417,16 +424,18 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             {/* Notes */}
             <div>
-              <Label>Notes</Label>
+              <Label htmlFor="exp-notes">Notes</Label>
               <Textarea
+                id="exp-notes"
                 value={notes} onChange={e => setNotes(e.target.value)}
                 placeholder="Any additional details…" className="h-24 resize-none"
               />
             </div>
 
             <div>
-              <Label>Tax category</Label>
+              <Label htmlFor="exp-tax">Tax category</Label>
               <Input
+                id="exp-tax"
                 type="text"
                 value={taxCategory}
                 onChange={(e) => setTaxCategory(e.target.value)}
@@ -439,8 +448,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div>
-              <Label>Tags (comma separated)</Label>
+              <Label htmlFor="exp-tags">Tags (comma separated)</Label>
               <Input
+                id="exp-tags"
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
@@ -449,8 +459,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div>
-              <Label>Split participants (comma separated)</Label>
+              <Label htmlFor="exp-split">Split participants (comma separated)</Label>
               <Input
+                id="exp-split"
                 type="text"
                 value={splitParticipantsInput}
                 onChange={(e) => setSplitParticipantsInput(e.target.value)}
@@ -459,8 +470,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div>
-              <Label>Metadata (one key: value per line)</Label>
+              <Label htmlFor="exp-metadata">Metadata (one key: value per line)</Label>
               <Textarea
+                id="exp-metadata"
                 value={metadataInput}
                 onChange={(e) => setMetadataInput(e.target.value)}
                 className="h-24 resize-none"
@@ -469,8 +481,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-              <Label>Receipt upload (OCR)</Label>
-              <input type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
+              <Label htmlFor="exp-receipt">Receipt upload (OCR)</Label>
+              <input id="exp-receipt" type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
               {isOcrProcessing && <p className="text-[11px] text-app-muted mt-2">Scanning receipt text…</p>}
               {receiptFileName && <p className="text-[11px] text-app-muted mt-2">Attached: {receiptFileName}</p>}
               <textarea
