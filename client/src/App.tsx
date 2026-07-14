@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRe
 import { Toaster } from 'react-hot-toast';
 import { Expense, Budget, Semester, Income } from './types';
 import Header from './components/Header';
-import type { DateRange } from './components/Dashboard';
+import { DateRangeFilter, type DateRange } from './components/DateRangeFilter';
+import IncomeSummary from './components/IncomeSummary';
 import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon, ChatBubbleBottomCenterTextIcon } from './components/Icons';
 import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
@@ -742,28 +743,31 @@ const handleDeleteIncome = async (id: string) => {
         case 'expenses':
             return (
             <div>
-              <ExpenseList 
-              expenses={searchedAndSortedItems as Expense[]} 
+              <ExpenseList
+              expenses={searchedAndSortedItems as Expense[]}
               onEdit={handleEditExpenseClick}
               onQuickSave={handleQuickSaveExpense}
               onDelete={handleDeleteExpense}
               onCreate={handleOpenModal}
               isLoading={isLoadingData}
-             
+              dateFilter={<DateRangeFilter selectedRange={dateRange} onChange={setDateRange} />}
               />
                 </div>
             );
         case 'income':
             return (
             <div>
-              <IncomeList 
-                incomes={searchedAndSortedItems as Income[]} 
+              {!isLoadingData && incomes.length > 0 && (
+                <IncomeSummary incomes={filteredIncomes} allIncomes={incomes} />
+              )}
+              <IncomeList
+                incomes={searchedAndSortedItems as Income[]}
                 onEdit={handleEditIncomeClick}
                 onQuickSave={handleQuickSaveIncome}
                 onDelete={handleDeleteIncome}
                 onCreate={handleOpenModal}
                 isLoading={isLoadingData}
-                
+                dateFilter={<DateRangeFilter selectedRange={dateRange} onChange={setDateRange} />}
               />
                 </div>
             );

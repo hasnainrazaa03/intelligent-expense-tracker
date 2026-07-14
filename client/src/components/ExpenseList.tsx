@@ -23,6 +23,8 @@ interface ExpenseListProps {
   onDelete: (id: string) => Promise<void> | void;
   onCreate?: () => void;
   isLoading?: boolean;
+  /** Optional date-range control rendered in the list header. */
+  dateFilter?: React.ReactNode;
 }
 
 // --- TYPES FOR SUB-COMPONENTS ---
@@ -171,7 +173,7 @@ const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index,
   );
 };
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
   const scheduleDelete = useUndoableDelete(onDelete);
   const [currentPage, setCurrentPage] = useState(1);
@@ -202,9 +204,10 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex items-center justify-between border-b border-app-border pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-app-border pb-3">
         <h2 className="font-display text-xl md:text-2xl font-bold text-app-text truncate pr-4">Recent expenses</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {dateFilter}
           {!shouldVirtualize && (
             <select
               aria-label="Expenses per page"
