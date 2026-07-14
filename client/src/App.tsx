@@ -851,7 +851,7 @@ const handleDeleteIncome = async (id: string) => {
 
               {/* 3. MAIN SCROLLABLE VIEWPORT */}
               <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-1 md:pr-2 custom-scrollbar relative bg-transparent focus:outline-none">
-                <div className="w-full max-w-full overflow-hidden space-y-5 md:space-y-7 pb-56 md:pb-40">
+                <div className={`w-full max-w-full overflow-hidden space-y-5 md:space-y-7 ${activeView === 'ai' ? 'pb-28 md:pb-4' : 'pb-56 md:pb-40'}`}>
 
                   {showOnboarding && (
                     <section className="glass rounded-2xl p-5 md:p-6">

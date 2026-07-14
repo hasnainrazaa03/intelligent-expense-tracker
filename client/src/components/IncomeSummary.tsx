@@ -39,6 +39,17 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, allIncomes }) =>
 
   return (
     <div className="space-y-4 md:space-y-5 mb-6 md:mb-8">
+      {/* Tab heading — mirrors the Expenses tab's "Financial hub" so the Income
+          tab clearly announces what it is rather than opening on bare cards. */}
+      <div className="flex flex-col min-w-0">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-medium tracking-[0.18em] uppercase text-app-muted mb-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-ok shadow-glow" />
+          Income overview
+        </span>
+        <h2 className="font-display text-2xl md:text-3xl font-bold text-app-text leading-tight tracking-tight break-words">
+          Income hub
+        </h2>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5">
         <SummaryCard title="TOTAL_INCOME" value={total} icon={<BanknotesIcon className="h-6 w-6" />} accent="green" />
         <SummaryCard title="TOP_SOURCE" value={topSource} isString icon={<TagIcon className="h-6 w-6" />} accent="indigo" />
