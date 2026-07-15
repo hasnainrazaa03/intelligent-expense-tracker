@@ -291,6 +291,28 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
     return rows.sort((a, b) => b.pct - a.pct).slice(0, 5);
   }, [expenses]);
 
+  // Roommate settle-up: turn the per-expense split data (participants + cent-
+  // accurate shares the modal already stores) into who-owes-you balances. "You"
+  // / "Me" are treated as the payer and excluded.
+  const settleUp = useMemo(() => {
+    const owed: Record<string, number> = {};
+    expenses.forEach((e) => {
+      if (!e.splitParticipants?.length || !e.splitShares?.length) return;
+      e.splitParticipants.forEach((name, i) => {
+        const n = (name || '').trim();
+        const lower = n.toLowerCase();
+        if (!n || lower === 'you' || lower === 'me') return;
+        owed[n] = (owed[n] || 0) + (Number(e.splitShares[i]) || 0);
+      });
+    });
+    return Object.entries(owed)
+      .map(([name, amount]) => ({ name, amount }))
+      .filter((r) => r.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses]);
+
+  const settleUpTotal = useMemo(() => settleUp.reduce((s, r) => s + r.amount, 0), [settleUp]);
+
   const forecast30d = useMemo(() => {
     const last30Start = new Date();
     last30Start.setDate(last30Start.getDate() - 30);
@@ -442,6 +464,24 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             ))}
           </div>
           <p className="text-[11px] text-app-muted mt-2.5">Based on recurring-flagged charges whose amount rose over time.</p>
+        </div>
+      )}
+
+      {settleUp.length > 0 && (
+        <div className={cardCls}>
+          <div className="flex items-center justify-between mb-3">
+            <p className={`${subLabelCls} mb-0`}>Split &amp; settle-up</p>
+            <span className="text-xs font-semibold text-ok tabular-nums">{formatCurrency(settleUpTotal, displayCurrency, conversionRate)} owed to you</span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {settleUp.map((r) => (
+              <div key={r.name} className="flex items-center justify-between rounded-lg border border-app-border bg-surface px-3 py-2.5">
+                <span className="text-sm font-medium text-app-text truncate">{r.name}</span>
+                <span className="text-sm font-semibold text-ok tabular-nums flex-shrink-0">owes {formatCurrency(r.amount, displayCurrency, conversionRate)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-app-muted mt-2.5">Summed from each expense's split shares (participants other than you).</p>
         </div>
       )}
 

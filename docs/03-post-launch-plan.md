@@ -64,7 +64,7 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 ### Tier 3 — larger investments
 9. [ ] **Net-worth / investment tracking, persisted (M)** — promote localStorage-only investment snapshots to real accounts + historical net-worth trend.
 10. [ ] **Full offline PWA with write queue (M)** — IndexedDB queue + sync-on-reconnect via TanStack Query mutations.
-11. [ ] **Real shared/household accounts with roles (L)** — invite flow, member roles, settle-up. (Smaller first step: roommate settle-up from existing split fields.)
+11. [~] **Shared/household accounts (L)** — full invite/roles flow still open, but the **roommate settle-up** first step shipped: who-owes-you balances from existing split shares. *(PR #61)*
 12. [ ] **Receipt image storage + gallery (M)** — OCR already extracts text; retain the image blob.
 
 ---
