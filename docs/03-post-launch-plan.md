@@ -36,11 +36,11 @@ what remains plus the forward feature backlog, in execution order.
 - [ ] Comprehensive keyboard-only a11y audit of every remaining flow/component.
 - [ ] E2E coverage for import/restore, AI chat, and tuition flows (current suite covers auth, dashboard, nav, toggles, add-expense, search).
 - [ ] Formal `/security-review` + `/code-review high` on the cumulative diff.
-- [ ] Service-worker "update available" toast (deferred from Phase 1).
+- [x] Service-worker "update available" toast. *(PR #57)*
 
 ### A6. Scaling readiness (only when traffic warrants)  *(effort: M)*
 - [ ] **SRV-L16** Move rate-limit + audit state to Redis/DB so the server can run multiple instances. In-memory/file today.
-- [ ] Gate Swagger UI (`/api/docs`, `/api/openapi.json`) behind auth or disable in production.
+- [x] Gate Swagger UI (`/api/docs`, `/api/openapi.json`) — off in production unless ENABLE_API_DOCS=true. *(PR #57)*
 - [ ] Encrypt on-disk backup files (currently plaintext, secrets already excluded).
 
 ---
@@ -58,7 +58,7 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 4. [x] **Recurring transactions auto-materialization (S–M)** *(PR #54)* — a recurrence rule + on-login/scheduled job that auto-inserts due transactions with a confirm step. Today `isRecurring` is only a reminder.
 5. [x] **Generalize multi-currency beyond USD/INR (M)** *(PR #55)* — the FX engine already supports all currencies; replace the hardcoded USD↔INR toggle with a currency picker. Biggest audience expander.
 6. [ ] **Push/email budget & bill alerts (M)** — server email (Resend) + Web Push (SW already present) for 80%/100% budget and bill-due reminders.
-7. [ ] **Bank-statement CSV import with column mapping (M)** — map arbitrary bank exports + auto-categorize.
+7. [x] **Bank-statement CSV import with column mapping (M)** *(PR #57)* — map arbitrary bank exports + auto-categorize.
 8. [x] **Savings goals as fundable objects (M)** *(PR #53)* — a `Goal` model with contributions and forecast-projected completion date.
 
 ### Tier 3 — larger investments

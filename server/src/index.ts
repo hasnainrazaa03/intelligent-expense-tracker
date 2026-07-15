@@ -108,11 +108,15 @@ app.get('/health/ready', async (_req: Request, res: Response) => {
   }
 });
 
-app.get('/api/openapi.json', (_req: Request, res: Response) => {
-  res.status(200).json(swaggerSpec);
-});
-
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
+// API docs are an API-surface disclosure, so they're off in production unless
+// ENABLE_API_DOCS=true is set explicitly (available in dev by default).
+const apiDocsEnabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true';
+if (apiDocsEnabled) {
+  app.get('/api/openapi.json', (_req: Request, res: Response) => {
+    res.status(200).json(swaggerSpec);
+  });
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
+}
 
 // --- Passport (no session — Google OAuth uses session: false) ---
 app.use(passport.initialize());
