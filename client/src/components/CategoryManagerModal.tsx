@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PlusCircleIcon, TrashIcon, TagIcon } from './Icons';
 import { CATEGORIES } from '../constants';
+import { getEffectiveCategories, saveCategories } from '../utils/categories';
 import { Modal, Button, IconButton, Input } from './ui';
 
 interface CategoryManagerModalProps {
@@ -8,73 +9,17 @@ interface CategoryManagerModalProps {
   onClose: () => void;
 }
 
-// Merge default CATEGORIES with any custom ones from localStorage
-const loadCategories = (): Record<string, string[]> => {
-  const base = JSON.parse(JSON.stringify(CATEGORIES)) as Record<string, string[]>;
-  try {
-    const custom = localStorage.getItem('customCategories');
-    if (custom) {
-      const parsed = JSON.parse(custom) as Record<string, string[]>;
-      for (const cat in parsed) {
-        if (base[cat]) {
-          // Add custom subcategories that aren't already in the base
-          parsed[cat].forEach(sub => {
-            if (!base[cat].includes(sub)) base[cat].push(sub);
-          });
-        } else {
-          base[cat] = parsed[cat];
-        }
-      }
-    }
-    // Apply deletions independently of custom additions — previously this was
-    // nested inside `if (custom)`, so deleted subcategories reappeared on reload
-    // whenever the user had no custom additions (CMP-H3).
-    const deleted = localStorage.getItem('deletedSubcategories');
-    if (deleted) {
-      const deletedMap = JSON.parse(deleted) as Record<string, string[]>;
-      for (const cat in deletedMap) {
-        if (base[cat]) {
-          base[cat] = base[cat].filter(sub => !deletedMap[cat].includes(sub));
-        }
-      }
-    }
-  } catch { /* ignore corrupt data */ }
-  return base;
-};
-
 const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<string>(Object.keys(CATEGORIES)[0]);
-  const [categories, setCategories] = useState<Record<string, string[]>>(loadCategories);
+  const [categories, setCategories] = useState<Record<string, string[]>>(getEffectiveCategories);
   const [newSubcategory, setNewSubcategory] = useState('');
 
-  // Save custom additions/deletions to localStorage
+  // Persist through the shared categories store (single source of truth), which
+  // diffs against defaults and invalidates the cache so the expense dropdown and
+  // category colors pick up the change (CMP-M24).
   useEffect(() => {
     if (!isOpen) return;
-    // Compute diff from defaults
-    const additions: Record<string, string[]> = {};
-    const deletions: Record<string, string[]> = {};
-    const defaultCats = CATEGORIES as Record<string, string[]>;
-
-    for (const cat in categories) {
-      const defaults = defaultCats[cat] || [];
-      const added = categories[cat].filter(s => !defaults.includes(s));
-      if (added.length > 0) additions[cat] = added;
-    }
-    for (const cat in defaultCats) {
-      const removed = defaultCats[cat].filter(s => !categories[cat]?.includes(s));
-      if (removed.length > 0) deletions[cat] = removed;
-    }
-
-    if (Object.keys(additions).length > 0) {
-      localStorage.setItem('customCategories', JSON.stringify(additions));
-    } else {
-      localStorage.removeItem('customCategories');
-    }
-    if (Object.keys(deletions).length > 0) {
-      localStorage.setItem('deletedSubcategories', JSON.stringify(deletions));
-    } else {
-      localStorage.removeItem('deletedSubcategories');
-    }
+    saveCategories(categories);
   }, [categories, isOpen]);
 
   const handleDeleteSubcategory = (cat: string, sub: string) => {

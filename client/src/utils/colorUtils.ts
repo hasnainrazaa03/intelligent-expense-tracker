@@ -1,16 +1,17 @@
 
-import { CATEGORY_COLORS, SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
+import { CATEGORY_COLORS } from '../constants';
+import { getEffectiveSubToMain } from './categories';
 
 /**
  * Resolves any stored category value to its MAIN category for grouping.
  * Expenses may be stored as a subcategory ("Groceries") OR already as a main
- * category ("Food"), so callers must not assume one or the other — mapping a
- * main category straight through `SUBCATEGORY_TO_CATEGORY_MAP` misses (it only
- * keys subcategories) and wrongly collapses everything into "Miscellaneous".
+ * category ("Food"), so callers must not assume one or the other. Uses the
+ * EFFECTIVE subcategory→main map (defaults + custom), so a user's custom
+ * subcategory resolves to its real main category instead of "Miscellaneous".
  */
 export const getMainCategory = (categoryOrSubcategory: string): string => {
   if (CATEGORY_COLORS[categoryOrSubcategory]) return categoryOrSubcategory; // already a main category
-  return SUBCATEGORY_TO_CATEGORY_MAP[categoryOrSubcategory] || 'Miscellaneous';
+  return getEffectiveSubToMain()[categoryOrSubcategory] || 'Miscellaneous';
 };
 
 /**
@@ -26,8 +27,8 @@ export const getCategoryColor = (categoryOrSubcategory: string): string => {
     return CATEGORY_COLORS[categoryOrSubcategory];
   }
 
-  // Assume it's a subcategory and find its main category
-  const mainCategory = SUBCATEGORY_TO_CATEGORY_MAP[categoryOrSubcategory] || 'Miscellaneous';
-  
+  // Assume it's a subcategory and find its main category (custom-aware)
+  const mainCategory = getEffectiveSubToMain()[categoryOrSubcategory] || 'Miscellaneous';
+
   return CATEGORY_COLORS[mainCategory] || CATEGORY_COLORS['Miscellaneous'];
 };
