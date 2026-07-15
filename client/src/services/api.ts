@@ -215,6 +215,11 @@ export const logAuditEvent = (action: string, metadata?: Record<string, unknown>
   });
 };
 
+/** Email the signed-in user a summary of their current-month finances. */
+export const emailSummary = (): Promise<{ message: string }> => {
+  return fetchApi<{ message: string }>('/reports/email-summary', { method: 'POST' });
+};
+
 /**
  * Creates a new expense.
  * The 'expenseData' is the Omit<Expense, 'id'> from your form.

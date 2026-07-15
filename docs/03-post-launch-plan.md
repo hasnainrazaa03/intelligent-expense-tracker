@@ -52,7 +52,7 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 ### Tier 1 — cheap, high-impact (lean on existing infra)
 1. [x] **Subscription price-creep detector (S)** — flag recurring charges whose amount rose vs the prior cycle; show cumulative spend. *(PR #52)*
 2. [x] **Spending anomaly cards (S)** — "Dining up 60% vs your recent average" spike detection in the planning insight cards. Full AI/email digest still open. *(PR #52)*
-3. [ ] **Scheduled/exportable PDF report email (S)** — reuse the existing report renderer + Resend.
+3. [~] **Emailed summary (S)** — on-demand 'email me a summary' via Resend (scheduled version still open). — reuse the existing report renderer + Resend.
 
 ### Tier 2 — flagship value
 4. [x] **Recurring transactions auto-materialization (S–M)** *(PR #54)* — a recurrence rule + on-login/scheduled job that auto-inserts due transactions with a confirm step. Today `isRecurring` is only a reminder.
@@ -62,7 +62,7 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 8. [x] **Savings goals as fundable objects (M)** *(PR #53)* — a `Goal` model with contributions and forecast-projected completion date.
 
 ### Tier 3 — larger investments
-9. [ ] **Net-worth / investment tracking, persisted (M)** — promote localStorage-only investment snapshots to real accounts + historical net-worth trend.
+9. [~] **Net-worth trend (M)** — 6-month net-worth curve from transaction history + portfolio. Server-persisted accounts still open. — promote localStorage-only investment snapshots to real accounts + historical net-worth trend.
 10. [ ] **Full offline PWA with write queue (M)** — IndexedDB queue + sync-on-reconnect via TanStack Query mutations.
 11. [~] **Shared/household accounts (L)** — full invite/roles flow still open, but the **roommate settle-up** first step shipped: who-owes-you balances from existing split shares. *(PR #61)*
 12. [ ] **Receipt image storage + gallery (M)** — OCR already extracts text; retain the image blob.

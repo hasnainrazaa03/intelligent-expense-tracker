@@ -16,6 +16,9 @@ import RecurringVsOneTimeChart from './reports/RecurringVsOneTimeChart';
 import TimePeriodSummaries from './reports/TimePeriodSummaries';
 import YearOverYearChart from './reports/YearOverYearChart';
 import SectionSkeleton from './SectionSkeleton';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
+import { emailSummary } from '../services/api';
 
 interface ReportsProps {
   allExpenses: Expense[];
@@ -25,6 +28,7 @@ interface ReportsProps {
 
 const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const [emailing, setEmailing] = useState(false);
   const stats = useMemo(() => {
     const totalSpent = allExpenses.reduce((sum, e) => sum + e.amount, 0);
     const categoryTotals: Record<string, number> = {};
@@ -100,6 +104,18 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
     doc.save(`usc_audit_report_${todayCalendar()}.pdf`);
   };
 
+  const handleEmailSummary = async () => {
+    setEmailing(true);
+    try {
+      await emailSummary();
+      toast.success('Summary emailed to you.');
+    } catch (e: any) {
+      toast.error(e?.status === 503 ? 'Email delivery isn’t configured on the server.' : 'Could not send the summary.');
+    } finally {
+      setEmailing(false);
+    }
+  };
+
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-20">
       {/* 1. AUDIT HEADER */}
@@ -113,13 +129,23 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
             Annual audit
           </h2>
         </div>
-        <button
-          onClick={handleDownloadPDF}
-          className="w-full lg:w-auto bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold px-6 md:px-8 py-3 md:py-3.5 flex items-center justify-center gap-3 text-sm md:text-base"
-        >
-          <ClipboardDocumentListIcon className="h-5 w-5 md:h-6 md:w-6" />
-          Download PDF
-        </button>
+        <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2.5">
+          <button
+            onClick={handleEmailSummary}
+            disabled={emailing}
+            className="w-full lg:w-auto bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong active:scale-[0.99] transition-all rounded-xl font-semibold px-5 md:px-6 py-3 md:py-3.5 flex items-center justify-center gap-2.5 text-sm md:text-base disabled:opacity-60"
+          >
+            <BanknotesIcon className="h-5 w-5" />
+            {emailing ? 'Sending…' : 'Email me a summary'}
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            className="w-full lg:w-auto bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99] transition-all rounded-xl font-semibold px-6 md:px-8 py-3 md:py-3.5 flex items-center justify-center gap-3 text-sm md:text-base"
+          >
+            <ClipboardDocumentListIcon className="h-5 w-5 md:h-6 md:w-6" />
+            Download PDF
+          </button>
+        </div>
       </div>
 
       {/* 2. BENTO ANALYTICS GRID */}
