@@ -63,7 +63,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
       try {
-        const response = await fetch('https://api.frankfurter.app/latest?from=USD');
+        const response = await fetch('https://api.frankfurter.dev/v1/latest?base=USD');
         if (!response.ok) throw new Error('Failed to fetch rates');
         const data = await response.json();
         if (!data?.rates || typeof data.rates !== 'object') throw new Error('Unexpected rate response shape');

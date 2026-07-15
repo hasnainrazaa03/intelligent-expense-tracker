@@ -46,7 +46,7 @@ export default function useForeignToUsd(
         if (parentUsdToForeignRate && parentUsdToForeignRate > 0) {
           r = 1 / parentUsdToForeignRate;
         } else {
-          const response = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(foreignCurrency)}&to=USD`);
+          const response = await fetch(`https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(foreignCurrency)}&symbols=USD`);
           if (!response.ok) throw new Error('FETCH_ERROR');
           const data = await response.json();
           r = data?.rates?.USD;
