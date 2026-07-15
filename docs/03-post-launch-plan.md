@@ -59,7 +59,7 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 5. [ ] **Generalize multi-currency beyond USD/INR (M)** — the FX engine already supports all currencies; replace the hardcoded USD↔INR toggle with a currency picker. Biggest audience expander.
 6. [ ] **Push/email budget & bill alerts (M)** — server email (Resend) + Web Push (SW already present) for 80%/100% budget and bill-due reminders.
 7. [ ] **Bank-statement CSV import with column mapping (M)** — map arbitrary bank exports + auto-categorize.
-8. [ ] **Savings goals as fundable objects (M)** — a `Goal` model with contributions and forecast-projected completion date.
+8. [x] **Savings goals as fundable objects (M)** *(PR #53)* — a `Goal` model with contributions and forecast-projected completion date.
 
 ### Tier 3 — larger investments
 9. [ ] **Net-worth / investment tracking, persisted (M)** — promote localStorage-only investment snapshots to real accounts + historical net-worth trend.
