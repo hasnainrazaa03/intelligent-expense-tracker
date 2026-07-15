@@ -55,7 +55,7 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 3. [ ] **Scheduled/exportable PDF report email (S)** — reuse the existing report renderer + Resend.
 
 ### Tier 2 — flagship value
-4. [ ] **Recurring transactions auto-materialization (S–M)** — a recurrence rule + on-login/scheduled job that auto-inserts due transactions with a confirm step. Today `isRecurring` is only a reminder.
+4. [x] **Recurring transactions auto-materialization (S–M)** *(PR #54)* — a recurrence rule + on-login/scheduled job that auto-inserts due transactions with a confirm step. Today `isRecurring` is only a reminder.
 5. [ ] **Generalize multi-currency beyond USD/INR (M)** — the FX engine already supports all currencies; replace the hardcoded USD↔INR toggle with a currency picker. Biggest audience expander.
 6. [ ] **Push/email budget & bill alerts (M)** — server email (Resend) + Web Push (SW already present) for 80%/100% budget and bill-due reminders.
 7. [ ] **Bank-statement CSV import with column mapping (M)** — map arbitrary bank exports + auto-categorize.

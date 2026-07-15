@@ -6,6 +6,7 @@ import { ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { distributeAmount } from '../utils/currencyUtils';
+import { RECURRENCE_META_KEY, RECURRENCE_OPTIONS, getRecurrenceFrequency, type RecurrenceFrequency } from '../utils/recurrence';
 import useInrToUsd from '../hooks/useInrToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label } from './ui';
@@ -38,6 +39,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   // rate (H1) — we only recompute USD once the user changes the INR amount.
   const [originalAmountDirty, setOriginalAmountDirty] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly');
   const [tagsInput, setTagsInput] = useState('');
   const [metadataInput, setMetadataInput] = useState('');
   const [taxCategory, setTaxCategory] = useState('');
@@ -77,10 +79,14 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setNotes(expense.notes || '');
       setHasManuallySelectedCategory(true);
       setIsRecurring(expense.isRecurring || false);
+      setFrequency(getRecurrenceFrequency(expense));
       setTagsInput((expense.tags || []).join(', '));
       setMetadataInput(
         expense.metadata
           ? Object.entries(expense.metadata)
+              // Hide the reserved recurrence key — it's edited via the Frequency
+              // control, not the raw metadata textarea.
+              .filter(([k]) => k !== RECURRENCE_META_KEY)
               .map(([k, v]) => `${k}: ${v}`)
               .join('\n')
           : ''
@@ -105,7 +111,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setPaymentMethod(''); setNotes('');
       setHasManuallySelectedCategory(false);
       setSelectedCurrency(displayCurrency);
-      setOriginalAmount(''); setOriginalAmountDirty(false); setIsRecurring(false);
+      setOriginalAmount(''); setOriginalAmountDirty(false); setIsRecurring(false); setFrequency('monthly');
       setTagsInput('');
       setMetadataInput('');
       setTaxCategory('');
@@ -188,7 +194,11 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       .map(([k, ...rest]) => [k.trim(), rest.join(':').trim()] as const)
       .filter(([k, v]) => Boolean(k) && Boolean(v))
       .slice(0, 20);
-    const metadata = metadataEntries.length > 0 ? Object.fromEntries(metadataEntries) : undefined;
+    const metadataObj: Record<string, string> = Object.fromEntries(metadataEntries);
+    // Persist the recurrence frequency alongside user metadata (reserved key) so
+    // materialization knows the cadence — no schema change needed.
+    if (isRecurring) metadataObj[RECURRENCE_META_KEY] = frequency;
+    const metadata = Object.keys(metadataObj).length > 0 ? metadataObj : undefined;
 
     const splitParticipants = splitParticipantsInput
       .split(',')
@@ -406,18 +416,36 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               </div>
             </div>
 
-            {/* Recurring toggle */}
-            <div className="flex items-center justify-between rounded-xl border border-app-border bg-surface-2 px-4 py-3">
-                <span className="text-sm font-medium text-app-text">Recurring transaction</span>
-                <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isRecurring}
-                    onClick={() => setIsRecurring(!isRecurring)}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-primary' : 'bg-surface border border-app-border'}`}
-                >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${isRecurring ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
+            {/* Recurring toggle + frequency */}
+            <div className="rounded-xl border border-app-border bg-surface-2 px-4 py-3">
+                <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-app-text">Recurring transaction</span>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isRecurring}
+                        onClick={() => setIsRecurring(!isRecurring)}
+                        className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-primary' : 'bg-surface border border-app-border'}`}
+                    >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${isRecurring ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                </div>
+                {isRecurring && (
+                    <div className="mt-3">
+                        <Label htmlFor="exp-frequency">Frequency</Label>
+                        <select
+                            id="exp-frequency"
+                            value={frequency}
+                            onChange={(e) => setFrequency(e.target.value as RecurrenceFrequency)}
+                            className="w-full bg-surface border border-app-border rounded-lg px-3 py-2.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        >
+                            {RECURRENCE_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                        </select>
+                        <p className="mt-1.5 text-[11px] text-app-muted">You'll be prompted to add the next one when it's due.</p>
+                    </div>
+                )}
             </div>
 
             <div>
