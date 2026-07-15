@@ -8,7 +8,8 @@ import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapI
 import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
-import { startOfMonth, endOfMonth, isWithinRange } from './utils/dateUtils';
+import { startOfMonth, endOfMonth, isWithinRange, todayCalendar } from './utils/dateUtils';
+import { computeDueRecurring, getRecurrenceFrequency } from './utils/recurrence';
 import { expenseMatchesBudget } from './utils/budgetUtils';
 import { getAllData, isAuthError } from './services/api';
 import { useAuth } from './contexts/AuthContext';
@@ -138,6 +139,7 @@ const App: React.FC = () => {
 
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
   const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
+  const [selectedRecurring, setSelectedRecurring] = useState<Set<number>>(new Set());
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
     return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true';
   });
@@ -167,46 +169,17 @@ const App: React.FC = () => {
       setSemesters(buildDefaultSemesters());
     }
 
-    // F3: recurring detection
-    const loadedExpenses = data.expenses;
-    const now = new Date();
-    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
-
-    const lastMonthRecurring = loadedExpenses.filter(e => e.isRecurring && e.date.startsWith(lastMonth));
-    const thisMonthEntries = new Set(
-      loadedExpenses
-        .filter(e => e.date.startsWith(thisMonth))
-        .map(e => `${e.title.toLowerCase()}|${e.category.toLowerCase()}|${e.amount}`)
-    );
-    const missing = lastMonthRecurring.filter(
-      e => !thisMonthEntries.has(`${e.title.toLowerCase()}|${e.category.toLowerCase()}|${e.amount}`)
-    );
-
-    if (missing.length > 0) {
+    // F3: frequency-aware recurring detection — suggest each recurring charge's
+    // next due instance (weekly / monthly / yearly) for per-item review.
+    const due = computeDueRecurring(data.expenses, todayCalendar());
+    if (due.length > 0) {
       const snoozeUntil = Number(localStorage.getItem(RECURRING_SNOOZE_KEY) || '0');
       if (Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil) {
         setPendingRecurring([]);
         return;
       }
-      const daysInThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const newEntries: Omit<Expense, 'id'>[] = missing.map(e => ({
-        date: (() => {
-          const parsedDay = Number.parseInt(e.date.slice(8, 10), 10);
-          const safeDay = Number.isFinite(parsedDay) && parsedDay > 0 ? Math.min(parsedDay, daysInThisMonth) : 1;
-          return `${thisMonth}-${String(safeDay).padStart(2, '0')}`;
-        })(),
-        title: e.title,
-        amount: e.amount,
-        category: e.category,
-        paymentMethod: e.paymentMethod,
-        notes: e.notes,
-        originalAmount: e.originalAmount,
-        originalCurrency: e.originalCurrency,
-        isRecurring: true,
-      }));
-      setPendingRecurring(newEntries);
+      setPendingRecurring(due);
+      setSelectedRecurring(new Set(due.map((_, i) => i)));
     } else {
       setPendingRecurring([]);
     }
@@ -280,17 +253,26 @@ const App: React.FC = () => {
     }
   }, [budgets]);
 
-  // F3: Accept pending recurring expenses
+  const toggleRecurringSelection = (index: number) => {
+    setSelectedRecurring((prev) => {
+      const next = new Set(prev);
+      next.has(index) ? next.delete(index) : next.add(index);
+      return next;
+    });
+  };
+
+  // F3: Add only the recurring instances the user ticked in the review list.
   const handleAcceptRecurring = async () => {
-    if (pendingRecurring.length === 0) return;
+    const toAdd = pendingRecurring.filter((_, i) => selectedRecurring.has(i));
+    if (toAdd.length === 0) return;
     try {
-      const addedCount = pendingRecurring.length;
-      await createBulkExpenses(pendingRecurring);
+      await createBulkExpenses(toAdd);
       // Refetch the authoritative dataset (the bulk insert created server ids).
       await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
       setPendingRecurring([]);
+      setSelectedRecurring(new Set());
       localStorage.removeItem(RECURRING_SNOOZE_KEY);
-      notify.success(`${addedCount} recurring expense(s) added for this month.`);
+      notify.success(`${toAdd.length} recurring expense(s) added.`);
     } catch (error) {
       console.error("Failed to create recurring expenses:", error);
       notify.error('Could not create recurring expenses.');
@@ -299,12 +281,14 @@ const App: React.FC = () => {
 
   const handleDismissRecurring = () => {
     setPendingRecurring([]);
+    setSelectedRecurring(new Set());
   };
 
   const handleSnoozeRecurring = () => {
     const until = Date.now() + 24 * 60 * 60 * 1000;
     localStorage.setItem(RECURRING_SNOOZE_KEY, String(until));
     setPendingRecurring([]);
+    setSelectedRecurring(new Set());
     notify.info('Recurring reminder snoozed for 24 hours.');
   };
 
@@ -722,10 +706,6 @@ const handleDeleteIncome = async (id: string) => {
     return results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [filteredExpenses, filteredIncomes, debouncedSearchQuery, activeView]);
 
-  const recurringSummary = useMemo(
-    () => pendingRecurring.map(e => `${e.title} ($${e.amount})`).join(', '),
-    [pendingRecurring]
-  );
 
   const liveRegionMessage = useMemo(() => {
     if (isLoadingData) {
@@ -896,21 +876,42 @@ const handleDeleteIncome = async (id: string) => {
                     </section>
                   )}
 
-                  {/* F3: Recurring expense prompt */}
+                  {/* F3: Recurring expense review list */}
                   {pendingRecurring.length > 0 && (
                     <div className="glass rounded-2xl p-5 border border-warn/30">
                       <p className="font-display text-sm md:text-base font-semibold text-app-text mb-1">
-                        🔁 {pendingRecurring.length} recurring expense{pendingRecurring.length > 1 ? 's' : ''} from last month
+                        🔁 {pendingRecurring.length} recurring charge{pendingRecurring.length > 1 ? 's are' : ' is'} due
                       </p>
-                      <p className="text-xs text-app-muted mb-4">
-                        {recurringSummary}
+                      <p className="text-xs text-app-muted mb-3">
+                        Tick the ones to add this cycle. Each is dated at its next due date.
                       </p>
+                      <ul className="space-y-2 mb-4 max-h-56 overflow-y-auto">
+                        {pendingRecurring.map((e, i) => (
+                          <li key={`${e.title}-${e.date}-${i}`}>
+                            <label className="flex items-center gap-3 rounded-xl border border-app-border bg-surface-2 px-3 py-2.5 cursor-pointer hover:border-app-border-strong transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={selectedRecurring.has(i)}
+                                onChange={() => toggleRecurringSelection(i)}
+                                className="accent-[color:var(--primary)] w-4 h-4 flex-shrink-0"
+                                aria-label={`Add recurring ${e.title}`}
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-medium text-app-text truncate">{e.title}</span>
+                                <span className="block text-[11px] text-app-muted">{e.category} · {e.date} · {getRecurrenceFrequency(e)}</span>
+                              </span>
+                              <span className="text-sm font-semibold text-app-text tabular-nums flex-shrink-0">${e.amount.toFixed(2)}</span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
                       <div className="flex flex-wrap gap-2.5">
                         <button
                           onClick={handleAcceptRecurring}
-                          className="bg-primary text-on-primary shadow-glow font-semibold text-sm py-2 px-4 rounded-xl hover:brightness-110 transition-all"
+                          disabled={selectedRecurring.size === 0}
+                          className="bg-primary text-on-primary shadow-glow font-semibold text-sm py-2 px-4 rounded-xl hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Add all
+                          Add selected ({selectedRecurring.size})
                         </button>
                         <button
                           onClick={handleDismissRecurring}
