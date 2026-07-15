@@ -31,11 +31,15 @@ function computeWindow(dateRange: DateRange): Window | null {
 
   switch (dateRange) {
     case 'this_month':
+      // "This month" is month-to-date (ends today), so compare against the SAME
+      // month-to-date span last month — addMonths is overflow-safe and clamps the
+      // day, so today's day-of-month maps to the equivalent day last month. Using
+      // the full prior month here inflated the early-month delta (L5).
       return {
         start: startOfMonth(now),
         end: formatCalendarDate(now),
         prevStart: startOfMonth(addMonths(now, -1)),
-        prevEnd: endOfMonth(addMonths(now, -1)),
+        prevEnd: formatCalendarDate(addMonths(now, -1)),
       };
     case 'last_month':
       return {
@@ -45,11 +49,12 @@ function computeWindow(dateRange: DateRange): Window | null {
         prevEnd: endOfMonth(addMonths(now, -2)),
       };
     case 'last_90_days':
+      // Two equal 90-day inclusive windows (was 91 vs 90 — L4).
       return {
-        start: formatCalendarDate(addDays(now, -90)),
+        start: formatCalendarDate(addDays(now, -89)),
         end: formatCalendarDate(now),
-        prevStart: formatCalendarDate(addDays(now, -180)),
-        prevEnd: formatCalendarDate(addDays(now, -91)),
+        prevStart: formatCalendarDate(addDays(now, -179)),
+        prevEnd: formatCalendarDate(addDays(now, -90)),
       };
     case 'all_time':
     default:

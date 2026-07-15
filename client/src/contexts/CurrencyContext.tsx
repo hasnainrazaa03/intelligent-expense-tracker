@@ -6,6 +6,9 @@ interface CurrencyContextValue {
   setDisplayCurrency: (currency: 'USD' | 'INR') => void;
   /** USD→INR rate, or null while loading / unavailable. */
   conversionRate: number | null;
+  /** True when the rate is the hardcoded last-resort fallback (no live or cached
+   *  rate was obtained) — INR figures are approximate, so the UI can flag them. */
+  isRateFallback: boolean;
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
@@ -43,6 +46,9 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [conversionRate, setConversionRate] = useState<number | null>(
     () => readRateCache()?.rate ?? FALLBACK_USD_INR
   );
+  // Fallback is only in effect when there was no cached rate to seed from. A
+  // cached (even stale) rate is a real market rate, not the hardcoded guess.
+  const [isRateFallback, setIsRateFallback] = useState<boolean>(() => readRateCache() === null);
 
   const setDisplayCurrency = (currency: 'USD' | 'INR') => {
     setDisplayCurrencyState(currency);
@@ -56,6 +62,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const cached = readRateCache();
       if (cached && Date.now() - cached.timestamp < ONE_HOUR_MS) {
         setConversionRate(cached.rate);
+        setIsRateFallback(false);
         return;
       }
       try {
@@ -67,19 +74,23 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           throw new Error('Unexpected rate response shape');
         }
         setConversionRate(rate);
+        setIsRateFallback(false);
         localStorage.setItem(RATE_CACHE_KEY, JSON.stringify({ rate, timestamp: Date.now() }));
       } catch (error) {
         console.error('Could not fetch conversion rate:', error);
-        // Keep the cached rate if we have one; otherwise the state already holds
-        // the fallback so INR stays usable offline.
-        if (cached) setConversionRate(cached.rate);
+        // Keep the cached rate if we have one (a real, if stale, rate); otherwise
+        // the state already holds the hardcoded fallback so INR stays usable.
+        if (cached) {
+          setConversionRate(cached.rate);
+          setIsRateFallback(false);
+        }
       }
     };
     fetchRate();
   }, []);
 
   return (
-    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, conversionRate }}>
+    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, conversionRate, isRateFallback }}>
       {children}
     </CurrencyContext.Provider>
   );

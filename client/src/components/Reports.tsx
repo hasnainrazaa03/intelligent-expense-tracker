@@ -51,6 +51,16 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
     return { totalSpent, topCategory, budgetUtilization, categoryTotals };
   }, [allExpenses, budgets]);
 
+  // The figures cover ALL expenses, so label the span from the actual data
+  // instead of a hardcoded "Fiscal year 2025 / full year" (L1).
+  const coverageLabel = useMemo(() => {
+    if (allExpenses.length === 0) return 'No data yet';
+    const years = allExpenses.map((e) => e.date.slice(0, 4)).filter(Boolean).sort();
+    const minY = years[0];
+    const maxY = years[years.length - 1];
+    return minY === maxY ? `Year ${minY}` : `${minY}–${maxY}`;
+  }, [allExpenses]);
+
 
   if (isLoading) {
     return <SectionSkeleton title="Loading reports" rows={5} />;
@@ -96,8 +106,8 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
       <div className="border-b border-app-border pb-6 md:pb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-3">
-            <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold whitespace-nowrap">Fiscal year 2025</span>
-            <span className="text-[10px] md:text-xs text-app-faint truncate max-w-[150px] md:max-w-none">Annual audit report</span>
+            <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold whitespace-nowrap">{coverageLabel}</span>
+            <span className="text-[10px] md:text-xs text-app-faint truncate max-w-[150px] md:max-w-none">All-time audit report</span>
           </div>
           <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight break-words">
             Annual audit
@@ -120,19 +130,19 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
           <div className="absolute -right-8 -top-8 opacity-[0.06] group-hover:scale-110 transition-transform hidden sm:block">
             <BanknotesIcon className="h-48 w-48 text-app-text" />
           </div>
-          <p className="text-[11px] md:text-xs text-app-muted mb-2">Total expenditure</p>
+          <p className="text-[11px] md:text-xs text-app-muted mb-2">Total expenditure · all time</p>
           <h3 className="font-display font-bold text-3xl md:text-4xl text-app-text mb-4 break-all leading-none tabular-nums">
             {formatCurrency(stats.totalSpent, displayCurrency, conversionRate)}
           </h3>
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold">Status: audited</span>
-            <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold">Period: full year</span>
+            <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-3 py-1 text-[10px] md:text-xs font-semibold">Period: all time</span>
           </div>
         </div>
 
         {/* Budget Variance Sticker */}
         <div className="lg:col-span-1 glass rounded-2xl p-4 md:p-6 flex flex-col justify-center">
-          <p className="text-[11px] md:text-xs text-app-muted mb-2">Budget load factor</p>
+          <p className="text-[11px] md:text-xs text-app-muted mb-2">Budget load factor · this month</p>
           <h3 className={`font-display font-bold text-3xl md:text-4xl leading-none tabular-nums ${stats.budgetUtilization > 100 ? 'text-danger' : 'text-app-text'}`}>
             {stats.budgetUtilization.toFixed(1)}%
           </h3>
