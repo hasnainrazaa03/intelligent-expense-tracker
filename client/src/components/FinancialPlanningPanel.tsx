@@ -5,10 +5,19 @@ import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { Button, Card } from './ui';
 
-const GOAL_KEY = 'monthlySavingsGoal';
+const SAVINGS_GOALS_KEY = 'savingsGoalsV2';
 const PAUSED_RECURRING_KEY = 'pausedRecurringTemplates';
 const INVESTMENT_ACCOUNTS_KEY = 'investmentAccounts';
 const FAMILY_MEMBERS_KEY = 'familyBudgetMembers';
+
+interface SavingsGoal {
+  id: string;
+  name: string;
+  target: number;
+  saved: number;
+  /** Optional target date (YYYY-MM-DD). */
+  deadline?: string;
+}
 
 interface FinancialPlanningPanelProps {
   expenses: Expense[];
@@ -21,7 +30,18 @@ const templateKey = (e: Expense): string => `${e.title}|${e.category}|${e.amount
 
 const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expenses, incomes }) => {
   const { displayCurrency, conversionRate } = useCurrency();
-  const [goalInput, setGoalInput] = useState<string>(() => localStorage.getItem(GOAL_KEY) || '');
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(SAVINGS_GOALS_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [newGoalName, setNewGoalName] = useState('');
+  const [newGoalTarget, setNewGoalTarget] = useState('');
+  const [newGoalDeadline, setNewGoalDeadline] = useState('');
+  const [fundInputs, setFundInputs] = useState<Record<string, string>>({});
   const [pausedRecurring, setPausedRecurring] = useState<Record<string, boolean>>(() => {
     try {
       return JSON.parse(localStorage.getItem(PAUSED_RECURRING_KEY) || '{}') as Record<string, boolean>;
@@ -115,8 +135,42 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
       setMemberContribution('');
     };
 
-  const savingsGoal = Number.parseFloat(goalInput) || 0;
-  const progressPct = savingsGoal > 0 ? Math.max(0, Math.min(100, (monthlyNet / savingsGoal) * 100)) : 0;
+  const persistSavingsGoals = (next: SavingsGoal[]) => {
+    setSavingsGoals(next);
+    localStorage.setItem(SAVINGS_GOALS_KEY, JSON.stringify(next));
+  };
+  const addSavingsGoal = () => {
+    const target = Number.parseFloat(newGoalTarget);
+    if (!newGoalName.trim() || !Number.isFinite(target) || target <= 0) return;
+    persistSavingsGoals([
+      ...savingsGoals,
+      { id: `${Date.now()}-${savingsGoals.length}`, name: newGoalName.trim(), target, saved: 0, deadline: newGoalDeadline || undefined },
+    ]);
+    setNewGoalName('');
+    setNewGoalTarget('');
+    setNewGoalDeadline('');
+  };
+  const addFundsToGoal = (id: string) => {
+    const amount = Number.parseFloat(fundInputs[id] || '');
+    if (!Number.isFinite(amount) || amount === 0) return;
+    persistSavingsGoals(savingsGoals.map((g) => (g.id === id ? { ...g, saved: Math.max(0, g.saved + amount) } : g)));
+    setFundInputs((prev) => ({ ...prev, [id]: '' }));
+  };
+  const removeSavingsGoal = (id: string) => persistSavingsGoals(savingsGoals.filter((g) => g.id !== id));
+
+  // Project a completion date for a goal from the current monthly net (a simple
+  // "at this rate" forecast). Returns a label + whether it beats the deadline.
+  const forecastGoal = (goal: SavingsGoal): { label: string; onTrack: boolean | null } => {
+    const remaining = goal.target - goal.saved;
+    if (remaining <= 0) return { label: 'Goal reached 🎉', onTrack: true };
+    if (monthlyNet <= 0) return { label: 'Needs a positive monthly net to project', onTrack: null };
+    const months = Math.ceil(remaining / monthlyNet);
+    const done = new Date(now.getFullYear(), now.getMonth() + months, 1);
+    const label = `~${done.toLocaleString('en-US', { month: 'short', year: 'numeric' })} at your current rate`;
+    if (!goal.deadline) return { label, onTrack: null };
+    const onTrack = done <= new Date(goal.deadline);
+    return { label, onTrack };
+  };
 
   const recurringTemplates = useMemo(() => {
     const map = new Map<string, Expense>();
@@ -281,26 +335,45 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={cardCls}>
-          <p className={subLabelCls}>Savings goal</p>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              value={goalInput}
-              onChange={(e) => setGoalInput(e.target.value)}
-              className={`flex-1 ${fieldCls}`}
-              placeholder="Set monthly goal"
-            />
-            <Button
-              size="sm"
-              onClick={() => localStorage.setItem(GOAL_KEY, goalInput)}
-              className="px-4"
-            >
-              Save
-            </Button>
+          <p className={subLabelCls}>Savings goals</p>
+          <p className="text-xs text-app-muted mb-3 tabular-nums">Monthly net: <span className="text-app-text font-medium">{formatCurrency(monthlyNet, displayCurrency, conversionRate)}</span> · projections use this rate</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mb-2">
+            <input value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)} className={fieldCls} placeholder="Goal name (e.g. Emergency fund)" />
+            <input type="number" value={newGoalTarget} onChange={(e) => setNewGoalTarget(e.target.value)} className={`${fieldCls} sm:w-28`} placeholder="Target" aria-label="Goal target amount" />
           </div>
-          <p className="text-xs text-app-muted mt-2.5 tabular-nums">Monthly net: <span className="text-app-text font-medium">{formatCurrency(monthlyNet, displayCurrency, conversionRate)}</span></p>
-          <div className="mt-2 h-2.5 rounded-full border border-app-border bg-surface overflow-hidden">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
+          <div className="flex gap-2 mb-3">
+            <input type="date" value={newGoalDeadline} onChange={(e) => setNewGoalDeadline(e.target.value)} className={`flex-1 ${fieldCls}`} aria-label="Goal deadline (optional)" />
+            <Button size="sm" onClick={addSavingsGoal} className="px-4">Add goal</Button>
+          </div>
+
+          <div className="space-y-2.5 max-h-64 overflow-y-auto">
+            {savingsGoals.length === 0 && <p className="text-xs text-app-muted">No goals yet. Add one above to track progress toward it.</p>}
+            {savingsGoals.map((goal) => {
+              const pct = goal.target > 0 ? Math.max(0, Math.min(100, (goal.saved / goal.target) * 100)) : 0;
+              const fc = forecastGoal(goal);
+              return (
+                <div key={goal.id} className="rounded-lg border border-app-border bg-surface p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-app-text truncate">{goal.name}</p>
+                    <button onClick={() => removeSavingsGoal(goal.id)} aria-label={`Delete goal ${goal.name}`} className="text-app-faint hover:text-danger text-[11px] font-semibold flex-shrink-0">Remove</button>
+                  </div>
+                  <p className="text-[11px] text-app-muted mt-0.5 tabular-nums">
+                    {formatCurrency(goal.saved, displayCurrency, conversionRate)} / {formatCurrency(goal.target, displayCurrency, conversionRate)} · {pct.toFixed(0)}%
+                  </p>
+                  <div className="mt-1.5 h-2 rounded-full border border-app-border bg-surface-2 overflow-hidden">
+                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className={`text-[11px] mt-1.5 ${fc.onTrack === false ? 'text-danger' : fc.onTrack ? 'text-ok' : 'text-app-muted'}`}>
+                    {fc.label}{goal.deadline ? ` · due ${goal.deadline}${fc.onTrack === false ? ' (behind)' : fc.onTrack ? ' (on track)' : ''}` : ''}
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <input type="number" value={fundInputs[goal.id] || ''} onChange={(e) => setFundInputs((prev) => ({ ...prev, [goal.id]: e.target.value }))} className={`flex-1 ${fieldCls}`} placeholder="Add funds" aria-label={`Add funds to ${goal.name}`} />
+                    <Button size="sm" onClick={() => addFundsToGoal(goal.id)} className="px-3">+ Fund</Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
