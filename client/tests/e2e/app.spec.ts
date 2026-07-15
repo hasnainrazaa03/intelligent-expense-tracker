@@ -21,8 +21,11 @@ test('navigates between tabs', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Tuition ledger' })).toBeVisible();
 });
 
-test('currency toggle switches display to INR', async ({ page }) => {
-  await page.getByRole('button', { name: 'Display currency INR' }).click();
+test('currency picker switches display to INR', async ({ page }) => {
+  await page.getByRole('button', { name: /Display currency/i }).click();
+  await page.getByLabel('Search currency').fill('INR');
+  await page.getByRole('option').first().click();
+  // INR always has a fallback rate, so amounts render even without live FX.
   await expect(page.getByText(/₹\s?[\d,]/).first()).toBeVisible();
 });
 

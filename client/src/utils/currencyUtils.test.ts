@@ -14,6 +14,17 @@ describe('formatCurrency', () => {
     const formatted = formatCurrency(10, 'INR', 80);
     expect(formatted).toContain('800');
   });
+
+  it('converts an arbitrary currency by its USD rate', () => {
+    // 100 USD * 0.92 = 92 EUR
+    const formatted = formatCurrency(100, 'EUR', 0.92);
+    expect(formatted).toContain('92');
+    expect(formatted).toMatch(/€|EUR/);
+  });
+
+  it('returns placeholder for any non-USD currency without a rate', () => {
+    expect(formatCurrency(10, 'EUR', null)).toBe('...');
+  });
 });
 
 describe('distributeAmount', () => {

@@ -1,36 +1,36 @@
 import { useEffect, useState } from 'react';
 
-export interface InrToUsdResult {
+export interface ForeignToUsdResult {
   /** Converted USD amount as a string, or '' when conversion doesn't apply. */
   convertedAmount: string;
+  /** USD per 1 unit of the foreign currency. */
   rate: number | null;
   loading: boolean;
   error: string | null;
 }
 
 /**
- * Converts an INR entry amount to USD for the expense/income modals (previously
- * duplicated verbatim in both). Returns '' whenever the mode isn't INR, the INR
- * input is empty/non-positive, or a conversion fails — which fixes CMP-H5, where
- * clearing or failing the INR field left the previous (stale) USD value in a
- * read-only field to be submitted. Uses the parent USD→INR rate when available,
- * otherwise fetches INR→USD, debounced by 500ms.
+ * Converts an amount entered in an arbitrary foreign currency to USD for the
+ * expense/income modals. Returns '' whenever it doesn't apply (USD mode, empty /
+ * non-positive input, or a failed conversion) so a stale value can never be
+ * submitted (CMP-H5). Reuses the parent USD→foreign rate when the foreign
+ * currency matches the display currency; otherwise fetches foreign→USD directly.
+ * Debounced 500ms.
  */
-export default function useInrToUsd(
-  selectedCurrency: 'USD' | 'INR',
-  originalAmount: string,
-  parentUsdToInrRate: number | null
-): InrToUsdResult {
+export default function useForeignToUsd(
+  foreignCurrency: string,
+  foreignAmount: string,
+  parentUsdToForeignRate: number | null
+): ForeignToUsdResult {
   const [convertedAmount, setConvertedAmount] = useState('');
   const [rate, setRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const inr = parseFloat(originalAmount);
+    const value = parseFloat(foreignAmount);
 
-    // Not applicable → clear any stale converted value so it can't be submitted.
-    if (selectedCurrency !== 'INR' || !originalAmount || !(inr > 0)) {
+    if (foreignCurrency === 'USD' || !foreignAmount || !(value > 0)) {
       setConvertedAmount('');
       setError(null);
       setLoading(false);
@@ -43,10 +43,10 @@ export default function useInrToUsd(
       setError(null);
       try {
         let r: number;
-        if (parentUsdToInrRate && parentUsdToInrRate > 0) {
-          r = 1 / parentUsdToInrRate;
+        if (parentUsdToForeignRate && parentUsdToForeignRate > 0) {
+          r = 1 / parentUsdToForeignRate;
         } else {
-          const response = await fetch('https://api.frankfurter.app/latest?from=INR&to=USD');
+          const response = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(foreignCurrency)}&to=USD`);
           if (!response.ok) throw new Error('FETCH_ERROR');
           const data = await response.json();
           r = data?.rates?.USD;
@@ -54,7 +54,7 @@ export default function useInrToUsd(
         }
         if (cancelled) return;
         setRate(r);
-        setConvertedAmount((inr * r).toFixed(2));
+        setConvertedAmount((value * r).toFixed(2));
       } catch {
         if (cancelled) return;
         setError('CONVERSION_FAILED');
@@ -69,7 +69,7 @@ export default function useInrToUsd(
       cancelled = true;
       clearTimeout(debounce);
     };
-  }, [selectedCurrency, originalAmount, parentUsdToInrRate]);
+  }, [foreignCurrency, foreignAmount, parentUsdToForeignRate]);
 
   return { convertedAmount, rate, loading, error };
 }
