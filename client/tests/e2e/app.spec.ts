@@ -66,3 +66,27 @@ test('search dropdown surfaces a transaction and opens its detail', async ({ pag
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('heading', { name: /Edit (expense|income)/ })).toBeVisible();
 });
+
+test('bank statement CSV maps columns and previews the import', async ({ page }) => {
+  await page.getByRole('button', { name: 'Open data import and export' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Bank statement (CSV)')).toBeVisible();
+
+  // Upload an in-memory statement: 3 debits + 1 credit.
+  const csv = [
+    'Posted Date,Description,Amount,Category',
+    '07/01/2026,STARBUCKS,-5.75,Dining',
+    '07/02/2026,PAYROLL,2400.00,Income',
+    '07/03/2026,TRADER JOES,-62.18,Groceries',
+    '07/05/2026,UBER,-14.30,Transport',
+  ].join('\n');
+  await dialog.getByLabel('Bank statement CSV file').setInputFiles({
+    name: 'statement.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(csv),
+  });
+
+  // Auto-detected mapping + credit-skipping: 3 debits ready, 1 credit skipped.
+  await expect(dialog.getByText(/3 transaction\(s\) ready · 1 skipped/)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: /Import 3 expenses/ })).toBeEnabled();
+});
