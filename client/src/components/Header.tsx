@@ -15,6 +15,7 @@ import {
   TagIcon,
   BanknotesIcon,
   CalendarDaysIcon,
+  ExclamationTriangleIcon,
   Cog6ToothIcon
 } from './Icons';
 import { IconButton } from './ui';
@@ -56,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({
   onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch,
   expenses, incomes, onSelectTransaction
 }) => {
-  const { displayCurrency, setDisplayCurrency, conversionRate } = useCurrency();
+  const { displayCurrency, setDisplayCurrency, conversionRate, isRateFallback } = useCurrency();
   const { theme, toggleTheme } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
@@ -288,6 +289,15 @@ const Header: React.FC<HeaderProps> = ({
                   INR
                 </button>
               </div>
+              {displayCurrency === 'INR' && isRateFallback && (
+                <span
+                  role="status"
+                  title="Live FX rate unavailable — INR amounts use an approximate fallback rate."
+                  className="inline-flex items-center gap-1 rounded-lg bg-warn/15 text-warn px-2 py-1 text-[10px] font-semibold whitespace-nowrap"
+                >
+                  <ExclamationTriangleIcon className="h-3 w-3" /> Approx FX
+                </span>
+              )}
 
               {/* Action Buttons Group */}
               <div className="flex items-center gap-2">
