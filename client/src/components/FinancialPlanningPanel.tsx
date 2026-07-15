@@ -169,6 +169,33 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
         return acc;
       }, {});
 
+    // Anomaly detection: flag categories where this month's spend already exceeds
+    // 1.5× the average of the prior 3 months (a genuine spike even mid-month,
+    // since the partial current month is compared against full prior months).
+    const priorPrefixes = [1, 2, 3].map((k) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
+    const priorByCat: Record<string, number[]> = {};
+    priorPrefixes.forEach((prefix) => {
+      const monthCat: Record<string, number> = {};
+      expenses.filter((e) => e.date.startsWith(prefix)).forEach((e) => {
+        monthCat[e.category] = (monthCat[e.category] || 0) + e.amount;
+      });
+      Object.entries(monthCat).forEach(([cat, amt]) => {
+        (priorByCat[cat] ??= []).push(amt);
+      });
+    });
+    (Object.entries(categoryTotals) as Array<[string, number]>).forEach(([cat, current]) => {
+      const priors = priorByCat[cat];
+      if (!priors || priors.length === 0) return;
+      const avg = priors.reduce((s, a) => s + a, 0) / priors.length;
+      if (avg > 0 && current > avg * 1.5) {
+        const pct = ((current - avg) / avg) * 100;
+        insights.push(`${cat} is up ${pct.toFixed(0)}% vs your recent average (${formatCurrency(current, displayCurrency, conversionRate)} vs ~${formatCurrency(avg, displayCurrency, conversionRate)}).`);
+      }
+    });
+
     const top = (Object.entries(categoryTotals) as Array<[string, number]>).sort((a, b) => b[1] - a[1])[0];
     if (top) {
       insights.push(`Top spend category this month is ${top[0]} at ${formatCurrency(top[1], displayCurrency, conversionRate)}.`);
@@ -179,8 +206,36 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
       insights.push(`${pausedCount} recurring template(s) are paused. Review if this is still intentional.`);
     }
 
-    return insights.slice(0, 3);
-  }, [expenses, currentMonthPrefix, monthlyNet, pausedRecurring, displayCurrency, conversionRate]);
+    return insights.slice(0, 4);
+  }, [expenses, currentMonthPrefix, monthlyNet, pausedRecurring, displayCurrency, conversionRate, now]);
+
+  // Subscription price-creep: among recurring-flagged charges, group by
+  // title+category and flag any whose latest amount is higher than its earliest
+  // occurrence — a silent price increase — with the cumulative amount paid.
+  const subscriptionCreep = useMemo(() => {
+    const groups = new Map<string, { title: string; category: string; occ: { date: string; amount: number }[] }>();
+    expenses
+      .filter((e) => e.isRecurring)
+      .forEach((e) => {
+        const key = `${e.title.trim().toLowerCase()}|${e.category}`;
+        const g = groups.get(key) ?? { title: e.title, category: e.category, occ: [] };
+        g.occ.push({ date: e.date, amount: Number(e.amount) });
+        groups.set(key, g);
+      });
+
+    const rows: Array<{ title: string; category: string; from: number; to: number; pct: number; count: number; total: number }> = [];
+    for (const g of groups.values()) {
+      if (g.occ.length < 2) continue;
+      const sorted = g.occ.sort((a, b) => a.date.localeCompare(b.date));
+      const from = sorted[0].amount;
+      const to = sorted[sorted.length - 1].amount;
+      const total = sorted.reduce((s, o) => s + o.amount, 0);
+      if (from > 0 && to > from * 1.01) {
+        rows.push({ title: g.title, category: g.category, from, to, pct: ((to - from) / from) * 100, count: sorted.length, total });
+      }
+    }
+    return rows.sort((a, b) => b.pct - a.pct).slice(0, 5);
+  }, [expenses]);
 
   const forecast30d = useMemo(() => {
     const last30Start = new Date();
@@ -296,6 +351,26 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           </div>
         </div>
       </div>
+
+      {subscriptionCreep.length > 0 && (
+        <div className={cardCls}>
+          <p className={subLabelCls}>Subscription watch · price increases</p>
+          <div className="space-y-2">
+            {subscriptionCreep.map((s) => (
+              <div key={`${s.title}-${s.category}`} className="flex items-center justify-between rounded-lg border border-warn/30 bg-warn/10 p-2.5 gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-app-text truncate">{s.title}</p>
+                  <p className="text-[11px] text-app-muted tabular-nums">
+                    {formatCurrency(s.from, displayCurrency, conversionRate)} → {formatCurrency(s.to, displayCurrency, conversionRate)} · {s.count} charges · {formatCurrency(s.total, displayCurrency, conversionRate)} total
+                  </p>
+                </div>
+                <span className="flex-shrink-0 rounded-lg bg-warn/20 text-warn px-2 py-1 text-[11px] font-bold tabular-nums">+{s.pct.toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-app-muted mt-2.5">Based on recurring-flagged charges whose amount rose over time.</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={cardCls}>

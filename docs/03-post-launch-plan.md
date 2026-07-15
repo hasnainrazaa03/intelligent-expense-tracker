@@ -50,8 +50,8 @@ what remains plus the forward feature backlog, in execution order.
 Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Ordered by value/effort.
 
 ### Tier 1 — cheap, high-impact (lean on existing infra)
-1. [ ] **Subscription price-creep detector (S)** — flag recurring charges whose amount rose vs the prior cycle; show cumulative spend. Reuses recurring detection + insight cards.
-2. [ ] **AI weekly digest & anomaly cards (S–M)** — "dining up 60% vs your 4-week average," via the existing Gemini manifest + insight-card UI.
+1. [x] **Subscription price-creep detector (S)** — flag recurring charges whose amount rose vs the prior cycle; show cumulative spend. *(PR #52)*
+2. [x] **Spending anomaly cards (S)** — "Dining up 60% vs your recent average" spike detection in the planning insight cards. Full AI/email digest still open. *(PR #52)*
 3. [ ] **Scheduled/exportable PDF report email (S)** — reuse the existing report renderer + Resend.
 
 ### Tier 2 — flagship value
