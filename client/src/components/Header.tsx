@@ -1,18 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { ExpenseTrackerLogo } from './Branding';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import { useTheme } from '../hooks/useTheme';
 import { APP_CONFIG } from '../config';
+import { Expense, Income } from '../types';
+import { fuzzyMatch } from '../utils/fuzzySearch';
+import { formatCurrency } from '../utils/currencyUtils';
 import {
   MagnifyingGlassIcon,
-  ArrowRightStartOnRectangleIcon, 
+  ArrowRightStartOnRectangleIcon,
   PencilIcon,
   TableCellsIcon,
   TagIcon,
+  BanknotesIcon,
+  CalendarDaysIcon,
   Cog6ToothIcon
 } from './Icons';
 import { IconButton } from './ui';
+
+export type SearchHit =
+  | { type: 'expense'; item: Expense }
+  | { type: 'income'; item: Income };
 
 interface HeaderProps {
   onLogout: () => void;
@@ -23,7 +32,14 @@ interface HeaderProps {
   twoFactorEnabled: boolean;
   onSearch: (query: string) => void;
   activeView: string;
+  /** All transactions, searched globally by the header dropdown. */
+  expenses: Expense[];
+  incomes: Income[];
+  /** Open a transaction's detail (edit) modal when picked from the dropdown. */
+  onSelectTransaction: (hit: SearchHit) => void;
 }
+
+const MAX_SEARCH_RESULTS = 8;
 
 // Wraps a header action so its purpose shows as a labelled tooltip on hover —
 // the icon-only buttons were hard to identify at a glance.
@@ -37,9 +53,10 @@ const ActionTip: React.FC<{ label: string; children: React.ReactNode }> = ({ lab
 );
 
 const Header: React.FC<HeaderProps> = ({
-  onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch
+  onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch,
+  expenses, incomes, onSelectTransaction
 }) => {
-  const { displayCurrency, setDisplayCurrency } = useCurrency();
+  const { displayCurrency, setDisplayCurrency, conversionRate } = useCurrency();
   const { theme, toggleTheme } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
@@ -55,6 +72,73 @@ const Header: React.FC<HeaderProps> = ({
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // --- Global search dropdown ---------------------------------------------
+  // Match the live input (not the debounced value) so the dropdown feels
+  // instant, across BOTH expenses and income and regardless of the active
+  // tab or date range — the point is to find any transaction and jump to it.
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const matches = useMemo<SearchHit[]>(() => {
+    const q = searchInput.trim();
+    if (!q) return [];
+    const threshold = q.length > 5 ? 2 : 1;
+    const hit = (t: Expense | Income) =>
+      fuzzyMatch(q, t.title, threshold) ||
+      fuzzyMatch(q, t.category, threshold) ||
+      (t.notes ? fuzzyMatch(q, t.notes, threshold) : false);
+    const results: SearchHit[] = [
+      ...expenses.filter(hit).map((item) => ({ type: 'expense' as const, item })),
+      ...incomes.filter(hit).map((item) => ({ type: 'income' as const, item })),
+    ];
+    results.sort((a, b) => new Date(b.item.date).getTime() - new Date(a.item.date).getTime());
+    return results.slice(0, MAX_SEARCH_RESULTS);
+  }, [searchInput, expenses, incomes]);
+
+  const showDropdown = isSearchOpen && searchInput.trim().length > 0;
+
+  // Reset the keyboard highlight whenever the result set changes.
+  useEffect(() => { setActiveIndex(-1); }, [searchInput]);
+
+  // Close the dropdown on any click outside the search cluster.
+  useEffect(() => {
+    if (!showDropdown) return;
+    const onDown = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showDropdown]);
+
+  const selectHit = (hit: SearchHit) => {
+    onSelectTransaction(hit);
+    setIsSearchOpen(false);
+    setActiveIndex(-1);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') { setIsSearchOpen(false); return; }
+    if (!showDropdown || matches.length === 0) {
+      if (e.key === 'ArrowDown' && searchInput.trim()) setIsSearchOpen(true);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % matches.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? matches.length - 1 : i - 1));
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < matches.length) {
+        e.preventDefault();
+        selectHit(matches[activeIndex]);
+      }
+    }
+  };
 
   return (
     <header className="glass glass-blur rounded-2xl sticky top-2 md:top-3 z-40 overflow-visible mb-4 md:mb-6">
@@ -91,7 +175,7 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* 3. SEARCH */}
-          <div className="relative w-full lg:max-w-md">
+          <div ref={searchRef} className="relative w-full lg:max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
               <MagnifyingGlassIcon className="h-4 w-4 md:h-5 md:w-5 text-app-faint" />
             </div>
@@ -99,10 +183,76 @@ const Header: React.FC<HeaderProps> = ({
               type="text"
               placeholder="Search transactions…"
               aria-label="Search transactions"
+              role="combobox"
+              aria-expanded={showDropdown}
+              aria-controls="search-results"
+              aria-activedescendant={activeIndex >= 0 ? `search-result-${activeIndex}` : undefined}
+              autoComplete="off"
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full bg-surface-2 border border-app-border rounded-xl py-2.5 md:py-3 pl-10 md:pl-11 pr-4 font-sans text-sm text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+              onChange={(e) => { setSearchInput(e.target.value); setIsSearchOpen(true); }}
+              onFocus={() => setIsSearchOpen(true)}
+              onKeyDown={handleSearchKeyDown}
+              className="w-full bg-surface-2 border border-app-border rounded-xl py-2.5 md:py-3 pl-10 md:pl-11 pr-9 font-sans text-sm text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
             />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => { setSearchInput(''); setIsSearchOpen(false); }}
+                aria-label="Clear search"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-app-faint hover:text-app-text transition-colors"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            )}
+
+            {showDropdown && (
+              <div
+                id="search-results"
+                role="listbox"
+                className="absolute left-0 right-0 top-full mt-2 z-50 modal-surface rounded-2xl shadow-soft border border-app-border overflow-hidden max-h-[60vh] overflow-y-auto custom-scrollbar"
+              >
+                {matches.length === 0 ? (
+                  <p className="px-4 py-5 text-sm text-app-muted text-center">
+                    No transactions match “{searchInput.trim()}”.
+                  </p>
+                ) : (
+                  <ul className="py-1.5">
+                    {matches.map((hit, index) => {
+                      const isExpense = hit.type === 'expense';
+                      const active = index === activeIndex;
+                      return (
+                        <li key={`${hit.type}-${hit.item.id}`} role="option" id={`search-result-${index}`} aria-selected={active}>
+                          <button
+                            type="button"
+                            // onMouseDown (not onClick) so the selection fires before
+                            // the input's blur/outside-click can close the dropdown.
+                            onMouseDown={(e) => { e.preventDefault(); selectHit(hit); }}
+                            onMouseEnter={() => setActiveIndex(index)}
+                            className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-left transition-colors ${active ? 'bg-surface-2' : 'hover:bg-surface-2'}`}
+                          >
+                            <span className={`grid place-items-center w-9 h-9 rounded-xl flex-shrink-0 ${isExpense ? 'bg-primary-soft text-primary' : 'bg-ok/15 text-ok'}`}>
+                              {isExpense ? <TagIcon className="h-4 w-4" /> : <BanknotesIcon className="h-4 w-4" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-medium text-sm text-app-text truncate">{hit.item.title}</span>
+                              <span className="flex items-center gap-2 mt-0.5 text-[11px] text-app-muted">
+                                <span className="truncate">{hit.item.category}</span>
+                                <span className="inline-flex items-center gap-1 flex-shrink-0">
+                                  <CalendarDaysIcon className="h-3 w-3" /> {hit.item.date}
+                                </span>
+                              </span>
+                            </span>
+                            <span className={`font-display text-sm font-bold tabular-nums flex-shrink-0 ${isExpense ? 'text-app-text' : 'text-ok'}`}>
+                              {isExpense ? '' : '+'}{formatCurrency(hit.item.amount, displayCurrency, conversionRate)}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 4. UTILITY CONTROLS (Row 3 on Mobile) */}

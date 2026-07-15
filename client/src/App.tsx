@@ -805,6 +805,17 @@ const handleDeleteIncome = async (id: string) => {
               twoFactorEnabled={twoFactorEnabled}
               onSearch={setDebouncedSearchQuery}
               activeView={activeView}
+              expenses={expenses}
+              incomes={incomes}
+              onSelectTransaction={(hit) => {
+                if (hit.type === 'expense') {
+                  setActiveView('expenses');
+                  handleEditExpenseClick(hit.item);
+                } else {
+                  setActiveView('income');
+                  handleEditIncomeClick(hit.item);
+                }
+              }}
             />
 
             {/* 2. BODY WRAPPER */}

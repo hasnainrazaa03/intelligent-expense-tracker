@@ -49,3 +49,17 @@ test('adds an expense and finds it via search', async ({ page }) => {
   await page.getByPlaceholder('Search transactions…').fill(title);
   await expect(page.getByText(title).first()).toBeVisible({ timeout: 10_000 });
 });
+
+test('search dropdown surfaces a transaction and opens its detail', async ({ page }) => {
+  const search = page.getByRole('combobox', { name: 'Search transactions' });
+  await search.click();
+  await search.fill('a'); // broad query so at least one seeded transaction matches
+
+  const results = page.locator('#search-results [role="option"]');
+  await expect(results.first()).toBeVisible({ timeout: 10_000 });
+
+  // Clicking a result opens that transaction's detail (edit) modal.
+  await results.first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Edit (expense|income)/ })).toBeVisible();
+});
