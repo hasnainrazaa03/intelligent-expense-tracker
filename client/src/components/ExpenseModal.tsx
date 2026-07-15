@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Expense, Category } from '../types';
 import { suggestCategory, recordCategorySelection } from '../services/categorySuggestionService';
-import { CATEGORIES, PAYMENT_METHODS } from '../constants';
+import { PAYMENT_METHODS } from '../constants';
+import { getEffectiveCategories } from '../utils/categories';
 import { ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
@@ -239,8 +240,12 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     onClose();
   };
 
+  // Effective categories (defaults + the user's custom ones). Re-read when the
+  // modal opens so categories added in the manager show up here (CMP-M24).
+  const effectiveCategories = useMemo(() => getEffectiveCategories(), [isOpen]);
+
   const filteredCategories = useMemo<Record<string, string[]>>(() => {
-    const categoriesObj = CATEGORIES as Record<string, string[]>;
+    const categoriesObj = effectiveCategories;
     if (!categorySearchTerm.trim()) return categoriesObj;
 
     const filtered: Record<string, string[]> = {};
@@ -256,7 +261,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       }
     }
     return filtered;
-  }, [categorySearchTerm]);
+  }, [categorySearchTerm, effectiveCategories]);
 
   const handleReceiptUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

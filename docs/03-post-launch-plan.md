@@ -27,7 +27,7 @@ what remains plus the forward feature backlog, in execution order.
 - [x] **L3** Silent hardcoded ₹87.5 fallback when the FX fetch fails and no cache exists → expose an `isRateFallback` flag and show an "approximate rate" cue.
 
 ### A3. Custom categories single source of truth  *(effort: M)*
-- [ ] **CMP-M24** Categories live in a static constant + localStorage side-channel; custom categories don't propagate to dropdowns/budgets/charts. Introduce one categories store (server-persisted or a single client context) consumed everywhere.
+- [x] **CMP-M24** Single categories store (`utils/categories.ts`) consumed by the expense dropdown, the manager, and color/main-category resolution. *(PR #56)*
 
 ### A4. Money-as-integer-cents migration  *(effort: L — its own mini-project)*
 - [ ] **X-3 / SRV-M8 / SRV-L5** Convert `Float` amounts to integer cents (or Decimal) across schema + all math to eliminate FX round-trip drift. Foundational; schedule before heavy multi-currency work. Not a blocker for personal-scale launch (display already rounds).
