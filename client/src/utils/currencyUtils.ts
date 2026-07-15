@@ -1,6 +1,6 @@
 export const formatCurrency = (
   amountInUSD: number,
-  displayCurrency: 'USD' | 'INR',
+  displayCurrency: string,
   conversionRate: number | null,
   isCompact: boolean = false
 ): string => {
@@ -16,15 +16,16 @@ export const formatCurrency = (
     notation: isCompact ? 'compact' : 'standard',
   };
 
-  if (displayCurrency === 'INR') {
-    if (conversionRate === null) return '...';
-    // Convert USD to INR only for display purposes
-    const amountInINR = cleanUSD * conversionRate;
-    return new Intl.NumberFormat('en-IN', options).format(amountInINR);
+  // Amounts are stored in USD. USD is a pure passthrough (no conversion leak);
+  // every other display currency multiplies by the USD→currency rate.
+  if (displayCurrency === 'USD') {
+    return new Intl.NumberFormat('en-US', options).format(cleanUSD);
   }
 
-  // 2. PURE PASSTHROUGH: No math is performed for USD to avoid conversion leaks
-  return new Intl.NumberFormat('en-US', options).format(cleanUSD);
+  if (conversionRate === null) return '...';
+  const converted = cleanUSD * conversionRate;
+  const locale = displayCurrency === 'INR' ? 'en-IN' : 'en-US';
+  return new Intl.NumberFormat(locale, options).format(converted);
 };
 
 /**

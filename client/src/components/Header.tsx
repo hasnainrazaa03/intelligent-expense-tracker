@@ -15,10 +15,10 @@ import {
   TagIcon,
   BanknotesIcon,
   CalendarDaysIcon,
-  ExclamationTriangleIcon,
   Cog6ToothIcon
 } from './Icons';
 import { IconButton } from './ui';
+import CurrencyPicker from './CurrencyPicker';
 
 export type SearchHit =
   | { type: 'expense'; item: Expense }
@@ -57,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({
   onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch,
   expenses, incomes, onSelectTransaction
 }) => {
-  const { displayCurrency, setDisplayCurrency, conversionRate, isRateFallback } = useCurrency();
+  const { displayCurrency, conversionRate } = useCurrency();
   const { theme, toggleTheme } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
@@ -272,32 +272,8 @@ const Header: React.FC<HeaderProps> = ({
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
                 )}
               </button>
-              {/* Currency Switcher */}
-              <div className="flex bg-surface-2 border border-app-border rounded-xl p-1">
-                <button
-                  onClick={() => setDisplayCurrency('USD')}
-                  aria-label="Display currency USD"
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${displayCurrency === 'USD' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}
-                >
-                  USD
-                </button>
-                <button
-                  onClick={() => setDisplayCurrency('INR')}
-                  aria-label="Display currency INR"
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${displayCurrency === 'INR' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}
-                >
-                  INR
-                </button>
-              </div>
-              {displayCurrency === 'INR' && isRateFallback && (
-                <span
-                  role="status"
-                  title="Live FX rate unavailable — INR amounts use an approximate fallback rate."
-                  className="inline-flex items-center gap-1 rounded-lg bg-warn/15 text-warn px-2 py-1 text-[10px] font-semibold whitespace-nowrap"
-                >
-                  <ExclamationTriangleIcon className="h-3 w-3" /> Approx FX
-                </span>
-              )}
+              {/* Currency picker (searchable, any supported currency) */}
+              <CurrencyPicker />
 
               {/* Action Buttons Group */}
               <div className="flex items-center gap-2">

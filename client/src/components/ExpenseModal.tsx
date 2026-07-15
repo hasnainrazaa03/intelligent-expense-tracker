@@ -7,7 +7,7 @@ import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { distributeAmount } from '../utils/currencyUtils';
 import { RECURRENCE_META_KEY, RECURRENCE_OPTIONS, getRecurrenceFrequency, type RecurrenceFrequency } from '../utils/recurrence';
-import useInrToUsd from '../hooks/useInrToUsd';
+import useForeignToUsd from '../hooks/useForeignToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label } from './ui';
 
@@ -19,7 +19,7 @@ interface ExpenseModalProps {
 }
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense }) => {
-  const { displayCurrency, conversionRate: parentConversionRate } = useCurrency();
+  const { displayCurrency, conversionRate: parentConversionRate, availableCurrencies } = useCurrency();
   // --- CORE STATE (PRESERVED) ---
   const [title, setTitle] = useState(expense?.title || '');
   const [amount, setAmount] = useState(''); 
@@ -32,11 +32,14 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   
-  const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('USD');
+  // Entry currency: amounts are stored in USD, but the user can enter in a foreign
+  // currency which is converted. `foreignCurrency` is any supported ISO code.
+  const [enterInForeign, setEnterInForeign] = useState(false);
+  const [foreignCurrency, setForeignCurrency] = useState<string>('INR');
   const [originalAmount, setOriginalAmount] = useState('');
-  // Tracks whether the user actually edited the INR field this session. Editing
-  // an existing INR record must NOT silently re-convert its stored USD at today's
-  // rate (H1) — we only recompute USD once the user changes the INR amount.
+  // Tracks whether the user actually edited the foreign field this session.
+  // Editing an existing foreign record must NOT silently re-convert its stored
+  // USD at today's rate (H1) — recompute only once the foreign amount changes.
   const [originalAmountDirty, setOriginalAmountDirty] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly');
@@ -49,24 +52,27 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [receiptFileName, setReceiptFileName] = useState('');
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
 
+  // Reuse the cached display rate only when the entry currency matches it;
+  // otherwise the hook fetches the correct foreign→USD rate itself.
+  const parentRateForForeign = foreignCurrency === displayCurrency ? (parentConversionRate ?? null) : null;
   const {
     convertedAmount,
     rate: conversionRate,
     loading: conversionLoading,
     error: conversionError,
-  } = useInrToUsd(selectedCurrency, originalAmount, parentConversionRate ?? null);
+  } = useForeignToUsd(enterInForeign ? foreignCurrency : 'USD', originalAmount, parentRateForForeign);
 
-  const isAmountUSDReadOnly = selectedCurrency === 'INR';
+  const isAmountUSDReadOnly = enterInForeign;
 
-  // In INR mode the USD amount is derived (read-only); mirror the hook's value
-  // (which is '' when the INR field is cleared or a conversion fails — CMP-H5).
-  // Only after the user edits the INR field, so opening an existing INR record to
-  // edit an unrelated field keeps its original stored USD (H1).
+  // In foreign mode the USD amount is derived (read-only); mirror the hook's value
+  // (which is '' when the field is cleared or a conversion fails — CMP-H5), but
+  // only after the user edits the foreign amount, so opening an existing foreign
+  // record to edit an unrelated field keeps its original stored USD (H1).
   useEffect(() => {
-    if (selectedCurrency === 'INR' && originalAmountDirty) {
+    if (enterInForeign && originalAmountDirty) {
       setAmount(convertedAmount);
     }
-  }, [convertedAmount, selectedCurrency, originalAmountDirty]);
+  }, [convertedAmount, enterInForeign, originalAmountDirty]);
 
   // --- LOGIC: INITIALIZATION ---
   useEffect(() => {
@@ -98,11 +104,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setReceiptFileName(expense.receiptFileName || '');
 
       setOriginalAmountDirty(false);
-      if (expense.originalCurrency === 'INR' && expense.originalAmount) {
-        setSelectedCurrency('INR');
+      if (expense.originalCurrency && expense.originalCurrency !== 'USD' && expense.originalAmount) {
+        setEnterInForeign(true);
+        setForeignCurrency(expense.originalCurrency);
         setOriginalAmount(expense.originalAmount.toString());
       } else {
-        setSelectedCurrency('USD');
+        setEnterInForeign(false);
+        setForeignCurrency(displayCurrency !== 'USD' ? displayCurrency : 'INR');
         setOriginalAmount('');
       }
     } else {
@@ -110,7 +118,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setDate(todayCalendar());
       setPaymentMethod(''); setNotes('');
       setHasManuallySelectedCategory(false);
-      setSelectedCurrency(displayCurrency);
+      setEnterInForeign(false);
+      setForeignCurrency(displayCurrency !== 'USD' ? displayCurrency : 'INR');
       setOriginalAmount(''); setOriginalAmountDirty(false); setIsRecurring(false); setFrequency('monthly');
       setTagsInput('');
       setMetadataInput('');
@@ -123,17 +132,12 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   }, [expense, isOpen, displayCurrency]);
 
   useEffect(() => {
-    // Reset the other amount field when switching to avoid confusion
-    if (selectedCurrency === 'USD') {
+    // Switching back to USD entry clears the foreign amount to avoid confusion.
+    if (!enterInForeign) {
       setOriginalAmount('');
-    } else {
-      // If we have an amount but no originalAmount when switching to INR
-      if (amount && !originalAmount) {
-        // Logic to reverse convert could go here, but usually, 
-        // users prefer starting fresh for a foreign currency entry.
-      }
+      setOriginalAmountDirty(false);
     }
-  }, [selectedCurrency]);
+  }, [enterInForeign]);
 
   // --- LOGIC: AUTO-CATEGORY SUGGESTION ---
   useEffect(() => {
@@ -218,8 +222,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       date,
       paymentMethod: paymentMethod.trim() || 'CASH', // Default to cash if empty
       notes: notes.trim() || undefined,
-      originalAmount: selectedCurrency === 'INR' ? parseFloat(originalAmount) : undefined,
-      originalCurrency: selectedCurrency === 'INR' ? 'INR' : 'USD',
+      originalAmount: enterInForeign ? parseFloat(originalAmount) : undefined,
+      originalCurrency: enterInForeign ? foreignCurrency : 'USD',
       isRecurring,
       tags,
       metadata,
@@ -311,23 +315,35 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               />
             </div>
 
-            {/* Currency Segmented Control */}
+            {/* Entry currency: USD or a foreign currency (converted to USD) */}
             <div>
-              <Label id="exp-currency-label">Currency</Label>
+              <Label id="exp-currency-label">Entry currency</Label>
               <div role="group" aria-labelledby="exp-currency-label" className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
-                  <button type="button" onClick={() => setSelectedCurrency('USD')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'USD' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
-                  <button type="button" onClick={() => setSelectedCurrency('INR')} className={`py-2 rounded-lg text-sm font-semibold transition-all ${selectedCurrency === 'INR' ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>INR (₹)</button>
+                  <button type="button" onClick={() => setEnterInForeign(false)} className={`py-2 rounded-lg text-sm font-semibold transition-all ${!enterInForeign ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
+                  <button type="button" onClick={() => setEnterInForeign(true)} className={`py-2 rounded-lg text-sm font-semibold transition-all ${enterInForeign ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>Other currency</button>
               </div>
           </div>
 
-            {/* Conditional INR Input */}
-            {selectedCurrency === 'INR' && (
-              <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-                <Label htmlFor="exp-inr-amount">Amount in INR</Label>
-                <div className="flex items-center gap-2">
-                  <span className="font-display text-xl text-app-muted">₹</span>
+            {/* Conditional foreign-currency input */}
+            {enterInForeign && (
+              <div className="rounded-xl border border-app-border bg-surface-2 p-4 space-y-3">
+                <div>
+                  <Label htmlFor="exp-foreign-cur">Currency</Label>
+                  <select
+                    id="exp-foreign-cur"
+                    value={foreignCurrency}
+                    onChange={e => { setForeignCurrency(e.target.value); setOriginalAmountDirty(true); }}
+                    className="w-full bg-surface border border-app-border rounded-lg px-3 py-2.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    {availableCurrencies.filter(c => c.code !== 'USD').map(c => (
+                      <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="exp-foreign-amount">Amount in {foreignCurrency}</Label>
                   <input
-                    id="exp-inr-amount"
+                    id="exp-foreign-amount"
                     type="number"
                     value={originalAmount}
                     onChange={e => { setOriginalAmount(e.target.value); setOriginalAmountDirty(true); }}
@@ -336,7 +352,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                     required min="0.01" step="0.01"
                   />
                 </div>
-                <p className="mt-2 text-[11px] text-app-muted">USD equivalent is auto-calculated via the Frankfurter API.</p>
+                <p className="text-[11px] text-app-muted">USD equivalent is auto-calculated via the Frankfurter API.</p>
               </div>
             )}
 
@@ -354,8 +370,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                   {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
               </div>
                 {conversionError && <p role="alert" aria-live="assertive" className="text-xs text-danger font-medium mt-1.5">{conversionError}</p>}
-              {conversionRate && selectedCurrency === 'INR' && (
-                  <p aria-live="polite" className="text-[11px] text-app-muted mt-1.5 tabular-nums">FX: 1 INR = {conversionRate.toFixed(4)} USD</p>
+              {conversionRate && enterInForeign && (
+                  <p aria-live="polite" className="text-[11px] text-app-muted mt-1.5 tabular-nums">FX: 1 {foreignCurrency} = {conversionRate.toFixed(4)} USD</p>
               )}
             </div>
 

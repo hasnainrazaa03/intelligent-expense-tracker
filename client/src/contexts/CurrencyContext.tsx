@@ -1,32 +1,37 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { SUPPORTED_CURRENCIES, CurrencyMeta, isSupportedCurrency } from '../utils/currencies';
 
 interface CurrencyContextValue {
-  /** The currency amounts are displayed in. Stored values are always USD. */
-  displayCurrency: 'USD' | 'INR';
-  setDisplayCurrency: (currency: 'USD' | 'INR') => void;
-  /** USD→INR rate, or null while loading / unavailable. */
+  /** The currency amounts are displayed in (ISO code). Stored values are always USD. */
+  displayCurrency: string;
+  setDisplayCurrency: (currency: string) => void;
+  /** USD→displayCurrency rate (1 for USD), or null while loading / unavailable. */
   conversionRate: number | null;
-  /** True when the rate is the hardcoded last-resort fallback (no live or cached
-   *  rate was obtained) — INR figures are approximate, so the UI can flag them. */
+  /** True when INR is falling back to the hardcoded rate, or a non-USD currency
+   *  has no rate yet — figures are approximate/unavailable, so the UI can flag it. */
   isRateFallback: boolean;
+  /** Currencies offered in the picker. */
+  availableCurrencies: CurrencyMeta[];
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
-const RATE_CACHE_KEY = 'usdToInrRate';
+const RATE_TABLE_KEY = 'usdRateTableV2';
+const DISPLAY_CURRENCY_KEY = 'displayCurrency';
 const ONE_HOUR_MS = 60 * 60 * 1000;
-// Last-resort USD→INR rate so INR display never falls back to "..." when the
-// live FX API is unreachable (blocked network / CORS / offline). Overwritten by
-// the live rate as soon as the fetch succeeds; a cached rate always wins over it.
+// Last-resort USD→INR rate so the historically INR-default users never see "..."
+// when the live FX API is unreachable. Only applies to INR.
 const FALLBACK_USD_INR = 87.5;
 
-const readRateCache = (): { rate: number; timestamp: number } | null => {
+type RateTable = Record<string, number>;
+
+const readRateTable = (): { rates: RateTable; timestamp: number } | null => {
   try {
-    const raw = localStorage.getItem(RATE_CACHE_KEY);
+    const raw = localStorage.getItem(RATE_TABLE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (typeof parsed?.rate === 'number' && Number.isFinite(parsed.rate)) {
-      return { rate: parsed.rate, timestamp: Number(parsed.timestamp) || 0 };
+    if (parsed && typeof parsed.rates === 'object' && parsed.rates) {
+      return { rates: parsed.rates as RateTable, timestamp: Number(parsed.timestamp) || 0 };
     }
   } catch {
     // Corrupt cache — ignore and refetch.
@@ -35,62 +40,59 @@ const readRateCache = (): { rate: number; timestamp: number } | null => {
 };
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [displayCurrency, setDisplayCurrencyState] = useState<'USD' | 'INR'>(() => {
-    const stored = localStorage.getItem('displayCurrency');
-    if (stored === 'USD' || stored === 'INR') return stored;
+  const [displayCurrency, setDisplayCurrencyState] = useState<string>(() => {
+    const stored = localStorage.getItem(DISPLAY_CURRENCY_KEY);
+    if (stored && isSupportedCurrency(stored)) return stored;
     // Default INR for India-timezone users (UTC+5:30), else USD.
     return new Date().getTimezoneOffset() === -330 ? 'INR' : 'USD';
   });
-  // Seed from cache (or the fallback) so INR renders immediately and never as
-  // "..." — the live fetch below refines it.
-  const [conversionRate, setConversionRate] = useState<number | null>(
-    () => readRateCache()?.rate ?? FALLBACK_USD_INR
-  );
-  // Fallback is only in effect when there was no cached rate to seed from. A
-  // cached (even stale) rate is a real market rate, not the hardcoded guess.
-  const [isRateFallback, setIsRateFallback] = useState<boolean>(() => readRateCache() === null);
+  const [rates, setRates] = useState<RateTable | null>(() => readRateTable()?.rates ?? null);
 
-  const setDisplayCurrency = (currency: 'USD' | 'INR') => {
+  const setDisplayCurrency = (currency: string) => {
     setDisplayCurrencyState(currency);
-    localStorage.setItem('displayCurrency', currency);
+    localStorage.setItem(DISPLAY_CURRENCY_KEY, currency);
   };
 
-  // Fetch the USD→INR rate (1h cache). Guards every parse and validates the rate
-  // so INR amounts can never render as ₹NaN.
+  // Fetch the whole USD→* table in one request (1h cache). One fetch covers every
+  // currency, so switching the display currency is instant and offline-tolerant.
   useEffect(() => {
-    const fetchRate = async () => {
-      const cached = readRateCache();
+    const fetchRates = async () => {
+      const cached = readRateTable();
       if (cached && Date.now() - cached.timestamp < ONE_HOUR_MS) {
-        setConversionRate(cached.rate);
-        setIsRateFallback(false);
+        setRates(cached.rates);
         return;
       }
       try {
-        const response = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR');
-        if (!response.ok) throw new Error('Failed to fetch rate');
+        const response = await fetch('https://api.frankfurter.app/latest?from=USD');
+        if (!response.ok) throw new Error('Failed to fetch rates');
         const data = await response.json();
-        const rate = data?.rates?.INR;
-        if (typeof rate !== 'number' || !Number.isFinite(rate)) {
-          throw new Error('Unexpected rate response shape');
-        }
-        setConversionRate(rate);
-        setIsRateFallback(false);
-        localStorage.setItem(RATE_CACHE_KEY, JSON.stringify({ rate, timestamp: Date.now() }));
+        if (!data?.rates || typeof data.rates !== 'object') throw new Error('Unexpected rate response shape');
+        setRates(data.rates);
+        localStorage.setItem(RATE_TABLE_KEY, JSON.stringify({ rates: data.rates, timestamp: Date.now() }));
       } catch (error) {
-        console.error('Could not fetch conversion rate:', error);
-        // Keep the cached rate if we have one (a real, if stale, rate); otherwise
-        // the state already holds the hardcoded fallback so INR stays usable.
-        if (cached) {
-          setConversionRate(cached.rate);
-          setIsRateFallback(false);
-        }
+        console.error('Could not fetch conversion rates:', error);
+        if (cached) setRates(cached.rates); // keep the stale-but-real table
       }
     };
-    fetchRate();
+    fetchRates();
   }, []);
 
+  const conversionRate = useMemo<number | null>(() => {
+    if (displayCurrency === 'USD') return 1;
+    const live = rates?.[displayCurrency];
+    if (typeof live === 'number' && Number.isFinite(live)) return live;
+    if (displayCurrency === 'INR') return FALLBACK_USD_INR;
+    return null;
+  }, [rates, displayCurrency]);
+
+  const isRateFallback = useMemo<boolean>(() => {
+    if (displayCurrency === 'USD') return false;
+    const live = rates?.[displayCurrency];
+    return !(typeof live === 'number' && Number.isFinite(live));
+  }, [rates, displayCurrency]);
+
   return (
-    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, conversionRate, isRateFallback }}>
+    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, conversionRate, isRateFallback, availableCurrencies: SUPPORTED_CURRENCIES }}>
       {children}
     </CurrencyContext.Provider>
   );
