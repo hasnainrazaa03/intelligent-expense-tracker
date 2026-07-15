@@ -280,6 +280,14 @@ Both should complete without TypeScript errors.
 - Render (backend): set Root Directory to `server`, build command `npm install --include=dev && npm run build`, start command `npm run start`.
 - Backend now binds to `0.0.0.0` via `HOST` (defaults safely), and uses `PORT` from environment.
 
+**Required production environment (the server fails fast or warns loudly otherwise):**
+- `NODE_ENV=production` — **required**. Only in production are session cookies `Secure` + `SameSite=None` and is CORS locked to the strict allowlist. Without it the app runs in an insecure dev posture and logs a `[SECURITY]` warning.
+- `TRUST_PROXY` — **must be set explicitly in production** (the server refuses to boot otherwise). Use `TRUST_PROXY=1` behind exactly one reverse proxy (Render/Heroku/nginx) so `req.ip` is the real client and IP rate limits work; use `TRUST_PROXY=false` only if the process is directly exposed. Defaulting to trust would let a client spoof `X-Forwarded-For` and bypass the login/OTP limiters.
+- `FRONTEND_URL` — comma-separated allowlist of production origins for CORS.
+- Secrets (`DATABASE_URL`, `JWT_SECRET` ≥32 chars, `GEMINI_API_KEY`, `RESEND_API_KEY`) must come from the platform's secret store, not a checked-out `.env`.
+
+**Health probes:** `GET /health` is a cheap liveness check; `GET /health/ready` also pings MongoDB and returns `503` when the DB is unreachable (use it for the load-balancer readiness probe). Audit events are emitted to stdout (captured by the platform log aggregator) in addition to the best-effort local `logs/audit.log`.
+
 ---
 
 ## 🎨 Design — Cosmic Dark ("Orbit")
