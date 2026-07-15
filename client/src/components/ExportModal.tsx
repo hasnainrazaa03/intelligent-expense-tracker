@@ -12,6 +12,7 @@ import {
   ClipboardDocumentListIcon
 } from './Icons'; // Swapped to icons already in your project
 import { Modal, Button, Label } from './ui';
+import BankStatementImport from './BankStatementImport';
 
 export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
 
@@ -441,6 +442,13 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             >
               {isImporting ? 'Importing…' : 'Import CSV'}
             </Button>
+
+            <BankStatementImport
+              onImport={(expenses) => {
+                onImport(expenses);
+                toast(`Imported ${expenses.length} transaction(s) from your bank statement.`);
+              }}
+            />
 
             <div className="relative flex items-center justify-center py-1">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-app-border" /></div>
