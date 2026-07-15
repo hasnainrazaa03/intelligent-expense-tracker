@@ -69,6 +69,39 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 
 ---
 
+## Remaining work — why it isn't auto-completed
+
+Everything safely completable client-side without external services or a risky
+data migration has shipped (PRs #49–#58). What's left falls into three buckets
+that each need a deliberate decision:
+
+1. **Needs a DB schema + data migration (deploy-affecting):**
+   - **A4 money-as-integer-cents** — the highest-value remaining *fix*, but it
+     rewrites `Float` → `Int` across the Prisma schema, every server route, and
+     all client math, and requires migrating existing stored amounts. Must be its
+     own isolated, heavily-tested effort with a one-time data migration.
+   - **B9 net-worth persistence** and **B11 shared/household accounts** also add
+     models (and, for #11, an invite/roles/auth surface).
+
+2. **Needs external credentials/infra to build *and verify*:**
+   - **B3 scheduled PDF email**, **B6 push/email alerts** — need a live
+     `RESEND_API_KEY` + a scheduler/cron and Web-Push keys. Code can be written
+     but not verified end-to-end here.
+   - **A6 Redis** rate-limit/audit store, **B12 receipt image** blob storage.
+
+3. **Large/again-risky client efforts:** **B10 offline write queue** (IndexedDB
+   replay + conflict handling).
+
+Also process-only: **A5** comprehensive keyboard-a11y audit and the
+user-triggered **`/security-review`** (cannot be self-run). Bank-import E2E
+landed in #58; AI/tuition E2E remain.
+
+**Recommended next:** schedule **A4 (money-as-cents)** as a focused migration —
+it's the last substantive correctness item and everything else is either infra-
+gated or a larger product build.
+
+---
+
 ## Section C — Go-live checklist (deploy config)
 
 - [ ] `NODE_ENV=production` on the backend (enables Secure/SameSite=None cookies + strict CORS).
