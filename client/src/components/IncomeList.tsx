@@ -71,7 +71,7 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
                 className="bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             ) : (
-              <h4 className="font-display text-sm md:text-base font-semibold leading-tight text-app-text truncate" onDoubleClick={() => setIsInlineEditing(true)}>{income.title}</h4>
+              <h4 className="font-display text-sm md:text-base font-semibold leading-tight text-app-text truncate" onDoubleClick={() => { displayCurrency === 'USD' ? setIsInlineEditing(true) : onEdit(income); }}>{income.title}</h4>
             )}
             <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mt-1.5">
               <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-ok/15 text-ok">
@@ -94,7 +94,7 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
                 className="w-28 bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             ) : (
-              <p className="font-display text-lg md:text-xl font-bold text-ok leading-none tabular-nums cursor-default" onDoubleClick={() => setIsInlineEditing(true)}>
+              <p className="font-display text-lg md:text-xl font-bold text-ok leading-none tabular-nums cursor-default" onDoubleClick={() => { displayCurrency === 'USD' ? setIsInlineEditing(true) : onEdit(income); }}>
                 +{formatCurrency(income.amount, displayCurrency, conversionRate)}
               </p>
             )}

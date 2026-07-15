@@ -25,6 +25,9 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
 
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('USD');
   const [originalAmount, setOriginalAmount] = useState('');
+  // See ExpenseModal: don't re-convert a stored INR record's USD at today's rate
+  // unless the user actually edits the INR amount (H1).
+  const [originalAmountDirty, setOriginalAmountDirty] = useState(false);
 
   const {
     convertedAmount,
@@ -35,12 +38,13 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
 
   const isAmountUSDReadOnly = selectedCurrency === 'INR';
 
-  // Mirror the derived USD amount in INR mode ('' when cleared/failed — CMP-H5).
+  // Mirror the derived USD amount in INR mode ('' when cleared/failed — CMP-H5),
+  // but only after the user edits the INR field (H1).
   useEffect(() => {
-    if (selectedCurrency === 'INR') {
+    if (selectedCurrency === 'INR' && originalAmountDirty) {
       setAmount(convertedAmount);
     }
-  }, [convertedAmount, selectedCurrency]);
+  }, [convertedAmount, selectedCurrency, originalAmountDirty]);
 
   const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -62,6 +66,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
               .join('\n')
           : ''
       );
+      setOriginalAmountDirty(false);
       if (income.originalCurrency === 'INR' && income.originalAmount) {
         setSelectedCurrency('INR');
         setOriginalAmount(income.originalAmount.toString());
@@ -70,15 +75,16 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
         setOriginalAmount('');
       }
     } else {
-      setTitle(''); 
-      setAmount(''); 
+      setTitle('');
+      setAmount('');
       setCategory(INCOME_CATEGORIES[0]);
       setDate(todayCalendar());
-      setNotes(''); 
+      setNotes('');
       setTagsInput('');
       setMetadataInput('');
-      setSelectedCurrency(displayCurrency); 
+      setSelectedCurrency(displayCurrency);
       setOriginalAmount('');
+      setOriginalAmountDirty(false);
     }
   }, [income, isOpen, displayCurrency]);
 
@@ -180,7 +186,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
                           id="income-inr-amount"
                           type="number"
                           value={originalAmount}
-                          onChange={e => setOriginalAmount(e.target.value)}
+                          onChange={e => { setOriginalAmount(e.target.value); setOriginalAmountDirty(true); }}
                           placeholder="0.00"
                           className="w-full bg-surface border border-app-border rounded-lg px-3 py-2.5 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                           required step="0.01"

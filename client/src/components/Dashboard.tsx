@@ -13,7 +13,7 @@ import { getCategoryColor, getMainCategory } from '../utils/colorUtils';
 import { CalendarDaysIcon, TagIcon, TrendingUpIcon, BanknotesIcon } from './Icons';
 import { startOfMonth, endOfMonth, isWithinRange, addMonths, parseCalendarDate, monthKey } from '../utils/dateUtils';
 import { formatCurrency } from '../utils/currencyUtils';
-import { computeBudgetSpend } from '../utils/budgetUtils';
+import { computeBudgetSpend, computeTotalBudgetedSpend } from '../utils/budgetUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
 import SectionSkeleton from './SectionSkeleton';
 
@@ -143,6 +143,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const budgetPerformanceData = useMemo(() => {
     if (budgets.length === 0) return [];
     const totalMonthlyBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
+    const budgetCategories = budgets.map((b) => b.category);
     const data: { name: string; spent: number; budgeted: number }[] = [];
     const now = new Date();
 
@@ -153,9 +154,12 @@ const Dashboard: React.FC<DashboardProps> = ({
         const key = monthKey(`${monthRef.getFullYear()}-${String(monthRef.getMonth() + 1).padStart(2, '0')}-01`);
         const monthName = monthRef.toLocaleString('en-US', { month: 'short' });
         const yearShort = monthRef.getFullYear().toString().slice(-2);
-        const totalSpent = allExpenses
-            .filter((exp) => monthKey(exp.date) === key)
-            .reduce((sum, exp) => sum + exp.amount, 0);
+        const monthExpenses = allExpenses.filter((exp) => monthKey(exp.date) === key);
+        // Compare like-for-like: only spend on budgeted categories vs the budget
+        // total. Summing ALL spend (incl. unbudgeted categories) against a partial
+        // budget produced fake overruns (e.g. unbudgeted rent showing 500% of a
+        // food-only budget). Consistent with BudgetTracker / Reports.
+        const totalSpent = computeTotalBudgetedSpend(budgetCategories, monthExpenses);
         data.push({ name: `${monthName} '${yearShort}`, spent: totalSpent, budgeted: totalMonthlyBudget });
     }
     return data;

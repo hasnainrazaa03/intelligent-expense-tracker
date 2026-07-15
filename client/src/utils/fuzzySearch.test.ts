@@ -13,4 +13,18 @@ describe('fuzzyMatch', () => {
   it('returns false for unrelated text', () => {
     expect(fuzzyMatch('tuition', 'Ride Share')).toBe(false);
   });
+
+  it('matches a multi-word query with a typo per token', () => {
+    // Regression: previously the whole "coffe beans" was compared to single
+    // words and never matched.
+    expect(fuzzyMatch('coffe beans', 'Coffee Beans', 2)).toBe(true);
+  });
+
+  it('requires every query token to match', () => {
+    expect(fuzzyMatch('coffee tuition', 'Coffee Beans', 2)).toBe(false);
+  });
+
+  it('still matches an exact multi-word phrase', () => {
+    expect(fuzzyMatch('rent payment', 'Monthly Rent Payment')).toBe(true);
+  });
 });
