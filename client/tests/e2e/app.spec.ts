@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 
 // Authenticated flows — the project supplies a pre-authenticated storageState,
 // so each test starts logged in (no per-test login → no rate-limit trips).
@@ -89,4 +90,9 @@ test('bank statement CSV maps columns and previews the import', async ({ page })
   // Auto-detected mapping + credit-skipping: 3 debits ready, 1 credit skipped.
   await expect(dialog.getByText(/3 transaction\(s\) ready · 1 skipped/)).toBeVisible();
   await expect(dialog.getByRole('button', { name: /Import 3 expenses/ })).toBeEnabled();
+});
+
+test('dashboard has no WCAG A/AA accessibility violations', async ({ page }) => {
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(results.violations).toEqual([]);
 });

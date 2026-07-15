@@ -49,7 +49,10 @@
   --text: #f3f1fb;
   --muted: #a19fc0;
   --faint: #6f6c8e;
-  --primary: #8b7ff6;
+  /* Deepened from #8b7ff6 so white text on primary buttons meets WCAG AA
+     (4.5:1) — the lighter shade was 3.26:1. Same indigo hue; used for the glow
+     too. Revert to #8b7ff6 if you prefer the brighter accent over strict AA. */
+  --primary: #6d5cf0;
   --primary-soft: rgba(139, 127, 246, 0.16);
   --on-primary: #ffffff;
   --success: #34d399;

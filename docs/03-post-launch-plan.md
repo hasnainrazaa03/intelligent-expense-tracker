@@ -92,9 +92,9 @@ that each need a deliberate decision:
 3. **Large/again-risky client efforts:** **B10 offline write queue** (IndexedDB
    replay + conflict handling).
 
-Also process-only: **A5** comprehensive keyboard-a11y audit and the
-user-triggered **`/security-review`** (cannot be self-run). Bank-import E2E
-landed in #58; AI/tuition E2E remain.
+**A5 a11y:** an axe (WCAG 2 A/AA) scan now runs in E2E and passes on the landing
+and dashboard (PR #63) — fixed an unlabeled select and deepened the dark-mode
+accent to meet 4.5:1. The user-triggered **`/security-review`** still can't be self-run.
 
 **Recommended next:** schedule **A4 (money-as-cents)** as a focused migration —
 it's the last substantive correctness item and everything else is either infra-
