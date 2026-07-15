@@ -521,8 +521,8 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           <p className="font-display text-lg font-bold text-app-text tabular-nums">Est. position: {formatCurrency(netWorth, displayCurrency, conversionRate)}</p>
           <p className="text-[11px] text-app-muted mt-1">This month's net cash flow + portfolio value (not full net worth).</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
-            <input value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} className={fieldCls} placeholder="Account" />
-            <select value={newAccountType} onChange={(e) => setNewAccountType(e.target.value as InvestmentAccount['type'])} className={fieldCls}>
+            <input value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} className={fieldCls} placeholder="Account" aria-label="Account name" />
+            <select value={newAccountType} onChange={(e) => setNewAccountType(e.target.value as InvestmentAccount['type'])} className={fieldCls} aria-label="Account type">
               <option value="cash">Cash</option>
               <option value="brokerage">Brokerage</option>
               <option value="crypto">Crypto</option>
