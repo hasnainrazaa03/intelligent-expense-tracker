@@ -21,7 +21,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
 
     // Validate that the payload contains the required fields
     if (!payload || !payload.id || !payload.email) {

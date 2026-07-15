@@ -20,11 +20,18 @@ const getUserRateLimitKey = (req: Request): string | null => {
   if (!token) return null;
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { id?: string };
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { id?: string };
     return payload?.id ? `user:${payload.id}` : null;
   } catch {
     return null;
   }
+};
+
+// Prefer a per-user key so many users behind one NAT (e.g. a campus egress IP)
+// don't share a single bucket; fall back to IP for unauthenticated traffic.
+const perUserOrIpKey = (req: Request): string => {
+  const userKey = getUserRateLimitKey(req);
+  return userKey || ipKeyGenerator(req.ip || 'unknown-ip');
 };
 
 // Auth endpoints: 10 requests per 15 minutes per IP
@@ -72,12 +79,15 @@ export const aiLimiter = rateLimit({
   message: { message: 'AI analysis rate limit reached. Please try again later.' },
 });
 
-// General API: 100 requests per minute
+// General API: 300 requests per minute, keyed per-user when authenticated so a
+// shared campus/NAT IP isn't throttled collectively (unauthenticated traffic
+// still keys by IP). The stricter per-route userApiLimiter is the real per-user cap.
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: perUserOrIpKey,
   message: { message: 'Too many requests. Please slow down.' },
 });
 
@@ -87,9 +97,6 @@ export const userApiLimiter = rateLimit({
   max: 180,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    const userKey = getUserRateLimitKey(req);
-    return userKey || ipKeyGenerator(req.ip || 'unknown-ip');
-  },
+  keyGenerator: perUserOrIpKey,
   message: { message: 'Per-user rate limit reached. Please try again shortly.' },
 });
