@@ -44,6 +44,28 @@ export const sendVerificationEmail = async (email: string, otp: string) => {
   }
 };
 
+// Generic transactional email (reports, alerts). Returns a NOT_CONFIGURED error
+// rather than throwing when the mail provider isn't set up, so callers can
+// degrade gracefully instead of 500-ing.
+export const sendGenericEmail = async (
+  to: string,
+  subject: string,
+  html: string,
+  text: string
+): Promise<{ success: boolean; error?: unknown }> => {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    return { success: false, error: 'EMAIL_NOT_CONFIGURED' };
+  }
+  try {
+    const { error } = await resend.emails.send({ from: process.env.EMAIL_FROM, to, subject, html, text });
+    if (error) return { success: false, error };
+    return { success: true };
+  } catch (err) {
+    console.error('Resend internal error:', err);
+    return { success: false, error: err };
+  }
+};
+
 export const sendPasswordResetEmail = async (email: string, resetCode: string) => {
   try {
     if (!process.env.RESEND_API_KEY) {

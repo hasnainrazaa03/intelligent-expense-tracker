@@ -4,6 +4,7 @@ import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { Button, Card } from './ui';
+import SpendingBarChart from './SpendingBarChart';
 
 const SAVINGS_GOALS_KEY = 'savingsGoalsV2';
 const PAUSED_RECURRING_KEY = 'pausedRecurringTemplates';
@@ -313,6 +314,23 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
 
   const settleUpTotal = useMemo(() => settleUp.reduce((s, r) => s + r.amount, 0), [settleUp]);
 
+  // Historical net-worth estimate: cumulative (income − expense) up to each
+  // month's end, plus the current portfolio value as a baseline. Gives an
+  // immediate 6-month curve from real transaction history (no waiting for
+  // month-over-month snapshots to accumulate).
+  const netWorthTrend = useMemo(() => {
+    const data: { label: string; amount: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const ref = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+      const cutoff = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth() + 1).padStart(2, '0')}-${String(monthEnd.getDate()).padStart(2, '0')}`;
+      const inc = incomes.filter((x) => x.date <= cutoff).reduce((s, x) => s + Number(x.amount), 0);
+      const exp = expenses.filter((x) => x.date <= cutoff).reduce((s, x) => s + Number(x.amount), 0);
+      data.push({ label: ref.toLocaleString('en-US', { month: 'short', year: '2-digit' }), amount: inc - exp + totalInvestments });
+    }
+    return data;
+  }, [expenses, incomes, totalInvestments, now]);
+
   const forecast30d = useMemo(() => {
     const last30Start = new Date();
     last30Start.setDate(last30Start.getDate() - 30);
@@ -484,6 +502,17 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           <p className="text-[11px] text-app-muted mt-2.5">Summed from each expense's split shares (participants other than you).</p>
         </div>
       )}
+
+      <div className={cardCls}>
+        <div className="flex items-center justify-between mb-3">
+          <p className={`${subLabelCls} mb-0`}>Net-worth trend · 6-month</p>
+          <span className="text-xs font-semibold text-app-text tabular-nums">{formatCurrency(netWorth, displayCurrency, conversionRate)}</span>
+        </div>
+        <div className="h-40 md:h-44">
+          <SpendingBarChart data={netWorthTrend} />
+        </div>
+        <p className="text-[11px] text-app-muted mt-2">Cumulative cash flow plus current portfolio value — an estimate, not audited net worth.</p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={cardCls}>
