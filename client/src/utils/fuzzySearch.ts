@@ -42,26 +42,29 @@ function levenshteinDistance(a: string, b: string): number {
  * @returns True if a fuzzy match is found, false otherwise.
  */
 export function fuzzyMatch(query: string, text: string, threshold: number = 2): boolean {
-    const queryLower = query.toLowerCase();
+    const queryLower = query.toLowerCase().trim();
     const textLower = text.toLowerCase();
+    if (!queryLower) return false;
 
-    // Direct inclusion is the fastest check and should be prioritized.
+    // Direct inclusion is the fastest check and should be prioritized (this also
+    // covers the whole-phrase match, e.g. "rent payment").
     if (textLower.includes(queryLower)) {
         return true;
     }
 
-    // For very short queries, Levenshtein is not very effective.
-    if (query.length < 3) {
-        return textLower.includes(queryLower);
-    }
-    
-    // Split text into words and check each word against the query.
-    const words = textLower.split(/\s+/);
-    for (const word of words) {
-        if (levenshteinDistance(queryLower, word) <= threshold) {
-            return true;
+    // Match per-token: every word in the query must fuzzy-match some word in the
+    // text. Previously the full multi-word query was compared against single text
+    // words, so any typo in a multi-word search (e.g. "coffe beans") never matched.
+    const textWords = textLower.split(/\s+/).filter(Boolean);
+    const queryTokens = queryLower.split(/\s+/).filter(Boolean);
+
+    return queryTokens.every((token) => {
+        // Short tokens: Levenshtein is noisy, so require a substring hit.
+        if (token.length < 3) {
+            return textWords.some((word) => word.includes(token));
         }
-    }
-    
-    return false;
+        return textWords.some(
+            (word) => word.includes(token) || levenshteinDistance(token, word) <= threshold
+        );
+    });
 }

@@ -5,6 +5,7 @@ import { CATEGORIES, PAYMENT_METHODS } from '../constants';
 import { ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
+import { distributeAmount } from '../utils/currencyUtils';
 import useInrToUsd from '../hooks/useInrToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label } from './ui';
@@ -31,7 +32,11 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('USD');
-  const [originalAmount, setOriginalAmount] = useState(''); 
+  const [originalAmount, setOriginalAmount] = useState('');
+  // Tracks whether the user actually edited the INR field this session. Editing
+  // an existing INR record must NOT silently re-convert its stored USD at today's
+  // rate (H1) — we only recompute USD once the user changes the INR amount.
+  const [originalAmountDirty, setOriginalAmountDirty] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [tagsInput, setTagsInput] = useState('');
   const [metadataInput, setMetadataInput] = useState('');
@@ -53,11 +58,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
   // In INR mode the USD amount is derived (read-only); mirror the hook's value
   // (which is '' when the INR field is cleared or a conversion fails — CMP-H5).
+  // Only after the user edits the INR field, so opening an existing INR record to
+  // edit an unrelated field keeps its original stored USD (H1).
   useEffect(() => {
-    if (selectedCurrency === 'INR') {
+    if (selectedCurrency === 'INR' && originalAmountDirty) {
       setAmount(convertedAmount);
     }
-  }, [convertedAmount, selectedCurrency]);
+  }, [convertedAmount, selectedCurrency, originalAmountDirty]);
 
   // --- LOGIC: INITIALIZATION ---
   useEffect(() => {
@@ -84,6 +91,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setReceiptText(expense.receiptText || '');
       setReceiptFileName(expense.receiptFileName || '');
 
+      setOriginalAmountDirty(false);
       if (expense.originalCurrency === 'INR' && expense.originalAmount) {
         setSelectedCurrency('INR');
         setOriginalAmount(expense.originalAmount.toString());
@@ -97,7 +105,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setPaymentMethod(''); setNotes('');
       setHasManuallySelectedCategory(false);
       setSelectedCurrency(displayCurrency);
-      setOriginalAmount(''); setIsRecurring(false);
+      setOriginalAmount(''); setOriginalAmountDirty(false); setIsRecurring(false);
       setTagsInput('');
       setMetadataInput('');
       setTaxCategory('');
@@ -187,8 +195,10 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       .map((name) => name.trim())
       .filter(Boolean)
       .slice(0, 20);
+    // Cent-accurate split so the shares sum back to the exact total (no penny
+    // leak: $100 / 3 => [33.34, 33.33, 33.33], not 3×33.33 = 99.99).
     const splitShares = splitParticipants.length > 0
-      ? splitParticipants.map(() => Number((finalAmount / splitParticipants.length).toFixed(2)))
+      ? distributeAmount(finalAmount, splitParticipants.length)
       : [];
 
     const expenseData = {
@@ -310,7 +320,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                     id="exp-inr-amount"
                     type="number"
                     value={originalAmount}
-                    onChange={e => setOriginalAmount(e.target.value)}
+                    onChange={e => { setOriginalAmount(e.target.value); setOriginalAmountDirty(true); }}
                     placeholder="0.00"
                     className="w-full bg-surface border border-app-border rounded-lg px-3 py-2.5 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                     required min="0.01" step="0.01"
