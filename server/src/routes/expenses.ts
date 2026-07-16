@@ -262,6 +262,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
         userId: userId,
       },
     });
+    // Clean up any attached receipt image (no FK cascade to the Receipt store).
+    await prisma.receipt.deleteMany({ where: { expenseId, userId } });
 
     await writeAuditLog({
       action: 'expense_delete',
@@ -372,6 +374,46 @@ router.post('/bulk', async (req: Request, res: Response) => {
     console.error('Failed to bulk create expenses:', error);
     res.status(500).json({ message: 'Failed to import expenses' });
   }
+});
+
+// --- Receipt image (stored in a separate collection so it stays out of /all) ---
+const MAX_RECEIPT_BYTES = 3_000_000; // ~3MB data URL
+
+// PUT /api/expenses/:id/receipt — upsert the receipt image for an owned expense
+router.put('/:id/receipt', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const expenseId = req.params.id;
+  const image = req.body?.image;
+  if (typeof image !== 'string' || !image.startsWith('data:image/')) {
+    return res.status(400).json({ message: 'A valid image data URL is required.' });
+  }
+  if (image.length > MAX_RECEIPT_BYTES) {
+    return res.status(413).json({ message: 'Receipt image is too large.' });
+  }
+  const owned = await prisma.expense.findFirst({ where: { id: expenseId, userId }, select: { id: true } });
+  if (!owned) return res.status(404).json({ message: 'Expense not found.' });
+
+  await prisma.receipt.upsert({
+    where: { expenseId },
+    update: { image },
+    create: { expenseId, userId, image },
+  });
+  res.json({ message: 'Receipt saved.' });
+});
+
+// GET /api/expenses/:id/receipt — fetch the receipt image (owner only)
+router.get('/:id/receipt', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const receipt = await prisma.receipt.findFirst({ where: { expenseId: req.params.id, userId }, select: { image: true } });
+  if (!receipt) return res.status(404).json({ message: 'No receipt attached.' });
+  res.json({ image: receipt.image });
+});
+
+// DELETE /api/expenses/:id/receipt — remove the receipt image
+router.delete('/:id/receipt', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  await prisma.receipt.deleteMany({ where: { expenseId: req.params.id, userId } });
+  res.json({ message: 'Receipt removed.' });
 });
 
 export default router;

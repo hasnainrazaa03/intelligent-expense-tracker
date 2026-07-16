@@ -144,3 +144,13 @@ model HouseholdMember {
   @@index([userId])
   @@index([invitedEmail])
 }
+
+model Receipt {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  expenseId String   @unique @db.ObjectId
+  userId    String   @db.ObjectId
+  // Downscaled JPEG as a data URL (kept out of the /all payload so lists stay lean).
+  image     String
+  createdAt DateTime @default(now())
+  @@index([userId])
+}

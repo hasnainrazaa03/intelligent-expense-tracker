@@ -67,7 +67,7 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 9. [~] **Net-worth trend (M)** — 6-month net-worth curve from transaction history + portfolio. Server-persisted accounts still open. — promote localStorage-only investment snapshots to real accounts + historical net-worth trend.
 10. [x] **Offline write-queue (M)** *(PR #67)* — expenses added offline are queued in IndexedDB, shown optimistically, and auto-replay on reconnect, with an offline/syncing header pill.
 11. [x] **Shared/household accounts (L)** — settle-up (#61), household foundation (#65), and **shared expense pooling (#66)**: tag an expense to a household, and a members-only pooled view with equal-split settle-up (who owes / is owed). Cross-user reads are membership-gated; tagging into a household you're not in is rejected. Verified with two real users.
-12. [ ] **Receipt image storage + gallery (M)** — OCR already extracts text; retain the image blob.
+12. [x] **Receipt image storage (M)** *(PR #68)* — downscaled receipt images stored in a separate collection (out of /all), attached/viewed/removed on an expense, cascade-deleted with it.
 
 ---
 
