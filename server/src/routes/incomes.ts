@@ -6,6 +6,7 @@ import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText } from '../utils/sanitize';
 import { normalizeTags, normalizeMetadata } from '../utils/normalize';
+import { toCents, incomeToClient } from '../utils/money';
 
 const router = Router();
 
@@ -55,11 +56,11 @@ router.post('/', async (req: Request, res: Response) => {
     const newIncome = await prisma.income.create({
       data: {
         title: safeTitle,
-        amount: toFinPrecision(parsedAmount),
+        amount: toCents(toFinPrecision(parsedAmount)),
         category: safeCategory,
         date: parsedDate,
         notes: safeNotes || undefined,
-        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
+        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
         originalCurrency: originalCurrency || undefined,
         tags: safeTags,
         metadata: safeMetadata,
@@ -68,7 +69,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     res.status(201).json({
-      ...newIncome,
+      ...incomeToClient(newIncome),
       date: newIncome.date.toISOString().split('T')[0]
     });
   } catch (error) {
@@ -121,11 +122,11 @@ router.put('/:id', async (req: Request, res: Response) => {
       },
       data: {
         title: safeTitle,
-        amount: toFinPrecision(parsedAmount),
+        amount: toCents(toFinPrecision(parsedAmount)),
         category: safeCategory,
         date: parsedDate,
         notes: safeNotes || undefined,
-        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
+        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
         originalCurrency: originalCurrency || undefined,
         tags: safeTags,
         metadata: safeMetadata,
@@ -133,7 +134,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
 
     res.json({
-      ...updatedIncome,
+      ...incomeToClient(updatedIncome),
       date: updatedIncome.date.toISOString().split('T')[0]
     });
   } catch (error: any) {

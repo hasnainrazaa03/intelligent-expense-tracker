@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { sendGenericEmail } from '../utils/mailer';
 import { writeAuditLog } from '../utils/audit';
 import { sendError } from '../utils/http';
+import { toDollars } from '../utils/money';
 
 const router = Router();
 router.use(authMiddleware);
@@ -20,10 +21,13 @@ router.post('/email-summary', async (req: Request, res: Response) => {
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const monthLabel = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
-    const [expenses, incomes] = await Promise.all([
+    const [rawExpenses, rawIncomes] = await Promise.all([
       prisma.expense.findMany({ where: { userId }, select: { amount: true, category: true, date: true } }),
       prisma.income.findMany({ where: { userId }, select: { amount: true, date: true } }),
     ]);
+    // DB stores integer cents; convert to dollars for the summary math.
+    const expenses = rawExpenses.map((e) => ({ ...e, amount: toDollars(e.amount) }));
+    const incomes = rawIncomes.map((i) => ({ ...i, amount: toDollars(i.amount) }));
 
     const inMonth = (d: Date) => d.toISOString().slice(0, 7) === monthPrefix;
     const monthExpenses = expenses.filter((e) => inMonth(e.date));

@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { Semester } from '../types';
 import { toFinPrecision, parseFiniteFloat } from '../utils/math';
+import { toCents, semesterToClient } from '../utils/money';
 
 const router = Router();
 router.use(authMiddleware);
@@ -28,7 +29,7 @@ router.post('/', async (req: Request, res: Response) => {
   // no-op instead of letting the trailing deleteMany wipe every semester (SRV-H2).
   if (incomingSemesters.length === 0) {
     const current = await prisma.semester.findMany({ where: { userId }, include: { installments: true } });
-    return res.status(200).json(current);
+    return res.status(200).json(current.map(semesterToClient));
   }
 
   // Validate each semester has required fields
@@ -64,11 +65,11 @@ router.post('/', async (req: Request, res: Response) => {
           data: {
             id: incoming.id,
             name: incoming.name.trim(),
-            totalTuition: toFinPrecision(parsedTuition),
+            totalTuition: toCents(toFinPrecision(parsedTuition)),
             userId: userId,
             installments: {
               create: incoming.installments.map(inst => ({
-                amount: toFinPrecision(parseFiniteFloat(inst.amount as any) ?? 0),
+                amount: toCents(toFinPrecision(parseFiniteFloat(inst.amount as any) ?? 0)),
                 status: inst.status || 'unpaid',
                 expenseId: inst.expenseId || null,
                 paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
@@ -82,7 +83,7 @@ router.post('/', async (req: Request, res: Response) => {
           where: { id_internal: existing.id_internal },
           data: {
             name: incoming.name.trim(),
-            totalTuition: toFinPrecision(parsedTuition)
+            totalTuition: toCents(toFinPrecision(parsedTuition))
           }
         });
 
@@ -106,7 +107,7 @@ router.post('/', async (req: Request, res: Response) => {
         // B. Upsert current installments
         for (const inst of incoming.installments) {
           const installmentData = {
-            amount: toFinPrecision(parseFiniteFloat(inst.amount as any) ?? 0),
+            amount: toCents(toFinPrecision(parseFiniteFloat(inst.amount as any) ?? 0)),
             status: inst.status || 'unpaid',
             expenseId: inst.expenseId || null,
             paidDate: inst.paidDate ? new Date(inst.paidDate) : null,
@@ -147,7 +148,7 @@ router.post('/', async (req: Request, res: Response) => {
       include: { installments: true }
     });
 
-    res.status(200).json(updatedData);
+    res.status(200).json(updatedData.map(semesterToClient));
 
   } catch (error: any) {
     console.error('SEMESTER_RECONCILIATION_CRITICAL_FAILURE:', error);

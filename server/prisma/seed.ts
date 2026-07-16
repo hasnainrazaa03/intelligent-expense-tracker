@@ -31,7 +31,7 @@ async function main() {
   await prisma.budget.create({
     data: {
       category: 'Food',
-      amount: 500,
+      amount: 50000, // $500 in integer cents
       userId: user.id,
     },
   });
@@ -40,7 +40,7 @@ async function main() {
   await prisma.expense.create({
     data: {
       title: 'Trader Joes Run',
-      amount: 85.50,
+      amount: 8550, // $85.50 in integer cents
       category: 'Food',
       date: new Date(),
       userId: user.id,
@@ -50,7 +50,7 @@ async function main() {
   await prisma.income.create({
     data: {
       title: 'Monthly Stipend',
-      amount: 2000,
+      amount: 200000, // $2,000 in integer cents
       category: 'Scholarship',
       date: new Date(),
       userId: user.id,
@@ -63,14 +63,14 @@ async function main() {
     data: {
       id: 'fall-2025',
       name: 'Fall 2025',
-      totalTuition: 30000,
+      totalTuition: 3000000, // $30,000 in integer cents
       userId: user.id,
       installments: {
         create: [
-          { amount: 7500, status: 'paid', paidDate: new Date() },
-          { amount: 7500, status: 'unpaid' },
-          { amount: 7500, status: 'unpaid'},
-          { amount: 7500, status: 'unpaid'},
+          { amount: 750000, status: 'paid', paidDate: new Date() },
+          { amount: 750000, status: 'unpaid' },
+          { amount: 750000, status: 'unpaid'},
+          { amount: 750000, status: 'unpaid'},
         ]
       }
     },

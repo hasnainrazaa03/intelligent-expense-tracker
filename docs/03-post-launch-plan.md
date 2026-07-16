@@ -29,8 +29,10 @@ what remains plus the forward feature backlog, in execution order.
 ### A3. Custom categories single source of truth  *(effort: M)*
 - [x] **CMP-M24** Single categories store (`utils/categories.ts`) consumed by the expense dropdown, the manager, and color/main-category resolution. *(PR #56)*
 
-### A4. Money-as-integer-cents migration  *(effort: L — its own mini-project)*
-- [ ] **X-3 / SRV-M8 / SRV-L5** Convert `Float` amounts to integer cents (or Decimal) across schema + all math to eliminate FX round-trip drift. Foundational; schedule before heavy multi-currency work. Not a blocker for personal-scale launch (display already rounds).
+### A4. Money-as-integer-cents migration  *(DONE — PR #64)*
+- [x] **X-3 / SRV-M8** Amounts are stored as integer cents (`Int`) end-to-end in the DB; the API converts to/from dollars at the boundary (`utils/money.ts`), so the client is unchanged. Migrated the live data (239 expenses etc.) via an idempotent script after a full backup; verified 239/239 exact + all surfaces (dashboard, tuition nested installments) + 13 E2E.
+
+> **Deploy note:** after deploying, run once in `server/`: `npm run db:backup` then `npm run db:migrate-cents` (idempotent — a marker doc makes a second run a no-op).
 
 ### A5. Quality polish (Phase 7 tail)  *(effort: M)*
 - [ ] Comprehensive keyboard-only a11y audit of every remaining flow/component.
