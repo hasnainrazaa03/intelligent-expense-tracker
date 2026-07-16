@@ -277,6 +277,14 @@ export interface HouseholdPool {
 export const getHouseholdExpenses = (id: string): Promise<HouseholdPool> =>
   fetchApi<HouseholdPool>(`/households/${id}/expenses`);
 
+// --- Receipt images (stored separately, fetched on demand) ---
+export const getReceipt = (expenseId: string): Promise<{ image: string }> =>
+  fetchApi<{ image: string }>(`/expenses/${expenseId}/receipt`);
+export const uploadReceipt = (expenseId: string, image: string): Promise<{ message: string }> =>
+  fetchApi<{ message: string }>(`/expenses/${expenseId}/receipt`, { method: 'PUT', body: JSON.stringify({ image }) });
+export const deleteReceipt = (expenseId: string): Promise<{ message: string }> =>
+  fetchApi<{ message: string }>(`/expenses/${expenseId}/receipt`, { method: 'DELETE' });
+
 /**
  * Creates a new expense.
  * The 'expenseData' is the Omit<Expense, 'id'> from your form.

@@ -8,7 +8,9 @@ import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { distributeAmount } from '../utils/currencyUtils';
 import { RECURRENCE_META_KEY, RECURRENCE_OPTIONS, getRecurrenceFrequency, type RecurrenceFrequency } from '../utils/recurrence';
-import { listHouseholds, type Household } from '../services/api';
+import { listHouseholds, getReceipt, uploadReceipt, deleteReceipt, type Household } from '../services/api';
+import { downscaleImage } from '../utils/image';
+import toast from 'react-hot-toast';
 import useForeignToUsd from '../hooks/useForeignToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label } from './ui';
@@ -55,6 +57,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [householdId, setHouseholdId] = useState('');
   const [households, setHouseholds] = useState<Household[]>([]);
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [receiptImage, setReceiptImage] = useState('');
+  const [receiptBusy, setReceiptBusy] = useState(false);
 
   // Reuse the cached display rate only when the entry currency matches it;
   // otherwise the hook fetches the correct foreign→USD rate itself.
@@ -143,6 +147,12 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     if (!isOpen) return;
     listHouseholds().then((r) => setHouseholds(r.households)).catch(() => setHouseholds([]));
   }, [isOpen]);
+
+  // Load any stored receipt image for an existing expense (kept out of /all).
+  useEffect(() => {
+    if (!isOpen || !expense) { setReceiptImage(''); return; }
+    getReceipt(expense.id).then((r) => setReceiptImage(r.image)).catch(() => setReceiptImage(''));
+  }, [isOpen, expense]);
 
   useEffect(() => {
     // Switching back to USD entry clears the foreign amount to avoid confusion.
@@ -280,6 +290,24 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     const file = event.target.files?.[0];
     if (!file) return;
     setReceiptFileName(file.name);
+
+    // 1) Store a downscaled image first (fast). For an existing expense we persist
+    // it right away; for a brand-new one it's a preview kept until saved.
+    try {
+      const thumb = await downscaleImage(file);
+      setReceiptImage(thumb);
+      if (expense) {
+        setReceiptBusy(true);
+        await uploadReceipt(expense.id, thumb);
+        toast.success('Receipt image attached.');
+      }
+    } catch {
+      toast.error('Could not attach the receipt image.');
+    } finally {
+      setReceiptBusy(false);
+    }
+
+    // 2) OCR the text (slower) — fills the amount if empty + keeps the text.
     setIsOcrProcessing(true);
     try {
       const tesseract = await import('tesseract.js');
@@ -298,6 +326,20 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setReceiptText('OCR failed. You can still keep this receipt as attached metadata and type notes manually.');
     } finally {
       setIsOcrProcessing(false);
+    }
+  };
+
+  const handleRemoveReceiptImage = async () => {
+    setReceiptImage('');
+    if (!expense) return;
+    setReceiptBusy(true);
+    try {
+      await deleteReceipt(expense.id);
+      toast.success('Receipt image removed.');
+    } catch {
+      /* already gone / non-fatal */
+    } finally {
+      setReceiptBusy(false);
     }
   };
 
@@ -572,10 +614,26 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-              <Label htmlFor="exp-receipt">Receipt upload (OCR)</Label>
+              <Label htmlFor="exp-receipt">Receipt upload (OCR + image)</Label>
               <input id="exp-receipt" type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
               {isOcrProcessing && <p className="text-[11px] text-app-muted mt-2">Scanning receipt text…</p>}
               {receiptFileName && <p className="text-[11px] text-app-muted mt-2">Attached: {receiptFileName}</p>}
+              {receiptImage && (
+                <div className="mt-3">
+                  <img src={receiptImage} alt="Receipt" className="max-h-40 rounded-lg border border-app-border" />
+                  <button
+                    type="button"
+                    onClick={handleRemoveReceiptImage}
+                    disabled={receiptBusy}
+                    className="mt-1.5 text-[11px] font-semibold text-app-faint hover:text-danger disabled:opacity-50"
+                  >
+                    Remove image
+                  </button>
+                </div>
+              )}
+              {!expense && receiptImage && (
+                <p className="mt-1.5 text-[11px] text-app-muted">Save this expense, then reopen it to keep the receipt image.</p>
+              )}
               <textarea
                 value={receiptText}
                 onChange={(e) => setReceiptText(e.target.value)}
