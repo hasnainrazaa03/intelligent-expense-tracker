@@ -18,6 +18,7 @@ import budgetRoutes from './routes/budgets';
 import semesterRoutes from './routes/semesters';
 import aiRoutes from './routes/ai';
 import reportRoutes from './routes/reports';
+import householdRoutes from './routes/households';
 import { sendError } from './utils/http';
 import { SERVER_CONFIG, validateServerEnv } from './config';
 import { swaggerSpec } from './swagger';
@@ -134,6 +135,7 @@ app.use('/api/budgets', userApiLimiter, csrfProtection, budgetRoutes);
 app.use('/api/semesters', userApiLimiter, csrfProtection, semesterRoutes);
 app.use('/api/ai', userApiLimiter, csrfProtection, aiLimiter, aiRoutes);
 app.use('/api/reports', userApiLimiter, csrfProtection, reportRoutes);
+app.use('/api/households', userApiLimiter, csrfProtection, householdRoutes);
 
 // --- Global Error Handler ---
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

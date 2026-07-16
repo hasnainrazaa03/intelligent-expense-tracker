@@ -220,6 +220,40 @@ export const emailSummary = (): Promise<{ message: string }> => {
   return fetchApi<{ message: string }>('/reports/email-summary', { method: 'POST' });
 };
 
+// --- Households (shared/household accounts) ---
+export interface HouseholdMember {
+  id: string;
+  userId: string | null;
+  invitedEmail: string;
+  role: 'owner' | 'member';
+  status: 'invited' | 'active';
+}
+export interface Household {
+  id: string;
+  name: string;
+  ownerId: string;
+  myRole: 'owner' | 'member';
+  members: HouseholdMember[];
+}
+export interface HouseholdsResponse {
+  households: Household[];
+  invites: { id: string; name: string }[];
+}
+
+export const listHouseholds = (): Promise<HouseholdsResponse> => fetchApi<HouseholdsResponse>('/households');
+export const createHousehold = (name: string): Promise<Household> =>
+  fetchApi<Household>('/households', { method: 'POST', body: JSON.stringify({ name }) });
+export const inviteToHousehold = (id: string, email: string): Promise<{ message: string }> =>
+  fetchApi<{ message: string }>(`/households/${id}/invite`, { method: 'POST', body: JSON.stringify({ email }) });
+export const acceptHouseholdInvite = (id: string): Promise<{ message: string }> =>
+  fetchApi<{ message: string }>(`/households/${id}/accept`, { method: 'POST' });
+export const declineHouseholdInvite = (id: string): Promise<{ message: string }> =>
+  fetchApi<{ message: string }>(`/households/${id}/decline`, { method: 'POST' });
+export const leaveHousehold = (id: string): Promise<{ message: string }> =>
+  fetchApi<{ message: string }>(`/households/${id}/leave`, { method: 'DELETE' });
+export const deleteHousehold = (id: string): Promise<{ message: string }> =>
+  fetchApi<{ message: string }>(`/households/${id}`, { method: 'DELETE' });
+
 /**
  * Creates a new expense.
  * The 'expenseData' is the Omit<Expense, 'id'> from your form.
