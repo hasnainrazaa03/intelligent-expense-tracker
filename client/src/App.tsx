@@ -19,6 +19,8 @@ import { queryKeys } from './lib/queryClient';
 import type { AllDataResponse } from './types/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import useDateRangeFilter from './hooks/useDateRangeFilter';
+import useOfflineQueue from './hooks/useOfflineQueue';
+import { enqueueExpense, type PendingExpense } from './utils/offlineQueue';
 import { notify } from './utils/notifications';
 import SectionSkeleton from './components/SectionSkeleton';
 import { APP_CONFIG } from './config';
@@ -294,19 +296,44 @@ const App: React.FC = () => {
 
   const showOnboarding = isAuthenticated && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0;
 
+  // Offline queue: replay each queued create, then refetch so temp local rows
+  // are replaced by the authoritative server data.
+  const offline = useOfflineQueue({
+    process: useCallback(async (item: PendingExpense) => { await createExpense(item.payload); }, []),
+    onSynced: useCallback(() => { void queryClient.invalidateQueries({ queryKey: queryKeys.allData }); }, [queryClient]),
+  });
+
   const handleAddExpense = async (expense: Omit<Expense, 'id'>) => {
-  try {
-    const newExpense = await createExpense(expense);
-    setExpenses(prev => {
-      const updated = [...prev, newExpense];
-      checkBudgetAlert(newExpense.category, updated);
-      return updated;
-    });
-  } catch (error) {
-    console.error("Failed to add expense:", error);
-    notify.error('Could not add expense.');
-  }
-};
+    // Offline: queue it in IndexedDB and optimistically show it (temp id) so no
+    // data is lost; it replays automatically on reconnect.
+    if (!navigator.onLine) {
+      try {
+        const item = await enqueueExpense(expense);
+        setExpenses(prev => {
+          const updated = [...prev, { ...expense, id: item.clientId } as Expense];
+          checkBudgetAlert(expense.category, updated);
+          return updated;
+        });
+        await offline.refreshCount();
+        notify.info('Saved offline — will sync when you reconnect.');
+      } catch (error) {
+        console.error('Failed to queue expense offline:', error);
+        notify.error('Could not save offline.');
+      }
+      return;
+    }
+    try {
+      const newExpense = await createExpense(expense);
+      setExpenses(prev => {
+        const updated = [...prev, newExpense];
+        checkBudgetAlert(newExpense.category, updated);
+        return updated;
+      });
+    } catch (error) {
+      console.error("Failed to add expense:", error);
+      notify.error('Could not add expense.');
+    }
+  };
 
 const handleUpdateExpense = async (updatedExpense: Expense) => {
   try {
@@ -785,6 +812,7 @@ const handleDeleteIncome = async (id: string) => {
               twoFactorEnabled={twoFactorEnabled}
               onSearch={setDebouncedSearchQuery}
               activeView={activeView}
+              offlineStatus={{ isOnline: offline.isOnline, pendingCount: offline.pendingCount, syncing: offline.syncing }}
               expenses={expenses}
               incomes={incomes}
               onSelectTransaction={(hit) => {

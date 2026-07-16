@@ -92,6 +92,42 @@ test('bank statement CSV maps columns and previews the import', async ({ page })
   await expect(dialog.getByRole('button', { name: /Import 3 expenses/ })).toBeEnabled();
 });
 
+test('offline: an expense is queued and syncs on reconnect', async ({ page, context }) => {
+  const title = `Offline ${Date.now()}`;
+
+  // Warm the (lazy) expense-modal chunk while online — offline it would be
+  // served from the SW/module cache, which requires it to have loaded once.
+  await page.getByRole('button', { name: 'Quick actions' }).click();
+  await page.getByRole('menuitem', { name: /add expense/i }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  await context.setOffline(true);
+
+  await page.getByRole('button', { name: 'Quick actions' }).click();
+  await page.getByRole('menuitem', { name: /add expense/i }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Title').fill(title);
+  await dialog.getByLabel('Amount (USD)').fill('12.34');
+  await dialog.getByRole('button', { name: 'Add expense' }).click();
+  await expect(dialog).toBeHidden({ timeout: 10_000 });
+
+  // Offline indicator + optimistic row shown while offline.
+  await expect(page.getByText(/Offline · 1 queued/)).toBeVisible();
+  await expect(page.getByText(title).first()).toBeVisible();
+
+  // Reconnect → the queue flushes and the pill clears.
+  await context.setOffline(false);
+  await expect(page.getByText(/queued/)).toBeHidden({ timeout: 15_000 });
+
+  // Persisted on the server: a reload + search still finds it.
+  await page.reload();
+  await expect(page.getByRole('tablist')).toBeVisible({ timeout: 20_000 });
+  await page.getByPlaceholder('Search transactions…').fill(title);
+  await expect(page.getByText(title).first()).toBeVisible({ timeout: 10_000 });
+});
+
 test('create and delete a household', async ({ page }) => {
   const name = `E2E Home ${Date.now()}`;
   await page.getByText('Households · shared budgeting').scrollIntoViewIfNeeded();
