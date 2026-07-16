@@ -118,7 +118,7 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
       </div>
 
       {income.notes && (
-        <div className="hidden md:group-hover:block absolute -top-10 left-1/2 -translate-x-1/2 glass glass-blur rounded-lg px-3 py-2 text-xs text-app-text z-20 whitespace-nowrap max-w-xs truncate">
+        <div className="hidden md:group-hover:block absolute -top-10 left-1/2 -translate-x-1/2 modal-surface rounded-lg px-3 py-2 text-xs text-app-text z-20 whitespace-nowrap max-w-xs truncate">
            <ChatBubbleBottomCenterTextIcon className="h-3.5 w-3.5 inline mr-1.5 text-primary" />
            {income.notes}
         </div>

@@ -1027,7 +1027,7 @@ const handleDeleteIncome = async (id: string) => {
                   {isQuickActionsOpen && (
                     <div
                       role="menu"
-                      className="absolute bottom-16 right-0 w-56 glass rounded-2xl p-2 space-y-0.5 origin-bottom-right animate-[fabpop_120ms_ease-out]"
+                      className="absolute bottom-16 right-0 w-56 modal-surface rounded-2xl p-2 space-y-0.5 origin-bottom-right animate-[fabpop_120ms_ease-out]"
                     >
                       <button
                         role="menuitem"
