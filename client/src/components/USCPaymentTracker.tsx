@@ -50,7 +50,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
   const activeSemester = semesters.find(s => s.id === activeSemesterId);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
+    <div className="space-y-5 md:space-y-6 animate-in fade-in duration-700">
 
       {/* 1. HERO HEADER */}
       <div className="relative border-b border-app-border pb-6 md:pb-8 overflow-hidden">
@@ -109,7 +109,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
             </div>
           </div>
 
-          <div className="p-5 md:p-7 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+          <div className="p-5 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-start">
           {/* SEMESTER CONFIGURATION PANEL */}
           <div className="space-y-6">
             <div className="rounded-2xl border border-app-border bg-surface-2 p-4 md:p-6 relative overflow-hidden flex flex-col items-center justify-center text-center min-w-0">

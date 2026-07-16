@@ -117,7 +117,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
   };
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-8">
       {/* 1. AUDIT HEADER */}
       <div className="border-b border-app-border pb-6 md:pb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
         <div className="min-w-0">
@@ -187,7 +187,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
             <h4 className="font-display font-semibold text-app-text text-base md:text-xl">Category breakdown</h4>
             <span className="text-app-faint text-[10px] md:text-xs hidden xs:inline">Verified by system</span>
           </div>
-          <div className="p-5 md:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+          <div className="p-5 md:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
             {(Object.entries(stats.categoryTotals) as [string, number][])
               .sort((a, b) => b[1] - a[1])
               .map(([name, amount]) => (
@@ -212,7 +212,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
       </div>
 
       {/* 3. DETAILED REPORT CHARTS */}
-      <div className="space-y-8 md:space-y-12">
+      <div className="space-y-5 md:space-y-6">
         {/* Budget vs Actual */}
         <div className="glass rounded-2xl p-5 md:p-7">
           <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Budget vs actual</h4>
@@ -222,7 +222,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         </div>
 
         {/* Two-column grid for smaller charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
           <div className="glass rounded-2xl p-5 md:p-7">
             <h4 className="font-display font-semibold text-sm md:text-lg text-app-text mb-4 border-b border-app-border pb-2">Payment method distribution</h4>
             <div className="h-64">

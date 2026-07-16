@@ -6,7 +6,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/app');
-  await expect(page.getByRole('tablist')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
 });
 
 test('lands on the dashboard', async ({ page }) => {
@@ -95,8 +95,12 @@ test('bank statement CSV maps columns and previews the import', async ({ page })
 test('offline: an expense is queued and syncs on reconnect', async ({ page, context }) => {
   const title = `Offline ${Date.now()}`;
 
-  // Warm the (lazy) expense-modal chunk while online — offline it would be
-  // served from the SW/module cache, which requires it to have loaded once.
+  // Warm the (lazy) chunks while online — offline they'd be served from the
+  // SW/module cache, which requires them to have loaded once. Also switch to the
+  // Transactions sub-tab so the expense list (where the optimistic row appears)
+  // is mounted.
+  await page.getByRole('tab', { name: 'Transactions' }).click();
+  await expect(page.getByRole('heading', { name: 'Recent expenses' })).toBeVisible();
   await page.getByRole('button', { name: 'Quick actions' }).click();
   await page.getByRole('menuitem', { name: /add expense/i }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -123,7 +127,7 @@ test('offline: an expense is queued and syncs on reconnect', async ({ page, cont
 
   // Persisted on the server: a reload + search still finds it.
   await page.reload();
-  await expect(page.getByRole('tablist')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
   await page.getByPlaceholder('Search transactions…').fill(title);
   await expect(page.getByText(title).first()).toBeVisible({ timeout: 10_000 });
 });

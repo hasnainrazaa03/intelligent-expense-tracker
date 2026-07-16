@@ -338,7 +338,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const rowCls = "text-xs rounded-lg border border-app-border bg-surface px-2.5 py-2 flex justify-between items-center tabular-nums";
 
   return (
-    <Card className="space-y-5">
+    <Card className="space-y-4">
       <h3 className="font-display text-xl md:text-2xl font-bold text-app-text">Financial planning</h3>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -433,6 +433,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       {subscriptionCreep.length > 0 && (
         <div className={cardCls}>
           <p className={subLabelCls}>Subscription watch · price increases</p>
@@ -476,10 +477,11 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           <p className={`${subLabelCls} mb-0`}>Net-worth trend · 6-month</p>
           <span className="text-xs font-semibold text-app-text tabular-nums">{formatCurrency(netWorth, displayCurrency, conversionRate)}</span>
         </div>
-        <div className="h-40 md:h-44">
+        <div className="h-32 md:h-36">
           <SpendingBarChart data={netWorthTrend} />
         </div>
         <p className="text-[11px] text-app-muted mt-2">Cumulative cash flow plus current portfolio value — an estimate, not audited net worth.</p>
+      </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
