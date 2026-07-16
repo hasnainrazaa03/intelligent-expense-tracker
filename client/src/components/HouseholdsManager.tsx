@@ -9,8 +9,12 @@ import {
   declineHouseholdInvite,
   leaveHousehold,
   deleteHousehold,
+  getHouseholdExpenses,
   type Household,
+  type HouseholdPool,
 } from '../services/api';
+
+const money = (n: number) => `$${n.toFixed(2)}`;
 
 const fieldCls =
   'bg-surface border border-app-border rounded-lg px-3 py-2 text-sm text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50';
@@ -24,6 +28,19 @@ const HouseholdsManager: React.FC = () => {
   const [newName, setNewName] = useState('');
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [pools, setPools] = useState<Record<string, HouseholdPool>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const togglePool = async (id: string) => {
+    if (expanded === id) { setExpanded(null); return; }
+    setExpanded(id);
+    try {
+      const pool = await getHouseholdExpenses(id);
+      setPools((p) => ({ ...p, [id]: pool }));
+    } catch {
+      /* leave collapsed content empty */
+    }
+  };
 
   const refresh = async () => {
     try {
@@ -141,6 +158,47 @@ const HouseholdsManager: React.FC = () => {
                   Invite
                 </Button>
               </div>
+
+              {/* Shared expenses + settle-up */}
+              <button
+                onClick={() => togglePool(h.id)}
+                className="mt-2.5 text-[11px] font-semibold text-primary hover:brightness-110"
+                aria-expanded={expanded === h.id}
+              >
+                {expanded === h.id ? 'Hide shared expenses' : 'View shared expenses'}
+              </button>
+              {expanded === h.id && pools[h.id] && (
+                <div className="mt-2 rounded-lg border border-app-border bg-surface-2 p-2.5 space-y-2.5">
+                  <p className="text-[11px] text-app-muted tabular-nums">Pooled total: <span className="text-app-text font-medium">{money(pools[h.id].total)}</span> · split {pools[h.id].memberCount} ways</p>
+                  {pools[h.id].settleUp.length > 0 && (
+                    <div className="space-y-1">
+                      {pools[h.id].settleUp.map((s) => (
+                        <div key={s.email} className="flex items-center justify-between text-[11px] tabular-nums">
+                          <span className="text-app-muted truncate">{s.email}</span>
+                          <span className={s.balance > 0.005 ? 'text-ok font-medium' : s.balance < -0.005 ? 'text-danger font-medium' : 'text-app-muted'}>
+                            {s.balance > 0.005 ? `is owed ${money(s.balance)}` : s.balance < -0.005 ? `owes ${money(-s.balance)}` : 'settled'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {pools[h.id].expenses.length === 0 ? (
+                    <p className="text-[11px] text-app-muted">No shared expenses yet. Tag an expense to this household when adding it.</p>
+                  ) : (
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {pools[h.id].expenses.map((e) => (
+                        <div key={e.id} className="flex items-center justify-between rounded-md border border-app-border bg-surface px-2 py-1.5 text-[11px]">
+                          <span className="min-w-0 flex-1">
+                            <span className="text-app-text truncate block">{e.title}</span>
+                            <span className="text-app-faint">{e.payerEmail} · {e.date}</span>
+                          </span>
+                          <span className="text-app-text font-medium tabular-nums flex-shrink-0">{money(e.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

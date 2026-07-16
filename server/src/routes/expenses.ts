@@ -19,6 +19,15 @@ const MAX_BULK_SIZE = SERVER_CONFIG.limits.maxBulkImportSize;
 // S4: Input length limits
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
 
+// Validate an optional household tag: returns the id only if the user is an
+// active member (so nobody can tag an expense into a household they're not in),
+// null when untagged, or 'FORBIDDEN' when they aren't a member.
+const resolveHouseholdId = async (userId: string, householdId: unknown): Promise<string | null | 'FORBIDDEN'> => {
+  if (!householdId || typeof householdId !== 'string') return null;
+  const member = await prisma.householdMember.findFirst({ where: { householdId, userId, status: 'active' } });
+  return member ? householdId : 'FORBIDDEN';
+};
+
 // --- 1. Create new Expense ---
 // POST /api/expenses
 router.post('/', async (req: Request, res: Response) => {
@@ -41,6 +50,7 @@ router.post('/', async (req: Request, res: Response) => {
     splitShares,
     receiptText,
     receiptFileName,
+    householdId,
   } = req.body;
 
   const safeTitle = sanitizeText(title);
@@ -85,6 +95,11 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Invalid date' });
   }
 
+  const resolvedHouseholdId = await resolveHouseholdId(userId, householdId);
+  if (resolvedHouseholdId === 'FORBIDDEN') {
+    return res.status(403).json({ message: 'You are not a member of that household.' });
+  }
+
   try {
     const newExpense = await prisma.expense.create({
       data: {
@@ -105,6 +120,7 @@ router.post('/', async (req: Request, res: Response) => {
         splitShares: safeSplitShares.map(toCents),
         receiptText: safeReceiptText || undefined,
         receiptFileName: safeReceiptFileName || undefined,
+        householdId: resolvedHouseholdId,
         userId: userId,
       },
     });
@@ -142,6 +158,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     splitShares,
     receiptText,
     receiptFileName,
+    householdId,
   } = req.body;
 
   const safeTitle = sanitizeText(title);
@@ -185,6 +202,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Invalid date' });
   }
 
+  const resolvedHouseholdId = await resolveHouseholdId(userId, householdId);
+  if (resolvedHouseholdId === 'FORBIDDEN') {
+    return res.status(403).json({ message: 'You are not a member of that household.' });
+  }
+
   try {
     const updatedExpense = await prisma.expense.update({
       where: {
@@ -209,6 +231,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         splitShares: safeSplitShares.map(toCents),
         receiptText: safeReceiptText || undefined,
         receiptFileName: safeReceiptFileName || undefined,
+        householdId: resolvedHouseholdId,
       },
     });
 

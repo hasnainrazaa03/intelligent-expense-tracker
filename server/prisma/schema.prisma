@@ -53,11 +53,14 @@ model Expense {
   splitShares      Int[]  // integer cents
   receiptText      String?
   receiptFileName  String?
+  // Optional: tags this expense to a shared household so members can pool it.
+  householdId      String?  @db.ObjectId
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId           String   @db.ObjectId
   @@index([userId])
   @@index([userId, date])
   @@index([userId, category, date])
+  @@index([householdId])
 }
 
 model Income {

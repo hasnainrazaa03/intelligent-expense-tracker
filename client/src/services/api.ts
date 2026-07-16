@@ -254,6 +254,29 @@ export const leaveHousehold = (id: string): Promise<{ message: string }> =>
 export const deleteHousehold = (id: string): Promise<{ message: string }> =>
   fetchApi<{ message: string }>(`/households/${id}`, { method: 'DELETE' });
 
+export interface HouseholdExpense {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  date: string;
+  payerEmail: string;
+}
+export interface HouseholdSettle {
+  email: string;
+  paid: number;
+  share: number;
+  balance: number;
+}
+export interface HouseholdPool {
+  expenses: HouseholdExpense[];
+  total: number;
+  memberCount: number;
+  settleUp: HouseholdSettle[];
+}
+export const getHouseholdExpenses = (id: string): Promise<HouseholdPool> =>
+  fetchApi<HouseholdPool>(`/households/${id}/expenses`);
+
 /**
  * Creates a new expense.
  * The 'expenseData' is the Omit<Expense, 'id'> from your form.

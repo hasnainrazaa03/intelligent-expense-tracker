@@ -8,6 +8,7 @@ import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { distributeAmount } from '../utils/currencyUtils';
 import { RECURRENCE_META_KEY, RECURRENCE_OPTIONS, getRecurrenceFrequency, type RecurrenceFrequency } from '../utils/recurrence';
+import { listHouseholds, type Household } from '../services/api';
 import useForeignToUsd from '../hooks/useForeignToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label } from './ui';
@@ -51,6 +52,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [splitParticipantsInput, setSplitParticipantsInput] = useState('');
   const [receiptText, setReceiptText] = useState('');
   const [receiptFileName, setReceiptFileName] = useState('');
+  const [householdId, setHouseholdId] = useState('');
+  const [households, setHouseholds] = useState<Household[]>([]);
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
 
   // Reuse the cached display rate only when the entry currency matches it;
@@ -103,6 +106,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setSplitParticipantsInput((expense.splitParticipants || []).join(', '));
       setReceiptText(expense.receiptText || '');
       setReceiptFileName(expense.receiptFileName || '');
+      setHouseholdId(expense.householdId || '');
 
       setOriginalAmountDirty(false);
       if (expense.originalCurrency && expense.originalCurrency !== 'USD' && expense.originalAmount) {
@@ -129,8 +133,16 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setSplitParticipantsInput('');
       setReceiptText('');
       setReceiptFileName('');
+      setHouseholdId('');
     }
   }, [expense, isOpen, displayCurrency]);
+
+  // Load the user's households when the modal opens so an expense can be tagged
+  // to one (shared/pooled). Silent on failure — the picker just stays hidden.
+  useEffect(() => {
+    if (!isOpen) return;
+    listHouseholds().then((r) => setHouseholds(r.households)).catch(() => setHouseholds([]));
+  }, [isOpen]);
 
   useEffect(() => {
     // Switching back to USD entry clears the foreign amount to avoid confusion.
@@ -234,8 +246,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       splitShares,
       receiptText: receiptText.trim() || undefined,
       receiptFileName: receiptFileName || undefined,
+      householdId: householdId || null,
     };
-    
+
     onSave(expense ? { ...expenseData, id: expense.id } : expenseData);
     onClose();
   };
@@ -480,6 +493,25 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                     {PAYMENT_METHODS.map(m => <option key={m} value={m} />)}
                 </datalist>
             </div>
+
+            {/* Household (optional) — only shown when the user has households */}
+            {households.length > 0 && (
+              <div>
+                <Label htmlFor="exp-household">Household (optional)</Label>
+                <select
+                  id="exp-household"
+                  value={householdId}
+                  onChange={(e) => setHouseholdId(e.target.value)}
+                  className="w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Personal (not shared)</option>
+                  {households.map((h) => (
+                    <option key={h.id} value={h.id}>{h.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-[11px] text-app-muted">Tagging to a household pools this expense in its shared view + settle-up.</p>
+              </div>
+            )}
 
             {/* Notes */}
             <div>
