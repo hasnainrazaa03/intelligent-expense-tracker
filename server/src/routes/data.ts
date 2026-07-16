@@ -7,6 +7,7 @@ import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
 import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray } from '../utils/normalize';
+import { toCents, expenseToClient, incomeToClient, budgetToClient, semesterToClient } from '../utils/money';
 
 const router = Router();
 
@@ -93,10 +94,10 @@ router.get('/all', async (req: Request, res: Response) => {
     });
 
     res.json({
-      expenses: expenses.map(cleanDate),
-      incomes: incomes.map(cleanDate),
-      budgets,
-      semesters: semesters.map(cleanPaidDate),
+      expenses: expenses.map(expenseToClient).map(cleanDate),
+      incomes: incomes.map(incomeToClient).map(cleanDate),
+      budgets: budgets.map(budgetToClient),
+      semesters: semesters.map(semesterToClient).map(cleanPaidDate),
     });
 
   } catch (error) {
@@ -140,12 +141,12 @@ router.post('/restore', async (req: Request, res: Response) => {
         }
         return {
           title: safeTitle,
-          amount: toFinPrecision(amount),
+          amount: toCents(toFinPrecision(amount)),
           category: safeCategory,
           date,
           paymentMethod: sanitizeOptionalText(e.paymentMethod),
           notes: sanitizeOptionalText(e.notes),
-          originalAmount: e.originalAmount != null ? toFinPrecision(parseFiniteFloat(e.originalAmount) ?? 0) : undefined,
+          originalAmount: e.originalAmount != null ? toCents(toFinPrecision(parseFiniteFloat(e.originalAmount) ?? 0)) : undefined,
           originalCurrency: sanitizeOptionalText(e.originalCurrency),
           isRecurring: Boolean(e.isRecurring),
           tags: normalizeTags(e.tags),
@@ -153,7 +154,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           taxCategory: sanitizeOptionalText(e.taxCategory),
           isTaxDeductible: Boolean(e.isTaxDeductible),
           splitParticipants: normalizeStringArray(e.splitParticipants),
-          splitShares: normalizeNumberArray(e.splitShares),
+          splitShares: normalizeNumberArray(e.splitShares).map(toCents),
           receiptText: sanitizeOptionalText(e.receiptText),
           receiptFileName: sanitizeOptionalText(e.receiptFileName),
           userId,
@@ -173,11 +174,11 @@ router.post('/restore', async (req: Request, res: Response) => {
         }
         return {
           title: safeTitle,
-          amount: toFinPrecision(amount),
+          amount: toCents(toFinPrecision(amount)),
           category: safeCategory,
           date,
           notes: sanitizeOptionalText(i.notes),
-          originalAmount: i.originalAmount != null ? toFinPrecision(parseFiniteFloat(i.originalAmount) ?? 0) : undefined,
+          originalAmount: i.originalAmount != null ? toCents(toFinPrecision(parseFiniteFloat(i.originalAmount) ?? 0)) : undefined,
           originalCurrency: sanitizeOptionalText(i.originalCurrency),
           tags: normalizeTags(i.tags),
           metadata: normalizeMetadata(i.metadata),
@@ -194,7 +195,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           }
           return {
             category: safeCategory,
-            amount: toFinPrecision(amount),
+            amount: toCents(toFinPrecision(amount)),
             userId,
           };
         })
@@ -216,7 +217,7 @@ router.post('/restore', async (req: Request, res: Response) => {
         if (!sem?.id || !safeName || !Array.isArray(sem.installments)) {
           throw new Error(`Invalid semester at index ${sIdx}`);
         }
-        const totalTuition = toFinPrecision(parseFiniteFloat(sem.totalTuition) ?? 0);
+        const totalTuition = toCents(toFinPrecision(parseFiniteFloat(sem.totalTuition) ?? 0));
 
         await tx.semester.create({
           data: {
@@ -235,7 +236,7 @@ router.post('/restore', async (req: Request, res: Response) => {
                   throw new Error(`Invalid installment date at semester ${sIdx}, index ${iIdx}`);
                 }
                 return {
-                  amount: toFinPrecision(amount),
+                  amount: toCents(toFinPrecision(amount)),
                   status: inst.status === 'paid' ? 'paid' : 'unpaid',
                   expenseId: inst.expenseId ? String(inst.expenseId) : null,
                   paidDate,
@@ -268,10 +269,10 @@ router.post('/restore', async (req: Request, res: Response) => {
 
     res.status(200).json({
       message: 'Backup restored successfully.',
-      expenses: restoredExpenses.map(cleanDate),
-      incomes: restoredIncomes.map(cleanDate),
-      budgets: restoredBudgets,
-      semesters: restoredSemesters.map(cleanPaidDate),
+      expenses: restoredExpenses.map(expenseToClient).map(cleanDate),
+      incomes: restoredIncomes.map(incomeToClient).map(cleanDate),
+      budgets: restoredBudgets.map(budgetToClient),
+      semesters: restoredSemesters.map(semesterToClient).map(cleanPaidDate),
     });
 
     await writeAuditLog({

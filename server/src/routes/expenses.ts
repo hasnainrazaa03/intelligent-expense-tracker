@@ -7,6 +7,7 @@ import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
 import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray } from '../utils/normalize';
+import { toCents, expenseToClient } from '../utils/money';
 
 const router = Router();
 
@@ -88,12 +89,12 @@ router.post('/', async (req: Request, res: Response) => {
     const newExpense = await prisma.expense.create({
       data: {
         title: safeTitle,
-        amount: toFinPrecision(parsedAmount),
+        amount: toCents(toFinPrecision(parsedAmount)),
         category: safeCategory,
         date: parsedDate,
         paymentMethod: safePaymentMethod || undefined,
         notes: safeNotes || undefined,
-        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
+        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
         originalCurrency: originalCurrency || undefined,
         isRecurring: Boolean(isRecurring),
         tags: safeTags,
@@ -101,7 +102,7 @@ router.post('/', async (req: Request, res: Response) => {
         taxCategory: safeTaxCategory || undefined,
         isTaxDeductible: Boolean(isTaxDeductible),
         splitParticipants: safeSplitParticipants,
-        splitShares: safeSplitShares,
+        splitShares: safeSplitShares.map(toCents),
         receiptText: safeReceiptText || undefined,
         receiptFileName: safeReceiptFileName || undefined,
         userId: userId,
@@ -109,7 +110,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     
     res.status(201).json({
-      ...newExpense,
+      ...expenseToClient(newExpense),
       date: newExpense.date.toISOString().split('T')[0]
     });
   } catch (error) {
@@ -192,12 +193,12 @@ router.put('/:id', async (req: Request, res: Response) => {
       },
       data: {
         title: safeTitle,
-        amount: toFinPrecision(parsedAmount),
+        amount: toCents(toFinPrecision(parsedAmount)),
         category: safeCategory,
         date: parsedDate,
         paymentMethod: safePaymentMethod || undefined,
         notes: safeNotes || undefined,
-        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
+        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
         originalCurrency: originalCurrency || undefined,
         isRecurring: Boolean(isRecurring),
         tags: safeTags,
@@ -205,14 +206,14 @@ router.put('/:id', async (req: Request, res: Response) => {
         taxCategory: safeTaxCategory || undefined,
         isTaxDeductible: Boolean(isTaxDeductible),
         splitParticipants: safeSplitParticipants,
-        splitShares: safeSplitShares,
+        splitShares: safeSplitShares.map(toCents),
         receiptText: safeReceiptText || undefined,
         receiptFileName: safeReceiptFileName || undefined,
       },
     });
 
     res.json({
-      ...updatedExpense,
+      ...expenseToClient(updatedExpense),
       date: updatedExpense.date.toISOString().split('T')[0]
     });
   } catch (error: any) {
@@ -318,11 +319,11 @@ router.post('/bulk', async (req: Request, res: Response) => {
       return {
         title: safeTitle,
         category: safeCategory,
-        amount: toFinPrecision(parsedAmount),
+        amount: toCents(toFinPrecision(parsedAmount)),
         date: parsedDate,
         paymentMethod: sanitizeOptionalText(expense.paymentMethod),
         notes: sanitizeOptionalText(expense.notes),
-        originalAmount: parsedOriginalAmount != null ? toFinPrecision(parsedOriginalAmount) : undefined,
+        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
         originalCurrency: expense.originalCurrency || undefined,
         isRecurring: Boolean(expense.isRecurring),
         tags: normalizeTags(expense.tags),
@@ -330,7 +331,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         taxCategory: sanitizeOptionalText(expense.taxCategory),
         isTaxDeductible: Boolean(expense.isTaxDeductible),
         splitParticipants: normalizeStringArray(expense.splitParticipants),
-        splitShares: normalizeNumberArray(expense.splitShares),
+        splitShares: normalizeNumberArray(expense.splitShares).map(toCents),
         receiptText: sanitizeOptionalText(expense.receiptText),
         receiptFileName: sanitizeOptionalText(expense.receiptFileName),
         userId: userId, 

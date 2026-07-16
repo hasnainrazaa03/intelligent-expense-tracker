@@ -7,7 +7,9 @@
     "dev": "ts-node-dev src/index.ts",
     "build": "npx prisma generate && tsc",
     "db:push": "npx prisma db push",
-    "start": "node dist/src/index.js"
+    "start": "node dist/src/index.js",
+    "db:migrate-cents": "ts-node scripts/migrate-to-cents.ts",
+    "db:backup": "ts-node scripts/backup-data.ts"
   },
   "keywords": [],
   "author": "",

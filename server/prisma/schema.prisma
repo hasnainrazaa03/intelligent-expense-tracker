@@ -37,12 +37,12 @@ model User {
 model Expense {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
   title            String
-  amount           Float
+  amount           Int    // integer cents
   category         String
   date             DateTime @db.Date
   paymentMethod    String?
   notes            String?
-  originalAmount   Float?
+  originalAmount   Int?   // integer cents
   originalCurrency String?
   isRecurring      Boolean? @default(false)
   tags             String[]
@@ -50,7 +50,7 @@ model Expense {
   taxCategory      String?
   isTaxDeductible  Boolean? @default(false)
   splitParticipants String[]
-  splitShares      Float[]
+  splitShares      Int[]  // integer cents
   receiptText      String?
   receiptFileName  String?
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -63,11 +63,11 @@ model Expense {
 model Income {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
   title            String
-  amount           Float
+  amount           Int    // integer cents
   category         String
   date             DateTime @db.Date
   notes            String?
-  originalAmount   Float?
+  originalAmount   Int?   // integer cents
   originalCurrency String?
   tags             String[]
   metadata         Json?
@@ -80,7 +80,7 @@ model Income {
 model Budget {
   id       String @id @default(auto()) @map("_id") @db.ObjectId
   category String
-  amount   Float
+  amount   Int // integer cents
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId   String @db.ObjectId
 
@@ -94,7 +94,7 @@ model Semester {
   
   id           String // This is your 'fall-2025' string
   name         String
-  totalTuition Float
+  totalTuition Int // integer cents
   user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       String @db.ObjectId
   installments TuitionInstallment[]
@@ -107,7 +107,7 @@ model Semester {
 model TuitionInstallment {
   // autoincrement() is not supported in MongoDB
   id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  amount         Float
+  amount         Int // integer cents
   status         String
   expenseId      String?
   paidDate       DateTime? @db.Date

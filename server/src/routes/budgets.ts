@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { toFinPrecision, parseFiniteFloat } from '../utils/math';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText } from '../utils/sanitize';
+import { toCents, budgetToClient } from '../utils/money';
 
 const router = Router();
 router.use(authMiddleware);
@@ -46,7 +47,7 @@ router.post('/', async (req: Request, res: Response) => {
         }
         return {
           category,
-          amount: toFinPrecision(parsedAmount)
+          amount: toCents(toFinPrecision(parsedAmount))
         };
       }).filter(b => b.category); // Remove any entries with empty category names
 
@@ -95,7 +96,7 @@ router.post('/', async (req: Request, res: Response) => {
       timeout: 10000
     });
 
-    res.status(200).json(savedBudgets);
+    res.status(200).json(savedBudgets.map(budgetToClient));
 
   } catch (error: any) {
     // Log the real error server-side; never echo internal/Prisma messages to

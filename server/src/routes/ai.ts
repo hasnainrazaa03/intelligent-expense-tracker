@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { expenseToClient, incomeToClient, budgetToClient } from '../utils/money';
 
 const router = Router();
 
@@ -26,11 +27,15 @@ const buildFinancialManifest = async (userId: string) => {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const [expenses, incomes, budgets] = await Promise.all([
+  const [rawExpenses, rawIncomes, rawBudgets] = await Promise.all([
     prisma.expense.findMany({ where: { userId, date: { gte: sixMonthsAgo } }, orderBy: { date: 'desc' } }),
     prisma.income.findMany({ where: { userId, date: { gte: sixMonthsAgo } }, orderBy: { date: 'desc' } }),
     prisma.budget.findMany({ where: { userId } }),
   ]);
+  // DB stores integer cents; work in dollars from here on.
+  const expenses = rawExpenses.map(expenseToClient);
+  const incomes = rawIncomes.map(incomeToClient);
+  const budgets = rawBudgets.map(budgetToClient);
 
   const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
