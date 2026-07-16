@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { sanitizeText, sanitizeEmail } from '../utils/sanitize';
 import { sendError } from '../utils/http';
 import { writeAuditLog } from '../utils/audit';
+import { toDollars } from '../utils/money';
 
 const router = Router();
 router.use(authMiddleware);
@@ -147,6 +148,47 @@ router.delete('/:id', async (req: Request, res: Response) => {
   await prisma.household.delete({ where: { id: householdId } }); // cascades members
   await writeAuditLog({ action: 'household.delete', userId, success: true, route: '/api/households/:id', metadata: { householdId } });
   res.json({ message: 'Household deleted.' });
+});
+
+// --- Pooled shared expenses across the household (members only) ---
+// Returns every member's household-tagged expenses (trimmed to id/title/amount/
+// category/date/payer — no private notes/receipts leak across members) plus an
+// equal-split settle-up: each member owes total/N, balance = paid − fair share.
+router.get('/:id/expenses', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const householdId = req.params.id;
+
+  const membership = await activeMembership(householdId, userId);
+  if (!membership) return sendError(res, 403, 'FORBIDDEN', 'You are not a member of this household.');
+
+  const [members, rawExpenses] = await Promise.all([
+    prisma.householdMember.findMany({ where: { householdId, status: 'active' }, select: { userId: true, invitedEmail: true } }),
+    prisma.expense.findMany({ where: { householdId }, orderBy: { date: 'desc' } }),
+  ]);
+
+  const emailByUser = new Map(members.map((m) => [m.userId ?? '', m.invitedEmail]));
+  const expenses = rawExpenses.map((e) => ({
+    id: e.id,
+    title: e.title,
+    amount: toDollars(e.amount),
+    category: e.category,
+    date: e.date.toISOString().split('T')[0],
+    payerEmail: emailByUser.get(e.userId) ?? 'unknown',
+  }));
+
+  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const fairShare = total / Math.max(members.length, 1);
+  const paidByEmail: Record<string, number> = {};
+  expenses.forEach((e) => { paidByEmail[e.payerEmail] = (paidByEmail[e.payerEmail] || 0) + e.amount; });
+
+  const settleUp = members
+    .map((m) => {
+      const paid = paidByEmail[m.invitedEmail] || 0;
+      return { email: m.invitedEmail, paid, share: fairShare, balance: paid - fairShare };
+    })
+    .sort((a, b) => b.balance - a.balance);
+
+  res.json({ expenses, total, memberCount: members.length, settleUp });
 });
 
 export default router;

@@ -19,6 +19,8 @@ export interface Expense {
   splitShares?: number[];
   receiptText?: string;
   receiptFileName?: string;
+  /** Optional: tags this expense to a shared household. */
+  householdId?: string | null;
 }
 
 export interface Income {

@@ -75,6 +75,29 @@ async function main() {
   const home = aView.households.find((h: any) => h.id === id);
   assert(home && home.members.filter((m: any) => m.status === 'active').length === 2, 'household has 2 active members');
 
+  // --- Pooling + settle-up ---
+  const mkExpense = (title: string, amount: number, householdId?: string) => ({
+    title, amount, category: 'Food', date: new Date().toISOString().split('T')[0], householdId,
+  });
+  // A pays $100 to the household, B pays $50
+  r = await a('/expenses', 'POST', mkExpense('Groceries', 100, id));
+  assert(r.status === 201, 'A logs a $100 household expense');
+  r = await b('/expenses', 'POST', mkExpense('Dinner', 50, id));
+  assert(r.status === 201, 'B logs a $50 household expense');
+
+  // Tagging an expense to a household you are not in is rejected
+  r = await a('/expenses', 'POST', mkExpense('Nope', 10, '000000000000000000000000'));
+  assert(r.status === 403, 'cannot tag an expense to a household you are not in');
+
+  // Pooled view (as B): both expenses + equal-split settle-up
+  r = await b(`/households/${id}/expenses`);
+  assert(r.status === 200, 'member can read pooled expenses');
+  const pool = await r.json();
+  assert(pool.expenses.length === 2 && pool.total === 150, 'pool shows 2 expenses totalling $150');
+  const balByEmail = Object.fromEntries(pool.settleUp.map((s: any) => [s.email, s.balance]));
+  assert(Math.abs(balByEmail[A] - 25) < 0.001, 'A is +$25 (paid 100, fair share 75)');
+  assert(Math.abs(balByEmail[B] + 25) < 0.001, 'B is -$25 (paid 50, fair share 75)');
+
   // B (non-owner) cannot delete the household
   r = await b(`/households/${id}`, 'DELETE');
   assert(r.status === 403, 'non-owner cannot delete household');
