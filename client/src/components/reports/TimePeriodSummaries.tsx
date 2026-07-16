@@ -66,8 +66,8 @@ const TimePeriodSummaries: React.FC<TimePeriodSummariesProps> = ({ allExpenses }
   const currencyProps = { displayCurrency, conversionRate };
 
   return (
-    <div className="bg-base-100 dark:bg-dark-200 p-6 rounded-2xl shadow-lg">
-        <h3 className="text-lg font-semibold mb-4 text-center text-base-content-secondary dark:text-base-300">Long-Term Summaries</h3>
+    <div className="bg-surface-2 border border-app-border p-6 rounded-2xl shadow-soft">
+        <h3 className="text-lg font-semibold mb-4 text-center text-app-muted">Long-Term Summaries</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <SummaryCard title="This Quarter" value={summaries.currentQuarterTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
             <SummaryCard title="Last Quarter" value={summaries.lastQuarterTotal} icon={<CalendarDaysIcon />} {...currencyProps} />

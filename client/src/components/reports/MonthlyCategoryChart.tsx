@@ -28,7 +28,7 @@ const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses })
     return Object.values(monthlyData).sort((a, b) => a.__sort - b.__sort);
   }, [expenses]);
   
-  if (data.length === 0) return <div className="flex items-center justify-center h-full text-base-content-secondary dark:text-gray-400">Not enough data to display.</div>;
+  if (data.length === 0) return <div className="flex items-center justify-center h-full text-app-muted">Not enough data to display.</div>;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -47,10 +47,12 @@ const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses })
         <Tooltip
             cursor={{fill: 'rgba(20, 184, 166, 0.1)'}}
             contentStyle={{
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                border: '1px solid #ccc',
+                backgroundColor: 'var(--modal-surface)',
+                border: '1px solid var(--border)',
                 borderRadius: '8px',
             }}
+            itemStyle={{ color: 'var(--app-text)' }}
+            labelStyle={{ color: 'var(--app-text)' }}
         />
         <Legend wrapperStyle={{fontSize: '12px'}}/>
         {Object.keys(CATEGORIES).map(category => (

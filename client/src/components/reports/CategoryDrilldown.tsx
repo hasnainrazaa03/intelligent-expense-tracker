@@ -13,7 +13,7 @@ interface CategoryDrilldownProps {
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-base-100 dark:bg-dark-300 p-2 border border-base-300 dark:border-dark-100 rounded-md shadow-lg">
+      <div className="p-2.5 rounded-lg border border-app-border shadow-soft text-xs text-app-text" style={{ background: 'var(--modal-surface)' }}>
         <p className="font-bold">{label}</p>
         <p style={{ color: payload[0].fill }}>{`Spent: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}</p>
       </div>
@@ -82,7 +82,7 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
             {selectedCategory && (
                 <button
                     onClick={() => setSelectedCategory(null)}
-                    className="text-sm text-brand-primary hover:underline"
+                    className="text-sm text-primary hover:underline"
                 >
                     &larr; Back to Main Categories
                 </button>
