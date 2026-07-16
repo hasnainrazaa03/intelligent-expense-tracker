@@ -88,8 +88,8 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
                 </button>
             )}
         </div>
-        <p className="text-center font-semibold text-base-content-secondary dark:text-base-300">{title}</p>
-        <div className="h-96">
+        <p className="text-center font-semibold text-app-muted text-sm">{title}</p>
+        <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
             <BarChart
                 data={chartData}

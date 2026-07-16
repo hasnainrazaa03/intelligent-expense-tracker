@@ -246,8 +246,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
           </button>
 
           {isCategoryDropdownOpen && (
-            <div className="absolute z-50 mt-2 w-full glass glass-blur rounded-xl overflow-hidden flex flex-col max-h-64">
-              <div className="p-2.5 border-b border-app-border sticky top-0">
+            <div className="absolute z-50 mt-2 w-full modal-surface rounded-xl overflow-hidden flex flex-col max-h-64">
+              <div className="p-2.5 border-b border-app-border sticky top-0 z-10" style={{ background: 'var(--modal-surface)' }}>
                 <input
                   type="text" placeholder="Search categories…" value={categorySearchTerm}
                   onChange={(e) => setCategorySearchTerm(e.target.value)}

@@ -468,8 +468,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                 </button>
 
                 {isCategoryDropdownOpen && (
-                  <div className="absolute z-50 mt-2 w-full glass glass-blur rounded-xl overflow-hidden flex flex-col max-h-64">
-                      <div className="p-2.5 border-b border-app-border sticky top-0">
+                  <div className="absolute z-50 mt-2 w-full modal-surface rounded-xl overflow-hidden flex flex-col max-h-64">
+                      <div className="p-2.5 border-b border-app-border sticky top-0 z-10" style={{ background: 'var(--modal-surface)' }}>
                           <input
                               type="text" placeholder="Search categories…" value={categorySearchTerm}
                               onChange={(e) => setCategorySearchTerm(e.target.value)}
@@ -480,7 +480,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                       <div className="overflow-y-auto">
                           {(Object.entries(filteredCategories) as [string, string[]][]).map(([main, subs]) => (
                               <div key={main}>
-                                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-faint bg-surface-2/60">{main}</div>
+                                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-faint bg-surface-2">{main}</div>
                                   {subs.map(sub => (
                                       <button
                                           type="button"

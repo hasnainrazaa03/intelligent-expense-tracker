@@ -148,9 +148,8 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         </div>
       </div>
 
-      {/* 2. BENTO ANALYTICS GRID */}
+      {/* 2. HERO STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
-
         {/* Total Expenditure Log */}
         <div className="lg:col-span-2 glass rounded-2xl p-4 md:p-6 relative overflow-hidden group min-w-0">
           <div className="absolute -right-8 -top-8 opacity-[0.06] group-hover:scale-110 transition-transform hidden sm:block">
@@ -180,26 +179,29 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
             )}
           </div>
         </div>
+      </div>
 
+      {/* 3. CATEGORY BREAKDOWN + BUDGET VS ACTUAL (side by side) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 items-start">
         {/* Category Breakdown Ledger */}
-        <div className="lg:col-span-3 glass rounded-2xl overflow-hidden">
+        <div className="glass rounded-2xl overflow-hidden">
           <div className="border-b border-app-border p-4 md:p-5 flex justify-between items-center">
-            <h4 className="font-display font-semibold text-app-text text-base md:text-xl">Category breakdown</h4>
+            <h4 className="font-display font-semibold text-app-text text-base md:text-lg">Category breakdown</h4>
             <span className="text-app-faint text-[10px] md:text-xs hidden xs:inline">Verified by system</span>
           </div>
-          <div className="p-5 md:p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+          <div className="p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[22rem] overflow-y-auto custom-scrollbar">
             {(Object.entries(stats.categoryTotals) as [string, number][])
               .sort((a, b) => b[1] - a[1])
               .map(([name, amount]) => (
-                <div key={name} className="flex flex-col rounded-2xl border border-app-border bg-surface-2 p-4 md:p-5 group min-w-0">
-                  <p className="text-[10px] md:text-xs text-app-faint mb-1">Category</p>
-                  <p className="font-display font-semibold text-lg md:text-2xl text-app-text truncate">
+                <div key={name} className="flex flex-col rounded-xl border border-app-border bg-surface-2 p-3 group min-w-0">
+                  <p className="text-[10px] text-app-faint mb-0.5">Category</p>
+                  <p className="font-display font-semibold text-sm md:text-base text-app-text truncate">
                     {name}
                   </p>
-                  <p className="font-display text-base md:text-xl text-app-muted tabular-nums">
+                  <p className="font-display text-xs md:text-sm text-app-muted tabular-nums">
                     {formatCurrency(amount, displayCurrency, conversionRate)}
                   </p>
-                  <div className="h-1.5 rounded-full bg-surface border border-app-border mt-3 md:mt-4 relative w-full overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-surface border border-app-border mt-2 relative w-full overflow-hidden">
                     <div
                       className="h-full rounded-full bg-primary absolute left-0"
                       style={{ width: `${(amount / stats.totalSpent) * 100}%` }}
@@ -209,62 +211,59 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
               ))}
           </div>
         </div>
-      </div>
 
-      {/* 3. DETAILED REPORT CHARTS */}
-      <div className="space-y-5 md:space-y-6">
         {/* Budget vs Actual */}
-        <div className="glass rounded-2xl p-5 md:p-7">
-          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Budget vs actual</h4>
+        <div className="glass rounded-2xl p-4 md:p-6">
+          <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Budget vs actual</h4>
           <div className="h-64 md:h-80">
             <BudgetActualChart expenses={allExpenses} budgets={budgets} />
           </div>
         </div>
+      </div>
 
-        {/* Two-column grid for smaller charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
-          <div className="glass rounded-2xl p-5 md:p-7">
-            <h4 className="font-display font-semibold text-sm md:text-lg text-app-text mb-4 border-b border-app-border pb-2">Payment method distribution</h4>
-            <div className="h-64">
-              <PaymentMethodChart expenses={allExpenses} />
-            </div>
-          </div>
-
-          <div className="glass rounded-2xl p-5 md:p-7">
-            <h4 className="font-display font-semibold text-sm md:text-lg text-app-text mb-4 border-b border-app-border pb-2">Recurring vs one-time</h4>
-            <div className="h-64">
-              <RecurringVsOneTimeChart expenses={allExpenses} />
-            </div>
+      {/* 4. THREE SMALL CHARTS (payment · recurring · drilldown) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 items-start">
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
+          <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Payment method distribution</h4>
+          <div className="h-64">
+            <PaymentMethodChart expenses={allExpenses} />
           </div>
         </div>
 
-        {/* Monthly Category Breakdown */}
-        <div className="glass rounded-2xl p-5 md:p-7">
-          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Monthly category flow</h4>
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
+          <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Recurring vs one-time</h4>
+          <div className="h-64">
+            <RecurringVsOneTimeChart expenses={allExpenses} />
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
+          <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Category drilldown</h4>
+          <CategoryDrilldown expenses={allExpenses} />
+        </div>
+      </div>
+
+      {/* 5. MONTHLY FLOW + YEAR OVER YEAR (side by side) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 items-start">
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
+          <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Monthly category flow</h4>
           <div className="h-72 md:h-96">
             <MonthlyCategoryChart expenses={allExpenses} />
           </div>
         </div>
 
-        {/* Category Drilldown */}
-        <div className="glass rounded-2xl p-5 md:p-7">
-          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Category drilldown</h4>
-          <CategoryDrilldown expenses={allExpenses} />
-        </div>
-
-        {/* Year over Year */}
-        <div className="glass rounded-2xl p-5 md:p-7">
-          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Year over year comparison</h4>
-          <div className="h-64 md:h-80">
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
+          <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Year over year comparison</h4>
+          <div className="h-72 md:h-96">
             <YearOverYearChart expenses={allExpenses} />
           </div>
         </div>
+      </div>
 
-        {/* Time Period Summaries */}
-        <div className="glass rounded-2xl p-5 md:p-7">
-          <h4 className="font-display font-semibold text-lg md:text-2xl text-app-text mb-6 border-b border-app-border pb-3">Time period summaries</h4>
-          <TimePeriodSummaries allExpenses={allExpenses} />
-        </div>
+      {/* 6. Time Period Summaries */}
+      <div className="glass rounded-2xl p-4 md:p-6">
+        <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Time period summaries</h4>
+        <TimePeriodSummaries allExpenses={allExpenses} />
       </div>
 
       {/* 4. FINAL CERTIFICATION */}
