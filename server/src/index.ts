@@ -88,6 +88,10 @@ app.use(cors({
 }));
 
 // --- Body parsing with size limit ---
+// Bank-statement PDFs are read by Gemini natively, so this one route needs a
+// larger body than the global cap. It's auth-, CSRF- and AI-rate-limited, so
+// the wider limit is scoped to that path only; every other route keeps 1mb.
+app.use('/api/ai/parse-statement', express.json({ limit: '15mb' }));
 app.use(express.json({ limit: SERVER_CONFIG.bodyLimit }));
 app.use(cookieParser());
 

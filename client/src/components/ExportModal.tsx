@@ -444,6 +444,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             </Button>
 
             <BankStatementImport
+              existingExpenses={allExpenses}
               onImport={(expenses) => {
                 onImport(expenses);
                 toast(`Imported ${expenses.length} transaction(s) from your bank statement.`);
