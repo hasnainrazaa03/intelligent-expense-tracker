@@ -33,6 +33,7 @@ interface HeaderProps {
   twoFactorEnabled: boolean;
   onSearch: (query: string) => void;
   activeView: string;
+  offlineStatus?: { isOnline: boolean; pendingCount: number; syncing: boolean };
   /** All transactions, searched globally by the header dropdown. */
   expenses: Expense[];
   incomes: Income[];
@@ -55,7 +56,7 @@ const ActionTip: React.FC<{ label: string; children: React.ReactNode }> = ({ lab
 
 const Header: React.FC<HeaderProps> = ({
   onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch,
-  expenses, incomes, onSelectTransaction
+  offlineStatus, expenses, incomes, onSelectTransaction
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const { theme, toggleTheme } = useTheme();
@@ -272,6 +273,21 @@ const Header: React.FC<HeaderProps> = ({
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
                 )}
               </button>
+              {/* Offline / pending-sync indicator */}
+              {offlineStatus && (!offlineStatus.isOnline || offlineStatus.pendingCount > 0) && (
+                <span
+                  role="status"
+                  aria-live="polite"
+                  title={offlineStatus.isOnline ? 'Changes are syncing to the server.' : 'You are offline — new expenses are saved locally and will sync when you reconnect.'}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap ${offlineStatus.isOnline ? 'bg-primary-soft text-primary' : 'bg-warn/15 text-warn'}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${offlineStatus.isOnline ? 'bg-primary animate-pulse' : 'bg-warn'}`} />
+                  {offlineStatus.isOnline
+                    ? `Syncing${offlineStatus.pendingCount ? ` ${offlineStatus.pendingCount}` : ''}…`
+                    : `Offline${offlineStatus.pendingCount ? ` · ${offlineStatus.pendingCount} queued` : ''}`}
+                </span>
+              )}
+
               {/* Currency picker (searchable, any supported currency) */}
               <CurrencyPicker />
 
