@@ -232,47 +232,49 @@ const Dashboard: React.FC<DashboardProps> = ({
         </section>
       )}
 
-        {/* 2. SUMMARY CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-          <SummaryCard title="EXPENSES" value={periodTotalExpense} icon={<CalendarDaysIcon className="h-6 w-6" />} percentageChange={periodChange} accent="rose" />
-          <SummaryCard title="INCOME" value={periodTotalIncome} icon={<BanknotesIcon className="h-6 w-6" />} accent="green" />
-          <SummaryCard title="NET_FLOW" value={netFlow} icon={<TrendingUpIcon className="h-6 w-6" />} isNetFlow={true} accent="indigo" />
-          <SummaryCard title="TOP_CATEGORY" value={topCategory} isString={true} icon={<TagIcon className="h-6 w-6" />} accent="amber" />
-      </div>
-
-        {/* 3. BUDGET PROTOCOLS */}
-        <div className="glass rounded-2xl p-4 md:p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 md:mb-6 gap-2">
-                <h3 className="font-display text-lg md:text-xl font-bold text-app-text">Budget protocols</h3>
-                <p className="text-[11px] font-medium text-app-muted">This month vs. allocation</p>
+        {/* 2. SUMMARY CARDS + CATEGORY SPLIT (left) · BUDGET PROTOCOLS (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 items-start">
+          <div className="space-y-4 md:space-y-5 min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
+              <SummaryCard title="EXPENSES" value={periodTotalExpense} icon={<CalendarDaysIcon className="h-6 w-6" />} percentageChange={periodChange} accent="rose" />
+              <SummaryCard title="INCOME" value={periodTotalIncome} icon={<BanknotesIcon className="h-6 w-6" />} accent="green" />
+              <SummaryCard title="NET_FLOW" value={netFlow} icon={<TrendingUpIcon className="h-6 w-6" />} isNetFlow={true} accent="indigo" />
+              <SummaryCard title="TOP_CATEGORY" value={topCategory} isString={true} icon={<TagIcon className="h-6 w-6" />} accent="amber" />
             </div>
-              <BudgetTracker expenses={monthExpenses} budgets={budgets} />
-      </div>
 
-        {/* 4. CATEGORY SPLIT + HISTORICAL ANALYTICS (side by side) */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-5">
-          <div className="lg:col-span-2 glass rounded-2xl p-4 md:p-5 min-w-0">
+            <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
               <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Categorical split</h3>
               <div className="h-64 md:h-72">
-                  <CategoryPieChart data={categoryData} />
+                <CategoryPieChart data={categoryData} />
               </div>
+            </div>
           </div>
 
-          <div className="lg:col-span-3 glass rounded-2xl p-4 md:p-5 min-w-0">
+          <div className="@container glass rounded-2xl p-4 md:p-5 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 md:mb-6 gap-2">
+              <h3 className="font-display text-lg md:text-xl font-bold text-app-text">Budget protocols</h3>
+              <p className="text-[11px] font-medium text-app-muted">This month vs. allocation</p>
+            </div>
+            <BudgetTracker expenses={monthExpenses} budgets={budgets} />
+          </div>
+        </div>
+
+        {/* 3. HISTORICAL ANALYTICS + SPENDING TREND (side by side) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
+          <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
             <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Historical analytics · 6-month window</h3>
             <div className="h-64 md:h-72">
-                <BudgetPerformanceChart data={budgetPerformanceData} />
+              <BudgetPerformanceChart data={budgetPerformanceData} />
             </div>
-        </div>
-      </div>
-
-        {/* 5. DAILY SPENDING TREND (full width) */}
-        <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
-          <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">{barChartTitle}</h3>
-          <div className="h-64 md:h-72">
-              <SpendingBarChart data={barChartData} />
           </div>
-      </div>
+
+          <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
+            <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">{barChartTitle}</h3>
+            <div className="h-64 md:h-72">
+              <SpendingBarChart data={barChartData} />
+            </div>
+          </div>
+        </div>
 
       <FinancialPlanningPanel
         expenses={allExpenses}
