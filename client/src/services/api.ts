@@ -412,6 +412,28 @@ export const parseReceipt = (image: string): Promise<{ receipt: ParsedReceipt }>
   });
 };
 
+export interface ParsedStatementTxn {
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+  paymentMethod: string;
+}
+
+/**
+ * Sends a bank statement to Gemini for parsing. Pass a base64 PDF data URI or
+ * raw CSV text; returns the detected expense transactions with suggested
+ * categories for the user to review before importing.
+ */
+export const parseStatement = (
+  input: { pdf?: string; csvText?: string }
+): Promise<{ transactions: ParsedStatementTxn[] }> => {
+  return fetchApi<{ transactions: ParsedStatementTxn[] }>('/ai/parse-statement', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+};
+
 /**
  * Creates a batch of new expenses from a CSV import.
  */

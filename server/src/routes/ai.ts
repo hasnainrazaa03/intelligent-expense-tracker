@@ -335,4 +335,97 @@ Respond with JSON only — no markdown, no commentary.`;
   }
 });
 
+// Max transactions returned from a single statement parse — mirrors the bulk
+// import cap so the review list never exceeds what /expenses/bulk will accept.
+const MAX_STATEMENT_TXNS = 500;
+
+// Parse a bank statement (PDF read natively by Gemini, or raw CSV text) into a
+// list of expense transactions with suggested categories. The client shows
+// these in a review table before importing, so this only proposes.
+router.post('/parse-statement', async (req: Request, res: Response) => {
+  if (!genAI) {
+    return res.status(503).json({ message: 'AI service is not configured.' });
+  }
+
+  const { pdf, csvText } = req.body || {};
+
+  let parts: any[] | null = null;
+  const instruction = `You are a bank-statement parser. Extract every EXPENSE (money leaving the account: debits, card purchases, withdrawals, fees) from the statement.
+IGNORE deposits, credits, refunds, incoming transfers and payments received.
+Return ONLY a JSON object: {"transactions": [ ... ]} where each item has:
+- "date": transaction date as "YYYY-MM-DD"
+- "description": the merchant / payee (string, max 80 chars)
+- "amount": a positive plain number (the expense magnitude, no currency symbols or separators)
+- "category": the single best fit from EXACTLY this list: ${JSON.stringify(RECEIPT_CATEGORIES)}
+- "paymentMethod": one of ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} if determinable, otherwise ""
+Return at most ${MAX_STATEMENT_TXNS} transactions. Respond with JSON only — no markdown, no commentary.`;
+
+  if (typeof pdf === 'string' && pdf) {
+    const match = pdf.match(/^data:application\/pdf;base64,([a-z0-9+/=\s]+)$/i);
+    if (!match) {
+      return res.status(400).json({ message: 'pdf must be a base64 application/pdf data URI.' });
+    }
+    const base64 = match[1].replace(/\s+/g, '');
+    // ~10MB PDF — the scoped body parser allows up to ~15MB of base64.
+    if (base64.length > 14_000_000) {
+      return res.status(413).json({ message: 'PDF is too large (max ~10MB).' });
+    }
+    parts = [{ text: instruction }, { inlineData: { mimeType: 'application/pdf', data: base64 } }];
+  } else if (typeof csvText === 'string' && csvText.trim()) {
+    if (csvText.length > 1_000_000) {
+      return res.status(413).json({ message: 'CSV text is too large.' });
+    }
+    parts = [{ text: `${instruction}\n\nSTATEMENT (CSV):\n${csvText.slice(0, 1_000_000)}` }];
+  }
+
+  if (!parts) {
+    return res.status(400).json({ message: 'Provide a base64 pdf data URI or csvText.' });
+  }
+
+  const callModel = async (modelName: string): Promise<string> => {
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent(parts!);
+    return (await result.response).text();
+  };
+
+  try {
+    let text: string;
+    try {
+      text = await callModel(PRIMARY_MODEL);
+    } catch (modelError) {
+      console.warn(`Statement parse: primary model failed, falling back. ${modelError}`);
+      text = await callModel(FALLBACK_MODEL);
+    }
+
+    const parsed = safeParseJson(text);
+    const rawTxns = Array.isArray(parsed) ? parsed : parsed?.transactions;
+    if (!Array.isArray(rawTxns)) {
+      return res.status(422).json({ message: 'Could not read any transactions from that statement.' });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const transactions = rawTxns
+      .map((t: any) => {
+        const amountNum = Number(t?.amount);
+        return {
+          date: /^\d{4}-\d{2}-\d{2}$/.test(String(t?.date || '')) ? t.date : today,
+          description: String(t?.description || '').slice(0, 80),
+          amount: Number.isFinite(amountNum) ? Math.abs(amountNum) : 0,
+          category: RECEIPT_CATEGORIES.includes(t?.category) ? t.category : 'Other',
+          paymentMethod: RECEIPT_PAYMENT_METHODS.includes(t?.paymentMethod) ? t.paymentMethod : '',
+        };
+      })
+      .filter((t) => t.description && t.amount > 0)
+      .slice(0, MAX_STATEMENT_TXNS);
+
+    return res.json({ transactions });
+  } catch (error) {
+    console.error('Statement parse error:', error);
+    return res.status(500).json({ message: 'Failed to parse the statement.' });
+  }
+});
+
 export default router;

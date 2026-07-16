@@ -68,10 +68,10 @@ test('search dropdown surfaces a transaction and opens its detail', async ({ pag
   await expect(page.getByRole('heading', { name: /Edit (expense|income)/ })).toBeVisible();
 });
 
-test('bank statement CSV maps columns and previews the import', async ({ page }) => {
+test('bank statement CSV maps columns and reaches the review step', async ({ page }) => {
   await page.getByRole('button', { name: 'Open data import and export' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('Bank statement (CSV)')).toBeVisible();
+  await expect(dialog.getByText('Bank statement · CSV or PDF')).toBeVisible();
 
   // Upload an in-memory statement: 3 debits + 1 credit.
   const csv = [
@@ -81,7 +81,7 @@ test('bank statement CSV maps columns and previews the import', async ({ page })
     '07/03/2026,TRADER JOES,-62.18,Groceries',
     '07/05/2026,UBER,-14.30,Transport',
   ].join('\n');
-  await dialog.getByLabel('Bank statement CSV file').setInputFiles({
+  await dialog.getByLabel('Bank statement CSV or PDF file').setInputFiles({
     name: 'statement.csv',
     mimeType: 'text/csv',
     buffer: Buffer.from(csv),
@@ -89,6 +89,10 @@ test('bank statement CSV maps columns and previews the import', async ({ page })
 
   // Auto-detected mapping + credit-skipping: 3 debits ready, 1 credit skipped.
   await expect(dialog.getByText(/3 transaction\(s\) ready · 1 skipped/)).toBeVisible();
+
+  // Advance to the review table and confirm the 3 rows are selected to import.
+  await dialog.getByRole('button', { name: /Review 3 transactions/ }).click();
+  await expect(dialog.getByText(/3 detected · 3 selected/)).toBeVisible();
   await expect(dialog.getByRole('button', { name: /Import 3 expenses/ })).toBeEnabled();
 });
 
@@ -117,9 +121,13 @@ test('offline: an expense is queued and syncs on reconnect', async ({ page, cont
   await dialog.getByRole('button', { name: 'Add expense' }).click();
   await expect(dialog).toBeHidden({ timeout: 10_000 });
 
-  // Offline indicator + optimistic row shown while offline.
+  // Offline indicator + optimistic row shown while offline. Search for the
+  // unique title so the row is surfaced regardless of how many other
+  // transactions share today's date (the list is paginated).
   await expect(page.getByText(/Offline · 1 queued/)).toBeVisible();
+  await page.getByPlaceholder('Search transactions…').fill(title);
   await expect(page.getByText(title).first()).toBeVisible();
+  await page.getByPlaceholder('Search transactions…').fill('');
 
   // Reconnect → the queue flushes and the pill clears.
   await context.setOffline(false);
