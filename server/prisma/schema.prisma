@@ -118,3 +118,26 @@ model TuitionInstallment {
   semesterUserId String    @db.ObjectId
   @@index([semesterId, semesterUserId])
 }
+model Household {
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  ownerId   String            @db.ObjectId
+  createdAt DateTime          @default(now())
+  members   HouseholdMember[]
+  @@index([ownerId])
+}
+
+model HouseholdMember {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  household    Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId  String    @db.ObjectId
+  // null while an emailed invite hasn't been accepted (or the email isn't a user yet)
+  userId       String?   @db.ObjectId
+  invitedEmail String
+  role         String    @default("member") // 'owner' | 'member'
+  status       String    @default("invited") // 'invited' | 'active'
+  createdAt    DateTime  @default(now())
+  @@index([householdId])
+  @@index([userId])
+  @@index([invitedEmail])
+}

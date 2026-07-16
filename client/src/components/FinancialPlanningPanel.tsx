@@ -5,11 +5,11 @@ import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { Button, Card } from './ui';
 import SpendingBarChart from './SpendingBarChart';
+import HouseholdsManager from './HouseholdsManager';
 
 const SAVINGS_GOALS_KEY = 'savingsGoalsV2';
 const PAUSED_RECURRING_KEY = 'pausedRecurringTemplates';
 const INVESTMENT_ACCOUNTS_KEY = 'investmentAccounts';
-const FAMILY_MEMBERS_KEY = 'familyBudgetMembers';
 
 interface SavingsGoal {
   id: string;
@@ -62,17 +62,6 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const [newAccountType, setNewAccountType] = useState<InvestmentAccount['type']>('brokerage');
   const [newAccountValue, setNewAccountValue] = useState('');
 
-  const [familyMembers, setFamilyMembers] = useState<Array<{ id: string; name: string; contribution: number }>>(() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(FAMILY_MEMBERS_KEY) || '[]');
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const [memberName, setMemberName] = useState('');
-  const [memberContribution, setMemberContribution] = useState('');
-
   const now = new Date();
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
@@ -95,11 +84,6 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
       return cashPosition + totalInvestments;
     }, [monthlyIncome, monthlyExpense, totalInvestments]);
 
-    const familyContributionTotal = useMemo(
-      () => familyMembers.reduce((sum, member) => sum + member.contribution, 0),
-      [familyMembers]
-    );
-
     const addInvestmentAccount = () => {
       const parsed = Number.parseFloat(newAccountValue);
       if (!newAccountName.trim() || !Number.isFinite(parsed)) return;
@@ -119,22 +103,6 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
       setNewAccountValue('');
     };
 
-    const addFamilyMember = () => {
-      const parsed = Number.parseFloat(memberContribution);
-      if (!memberName.trim() || !Number.isFinite(parsed)) return;
-      const next = [
-        ...familyMembers,
-        {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          name: memberName.trim(),
-          contribution: parsed,
-        },
-      ];
-      setFamilyMembers(next);
-      localStorage.setItem(FAMILY_MEMBERS_KEY, JSON.stringify(next));
-      setMemberName('');
-      setMemberContribution('');
-    };
 
   const persistSavingsGoals = (next: SavingsGoal[]) => {
     setSavingsGoals(next);
@@ -543,24 +511,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           </div>
         </div>
 
-        <div className={cardCls}>
-          <p className={subLabelCls}>Collaborative budgeting</p>
-          <p className="text-xs text-app-muted tabular-nums">Shared contributions: <span className="text-app-text font-medium">{formatCurrency(familyContributionTotal, displayCurrency, conversionRate)}</span></p>
-          <p className="text-xs text-app-muted tabular-nums">Shared expense load: <span className="text-app-text font-medium">{formatCurrency(monthlyExpense - familyContributionTotal, displayCurrency, conversionRate)}</span></p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-            <input value={memberName} onChange={(e) => setMemberName(e.target.value)} className={fieldCls} placeholder="Member name" />
-            <input type="number" value={memberContribution} onChange={(e) => setMemberContribution(e.target.value)} className={fieldCls} placeholder="Contribution" />
-          </div>
-          <Button size="sm" onClick={addFamilyMember} className="mt-2.5">Add member</Button>
-          <div className="mt-3 space-y-1.5 max-h-28 overflow-y-auto">
-            {familyMembers.slice(-6).map((member) => (
-              <div key={member.id} className={rowCls}>
-                <span className="text-app-muted truncate">{member.name}</span>
-                <span className="text-app-text font-medium">{formatCurrency(member.contribution, displayCurrency, conversionRate)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <HouseholdsManager />
 
         <div className={cardCls}>
           <p className={subLabelCls}>Bills & subscriptions</p>

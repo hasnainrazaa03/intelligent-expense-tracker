@@ -92,6 +92,21 @@ test('bank statement CSV maps columns and previews the import', async ({ page })
   await expect(dialog.getByRole('button', { name: /Import 3 expenses/ })).toBeEnabled();
 });
 
+test('create and delete a household', async ({ page }) => {
+  const name = `E2E Home ${Date.now()}`;
+  await page.getByText('Households · shared budgeting').scrollIntoViewIfNeeded();
+  await page.getByLabel('New household name').fill(name);
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+
+  const card = page.locator('div').filter({ hasText: name }).last();
+  await expect(page.getByText(name).first()).toBeVisible({ timeout: 10_000 });
+  await expect(card.getByText('owner', { exact: true }).first()).toBeVisible();
+
+  // Owner deletes it — clean up after ourselves.
+  await card.getByRole('button', { name: 'Delete' }).first().click();
+  await expect(page.getByText(name)).toBeHidden({ timeout: 10_000 });
+});
+
 test('dashboard has no WCAG A/AA accessibility violations', async ({ page }) => {
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
   expect(results.violations).toEqual([]);
