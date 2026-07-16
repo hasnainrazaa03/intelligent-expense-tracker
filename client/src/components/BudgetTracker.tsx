@@ -118,7 +118,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+      <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-x-8 gap-y-5">
         {budgets.map((budget) => (
           <BudgetProgressItem
             key={budget.category}
