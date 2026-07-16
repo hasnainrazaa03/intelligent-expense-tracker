@@ -132,6 +132,10 @@ const App: React.FC = () => {
 
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [activeView, setActiveView] = useState<ActiveView>('expenses');
+  // Sub-tab within the Expenses / Income hubs: the overview (dashboard/summary)
+  // vs the transactions list. Reset to overview whenever the top-level view changes.
+  const [hubTab, setHubTab] = useState<'overview' | 'list'>('overview');
+  useEffect(() => { setHubTab('overview'); }, [activeView]);
   // The raw search input lives in Header (debounced there); App only stores the
   // already-debounced term, so typing no longer re-renders the whole app on every
   // keystroke — only when the debounced value actually changes (APP-H5).
@@ -766,10 +770,6 @@ const handleDeleteIncome = async (id: string) => {
             );
         case 'income':
             return (
-            <div>
-              {!isLoadingData && incomes.length > 0 && (
-                <IncomeSummary incomes={filteredIncomes} allIncomes={incomes} />
-              )}
               <IncomeList
                 incomes={searchedAndSortedItems as Income[]}
                 onEdit={handleEditIncomeClick}
@@ -779,7 +779,6 @@ const handleDeleteIncome = async (id: string) => {
                 isLoading={isLoadingData}
                 dateFilter={<DateRangeFilter selectedRange={dateRange} onChange={setDateRange} />}
               />
-                </div>
             );
         case 'ai':
           return <AiAnalyst expenses={expenses} incomes={incomes} />;
@@ -837,6 +836,7 @@ const handleDeleteIncome = async (id: string) => {
               <nav
                 ref={navRef}
                 role="tablist"
+                aria-label="Primary navigation"
                 aria-orientation="vertical"
                 onKeyDown={(e) => {
                   const keys = ['ArrowUp', 'ArrowDown', 'Home', 'End'];
@@ -960,9 +960,29 @@ const handleDeleteIncome = async (id: string) => {
                     </div>
                   )}
 
-                  {/* The Financial-hub overview is the Expenses tab's home; the Income
-                      tab shows its own focused list so the two tabs don't look identical. */}
-                  {activeView === 'expenses' && (
+                  {/* Sub-tabs for the Expenses / Income hubs: Overview (dashboard /
+                      summary) vs the transactions list — keeps each hub uncluttered. */}
+                  {(activeView === 'expenses' || activeView === 'income') && (
+                    <div role="tablist" aria-label="Hub section" className="flex items-center gap-1 bg-surface-2 border border-app-border rounded-xl p-1 w-fit">
+                      {([
+                        { id: 'overview' as const, label: 'Overview' },
+                        { id: 'list' as const, label: activeView === 'expenses' ? 'Transactions' : 'Income stream' },
+                      ]).map(t => (
+                        <button
+                          key={t.id}
+                          role="tab"
+                          aria-selected={hubTab === t.id}
+                          onClick={() => setHubTab(t.id)}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${hubTab === t.id ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Overview tab */}
+                  {activeView === 'expenses' && hubTab === 'overview' && (
                     <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>
                       <Dashboard
                         expenses={filteredExpenses}
@@ -977,12 +997,20 @@ const handleDeleteIncome = async (id: string) => {
                       />
                     </Suspense>
                   )}
+                  {activeView === 'income' && hubTab === 'overview' && (
+                    !isLoadingData && incomes.length > 0
+                      ? <IncomeSummary incomes={filteredIncomes} allIncomes={incomes} />
+                      : <p className="text-sm text-app-muted">No income yet — add some from the Income stream tab.</p>
+                  )}
 
-                  <div className={activeView === 'expenses' ? 'border-t border-app-border pt-6 md:pt-8' : ''}>
-                    <Suspense fallback={<SectionSkeleton title="Loading section" rows={4} />}>
-                      {renderActiveView()}
-                    </Suspense>
-                  </div>
+                  {/* List tab (and every non-hub view) */}
+                  {(!(activeView === 'expenses' || activeView === 'income') || hubTab === 'list') && (
+                    <div>
+                      <Suspense fallback={<SectionSkeleton title="Loading section" rows={4} />}>
+                        {renderActiveView()}
+                      </Suspense>
+                    </div>
+                  )}
                 </div>
 
               {/* 4. FLOATING ACTION BUTTON */}
