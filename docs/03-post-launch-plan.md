@@ -122,3 +122,21 @@ gated or a larger product build.
 3. **A3** (custom categories) then **B4/B5** (recurring, multi-currency).
 4. **A4** (money-as-cents) as a scheduled mini-project before further money features.
 5. **A5/A6 + Tier 3** as scale/maturity demands.
+
+---
+
+## Pre-launch security review (2026-07-16)
+
+Two-agent review of the cumulative session diff (`98de02a..HEAD`). **Household
+authorization and the money-as-cents conversions were verified airtight/complete
+on every path.** No critical/high issues. Fixed pre-launch (PR #69):
+
+- **Offline idempotency (H1)** — offline creates now carry a `clientRequestId`; a replay returns the existing row (200) instead of duplicating.
+- **Flush re-entrancy (M1)** — a `useRef` guard prevents concurrent flushes (mount + `online` event) from double-submitting.
+- **Poison-item blocking (M2)** — a permanent 4xx item is dropped from the queue instead of blocking every later item forever; transient errors still retry.
+- **Receipt fetch race (M3)** — the modal's receipt loader aborts on expense switch so a slow response can't paint the wrong expense.
+- **Receipt size/type** — cap lowered to 900KB (under the 1MB body limit) with a clear message; raster-only allowlist rejects script-carrying SVG data URLs.
+- **Settle-up drift (L1)** — pooled expenses are filtered to current active members so a member leaving can't skew balances.
+- **Email output-encoding (L3)** + **migration crash-safety (M2)** — HTML-escape category names in the summary email; per-collection markers make the cents migration re-runnable after a partial run (overall-marker fast path still protects an already-migrated DB).
+
+**Accepted / deferred (documented, low-risk):** members (not just owners) can invite — an intentional roommate-friendly choice; editing/deleting a not-yet-synced offline row is a narrow edge (bounded to an offline session) — documented; and household amounts render in `$` regardless of display currency (values are USD).

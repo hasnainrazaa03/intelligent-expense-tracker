@@ -167,14 +167,20 @@ router.get('/:id/expenses', async (req: Request, res: Response) => {
   ]);
 
   const emailByUser = new Map(members.map((m) => [m.userId ?? '', m.invitedEmail]));
-  const expenses = rawExpenses.map((e) => ({
-    id: e.id,
-    title: e.title,
-    amount: toDollars(e.amount),
-    category: e.category,
-    date: e.date.toISOString().split('T')[0],
-    payerEmail: emailByUser.get(e.userId) ?? 'unknown',
-  }));
+  // Only count expenses paid by CURRENT active members. A member who left keeps
+  // their expenses in the DB (householdId set), but including them would inflate
+  // the total/fair-share while their 'paid' has no active member to credit —
+  // silently skewing everyone's balance.
+  const expenses = rawExpenses
+    .filter((e) => emailByUser.has(e.userId))
+    .map((e) => ({
+      id: e.id,
+      title: e.title,
+      amount: toDollars(e.amount),
+      category: e.category,
+      date: e.date.toISOString().split('T')[0],
+      payerEmail: emailByUser.get(e.userId) as string,
+    }));
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
   const fairShare = total / Math.max(members.length, 1);

@@ -10,6 +10,8 @@ const router = Router();
 router.use(authMiddleware);
 
 const money = (n: number) => `$${n.toFixed(2)}`;
+// Output-encode user text at render time (defense-in-depth over input sanitizing).
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** Email the signed-in user a summary of their current-month finances. */
 router.post('/email-summary', async (req: Request, res: Response) => {
@@ -41,7 +43,7 @@ router.post('/email-summary', async (req: Request, res: Response) => {
     monthExpenses.forEach((e) => { byCategory[e.category] = (byCategory[e.category] || 0) + e.amount; });
     const top = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-    const rows = top.map(([cat, amt]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${cat}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${money(amt)}</td></tr>`).join('');
+    const rows = top.map(([cat, amt]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${esc(cat)}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${money(amt)}</td></tr>`).join('');
 
     const html = `
       <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;color:#111">

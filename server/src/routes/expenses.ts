@@ -51,6 +51,7 @@ router.post('/', async (req: Request, res: Response) => {
     receiptText,
     receiptFileName,
     householdId,
+    clientRequestId,
   } = req.body;
 
   const safeTitle = sanitizeText(title);
@@ -100,6 +101,15 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(403).json({ message: 'You are not a member of that household.' });
   }
 
+  // Idempotency (offline replay): if this client key already created an expense
+  // for this user, return that one instead of creating a duplicate.
+  if (typeof clientRequestId === 'string' && clientRequestId) {
+    const existing = await prisma.expense.findFirst({ where: { userId, clientRequestId } });
+    if (existing) {
+      return res.status(200).json({ ...expenseToClient(existing), date: existing.date.toISOString().split('T')[0] });
+    }
+  }
+
   try {
     const newExpense = await prisma.expense.create({
       data: {
@@ -121,10 +131,11 @@ router.post('/', async (req: Request, res: Response) => {
         receiptText: safeReceiptText || undefined,
         receiptFileName: safeReceiptFileName || undefined,
         householdId: resolvedHouseholdId,
+        clientRequestId: typeof clientRequestId === 'string' ? clientRequestId : undefined,
         userId: userId,
       },
     });
-    
+
     res.status(201).json({
       ...expenseToClient(newExpense),
       date: newExpense.date.toISOString().split('T')[0]
@@ -159,6 +170,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     receiptText,
     receiptFileName,
     householdId,
+    clientRequestId,
   } = req.body;
 
   const safeTitle = sanitizeText(title);
@@ -377,18 +389,23 @@ router.post('/bulk', async (req: Request, res: Response) => {
 });
 
 // --- Receipt image (stored in a separate collection so it stays out of /all) ---
-const MAX_RECEIPT_BYTES = 3_000_000; // ~3MB data URL
+// Kept under the 1MB JSON body limit (index.ts) so oversized uploads get this
+// route's clear message rather than a generic parser error. Downscaled receipt
+// JPEGs are ~50–150KB, well within this.
+const MAX_RECEIPT_BYTES = 900_000;
+// Only raster image data URLs — reject SVG (can carry script) and other types.
+const RECEIPT_DATA_URL = /^data:image\/(png|jpe?g|webp);base64,/i;
 
 // PUT /api/expenses/:id/receipt — upsert the receipt image for an owned expense
 router.put('/:id/receipt', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const expenseId = req.params.id;
   const image = req.body?.image;
-  if (typeof image !== 'string' || !image.startsWith('data:image/')) {
-    return res.status(400).json({ message: 'A valid image data URL is required.' });
+  if (typeof image !== 'string' || !RECEIPT_DATA_URL.test(image)) {
+    return res.status(400).json({ message: 'A valid PNG/JPEG/WebP image is required.' });
   }
   if (image.length > MAX_RECEIPT_BYTES) {
-    return res.status(413).json({ message: 'Receipt image is too large.' });
+    return res.status(413).json({ message: 'Receipt image is too large (max ~900KB after compression).' });
   }
   const owned = await prisma.expense.findFirst({ where: { id: expenseId, userId }, select: { id: true } });
   if (!owned) return res.status(404).json({ message: 'Expense not found.' });
