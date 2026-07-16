@@ -391,6 +391,27 @@ export const chatWithAi = (
   });
 };
 
+export interface ParsedReceipt {
+  title: string;
+  amount: number;
+  currency: string;
+  date: string;
+  category: string;
+  paymentMethod: string;
+  notes: string;
+}
+
+/**
+ * Sends a receipt image (base64 data URI) to Gemini and returns structured
+ * fields (title/amount/currency/date/category/payment) to pre-fill the form.
+ */
+export const parseReceipt = (image: string): Promise<{ receipt: ParsedReceipt }> => {
+  return fetchApi<{ receipt: ParsedReceipt }>('/ai/parse-receipt', {
+    method: 'POST',
+    body: JSON.stringify({ image }),
+  });
+};
+
 /**
  * Creates a batch of new expenses from a CSV import.
  */
