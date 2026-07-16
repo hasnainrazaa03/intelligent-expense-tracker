@@ -43,7 +43,7 @@ const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses }) => {
   }, [expenses]);
   
   if (years.length < 1) {
-    return <div className="flex items-center justify-center h-full text-base-content-secondary dark:text-gray-400">Not enough data for year-over-year comparison.</div>;
+    return <div className="flex items-center justify-center h-full text-app-muted">Not enough data for year-over-year comparison.</div>;
   }
   
   return (
@@ -64,10 +64,12 @@ const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses }) => {
              cursor={{fill: 'rgba(20, 184, 166, 0.1)'}}
             formatter={(value: number) => formatCurrency(value, displayCurrency, conversionRate)}
             contentStyle={{
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                border: '1px solid #ccc',
+                backgroundColor: 'var(--modal-surface)',
+                border: '1px solid var(--border)',
                 borderRadius: '8px',
             }}
+            itemStyle={{ color: 'var(--app-text)' }}
+            labelStyle={{ color: 'var(--app-text)' }}
         />
         <Legend />
         {years.map((year, index) => (

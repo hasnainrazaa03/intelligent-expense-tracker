@@ -13,7 +13,7 @@ const COLORS = ['#ef4444', '#3b82f6'];
 const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-base-100 dark:bg-dark-300 p-2 border border-base-300 dark:border-dark-100 rounded-md shadow-lg">
+      <div className="p-2.5 rounded-lg border border-app-border shadow-soft text-xs text-app-text" style={{ background: 'var(--modal-surface)' }}>
         <p className="font-bold">{`${payload[0].name}`}</p>
         <p style={{ color: payload[0].payload.fill }}>{`Amount: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}</p>
       </div>
@@ -39,13 +39,13 @@ const RecurringVsOneTimeChart: React.FC<RecurringVsOneTimeChartProps> = ({ expen
     );
     
     return [
-      { name: 'Recurring', value: totals.recurring },
-      { name: 'One-Time', value: totals.oneTime },
+      { name: 'Recurring', value: totals.recurring, fill: COLORS[0] },
+      { name: 'One-Time', value: totals.oneTime, fill: COLORS[1] },
     ].filter(d => d.value > 0);
   }, [expenses]);
   
   if (data.length === 0) {
-    return <div className="flex items-center justify-center h-full text-base-content-secondary dark:text-gray-400">No data to display.</div>;
+    return <div className="flex items-center justify-center h-full text-app-muted">No data to display.</div>;
   }
   
   return (
@@ -62,7 +62,7 @@ const RecurringVsOneTimeChart: React.FC<RecurringVsOneTimeChartProps> = ({ expen
           nameKey="name"
         >
           {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            <Cell key={`cell-${index}`} fill={entry.fill} />
           ))}
         </Pie>
         <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate}/>} />
