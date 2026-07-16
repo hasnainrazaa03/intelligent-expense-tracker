@@ -21,6 +21,38 @@ try {
   console.error("Failed to initialize GoogleGenAI:", error);
 }
 
+// Kept in sync with the client's constants.ts — the receipt parser constrains
+// Gemini to these exact category/payment values so the returned fields drop
+// straight into the expense form.
+const RECEIPT_CATEGORIES = [
+  'Tuition', 'Books & Supplies', 'Course Fees', 'Technology', 'Supplies', 'Visa Fees',
+  'Rent', 'Utilities', 'Internet', 'Renters Insurance', 'Furniture', 'Household Items',
+  'Insurance Premium', 'Medical Expenses', 'Dental & Vision', 'Prescriptions',
+  'Groceries', 'Dining Out', 'Coffee & Snacks', 'Meal Plan',
+  'Public Transit', 'Fuel', 'Car Insurance', 'Maintenance', 'Rideshare', 'Parking',
+  'Phone', 'Clothing', 'Entertainment', 'Fitness', 'Personal Care', 'Subscriptions',
+  'Home Visits', 'Local Travel', 'Airfare', 'Accommodation',
+  'Emergency Fund', 'Gifts', 'Other',
+];
+const RECEIPT_PAYMENT_METHODS = [
+  'Credit Card', 'Debit Card', 'Cash', 'Bank Transfer', 'Venmo', 'PayPal', 'Apple Pay', 'Google Pay',
+];
+
+// Strip ``` fences and pull the first JSON object out of a model response.
+const safeParseJson = (text: string): any => {
+  if (!text) return null;
+  const cleaned = text.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) {
+      try { return JSON.parse(match[0]); } catch { return null; }
+    }
+    return null;
+  }
+};
+
 router.use(authMiddleware);
 
 const buildFinancialManifest = async (userId: string) => {
@@ -218,6 +250,88 @@ Rules:
   } catch (error) {
     console.error('AI chat error:', error);
     return res.status(500).json({ message: 'Failed to generate AI chat response' });
+  }
+});
+
+// Parse a receipt image with Gemini vision and return structured fields the
+// client drops into the Add-expense form. Accepts a base64 image data URI
+// (the client sends the same downscaled thumbnail it stores as the receipt).
+router.post('/parse-receipt', async (req: Request, res: Response) => {
+  if (!genAI) {
+    return res.status(503).json({ message: 'AI service is not configured.' });
+  }
+
+  const { image } = req.body || {};
+  if (!image || typeof image !== 'string') {
+    return res.status(400).json({ message: 'image is required' });
+  }
+
+  const match = image.match(/^data:(image\/(?:png|jpe?g|webp|gif));base64,([a-z0-9+/=\s]+)$/i);
+  if (!match) {
+    return res.status(400).json({ message: 'image must be a base64 image data URI (png/jpg/webp/gif).' });
+  }
+  const mimeType = match[1];
+  const base64 = match[2].replace(/\s+/g, '');
+  // ~6MB of base64 — the client downscales first, so anything larger is suspect.
+  if (base64.length > 8_000_000) {
+    return res.status(413).json({ message: 'Image is too large.' });
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const prompt = `You are a receipt-parsing assistant. Read the attached receipt image and extract the purchase.
+Return ONLY a JSON object with these keys:
+- "title": short merchant or item name (string, max 60 chars)
+- "amount": the grand total as a plain number in the receipt's own currency (no symbols, no thousands separators)
+- "currency": 3-letter ISO code if shown or inferable (e.g. "USD", "INR", "EUR"), otherwise "USD"
+- "date": the purchase date as "YYYY-MM-DD"; if not visible use "${today}"
+- "category": the single best fit from EXACTLY this list: ${JSON.stringify(RECEIPT_CATEGORIES)}
+- "paymentMethod": one of ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} if the receipt shows how it was paid, otherwise ""
+- "notes": up to 100 chars of useful context (store location, key items), otherwise ""
+If the image is not a receipt, return {"title":"","amount":0,"currency":"USD","date":"${today}","category":"Other","paymentMethod":"","notes":""}.
+Respond with JSON only — no markdown, no commentary.`;
+
+  const callModel = async (modelName: string): Promise<string> => {
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent([
+      { text: prompt },
+      { inlineData: { mimeType, data: base64 } },
+    ]);
+    return (await result.response).text();
+  };
+
+  try {
+    let text: string;
+    try {
+      text = await callModel(PRIMARY_MODEL);
+    } catch (modelError) {
+      console.warn(`Receipt parse: primary model failed, falling back. ${modelError}`);
+      text = await callModel(FALLBACK_MODEL);
+    }
+
+    const parsed = safeParseJson(text);
+    if (!parsed || typeof parsed !== 'object') {
+      return res.status(422).json({ message: 'Could not read the receipt.' });
+    }
+
+    const currency = String(parsed.currency || 'USD').toUpperCase();
+    const amountNum = Number(parsed.amount);
+    const receipt = {
+      title: String(parsed.title || '').slice(0, 60),
+      amount: Number.isFinite(amountNum) && amountNum > 0 ? amountNum : 0,
+      currency: /^[A-Z]{3}$/.test(currency) ? currency : 'USD',
+      date: /^\d{4}-\d{2}-\d{2}$/.test(String(parsed.date || '')) ? parsed.date : today,
+      category: RECEIPT_CATEGORIES.includes(parsed.category) ? parsed.category : 'Other',
+      paymentMethod: RECEIPT_PAYMENT_METHODS.includes(parsed.paymentMethod) ? parsed.paymentMethod : '',
+      notes: String(parsed.notes || '').slice(0, 100),
+    };
+
+    return res.json({ receipt });
+  } catch (error) {
+    console.error('Receipt parse error:', error);
+    return res.status(500).json({ message: 'Failed to parse the receipt.' });
   }
 });
 

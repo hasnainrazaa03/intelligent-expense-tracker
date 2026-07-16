@@ -8,7 +8,7 @@ import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { distributeAmount } from '../utils/currencyUtils';
 import { RECURRENCE_META_KEY, RECURRENCE_OPTIONS, getRecurrenceFrequency, type RecurrenceFrequency } from '../utils/recurrence';
-import { listHouseholds, getReceipt, uploadReceipt, deleteReceipt, type Household } from '../services/api';
+import { listHouseholds, getReceipt, uploadReceipt, deleteReceipt, parseReceipt, type Household, type ParsedReceipt } from '../services/api';
 import { downscaleImage } from '../utils/image';
 import toast from 'react-hot-toast';
 import useForeignToUsd from '../hooks/useForeignToUsd';
@@ -57,6 +57,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [householdId, setHouseholdId] = useState('');
   const [households, setHouseholds] = useState<Household[]>([]);
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [isAiParsing, setIsAiParsing] = useState(false);
   const [receiptImage, setReceiptImage] = useState('');
   const [receiptBusy, setReceiptBusy] = useState(false);
 
@@ -293,6 +294,38 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     return filtered;
   }, [categorySearchTerm, effectiveCategories]);
 
+  // Drop Gemini's structured receipt read into the form, only filling fields the
+  // user hasn't already set. Returns true if it set an amount, so the OCR pass
+  // below can skip its cruder regex guess.
+  const applyParsedReceipt = (r: ParsedReceipt): boolean => {
+    if (r.title && !title.trim()) setTitle(r.title.slice(0, 60));
+    if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) setDate(r.date);
+    if (r.category && !hasManuallySelectedCategory) {
+      setCategory(r.category as Category);
+      setHasManuallySelectedCategory(true);
+    }
+    if (r.paymentMethod && !paymentMethod.trim()) setPaymentMethod(r.paymentMethod);
+    if (r.notes && !notes.trim()) setNotes(r.notes);
+
+    let setAmt = false;
+    if (r.amount > 0) {
+      const cur = (r.currency || 'USD').toUpperCase();
+      if (cur !== 'USD' && availableCurrencies.some((c) => c.code === cur)) {
+        // Receipt is in a supported foreign currency — switch to foreign entry so
+        // the existing FX pipeline converts it to the stored USD amount.
+        setEnterInForeign(true);
+        setForeignCurrency(cur);
+        setOriginalAmount(String(r.amount));
+        setOriginalAmountDirty(true);
+        setAmt = true;
+      } else if (!amount) {
+        setAmount(r.amount.toFixed(2));
+        setAmt = true;
+      }
+    }
+    return setAmt;
+  };
+
   const handleReceiptUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -300,8 +333,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
     // 1) Store a downscaled image first (fast). For an existing expense we persist
     // it right away; for a brand-new one it's a preview kept until saved.
+    let thumb = '';
     try {
-      const thumb = await downscaleImage(file);
+      thumb = await downscaleImage(file);
       setReceiptImage(thumb);
       if (expense) {
         setReceiptBusy(true);
@@ -314,7 +348,26 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setReceiptBusy(false);
     }
 
-    // 2) OCR the text (slower) — fills the amount if empty + keeps the text.
+    // 2) Smart fill via Gemini vision — title / amount / date / category / payment.
+    let aiFilledAmount = false;
+    if (thumb) {
+      setIsAiParsing(true);
+      try {
+        const { receipt } = await parseReceipt(thumb);
+        aiFilledAmount = applyParsedReceipt(receipt);
+        if (receipt.title || receipt.amount > 0) {
+          toast.success('Filled from receipt — review before saving.');
+        }
+      } catch {
+        // AI unavailable (no key / rate-limited) — the OCR pass below still does a
+        // best-effort amount guess, so this is a soft failure.
+      } finally {
+        setIsAiParsing(false);
+      }
+    }
+
+    // 3) OCR the raw text (slower) — always stored as receiptText; only used to
+    // guess the amount when the AI parse didn't already find one.
     setIsOcrProcessing(true);
     try {
       const tesseract = await import('tesseract.js');
@@ -322,11 +375,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       const extracted = result.data.text?.trim() || '';
       setReceiptText(extracted);
 
-      const amountMatch = extracted.match(/(?:total|amount|sum)\s*[:$]?\s*(\d+[\d,.]*\.?\d*)/i);
-      if (amountMatch && !amount) {
-        const parsed = Number.parseFloat(amountMatch[1].replace(/,/g, ''));
-        if (Number.isFinite(parsed) && parsed > 0) {
-          setAmount(parsed.toFixed(2));
+      if (!aiFilledAmount && !amount) {
+        const amountMatch = extracted.match(/(?:total|amount|sum)\s*[:$]?\s*(\d+[\d,.]*\.?\d*)/i);
+        if (amountMatch) {
+          const parsed = Number.parseFloat(amountMatch[1].replace(/,/g, ''));
+          if (Number.isFinite(parsed) && parsed > 0) {
+            setAmount(parsed.toFixed(2));
+          }
         }
       }
     } catch {
@@ -621,9 +676,16 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             </div>
 
             <div className="rounded-xl border border-app-border bg-surface-2 p-4">
-              <Label htmlFor="exp-receipt">Receipt upload (OCR + image)</Label>
+              <Label htmlFor="exp-receipt">Receipt upload · AI auto-fill</Label>
+              <p className="text-[11px] text-app-muted -mt-1 mb-2">Upload a receipt and we'll read the total, date, merchant and category for you to review.</p>
               <input id="exp-receipt" type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
-              {isOcrProcessing && <p className="text-[11px] text-app-muted mt-2">Scanning receipt text…</p>}
+              {isAiParsing && (
+                <p className="text-[11px] text-primary mt-2 flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  Reading receipt with AI…
+                </p>
+              )}
+              {isOcrProcessing && !isAiParsing && <p className="text-[11px] text-app-muted mt-2">Scanning receipt text…</p>}
               {receiptFileName && <p className="text-[11px] text-app-muted mt-2">Attached: {receiptFileName}</p>}
               {receiptImage && (
                 <div className="mt-3">
