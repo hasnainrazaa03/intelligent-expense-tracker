@@ -27,22 +27,35 @@ const pipelines: Record<string, Record<string, unknown>> = {
   TuitionInstallment: { amount: toCentsExpr('$amount') },
 };
 
+const markerCount = async (name: string) =>
+  ((await prisma.$runCommandRaw({ count: '_migrations', query: { name } })) as { n?: number })?.n ?? 0;
+const writeMarker = (name: string) =>
+  prisma.$runCommandRaw({ insert: '_migrations', documents: [{ name, appliedAt: new Date().toISOString() }] } as any);
+
 async function main() {
-  const already = (await prisma.$runCommandRaw({ count: '_migrations', query: { name: MARKER } })) as { n?: number };
-  if ((already?.n ?? 0) > 0) {
+  // Fast path: a fully-completed run leaves the overall marker — protects an
+  // already-migrated DB from a catastrophic double-multiply.
+  if ((await markerCount(MARKER)) > 0) {
     console.log('Migration already applied (marker present). No-op.');
     return;
   }
 
+  // Per-collection markers make a crashed/partial run re-runnable: each converted
+  // collection is marked immediately, so a re-run skips it instead of ×100 again.
   for (const [collection, set] of Object.entries(pipelines)) {
+    if ((await markerCount(`${MARKER}:${collection}`)) > 0) {
+      console.log(`${collection}: already converted, skipping.`);
+      continue;
+    }
     const result = (await prisma.$runCommandRaw({
       update: collection,
       updates: [{ q: {}, u: [{ $set: set }], multi: true }],
     } as any)) as { n?: number; nModified?: number };
+    await writeMarker(`${MARKER}:${collection}`);
     console.log(`${collection}: matched ${result?.n ?? 0}, modified ${result?.nModified ?? 0}`);
   }
 
-  await prisma.$runCommandRaw({ insert: '_migrations', documents: [{ name: MARKER, appliedAt: new Date().toISOString() }] });
+  await writeMarker(MARKER);
   console.log('Marker written. Migration complete.');
 }
 

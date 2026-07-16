@@ -22,8 +22,24 @@ async function main() {
   const auth = { session: get('usc_session'), csrf: get('usc_csrf') };
   const api = (path: string, method = 'GET', body?: any) => fetch(`${BASE}${path}`, { method, headers: { 'content-type': 'application/json', 'x-csrf-token': decodeURIComponent(auth.csrf), Cookie: `usc_session=${auth.session}; usc_csrf=${auth.csrf}` }, body: body ? JSON.stringify(body) : undefined });
 
+  const today = new Date().toISOString().split('T')[0];
+
+  // Idempotency (offline replay): the same clientRequestId must not duplicate.
+  let ri = await api('/expenses', 'POST', { title: 'Idem', amount: 5, category: 'Food', date: today, clientRequestId: 'idem-key-1' });
+  assert(ri.status === 201, 'first create with clientRequestId');
+  const e1 = await ri.json();
+  ri = await api('/expenses', 'POST', { title: 'Idem', amount: 5, category: 'Food', date: today, clientRequestId: 'idem-key-1' });
+  assert(ri.status === 200, 'replay returns 200 (existing), not a new 201');
+  const e2 = await ri.json();
+  assert(e1.id === e2.id, 'replay returns the SAME expense id (no duplicate)');
+
+  // Reject an SVG data URL (script-carrying) receipt payload.
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg></svg>').toString('base64');
+  ri = await api(`/expenses/${e1.id}/receipt`, 'PUT', { image: svg });
+  assert(ri.status === 400, 'SVG receipt rejected (raster-only allowlist)');
+
   // create an expense
-  let r = await api('/expenses', 'POST', { title: 'Receipt Expense', amount: 42.5, category: 'Food', date: new Date().toISOString().split('T')[0] });
+  let r = await api('/expenses', 'POST', { title: 'Receipt Expense', amount: 42.5, category: 'Food', date: today });
   assert(r.status === 201, 'expense created');
   const exp = await r.json();
 

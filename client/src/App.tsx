@@ -299,7 +299,10 @@ const App: React.FC = () => {
   // Offline queue: replay each queued create, then refetch so temp local rows
   // are replaced by the authoritative server data.
   const offline = useOfflineQueue({
-    process: useCallback(async (item: PendingExpense) => { await createExpense(item.payload); }, []),
+    // Send the queue's clientId as an idempotency key so a replayed create
+    // (e.g. after a crash between POST and dequeue) returns the existing row
+    // instead of duplicating it.
+    process: useCallback(async (item: PendingExpense) => { await createExpense({ ...item.payload, clientRequestId: item.clientId }); }, []),
     onSynced: useCallback(() => { void queryClient.invalidateQueries({ queryKey: queryKeys.allData }); }, [queryClient]),
   });
 

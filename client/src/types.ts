@@ -21,6 +21,8 @@ export interface Expense {
   receiptFileName?: string;
   /** Optional: tags this expense to a shared household. */
   householdId?: string | null;
+  /** Idempotency key for offline-queued creates (dedupes replays). */
+  clientRequestId?: string;
 }
 
 export interface Income {

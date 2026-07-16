@@ -149,9 +149,16 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   }, [isOpen]);
 
   // Load any stored receipt image for an existing expense (kept out of /all).
+  // Guard against a race when the modal switches expenses mid-fetch (e.g. via the
+  // header search) so a slow response can't paint onto the wrong expense.
   useEffect(() => {
     if (!isOpen || !expense) { setReceiptImage(''); return; }
-    getReceipt(expense.id).then((r) => setReceiptImage(r.image)).catch(() => setReceiptImage(''));
+    let ignore = false;
+    setReceiptImage('');
+    getReceipt(expense.id)
+      .then((r) => { if (!ignore) setReceiptImage(r.image); })
+      .catch(() => { if (!ignore) setReceiptImage(''); });
+    return () => { ignore = true; };
   }, [isOpen, expense]);
 
   useEffect(() => {
