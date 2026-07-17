@@ -15,10 +15,12 @@ import {
   TagIcon,
   BanknotesIcon,
   CalendarDaysIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
+  ArrowDownTrayIcon
 } from './Icons';
 import { IconButton } from './ui';
 import CurrencyPicker from './CurrencyPicker';
+import { usePwaInstall } from '../hooks/usePwaInstall';
 
 export type SearchHit =
   | { type: 'expense'; item: Expense }
@@ -60,6 +62,7 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const { theme, toggleTheme } = useTheme();
+  const { canInstall, promptInstall } = usePwaInstall();
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
   // Raw search input is owned here and debounced locally, so keystrokes re-render
@@ -293,6 +296,17 @@ const Header: React.FC<HeaderProps> = ({
 
               {/* Action Buttons Group */}
               <div className="flex items-center gap-2">
+                {canInstall && (
+                  <ActionTip label="Install app">
+                    <IconButton
+                      onClick={() => { promptInstall(); }}
+                      aria-label="Install Orbit app"
+                      className="md:w-10 md:h-10 !bg-primary-soft !border-primary/40 !text-primary"
+                    >
+                      <ArrowDownTrayIcon className="h-4 w-4 md:h-5 md:w-5" />
+                    </IconButton>
+                  </ActionTip>
+                )}
                 <ActionTip label="Budgets">
                   <IconButton onClick={onManageBudgets} aria-label="Manage budgets" className="md:w-10 md:h-10">
                     <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
