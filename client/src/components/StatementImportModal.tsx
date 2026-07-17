@@ -66,30 +66,47 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   const [fileName, setFileName] = useState('');
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [pdfMinimized, setPdfMinimized] = useState(false);
-  const [pdfPct, setPdfPct] = useState(42);
+  const [pdfPct, setPdfPct] = useState(() => {
+    const v = Number(localStorage.getItem('stmtPdfPct'));
+    return v >= 25 && v <= 60 ? v : 42;
+  });
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [enrichingAll, setEnrichingAll] = useState(false);
+  const [hideDuplicates, setHideDuplicates] = useState(false);
   const paneRef = useRef<HTMLDivElement>(null);
 
-  // Drag the divider to resize the PDF pane (25%–60% of the split).
+  // Drag the divider to resize the PDF pane (25%–60% of the split); the last
+  // width is remembered across imports.
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
+    let latest = pdfPct;
     const onMove = (ev: MouseEvent) => {
       const box = paneRef.current?.getBoundingClientRect();
       if (!box || box.width === 0) return;
-      const pct = ((box.right - ev.clientX) / box.width) * 100;
-      setPdfPct(Math.max(25, Math.min(60, pct)));
+      latest = Math.max(25, Math.min(60, ((box.right - ev.clientX) / box.width) * 100));
+      setPdfPct(latest);
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       document.body.style.userSelect = '';
+      try { localStorage.setItem('stmtPdfPct', String(Math.round(latest))); } catch { /* ignore */ }
     };
     document.body.style.userSelect = 'none';
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+  };
+
+  const bulkSetCategory = (cat: string) => {
+    if (!cat) return;
+    const isIncomeCat = INCOME_CATEGORIES.includes(cat);
+    setRows((rs) => rs!.map((r) =>
+      r.include && ((isIncomeCat && r.type === 'income') || (!isIncomeCat && r.type === 'expense'))
+        ? { ...r, category: cat }
+        : r
+    ));
   };
 
   // CSV mapping state.
@@ -265,6 +282,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   if (!isOpen) return null;
 
   const selected = rows?.filter((r) => r.include) ?? [];
+  const dupCount = rows?.filter((r) => r.duplicate).length ?? 0;
   const selExpRows = selected.filter((r) => r.type === 'expense');
   const selIncRows = selected.filter((r) => r.type === 'income');
   const selExp = selExpRows.length;
@@ -371,9 +389,30 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                   <span className="text-app-faint"> · <span className="text-app-text">{formatCurrency(expTotal, displayCurrency, conversionRate)}</span> out · <span className="text-ok">{formatCurrency(incTotal, displayCurrency, conversionRate)}</span> in</span>
                 )}
               </p>
-              <div className="flex items-center gap-3 text-[11px]">
+              <div className="flex items-center gap-2.5 text-[11px] flex-wrap">
                 <button onClick={() => setAll(true)} className="font-semibold text-primary hover:underline">Select all</button>
                 <button onClick={() => setAll(false)} className="font-semibold text-app-faint hover:text-app-text">Clear all</button>
+                <select
+                  value=""
+                  onChange={(e) => { bulkSetCategory(e.target.value); e.target.value = ''; }}
+                  aria-label="Set category for selected rows"
+                  disabled={selected.length === 0}
+                  className="bg-surface border border-app-border rounded-md px-1.5 py-1 text-[11px] text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                >
+                  <option value="">Set category…</option>
+                  <optgroup label="Expense">
+                    {ALL_SUBCATEGORIES.map((c) => <option key={`e-${c}`} value={c}>{c}</option>)}
+                  </optgroup>
+                  <optgroup label="Income">
+                    {INCOME_CATEGORIES.map((c) => <option key={`i-${c}`} value={c}>{c}</option>)}
+                  </optgroup>
+                </select>
+                {dupCount > 0 && (
+                  <label className="inline-flex items-center gap-1.5 font-semibold text-app-muted hover:text-app-text cursor-pointer">
+                    <input type="checkbox" checked={hideDuplicates} onChange={(e) => setHideDuplicates(e.target.checked)} className="accent-[color:var(--primary)]" />
+                    Hide dups ({dupCount})
+                  </label>
+                )}
                 <button onClick={enrichAll} disabled={enrichingAll} className="font-semibold text-primary hover:underline disabled:opacity-50 inline-flex items-center gap-1">
                   <SparklesIcon className="h-3.5 w-3.5" /> {enrichingAll ? 'Generating…' : 'AI-fill all details'}
                 </button>
@@ -385,7 +424,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
             </div>
 
             <div className="space-y-2 max-h-[62vh] overflow-y-auto custom-scrollbar pr-1">
-              {rows.map((r) => {
+              {rows.filter((r) => !hideDuplicates || !r.duplicate).map((r) => {
                 const catOptions = r.type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
                 return (
                   <div key={r.id} className={`rounded-lg border border-app-border bg-surface-2 p-2.5 ${r.include ? '' : 'opacity-50'}`}>
