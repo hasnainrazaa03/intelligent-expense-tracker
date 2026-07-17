@@ -182,20 +182,20 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         </div>
       </div>
 
-      {/* 3. CATEGORY BREAKDOWN + BUDGET VS ACTUAL (side by side) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 items-start">
+      {/* 3. CATEGORY BREAKDOWN + BUDGET VS ACTUAL (side by side, equal height) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
         {/* Category Breakdown Ledger */}
-        <div className="glass rounded-2xl overflow-hidden">
+        <div className="glass rounded-2xl overflow-hidden flex flex-col">
           <div className="border-b border-app-border p-4 md:p-5 flex justify-between items-center">
             <h4 className="font-display font-semibold text-app-text text-base md:text-lg">Category breakdown</h4>
             <span className="text-app-faint text-[10px] md:text-xs hidden xs:inline">Verified by system</span>
           </div>
           {Object.keys(stats.categoryTotals).length === 0 ? (
-            <div className="min-h-[16rem] flex items-center justify-center">
+            <div className="flex-1 min-h-[18rem] flex items-center justify-center">
               <ChartEmpty />
             </div>
           ) : (
-            <div className="p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[22rem] min-h-[16rem] overflow-y-auto custom-scrollbar content-start">
+            <div className="flex-1 p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 min-h-[18rem] max-h-[26rem] overflow-y-auto custom-scrollbar content-start">
               {(Object.entries(stats.categoryTotals) as [string, number][])
                 .sort((a, b) => b[1] - a[1])
                 .map(([name, amount]) => (
@@ -220,9 +220,9 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         </div>
 
         {/* Budget vs Actual */}
-        <div className="glass rounded-2xl p-4 md:p-6">
+        <div className="glass rounded-2xl p-4 md:p-6 flex flex-col">
           <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Budget vs actual</h4>
-          <div className="h-64 md:h-80">
+          <div className="flex-1 min-h-[18rem]">
             <BudgetActualChart expenses={allExpenses} budgets={budgets} />
           </div>
         </div>
