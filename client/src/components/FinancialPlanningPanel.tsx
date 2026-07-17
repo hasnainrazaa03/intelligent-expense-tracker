@@ -460,9 +460,11 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
       )}
 
       {/* Subscription watch is always rendered (with an empty state) so it always
-          pairs with the net-worth chart — no half-empty row. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <div className={cardCls}>
+          pairs with the net-worth chart — no half-empty row. Both stretch to the
+          same height; the empty message is centred so the card doesn't look
+          top-heavy. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`${cardCls} flex flex-col`}>
           <p className={subLabelCls}>Subscription watch · price increases</p>
           {subscriptionCreep.length > 0 ? (
             <>
@@ -482,7 +484,9 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
               <p className="text-[11px] text-app-muted mt-2.5">Based on recurring-flagged charges whose amount rose over time.</p>
             </>
           ) : (
-            <p className="text-xs text-app-muted">No price increases detected. Recurring charges whose amount rises over time will appear here.</p>
+            <div className="flex-1 flex items-center justify-center min-h-[8rem] py-4">
+              <p className="text-xs text-app-muted text-center max-w-xs">No price increases detected. Recurring charges whose amount rises over time will appear here.</p>
+            </div>
           )}
         </div>
 
