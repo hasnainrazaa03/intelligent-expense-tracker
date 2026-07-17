@@ -93,6 +93,20 @@ const clearSessionCookies = (res: Response): void => {
   res.clearCookie(SERVER_CONFIG.auth.csrfCookieName, baseOptions);
 };
 
+// --- 0. CSRF bootstrap (cross-origin) ---
+// When the SPA is served from a different origin than the API (e.g. a Vercel
+// frontend + Render backend), the browser sends the csrf cookie automatically
+// with credentialed requests, but JS on the frontend origin CANNOT read that
+// cookie via document.cookie to echo it in the header. This endpoint sets the
+// csrf cookie AND returns its value so the client can hold it in memory and send
+// it as x-csrf-token. Double-submit still holds: the auto-sent cookie must equal
+// the header. GET is a safe method, so it's exempt from the CSRF check itself.
+router.get('/csrf', (_req: Request, res: Response) => {
+  const csrfToken = crypto.randomBytes(24).toString('hex');
+  res.cookie(SERVER_CONFIG.auth.csrfCookieName, csrfToken, buildCookieOptions(false));
+  return res.json({ csrfToken });
+});
+
 // --- 1. Sign Up (Register) ---
 router.post('/register', authLimiter, async (req: Request, res: Response) => {
   try {

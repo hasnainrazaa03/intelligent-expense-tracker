@@ -25,6 +25,40 @@ export class ApiError extends Error {
 export const isAuthError = (error: unknown): boolean =>
   error instanceof ApiError && (error.status === 401 || error.status === 403);
 
+// --- CSRF token handling ---
+// The csrf cookie is set with httpOnly:false so it CAN be read same-origin. But
+// when the SPA is served from a different origin than the API (e.g. a Vercel
+// frontend + a Render backend), document.cookie can't see the API-domain cookie,
+// so we bootstrap the token from GET /auth/csrf and cache it in memory. The
+// cookie is still sent automatically with `credentials: 'include'`; the header
+// just has to carry the same value (double-submit).
+let cachedCsrfToken: string | null = null;
+
+const readCsrfCookie = (): string | null => {
+  const raw = document.cookie
+    .split('; ')
+    .find((cookie) => cookie.startsWith('usc_csrf='))
+    ?.split('=')[1];
+  return raw ? decodeURIComponent(raw) : null;
+};
+
+const ensureCsrfToken = async (): Promise<string | null> => {
+  const fromCookie = readCsrfCookie();
+  if (fromCookie) return fromCookie; // same-origin / local dev
+  if (cachedCsrfToken) return cachedCsrfToken;
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/csrf`, { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      cachedCsrfToken = data?.csrfToken ?? null;
+      return cachedCsrfToken;
+    }
+  } catch {
+    /* network error — the caller's request will surface its own failure */
+  }
+  return null;
+};
+
 /**
  * A helper function for making API requests. Handles headers, CSRF, and JSON
  * parsing. Caching/dedup is now owned by TanStack Query (which keys per query
@@ -36,29 +70,22 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
   // Only set Content-Type for requests with a body
   const method = (options.method || 'GET').toUpperCase();
+  const isWrite = !['GET', 'HEAD', 'OPTIONS'].includes(method);
   if (method !== 'GET' && method !== 'DELETE' && method !== 'HEAD') {
     if (!headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }
   }
 
-  const csrfToken = document.cookie
-    .split('; ')
-    .find((cookie) => cookie.startsWith('usc_csrf='))
-    ?.split('=')[1];
-
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && csrfToken) {
-    headers.set('x-csrf-token', decodeURIComponent(csrfToken));
+  if (isWrite) {
+    const token = await ensureCsrfToken();
+    if (token) headers.set('x-csrf-token', token);
   }
 
-  const runRequest = async (): Promise<T> => {
-    // Build the request
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-      credentials: 'include',
-    });
+  const send = (): Promise<Response> =>
+    fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers, credentials: 'include' });
 
+  const parse = async (response: Response): Promise<T> => {
     // Handle empty responses (204 No Content)
     if (response.status === 204) {
       return null as T;
@@ -85,9 +112,20 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     return data as T;
   };
 
-  const requestPromise = runRequest();
+  let response = await send();
 
-  return requestPromise;
+  // Self-heal a cross-origin CSRF mismatch once: the cached token can go stale
+  // after a fresh login re-issued a different csrf cookie, so refresh and retry.
+  if (response.status === 403 && isWrite) {
+    cachedCsrfToken = null;
+    const token = await ensureCsrfToken();
+    if (token) {
+      headers.set('x-csrf-token', token);
+      response = await send();
+    }
+  }
+
+  return parse(response);
 }
 
 // --- Authentication Functions ---
