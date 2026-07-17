@@ -39,7 +39,7 @@ const RECEIPT_PAYMENT_METHODS = [
 ];
 // Income categories — kept in sync with the client's constants.ts.
 const INCOME_CATEGORIES = [
-  'Salary', 'Freelance', 'Investment', 'Gift', 'Rental Income', 'Side Hustle', 'Other',
+  'Salary', 'Freelance', 'Investment', 'Gift', 'Rental Income', 'Other',
 ];
 
 // Strip ``` fences and pull the first JSON object out of a model response.
@@ -354,27 +354,51 @@ router.post('/parse-statement', async (req: Request, res: Response) => {
   const { pdf, csvText } = req.body || {};
 
   let parts: any[] | null = null;
-  const instruction = `You are a meticulous bank-statement parser. Extract every real transaction and classify each as an EXPENSE (money spent) or INCOME (money genuinely received).
+  const instruction = `You are a meticulous, expert bank-statement parser. Read the ENTIRE statement (all pages and all accounts/sections) and extract every genuine transaction, classifying each as an EXPENSE (money spent) or INCOME (money genuinely received). Accuracy matters more than speed — reason carefully about each line before emitting it.
 
-EXPENSE = money spent on goods, services or bills: card/POS/debit purchases, rent, phone, gas/electric/water/internet, insurance, subscriptions, fees.
-INCOME = money genuinely coming in: paychecks / payroll / direct deposit, refunds, P2P money received (Venmo/Zelle/PayPal/Cash App cash-ins), rental income, interest/dividends, ATM cash deposits.
+=== WHAT TO INCLUDE ===
+EXPENSE — money leaving the account for goods, services or bills: card/POS/debit purchases, ATM cash withdrawals, rent, phone, utilities, insurance, subscriptions, tuition, and service fees.
+INCOME — money genuinely arriving: payroll / direct deposit, client/freelance payments, refunds, interest/dividends, rent received, cash deposits, and P2P money received (Venmo/Zelle/PayPal/Cash App/Apple Cash cash-ins).
 
-EXCLUDE completely (return NEITHER — do not output these):
-- Internal transfers between the holder's OWN accounts — e.g. "Transfer To/From Share", moving money to savings or a secured account. Not spending and not income.
-- Micro account-verification entries — e.g. "ACCTVERIFY", tiny sub-$1 test amounts that pair with a matching offsetting entry.
-- "Beginning Balance", "Ending Balance" and running-balance lines.
+=== WHAT TO EXCLUDE (emit NEITHER) ===
+- Internal transfers between the holder's OWN accounts (e.g. "Transfer To/From Share", "to Savings", "to Secured", moving money between the checking/savings/certificate lines on the SAME statement). These are not spending or income.
+- Account-verification micro-entries (e.g. "ACCTVERIFY", trial deposits/withdrawals, tiny sub-$1 amounts that pair with a matching offsetting entry the same day).
+- Pure reversals/adjustments that net to zero with another line.
+- "Beginning Balance", "Ending Balance", subtotals and running-balance rows.
+Each real transaction must appear EXACTLY ONCE even if it is echoed in a per-account summary.
 
-For each transaction return:
-- "type": "expense" or "income".
-- "date": "YYYY-MM-DD" (use the statement's year).
-- "description": a SHORT, CLEAN merchant or purpose name a person would recognize — normalize the raw bank text; strip store numbers, addresses, POS/reference codes and ALL-CAPS noise. Examples: "YSI*STUHO RENT 1216-1216 12 W 30th St" -> "Student housing rent"; "POS TRADER JOE S #250 3131 S HOOVER" -> "Trader Joe's"; "Debit Card LYFT *1 RIDE 08-23" -> "Lyft ride"; "ACH ATT TYPE: PAYMENT" -> "AT&T bill"; "SoCalGas TYPE: PAID SCGC" -> "SoCalGas bill"; "CVS/PHARM 02396" -> "CVS Pharmacy"; "ACH VENMO TYPE: CASHOUT" -> "Venmo cash-out"; "ACH KAMRAN BADR TYPE: P2P ... BANK OF AMERICA" -> "Payment from Kamran Badr". Max 60 chars.
-- "amount": the exact positive amount, keeping cents (e.g. 33.83).
-- "category":
-  * For an EXPENSE, the SINGLE BEST fit from EXACTLY: ${JSON.stringify(RECEIPT_CATEGORIES)}. Categorize DECISIVELY from the merchant: grocery stores (Trader Joe's, Ralphs, Vons, Whole Foods) -> "Groceries"; restaurants/cafes -> "Dining Out"; Lyft/Uber -> "Rideshare"; gas fuel -> "Fuel"; AT&T/T-Mobile/Verizon -> "Phone"; gas/electric/water -> "Utilities"; home internet -> "Internet"; rent/housing -> "Rent"; pharmacies (CVS, Walgreens) -> "Prescriptions"; streaming/software subs -> "Subscriptions"; FedEx/UPS/print/office/school supplies -> "Supplies"; tuition/university -> "Tuition"; clothing -> "Clothing"; gym -> "Fitness". Use "Other" ONLY when nothing fits.
-  * For INCOME, the SINGLE BEST fit from EXACTLY: ${JSON.stringify(INCOME_CATEGORIES)}. payroll/employer -> "Salary"; freelance/client -> "Freelance"; interest/dividends -> "Investment"; rent received -> "Rental Income"; P2P/refunds/cash deposits/side gigs -> "Side Hustle" or "Other".
-- "paymentMethod": for expenses, infer from the type — "Debit Card" for debit-card/POS, "Bank Transfer" for ACH, "Cash" for ATM cash; otherwise "". For income use "".
+=== FIELDS (per transaction) ===
+- "type": "expense" or "income". Decide from the sign / column (debit/withdrawal = expense; credit/deposit = income) and the wording.
+- "date": "YYYY-MM-DD". Use the transaction date and the statement's year. US statements are MM/DD.
+- "amount": exact POSITIVE number with cents (e.g. 46.31). Never include a sign or currency symbol.
+- "description": a SHORT, CLEAN, human merchant/purpose name (max 60 chars). Strip store numbers, street addresses, POS/auth/reference codes, "POS/ACH/Debit Card/Withdrawal/Deposit" prefixes, and ALL-CAPS noise; keep the recognizable brand or person. Examples:
+    "POS TRADER JOE S #250 3131 S HOOVER" -> "Trader Joe's"
+    "POS JH BAZAAR 1401 W..." -> "JH Bazaar"
+    "YSI*STUHO RENT 1216-1216 12 W 30th St" -> "Student housing rent"
+    "Debit Card LYFT *1 RIDE 08-23" -> "Lyft ride"
+    "ACH ATT TYPE: PAYMENT" -> "AT&T bill"
+    "SoCalGas TYPE: PAID SCGC" -> "SoCalGas bill"
+    "CVS/PHARM 02396" -> "CVS Pharmacy"
+    "ACH VENMO TYPE: CASHOUT" -> "Venmo cash-in"
+    "ACH KAMRAN BADR TYPE: P2P ... BANK OF AMERICA" -> "Payment from Kamran Badr"
+- "paymentMethod": expenses only — "Debit Card" for debit-card/POS lines, "Bank Transfer" for ACH, "Cash" for ATM cash withdrawals; else "". Income: always "".
+- "category": the SINGLE BEST fit, chosen DECISIVELY. Use "Other" only as a genuine last resort.
+  * EXPENSE — choose from EXACTLY: ${JSON.stringify(RECEIPT_CATEGORIES)}. Apply this reasoning:
+    - GROCERIES: supermarkets and food/grocery stores of EVERY kind, INCLUDING international / ethnic / halal / South-Asian / Hispanic / Asian grocers and markets. Treat a merchant whose name contains "bazaar", "market", "supermarket", "mart", "foods", "grocery", "grocers", "produce", "meat", or "halal" as Groceries UNLESS it is clearly a restaurant. Known grocers include: Trader Joe's, Ralphs, Vons, Whole Foods, Safeway, Kroger, Aldi, Costco, Sprouts, Sam's Club, Smart & Final, H Mart, 99 Ranch, Patel Brothers, India Bazaar, JH Bazaar, Al-Noor, Superior Grocers, El Super, Northgate.
+    - DINING OUT: restaurants, cafes, coffee shops, fast food, bars, food delivery (Starbucks, McDonald's, Chipotle, DoorDash, Uber Eats, Grubhub).
+    - RIDESHARE: Lyft, Uber (rides). PUBLIC TRANSIT: metro/bus/train passes. FUEL: gas stations (Chevron, Shell, Arco, 76). PARKING: parking/garages.
+    - PHONE: AT&T, T-Mobile, Verizon, Mint. UTILITIES: gas/electric/water/trash (SoCalGas, SCE, LADWP, PG&E). INTERNET: Spectrum, Xfinity, home ISPs.
+    - RENT: rent, apartments, student housing, property mgmt (YSI, Tripalink, Greystar). RENTERS INSURANCE / INSURANCE PREMIUM: insurance (Geico, State Farm, Lemonade).
+    - PRESCRIPTIONS: pharmacies (CVS, Walgreens, Rite Aid). MEDICAL EXPENSES: clinics, hospitals, doctors, labs.
+    - SUBSCRIPTIONS: streaming/software/memberships (Netflix, Spotify, iCloud, YouTube, ChatGPT, Amazon Prime, Adobe).
+    - SUPPLIES / TECHNOLOGY: FedEx/UPS/office/printing/school supplies -> Supplies; electronics/Apple/Best Buy -> Technology.
+    - TUITION / COURSE FEES / BOOKS & SUPPLIES: university/college/tuition/bookstore.
+    - CLOTHING: apparel/shoes retailers. FITNESS: gyms (LA Fitness, Planet Fitness, ClassPass). ENTERTAINMENT: movies, events, games.
+    - HOUSEHOLD ITEMS / FURNITURE: only for clear home-goods/furniture stores (IKEA, Target home, Bed Bath). Do NOT default grocery/market names here.
+    - PERSONAL CARE: salons, barbers, cosmetics. GENERAL big-box (Target, Walmart, Amazon) with no other signal -> "Other" (or the item type if evident).
+  * INCOME — choose from EXACTLY: ${JSON.stringify(INCOME_CATEGORIES)}. payroll/employer/direct deposit -> "Salary"; freelance/client/contract/gig -> "Freelance"; interest/dividends/investment -> "Investment"; rent received -> "Rental Income"; anything else (P2P received, refunds, cash deposits, gifts of money, misc) -> "Other".
 
-Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} items. No markdown, no commentary.`;
+Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} items, ordered as they appear. No markdown, no commentary.`;
 
   if (typeof pdf === 'string' && pdf) {
     const match = pdf.match(/^data:application\/pdf;base64,([a-z0-9+/=\s]+)$/i);
@@ -469,7 +493,7 @@ router.post('/enrich-transaction', async (req: Request, res: Response) => {
 Return ONLY JSON with:
 - "notes": one concise, human sentence adding useful context about what this likely is (max 100 chars).
 - "tags": array of 1-3 short lowercase tags (single words or short phrases, no "#").
-- "category": the single best fit from EXACTLY: ${JSON.stringify(categories)}.
+- "category": the single best fit from EXACTLY: ${JSON.stringify(categories)}. Categorize decisively.${isIncome ? '' : ' Any grocery / supermarket / market / "bazaar" / "mart" / ethnic or international grocer (e.g. JH Bazaar, H Mart, Patel Brothers) is "Groceries", not "Household Items". Restaurants/cafes are "Dining Out".'}
 ${isIncome ? '' : `- "paymentMethod": best guess from ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} or "".`}
 Respond with JSON only, no markdown.`;
 
