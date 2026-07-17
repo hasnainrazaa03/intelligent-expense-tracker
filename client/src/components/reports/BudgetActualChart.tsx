@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { formatCurrency } from '../../utils/currencyUtils';
 import { computeBudgetSpend } from '../../utils/budgetUtils';
 import { startOfMonth, endOfMonth, isWithinRange } from '../../utils/dateUtils';
+import ChartEmpty from '../ChartEmpty';
 
 interface BudgetActualChartProps {
   expenses: Expense[];
@@ -44,7 +45,7 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
   }, [expenses, budgets]);
 
   if (budgets.length === 0) {
-    return null; // Don't render the card if no budgets are set
+    return <ChartEmpty />;
   }
     
   // The parent (Reports) already provides the card, title, and sized container,

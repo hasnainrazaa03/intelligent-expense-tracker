@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../../constants';
 import { getCategoryColor } from '../../utils/colorUtils';
 import { formatCurrency } from '../../utils/currencyUtils';
+import ChartEmpty from '../ChartEmpty';
 
 interface CategoryDrilldownProps {
   expenses: Expense[];
@@ -76,9 +77,13 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
   const chartData = selectedCategory ? subCategoryData : mainCategoryData;
   const title = selectedCategory ? `Breakdown for ${selectedCategory}` : 'Spending by Main Category';
 
+  if (chartData.length === 0) {
+    return <ChartEmpty />;
+  }
+
   return (
-    <div>
-        <div className="flex items-center justify-center mb-2">
+    <div className="flex flex-col h-full">
+        <div className="flex items-center justify-center min-h-[1.25rem]">
             {selectedCategory && (
                 <button
                     onClick={() => setSelectedCategory(null)}
@@ -88,8 +93,8 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
                 </button>
             )}
         </div>
-        <p className="text-center font-semibold text-app-muted text-sm">{title}</p>
-        <div className="h-72">
+        <p className="text-center font-semibold text-app-muted text-sm mb-1">{title}</p>
+        <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
             <BarChart
                 data={chartData}
@@ -98,18 +103,19 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
             >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.3)" />
                 <XAxis type="number" tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)} />
-                <YAxis 
-                    dataKey="name" 
-                    type="category" 
-                    width={100} 
-                    tick={{ fill: '#64748b', fontSize: 12 }} 
+                <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={100}
+                    tick={{ fill: '#64748b', fontSize: 12 }}
                 />
                 <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate} />} cursor={{fill: 'rgba(20, 184, 166, 0.1)'}} />
-                <Bar 
-                    dataKey="amount" 
-                    onClick={selectedCategory ? undefined : handleBarClick} 
+                <Bar
+                    dataKey="amount"
+                    onClick={selectedCategory ? undefined : handleBarClick}
                     cursor={selectedCategory ? "default" : "pointer"}
                     radius={[0, 4, 4, 0]}
+                    maxBarSize={38}
                 >
                     {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />

@@ -1,21 +1,17 @@
 {
-  "name": "USC Ledger Mobile Companion",
-  "short_name": "USC Ledger",
+  "name": "Orbit — Expense Tracker",
+  "short_name": "Orbit",
   "start_url": "/app",
   "display": "standalone",
-  "background_color": "#faf9f6",
-  "theme_color": "#990000",
-  "description": "Mobile companion for USC Ledger with quick add, budgets, and offline shell support.",
+  "background_color": "#08060f",
+  "theme_color": "#6d5cf0",
+  "description": "Orbit expense tracker — quick add, budgets, multi-currency, and offline shell support.",
   "icons": [
     {
-      "src": "/trojan1.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/trojan1.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "/orbit-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

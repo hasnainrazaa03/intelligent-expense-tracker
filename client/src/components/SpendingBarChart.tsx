@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { formatCurrency } from '../utils/currencyUtils';
 import { useTheme } from '../hooks/useTheme';
 import { getChartColors } from '../utils/chartTheme';
+import ChartEmpty from './ChartEmpty';
 
 interface ChartData {
   label: string;
@@ -40,12 +41,12 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
       return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    if (data.length === 0) {
-        return (
-          <div className="flex items-center justify-center h-full text-sm text-app-faint">
-            No spending data yet
-          </div>
-        );
+    // Treat an all-zero series as empty too: the daily-trend and net-worth
+    // series always have a fixed number of buckets (days / 6 months), so a brand
+    // new account would otherwise render a flat row of zero bars (a blank box)
+    // instead of a clear "No data available".
+    if (data.length === 0 || data.every((d) => !Number(d.amount))) {
+        return <ChartEmpty />;
     }
 
   return (

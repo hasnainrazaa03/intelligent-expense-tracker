@@ -4,6 +4,7 @@ import { BanknotesIcon, ExclamationTriangleIcon, ChartPieIcon } from './Icons'; 
 import { formatCurrency } from '../utils/currencyUtils';
 import { computeBudgetSpend, computeTotalBudgetedSpend } from '../utils/budgetUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
+import ChartEmpty from './ChartEmpty';
 
 interface BudgetTrackerProps {
   expenses: Expense[];
@@ -77,7 +78,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
   const isTotalOverBudget = totalSpentInBudgetedCategories > totalBudgeted;
   const totalPercentage = totalBudgeted > 0 ? (totalSpentInBudgetedCategories / totalBudgeted) * 100 : 0;
 
-  if (budgets.length === 0) return null;
+  if (budgets.length === 0) return <ChartEmpty message="No budgets set yet" />;
 
   return (
     <div className="space-y-7">

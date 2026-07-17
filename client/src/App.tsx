@@ -998,9 +998,9 @@ const handleDeleteIncome = async (id: string) => {
                     </Suspense>
                   )}
                   {activeView === 'income' && hubTab === 'overview' && (
-                    !isLoadingData && incomes.length > 0
-                      ? <IncomeSummary incomes={filteredIncomes} allIncomes={incomes} />
-                      : <p className="text-sm text-app-muted">No income yet — add some from the Income stream tab.</p>
+                    isLoadingData
+                      ? <SectionSkeleton title="Loading income" rows={4} />
+                      : <IncomeSummary incomes={filteredIncomes} allIncomes={incomes} />
                   )}
 
                   {/* List tab (and every non-hub view) */}
