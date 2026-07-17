@@ -42,7 +42,13 @@ export const startOfMonth = (ref: Date = new Date()): string =>
 export const endOfMonth = (ref: Date = new Date()): string =>
   formatCalendarDate(new Date(ref.getFullYear(), ref.getMonth() + 1, 0));
 
-/** A new Date offset by whole months, overflow-safe (Jan 31 - 1mo -> Dec 31, no April-31 wrap). */
+/**
+ * A new Date offset by whole months, normalized to the **1st** of the target
+ * month. Callers use it only for month-level math (start/end of month, month
+ * keys), so the day is intentionally dropped — this avoids the day-overflow wrap
+ * a naive `setMonth` would cause (e.g. Jan 31 − 1mo → a valid Dec date, never a
+ * rolled-over "April 31"). Do NOT use it when you need to preserve the day.
+ */
 export const addMonths = (ref: Date, delta: number): Date =>
   new Date(ref.getFullYear(), ref.getMonth() + delta, 1);
 

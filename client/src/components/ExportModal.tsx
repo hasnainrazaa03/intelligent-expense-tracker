@@ -229,17 +229,30 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
                         return null;
                     }
 
-                    const parsedDate = new Date(entry.date);
-                    if (isNaN(parsedDate.getTime())) {
-                        skippedRows++;
-                        return null;
+                    // Keep an ISO calendar day (self-export) verbatim; only a
+                    // locale date (e.g. "1/15/2025") goes through Date. Never
+                    // round-trip through toISOString() — that shifts the day for
+                    // non-UTC users. A YYYY-MM-DD string parsed by `new Date` is
+                    // UTC-midnight, so formatting its LOCAL day would shift it
+                    // backward for UTC− users; hence the verbatim branch.
+                    const rawDate = String(entry.date).trim();
+                    let dateStr: string;
+                    if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+                        dateStr = rawDate.slice(0, 10);
+                    } else {
+                        const parsedDate = new Date(rawDate);
+                        if (isNaN(parsedDate.getTime())) {
+                            skippedRows++;
+                            return null;
+                        }
+                        dateStr = formatCalendarDate(parsedDate);
                     }
 
                     const newExpense: Omit<Expense, 'id'> = {
                         title: entry.title,
                         amount: parseFloat(entry.amount),
                         category: entry.category,
-                        date: parsedDate.toISOString().split('T')[0],
+                        date: dateStr,
                         paymentMethod: entry.paymentMethod || undefined,
                         notes: entry.notes || undefined,
                         isRecurring: entry.isRecurring?.toLowerCase() === 'true',
