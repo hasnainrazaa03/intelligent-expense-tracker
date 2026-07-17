@@ -7,7 +7,7 @@ import { ALL_SUBCATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../consta
 import { suggestCategory } from '../services/categorySuggestionService';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { parseStatement, enrichTransaction } from '../services/api';
+import { parseStatement, enrichTransaction, enrichTransactions } from '../services/api';
 import { ChevronUpDownIcon, SparklesIcon } from './Icons';
 import {
   parseCsvRows,
@@ -242,15 +242,36 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
 
   const enrichAll = async () => {
     if (!rows) return;
+    const included = rows.filter((r) => r.include);
+    if (included.length === 0) return;
     setEnrichingAll(true);
-    // Sequential to stay under the AI rate limit; only the included rows.
-    for (const r of rows.filter((x) => x.include)) {
-      // read the freshest copy each iteration
-      // eslint-disable-next-line no-await-in-loop
-      await enrichRow(r);
+    try {
+      // ONE batched call for the whole list — avoids firing N requests and
+      // tripping the provider's per-minute rate limit.
+      const { details } = await enrichTransactions(
+        included.map((r) => ({ type: r.type, description: r.description, amount: r.amount, category: r.category }))
+      );
+      const byIndex = new Map(details.map((d) => [d.i, d]));
+      setRows((rs) => rs!.map((r) => {
+        const idx = included.findIndex((x) => x.id === r.id);
+        const d = idx >= 0 ? byIndex.get(idx) : undefined;
+        if (!d) return r;
+        const validCats = r.type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
+        return {
+          ...r,
+          notes: d.notes || r.notes,
+          tagsInput: d.tags.length ? d.tags.join(', ') : r.tagsInput,
+          category: d.category && validCats.includes(d.category) ? d.category : r.category,
+          paymentMethod: r.type === 'expense' && d.paymentMethod ? d.paymentMethod : r.paymentMethod,
+        };
+      }));
+      const filled = included.filter((r) => byIndex.has(included.indexOf(r))).length;
+      toast.success(filled >= included.length ? 'Details generated.' : `Filled ${filled} of ${included.length}.`);
+    } catch {
+      toast.error('Could not generate details. Try again in a moment.');
+    } finally {
+      setEnrichingAll(false);
     }
-    setEnrichingAll(false);
-    toast.success('Details generated.');
   };
 
   const doImport = () => {

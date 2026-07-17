@@ -502,6 +502,23 @@ export const enrichTransaction = (
   });
 };
 
+export interface BatchTransactionDetails extends TransactionDetails {
+  i: number;
+}
+
+/**
+ * Enriches a whole list of transactions in ONE model call (used by "AI-fill all"
+ * so it doesn't fire one request per row and hit the AI rate limit).
+ */
+export const enrichTransactions = (
+  transactions: Array<{ type: 'income' | 'expense'; description: string; amount: number; category?: string }>
+): Promise<{ details: BatchTransactionDetails[] }> => {
+  return fetchApi<{ details: BatchTransactionDetails[] }>('/ai/enrich-transactions', {
+    method: 'POST',
+    body: JSON.stringify({ transactions }),
+  });
+};
+
 /**
  * Creates a batch of new expenses from a CSV import.
  */

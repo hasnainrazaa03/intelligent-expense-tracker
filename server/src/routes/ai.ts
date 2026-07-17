@@ -534,4 +534,89 @@ Respond with JSON only, no markdown.`;
   }
 });
 
+// Batch enrichment — details for a whole list of transactions in ONE model
+// call, so "AI-fill all" doesn't fire N requests and trip the provider's
+// per-minute rate limit. Returns { details: [{ i, notes, tags, category,
+// paymentMethod }] } keyed by input index.
+router.post('/enrich-transactions', async (req: Request, res: Response) => {
+  if (!genAI) {
+    return res.status(503).json({ message: 'AI service is not configured.' });
+  }
+
+  const { transactions } = req.body || {};
+  if (!Array.isArray(transactions) || transactions.length === 0) {
+    return res.status(400).json({ message: 'transactions must be a non-empty array' });
+  }
+
+  const items = transactions.slice(0, 200).map((t: any, i: number) => ({
+    i,
+    type: t?.type === 'income' ? 'income' : 'expense',
+    description: String(t?.description || '').slice(0, 120),
+    amount: Number(t?.amount) || 0,
+  }));
+
+  const prompt = `You are enriching a batch of transactions a user is importing. For EACH input item, generate helpful details.
+
+Rules per item:
+- "i": copy the item's index exactly.
+- "notes": one concise human sentence of useful context (max 100 chars).
+- "tags": 1-3 short lowercase tags (no "#").
+- "category": for an EXPENSE item choose from EXACTLY ${JSON.stringify(RECEIPT_CATEGORIES)}; for an INCOME item from EXACTLY ${JSON.stringify(INCOME_CATEGORIES)}. Categorize decisively — any grocery/supermarket/market/"bazaar"/"mart"/ethnic or international grocer (JH Bazaar, H Mart, Patel Brothers, 99 Ranch) is "Groceries", restaurants/cafes are "Dining Out".
+- "paymentMethod": for EXPENSE items best guess from ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} or ""; for INCOME always "".
+
+INPUT (JSON array of {i, type, description, amount}):
+${JSON.stringify(items)}
+
+Return ONLY: {"details":[{"i":0,"notes":"...","tags":["..."],"category":"...","paymentMethod":"..."}, ...]} with exactly one entry per input item, same "i" values. No markdown, no commentary.`;
+
+  const callModel = async (modelName: string): Promise<string> => {
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent(prompt);
+    return (await result.response).text();
+  };
+
+  try {
+    let text: string;
+    try {
+      text = await callModel(PRIMARY_MODEL);
+    } catch (modelError) {
+      console.warn(`Batch enrich: primary model failed, falling back. ${modelError}`);
+      text = await callModel(FALLBACK_MODEL);
+    }
+
+    const parsed = safeParseJson(text);
+    const rawDetails = Array.isArray(parsed) ? parsed : parsed?.details;
+    if (!Array.isArray(rawDetails)) {
+      return res.status(422).json({ message: 'Could not generate details.' });
+    }
+
+    const details = rawDetails
+      .map((d: any) => {
+        const idx = Number(d?.i);
+        const item = items.find((it) => it.i === idx);
+        if (!item) return null;
+        const categories = item.type === 'income' ? INCOME_CATEGORIES : RECEIPT_CATEGORIES;
+        const tags = Array.isArray(d?.tags)
+          ? d.tags.map((t: any) => String(t).trim().toLowerCase().replace(/^#/, '')).filter(Boolean).slice(0, 3)
+          : [];
+        return {
+          i: idx,
+          notes: String(d?.notes || '').slice(0, 100),
+          tags,
+          category: categories.includes(d?.category) ? d.category : '',
+          paymentMethod: item.type === 'expense' && RECEIPT_PAYMENT_METHODS.includes(d?.paymentMethod) ? d.paymentMethod : '',
+        };
+      })
+      .filter(Boolean);
+
+    return res.json({ details });
+  } catch (error) {
+    console.error('Batch enrich error:', error);
+    return res.status(500).json({ message: 'Failed to generate details.' });
+  }
+});
+
 export default router;
