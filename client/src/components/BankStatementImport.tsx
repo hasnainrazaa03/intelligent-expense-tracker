@@ -89,12 +89,16 @@ const BankStatementImport: React.FC<BankStatementImportProps> = ({ onImport, exi
     setRows(null); setParsingPdf(false);
   };
 
-  /** Turn raw detected items into review rows: suggest a category when missing
-   *  and flag rows that match an already-imported transaction of the same type. */
+  /** Turn raw detected items into review rows: sort chronologically (so income
+   *  and expenses read in the order they appear on the statement), suggest a
+   *  category when missing, and flag rows that match an already-imported
+   *  transaction of the same type. */
   const buildRows = (
     items: Array<{ type?: string; date: string; description: string; amount: number; category?: string; paymentMethod?: string }>
   ): ReviewRow[] =>
-    items.map((it, i) => {
+    [...items]
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+      .map((it, i) => {
       const type: TxnType = it.type === 'income' ? 'income' : 'expense';
       const validCats = type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
       const aiCat = it.category && it.category !== 'Other' && validCats.includes(it.category) ? it.category : null;
