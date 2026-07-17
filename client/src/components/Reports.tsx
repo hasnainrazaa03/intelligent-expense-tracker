@@ -16,6 +16,7 @@ import RecurringVsOneTimeChart from './reports/RecurringVsOneTimeChart';
 import TimePeriodSummaries from './reports/TimePeriodSummaries';
 import YearOverYearChart from './reports/YearOverYearChart';
 import SectionSkeleton from './SectionSkeleton';
+import ChartEmpty from './ChartEmpty';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { emailSummary } from '../services/api';
@@ -189,27 +190,33 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
             <h4 className="font-display font-semibold text-app-text text-base md:text-lg">Category breakdown</h4>
             <span className="text-app-faint text-[10px] md:text-xs hidden xs:inline">Verified by system</span>
           </div>
-          <div className="p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[22rem] overflow-y-auto custom-scrollbar">
-            {(Object.entries(stats.categoryTotals) as [string, number][])
-              .sort((a, b) => b[1] - a[1])
-              .map(([name, amount]) => (
-                <div key={name} className="flex flex-col rounded-xl border border-app-border bg-surface-2 p-3 group min-w-0">
-                  <p className="text-[10px] text-app-faint mb-0.5">Category</p>
-                  <p className="font-display font-semibold text-sm md:text-base text-app-text truncate">
-                    {name}
-                  </p>
-                  <p className="font-display text-xs md:text-sm text-app-muted tabular-nums">
-                    {formatCurrency(amount, displayCurrency, conversionRate)}
-                  </p>
-                  <div className="h-1.5 rounded-full bg-surface border border-app-border mt-2 relative w-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary absolute left-0"
-                      style={{ width: `${(amount / stats.totalSpent) * 100}%` }}
-                    />
+          {Object.keys(stats.categoryTotals).length === 0 ? (
+            <div className="min-h-[16rem] flex items-center justify-center">
+              <ChartEmpty />
+            </div>
+          ) : (
+            <div className="p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[22rem] min-h-[16rem] overflow-y-auto custom-scrollbar content-start">
+              {(Object.entries(stats.categoryTotals) as [string, number][])
+                .sort((a, b) => b[1] - a[1])
+                .map(([name, amount]) => (
+                  <div key={name} className="flex flex-col rounded-xl border border-app-border bg-surface-2 p-3 group min-w-0 h-fit">
+                    <p className="text-[10px] text-app-faint mb-0.5">Category</p>
+                    <p className="font-display font-semibold text-sm md:text-base text-app-text truncate">
+                      {name}
+                    </p>
+                    <p className="font-display text-xs md:text-sm text-app-muted tabular-nums">
+                      {formatCurrency(amount, displayCurrency, conversionRate)}
+                    </p>
+                    <div className="h-1.5 rounded-full bg-surface border border-app-border mt-2 relative w-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary absolute left-0"
+                        style={{ width: `${(amount / stats.totalSpent) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
-          </div>
+                ))}
+            </div>
+          )}
         </div>
 
         {/* Budget vs Actual */}
@@ -221,25 +228,28 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         </div>
       </div>
 
-      {/* 4. THREE SMALL CHARTS (payment · recurring · drilldown) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 items-start">
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
+      {/* 4. THREE SMALL CHARTS (payment · recurring · drilldown) — equal-height
+          cards with uniform chart bodies so they line up and render cleanly. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0 flex flex-col">
           <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Payment method distribution</h4>
-          <div className="h-64">
+          <div className="flex-1 min-h-[16rem]">
             <PaymentMethodChart expenses={allExpenses} />
           </div>
         </div>
 
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0 flex flex-col">
           <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Recurring vs one-time</h4>
-          <div className="h-64">
+          <div className="flex-1 min-h-[16rem]">
             <RecurringVsOneTimeChart expenses={allExpenses} />
           </div>
         </div>
 
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0 flex flex-col">
           <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Category drilldown</h4>
-          <CategoryDrilldown expenses={allExpenses} />
+          <div className="flex-1 min-h-[16rem]">
+            <CategoryDrilldown expenses={allExpenses} />
+          </div>
         </div>
       </div>
 
