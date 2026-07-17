@@ -20,9 +20,11 @@ interface ExpenseModalProps {
   onClose: () => void;
   onSave: (expense: any) => void;
   expense: Expense | null;
+  /** Opens the bank-statement importer (bulk add many at once). */
+  onImportStatement?: () => void;
 }
 
-const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense }) => {
+const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, onImportStatement }) => {
   const { displayCurrency, conversionRate: parentConversionRate, availableCurrencies } = useCurrency();
   // --- CORE STATE (PRESERVED) ---
   const [title, setTitle] = useState(expense?.title || '');
@@ -425,6 +427,17 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     >
       <form id="expense-form" onSubmit={handleSubmit}>
           <div className="flex flex-col space-y-5">
+
+            {/* Bulk import shortcut — only when adding (not editing). */}
+            {!expense && onImportStatement && (
+              <button
+                type="button"
+                onClick={onImportStatement}
+                className="flex items-center justify-center gap-2 w-full rounded-xl border border-dashed border-app-border bg-surface-2 px-4 py-2.5 text-xs font-semibold text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
+              >
+                📄 Import many from a bank statement (CSV / PDF)
+              </button>
+            )}
 
             {/* Title */}
             <div>

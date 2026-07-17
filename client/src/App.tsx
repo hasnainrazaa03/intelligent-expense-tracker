@@ -13,7 +13,7 @@ import { computeDueRecurring, getRecurrenceFrequency } from './utils/recurrence'
 import { expenseMatchesBudget } from './utils/budgetUtils';
 import { getAllData, isAuthError } from './services/api';
 import { useAuth } from './contexts/AuthContext';
-import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, restoreAllData } from './services/api';
+import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, createBulkIncomes, restoreAllData } from './services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from './lib/queryClient';
 import type { AllDataResponse } from './types/api';
@@ -531,7 +531,7 @@ const handleDeleteIncome = async (id: string) => {
     try {
       // 1. Send the batch to the server
       await createBulkExpenses(importedExpenses);
-      
+
       // 2. The import was successful, show an alert
       notify.success(`${importedExpenses.length} expenses successfully imported.`);
 
@@ -541,6 +541,27 @@ const handleDeleteIncome = async (id: string) => {
     } catch (error) {
       console.error("Failed to import expenses:", error);
       notify.error('Could not import expenses.');
+    }
+  };
+
+  // Bank-statement import: a statement can contain both debits and credits, so it
+  // creates expenses AND incomes in one pass, then refetches once.
+  const handleImportStatement = async (payload: { expenses: Omit<Expense, 'id'>[]; incomes: Omit<Income, 'id'>[] }) => {
+    const { expenses, incomes } = payload;
+    if (expenses.length === 0 && incomes.length === 0) return;
+    try {
+      if (expenses.length > 0) await createBulkExpenses(expenses);
+      if (incomes.length > 0) await createBulkIncomes(incomes);
+
+      const parts: string[] = [];
+      if (expenses.length > 0) parts.push(`${expenses.length} expense${expenses.length === 1 ? '' : 's'}`);
+      if (incomes.length > 0) parts.push(`${incomes.length} income`);
+      notify.success(`Imported ${parts.join(' and ')}.`);
+
+      await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
+    } catch (error) {
+      console.error('Failed to import statement:', error);
+      notify.error('Could not import the statement.');
     }
   };
 
@@ -1080,21 +1101,23 @@ const handleDeleteIncome = async (id: string) => {
             {/* 5. MODALS */}
             {isExpenseModalOpen && (
               <Suspense fallback={null}>
-                <ExpenseModal 
-                  isOpen={isExpenseModalOpen} 
-                  onClose={() => setIsExpenseModalOpen(false)} 
-                  onSave={editingExpense ? handleUpdateExpense : handleAddExpense} 
-                  expense={editingExpense} 
+                <ExpenseModal
+                  isOpen={isExpenseModalOpen}
+                  onClose={() => setIsExpenseModalOpen(false)}
+                  onSave={editingExpense ? handleUpdateExpense : handleAddExpense}
+                  expense={editingExpense}
+                  onImportStatement={() => { setIsExpenseModalOpen(false); setIsDataModalOpen(true); }}
                 />
               </Suspense>
             )}
             {isIncomeModalOpen && (
               <Suspense fallback={null}>
-                <IncomeModal 
-                  isOpen={isIncomeModalOpen} 
-                  onClose={() => setIsIncomeModalOpen(false)} 
-                  onSave={editingIncome ? handleUpdateIncome : handleAddIncome} 
-                  income={editingIncome} 
+                <IncomeModal
+                  isOpen={isIncomeModalOpen}
+                  onClose={() => setIsIncomeModalOpen(false)}
+                  onSave={editingIncome ? handleUpdateIncome : handleAddIncome}
+                  income={editingIncome}
+                  onImportStatement={() => { setIsIncomeModalOpen(false); setIsDataModalOpen(true); }}
                 />
               </Suspense>
             )}
@@ -1117,7 +1140,8 @@ const handleDeleteIncome = async (id: string) => {
                   allIncomes={incomes}
                   budgets={budgets} 
                   semesters={semesters}
-                  onImport={handleImportExpenses} 
+                  onImport={handleImportExpenses}
+                  onImportStatement={handleImportStatement}
                   onRestoreBackup={handleRestoreBackup}
                 />
               </Suspense>

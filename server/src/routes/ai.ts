@@ -37,6 +37,10 @@ const RECEIPT_CATEGORIES = [
 const RECEIPT_PAYMENT_METHODS = [
   'Credit Card', 'Debit Card', 'Cash', 'Bank Transfer', 'Venmo', 'PayPal', 'Apple Pay', 'Google Pay',
 ];
+// Income categories — kept in sync with the client's constants.ts.
+const INCOME_CATEGORIES = [
+  'Salary', 'Freelance', 'Investment', 'Gift', 'Rental Income', 'Side Hustle', 'Other',
+];
 
 // Strip ``` fences and pull the first JSON object out of a model response.
 const safeParseJson = (text: string): any => {
@@ -350,15 +354,27 @@ router.post('/parse-statement', async (req: Request, res: Response) => {
   const { pdf, csvText } = req.body || {};
 
   let parts: any[] | null = null;
-  const instruction = `You are a bank-statement parser. Extract every EXPENSE (money leaving the account: debits, card purchases, withdrawals, fees) from the statement.
-IGNORE deposits, credits, refunds, incoming transfers and payments received.
-Return ONLY a JSON object: {"transactions": [ ... ]} where each item has:
-- "date": transaction date as "YYYY-MM-DD"
-- "description": the merchant / payee (string, max 80 chars)
-- "amount": a positive plain number (the expense magnitude, no currency symbols or separators)
-- "category": the single best fit from EXACTLY this list: ${JSON.stringify(RECEIPT_CATEGORIES)}
-- "paymentMethod": one of ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} if determinable, otherwise ""
-Return at most ${MAX_STATEMENT_TXNS} transactions. Respond with JSON only — no markdown, no commentary.`;
+  const instruction = `You are a meticulous bank-statement parser. Extract every real transaction and classify each as an EXPENSE (money spent) or INCOME (money genuinely received).
+
+EXPENSE = money spent on goods, services or bills: card/POS/debit purchases, rent, phone, gas/electric/water/internet, insurance, subscriptions, fees.
+INCOME = money genuinely coming in: paychecks / payroll / direct deposit, refunds, P2P money received (Venmo/Zelle/PayPal/Cash App cash-ins), rental income, interest/dividends, ATM cash deposits.
+
+EXCLUDE completely (return NEITHER — do not output these):
+- Internal transfers between the holder's OWN accounts — e.g. "Transfer To/From Share", moving money to savings or a secured account. Not spending and not income.
+- Micro account-verification entries — e.g. "ACCTVERIFY", tiny sub-$1 test amounts that pair with a matching offsetting entry.
+- "Beginning Balance", "Ending Balance" and running-balance lines.
+
+For each transaction return:
+- "type": "expense" or "income".
+- "date": "YYYY-MM-DD" (use the statement's year).
+- "description": a SHORT, CLEAN merchant or purpose name a person would recognize — normalize the raw bank text; strip store numbers, addresses, POS/reference codes and ALL-CAPS noise. Examples: "YSI*STUHO RENT 1216-1216 12 W 30th St" -> "Student housing rent"; "POS TRADER JOE S #250 3131 S HOOVER" -> "Trader Joe's"; "Debit Card LYFT *1 RIDE 08-23" -> "Lyft ride"; "ACH ATT TYPE: PAYMENT" -> "AT&T bill"; "SoCalGas TYPE: PAID SCGC" -> "SoCalGas bill"; "CVS/PHARM 02396" -> "CVS Pharmacy"; "ACH VENMO TYPE: CASHOUT" -> "Venmo cash-out"; "ACH KAMRAN BADR TYPE: P2P ... BANK OF AMERICA" -> "Payment from Kamran Badr". Max 60 chars.
+- "amount": the exact positive amount, keeping cents (e.g. 33.83).
+- "category":
+  * For an EXPENSE, the SINGLE BEST fit from EXACTLY: ${JSON.stringify(RECEIPT_CATEGORIES)}. Categorize DECISIVELY from the merchant: grocery stores (Trader Joe's, Ralphs, Vons, Whole Foods) -> "Groceries"; restaurants/cafes -> "Dining Out"; Lyft/Uber -> "Rideshare"; gas fuel -> "Fuel"; AT&T/T-Mobile/Verizon -> "Phone"; gas/electric/water -> "Utilities"; home internet -> "Internet"; rent/housing -> "Rent"; pharmacies (CVS, Walgreens) -> "Prescriptions"; streaming/software subs -> "Subscriptions"; FedEx/UPS/print/office/school supplies -> "Supplies"; tuition/university -> "Tuition"; clothing -> "Clothing"; gym -> "Fitness". Use "Other" ONLY when nothing fits.
+  * For INCOME, the SINGLE BEST fit from EXACTLY: ${JSON.stringify(INCOME_CATEGORIES)}. payroll/employer -> "Salary"; freelance/client -> "Freelance"; interest/dividends -> "Investment"; rent received -> "Rental Income"; P2P/refunds/cash deposits/side gigs -> "Side Hustle" or "Other".
+- "paymentMethod": for expenses, infer from the type — "Debit Card" for debit-card/POS, "Bank Transfer" for ACH, "Cash" for ATM cash; otherwise "". For income use "".
+
+Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} items. No markdown, no commentary.`;
 
   if (typeof pdf === 'string' && pdf) {
     const match = pdf.match(/^data:application\/pdf;base64,([a-z0-9+/=\s]+)$/i);
@@ -410,12 +426,15 @@ Return at most ${MAX_STATEMENT_TXNS} transactions. Respond with JSON only — no
     const transactions = rawTxns
       .map((t: any) => {
         const amountNum = Number(t?.amount);
+        const type = t?.type === 'income' ? 'income' : 'expense';
+        const validCategories = type === 'income' ? INCOME_CATEGORIES : RECEIPT_CATEGORIES;
         return {
+          type,
           date: /^\d{4}-\d{2}-\d{2}$/.test(String(t?.date || '')) ? t.date : today,
           description: String(t?.description || '').slice(0, 80),
           amount: Number.isFinite(amountNum) ? Math.abs(amountNum) : 0,
-          category: RECEIPT_CATEGORIES.includes(t?.category) ? t.category : 'Other',
-          paymentMethod: RECEIPT_PAYMENT_METHODS.includes(t?.paymentMethod) ? t.paymentMethod : '',
+          category: validCategories.includes(t?.category) ? t.category : 'Other',
+          paymentMethod: type === 'expense' && RECEIPT_PAYMENT_METHODS.includes(t?.paymentMethod) ? t.paymentMethod : '',
         };
       })
       .filter((t) => t.description && t.amount > 0)

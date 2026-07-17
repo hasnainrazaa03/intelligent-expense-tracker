@@ -11,9 +11,11 @@ interface IncomeModalProps {
   onClose: () => void;
   onSave: (income: any) => void;
   income: Income | null;
+  /** Opens the bank-statement importer (bulk add many at once). */
+  onImportStatement?: () => void;
 }
 
-const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income }) => {
+const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, onImportStatement }) => {
   const { displayCurrency, conversionRate: parentConversionRate, availableCurrencies } = useCurrency();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -167,6 +169,17 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
     >
       <form id="income-form" onSubmit={handleSubmit}>
           <div className="flex flex-col space-y-5">
+
+            {/* Bulk import shortcut — only when adding (not editing). */}
+            {!income && onImportStatement && (
+              <button
+                type="button"
+                onClick={onImportStatement}
+                className="flex items-center justify-center gap-2 w-full rounded-xl border border-dashed border-app-border bg-surface-2 px-4 py-2.5 text-xs font-semibold text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
+              >
+                📄 Import many from a bank statement (CSV / PDF)
+              </button>
+            )}
 
             <div>
               <Label htmlFor="income-title">Source</Label>
