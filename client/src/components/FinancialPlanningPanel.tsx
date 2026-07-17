@@ -163,15 +163,21 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   };
 
   const upcomingBills = useMemo(() => {
-    const today = new Date(todayIso());
+    // Local midnight today, to match `dueDate` (also built from local Y/M/D).
+    // Using `new Date(todayIso())` parsed the day as UTC midnight, so for UTC+
+    // users a bill due today read as already past and got bumped a month out.
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const horizon = new Date(today);
     horizon.setDate(today.getDate() + 10);
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
     return recurringTemplates
       .filter((e) => !pausedRecurring[templateKey(e)])
       .map((e) => {
         const day = Number.parseInt(e.date.slice(8, 10), 10) || 1;
-        const dueDate = new Date(now.getFullYear(), now.getMonth(), Math.min(day, 28));
+        // Clamp to this month's length (was a hard 28, which mis-dated bills on
+        // the 29th–31st) rather than to an arbitrary cap.
+        const dueDate = new Date(now.getFullYear(), now.getMonth(), Math.min(day, daysInMonth));
         if (dueDate < today) dueDate.setMonth(dueDate.getMonth() + 1);
         return { ...e, dueDate };
       })

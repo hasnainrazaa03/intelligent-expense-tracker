@@ -30,17 +30,21 @@ function computeWindow(dateRange: DateRange): Window | null {
   const now = new Date();
 
   switch (dateRange) {
-    case 'this_month':
+    case 'this_month': {
       // "This month" is month-to-date (ends today), so compare against the SAME
-      // month-to-date span last month — addMonths is overflow-safe and clamps the
-      // day, so today's day-of-month maps to the equivalent day last month. Using
-      // the full prior month here inflated the early-month delta (L5).
+      // month-to-date span last month. `addMonths` returns the 1st, so we can't
+      // use it for prevEnd — build last month's equivalent day-of-month directly,
+      // clamped to that month's length (e.g. today the 31st → Feb 28). Using the
+      // full prior month, or (previously) just its 1st, skewed the delta (L5).
+      const daysInPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+      const prevDay = Math.min(now.getDate(), daysInPrevMonth);
       return {
         start: startOfMonth(now),
         end: formatCalendarDate(now),
         prevStart: startOfMonth(addMonths(now, -1)),
-        prevEnd: formatCalendarDate(addMonths(now, -1)),
+        prevEnd: formatCalendarDate(new Date(now.getFullYear(), now.getMonth() - 1, prevDay)),
       };
+    }
     case 'last_month':
       return {
         start: startOfMonth(addMonths(now, -1)),
