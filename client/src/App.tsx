@@ -133,6 +133,9 @@ const App: React.FC = () => {
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
 
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
+  // The Income hub keeps its own date range, independent of the expense-centric
+  // Financial hub, so filtering one never moves the other.
+  const [incomeDateRange, setIncomeDateRange] = useState<DateRange>('this_month');
   const [activeView, setActiveView] = useState<ActiveView>('expenses');
   // Sub-tab within the Expenses / Income hubs: the overview (dashboard/summary)
   // vs the transactions list. Reset to overview whenever the top-level view changes.
@@ -743,11 +746,12 @@ const handleDeleteIncome = async (id: string) => {
   setIsSemestersDirty(true);
 };
 
-  // ... (useMemo for filteredExpenses, filteredIncomes, etc. remains the same) ...
-    const { filteredExpenses, filteredIncomes, previousPeriodExpenses } = useDateRangeFilter(expenses, incomes, dateRange);
+  // Financial hub uses `dateRange`; the Income hub uses its own `incomeDateRange`.
+  const { filteredExpenses, filteredIncomes: dashboardIncomes, previousPeriodExpenses } = useDateRangeFilter(expenses, incomes, dateRange);
+  const { filteredIncomes: incomeHubIncomes } = useDateRangeFilter(expenses, incomes, incomeDateRange);
 
   const searchedAndSortedItems = useMemo(() => {
-    const itemsToFilter = activeView === 'income' ? [...filteredIncomes] : [...filteredExpenses];
+    const itemsToFilter = activeView === 'income' ? [...incomeHubIncomes] : [...filteredExpenses];
 
     const results = debouncedSearchQuery
       ? itemsToFilter.filter(item => {
@@ -761,7 +765,7 @@ const handleDeleteIncome = async (id: string) => {
       : itemsToFilter;
 
     return results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredExpenses, filteredIncomes, debouncedSearchQuery, activeView]);
+  }, [filteredExpenses, incomeHubIncomes, debouncedSearchQuery, activeView]);
 
 
   const liveRegionMessage = useMemo(() => {
@@ -800,7 +804,7 @@ const handleDeleteIncome = async (id: string) => {
                 onDelete={handleDeleteIncome}
                 onCreate={handleOpenModal}
                 isLoading={isLoadingData}
-                dateFilter={<DateRangeFilter selectedRange={dateRange} onChange={setDateRange} />}
+                dateFilter={<DateRangeFilter selectedRange={incomeDateRange} onChange={setIncomeDateRange} />}
               />
             );
         case 'ai':
@@ -1009,7 +1013,7 @@ const handleDeleteIncome = async (id: string) => {
                     <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>
                       <Dashboard
                         expenses={filteredExpenses}
-                        incomes={filteredIncomes}
+                        incomes={dashboardIncomes}
                         allIncomes={incomes}
                         allExpenses={expenses}
                         previousPeriodExpenses={previousPeriodExpenses}
@@ -1023,7 +1027,13 @@ const handleDeleteIncome = async (id: string) => {
                   {activeView === 'income' && hubTab === 'overview' && (
                     isLoadingData
                       ? <SectionSkeleton title="Loading income" rows={4} />
-                      : <IncomeSummary incomes={filteredIncomes} allIncomes={incomes} />
+                      : <IncomeSummary
+                          incomes={incomeHubIncomes}
+                          allIncomes={incomes}
+                          allExpenses={expenses}
+                          selectedRange={incomeDateRange}
+                          onDateRangeChange={setIncomeDateRange}
+                        />
                   )}
 
                   {/* List tab (and every non-hub view) */}
