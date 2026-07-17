@@ -70,10 +70,11 @@ test('search dropdown surfaces a transaction and opens its detail', async ({ pag
 
 test('bank statement CSV maps columns and reaches the review step', async ({ page }) => {
   await page.getByRole('button', { name: 'Open data import and export' }).click();
-  // Launch the dedicated statement-import modal from the data modal.
+  // Launch the dedicated statement-import page from the data modal.
   await page.getByRole('dialog').getByRole('button', { name: /Import a bank statement/ }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('heading', { name: 'Import bank statement' })).toBeVisible();
+  // The importer is a full-page view (region), not a modal.
+  const imp = page.getByRole('region', { name: 'Import bank statement' });
+  await expect(imp.getByRole('heading', { name: 'Import bank statement' })).toBeVisible();
 
   // Upload an in-memory statement: 3 debits + 1 credit.
   const csv = [
@@ -83,16 +84,16 @@ test('bank statement CSV maps columns and reaches the review step', async ({ pag
     '07/03/2026,TRADER JOES,-62.18,Groceries',
     '07/05/2026,UBER,-14.30,Transport',
   ].join('\n');
-  await dialog.getByLabel('Bank statement CSV or PDF file').setInputFiles({
+  await imp.getByLabel('Bank statement CSV or PDF file').setInputFiles({
     name: 'statement.csv',
     mimeType: 'text/csv',
     buffer: Buffer.from(csv),
   });
 
   // Auto-detected mapping + credit-skipping: advance to review (3 debits ready).
-  await dialog.getByRole('button', { name: /Review 3 transactions/ }).click();
-  await expect(dialog.getByText(/3 detected · 3 expenses · 0 income selected/)).toBeVisible();
-  await expect(dialog.getByRole('button', { name: /Import 3 transactions/ })).toBeEnabled();
+  await imp.getByRole('button', { name: /Review 3 transactions/ }).click();
+  await expect(imp.getByText(/3 detected · 3 expenses · 0 income selected/)).toBeVisible();
+  await expect(imp.getByRole('button', { name: /Import 3 \(3 exp · 0 inc\)/ })).toBeEnabled();
 });
 
 test('offline: an expense is queued and syncs on reconnect', async ({ page, context }) => {

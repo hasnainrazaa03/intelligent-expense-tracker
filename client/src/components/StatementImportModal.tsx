@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Expense, Income } from '../types';
-import { Modal, Button } from './ui';
+import { Button } from './ui';
 import { APP_CONFIG } from '../config';
 import { ALL_SUBCATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../constants';
 import { suggestCategory } from '../services/categorySuggestionService';
@@ -76,27 +76,32 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   const [enrichingAll, setEnrichingAll] = useState(false);
   const [hideDuplicates, setHideDuplicates] = useState(false);
   const paneRef = useRef<HTMLDivElement>(null);
+  const resizing = useRef(false);
+  const latestPct = useRef(pdfPct);
 
-  // Drag the divider to resize the PDF pane (25%–60% of the split); the last
-  // width is remembered across imports.
-  const startResize = (e: React.MouseEvent) => {
+  // Drag the divider to resize the PDF pane (25%–60%). Pointer capture keeps the
+  // drag reliable even when the cursor crosses the PDF iframe, and pointerup /
+  // pointercancel always end it — so the handle can't get "stuck" resizing.
+  const onHandlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
-    let latest = pdfPct;
-    const onMove = (ev: MouseEvent) => {
-      const box = paneRef.current?.getBoundingClientRect();
-      if (!box || box.width === 0) return;
-      latest = Math.max(25, Math.min(60, ((box.right - ev.clientX) / box.width) * 100));
-      setPdfPct(latest);
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      document.body.style.userSelect = '';
-      try { localStorage.setItem('stmtPdfPct', String(Math.round(latest))); } catch { /* ignore */ }
-    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    resizing.current = true;
     document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+  };
+  const onHandlePointerMove = (e: React.PointerEvent) => {
+    if (!resizing.current) return;
+    const box = paneRef.current?.getBoundingClientRect();
+    if (!box || box.width === 0) return;
+    const pct = Math.max(25, Math.min(60, ((box.right - e.clientX) / box.width) * 100));
+    latestPct.current = pct;
+    setPdfPct(pct);
+  };
+  const endResize = (e: React.PointerEvent) => {
+    if (!resizing.current) return;
+    resizing.current = false;
+    document.body.style.userSelect = '';
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    try { localStorage.setItem('stmtPdfPct', String(Math.round(latestPct.current))); } catch { /* ignore */ }
   };
 
   const bulkSetCategory = (cat: string) => {
@@ -313,26 +318,29 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   const expTotal = selExpRows.reduce((s, r) => s + r.amount, 0);
   const incTotal = selIncRows.reduce((s, r) => s + r.amount, 0);
 
-  const footer = rows ? (
-    <>
-      <Button variant="secondary" onClick={close}>Cancel</Button>
-      <Button onClick={doImport} disabled={selected.length === 0} fullWidth>
-        Import {selected.length} transaction{selected.length === 1 ? '' : 's'} ({selExp} exp · {selInc} inc)
-      </Button>
-    </>
-  ) : (
-    <Button variant="secondary" onClick={close} fullWidth>Cancel</Button>
-  );
-
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={close}
-      title="Import bank statement"
-      subtitle="Upload a CSV or PDF — expenses and income are detected for review before importing."
-      size={rows && pdfUri && !pdfMinimized ? 'full' : '2xl'}
-      footer={footer}
-    >
+    <div className="fixed inset-0 z-[100] bg-bg overflow-y-auto" role="region" aria-label="Import bank statement">
+      <div className="min-h-full flex flex-col">
+        {/* Sticky page header with the primary actions — a real page, not a modal,
+            so typing / stray clicks / Escape can't discard in-progress work. */}
+        <header className="sticky top-0 z-20 modal-surface border-b border-app-border">
+          <div className="max-w-[112rem] mx-auto w-full px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="font-display text-lg sm:text-xl font-bold text-app-text leading-tight truncate">Import bank statement</h1>
+              <p className="text-[11px] text-app-muted hidden sm:block">Upload a CSV or PDF — expenses and income are detected for review before importing.</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="secondary" onClick={close}>Cancel</Button>
+              {rows && (
+                <Button onClick={doImport} disabled={selected.length === 0}>
+                  Import {selected.length}{selected.length ? ` (${selExp} exp · ${selInc} inc)` : ''}
+                </Button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 max-w-[112rem] mx-auto w-full px-4 sm:px-6 py-5">
       {/* UPLOAD STAGE */}
       {!rows && (
         <div className="space-y-4">
@@ -446,7 +454,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
               </div>
             </div>
 
-            <div className="space-y-2 max-h-[62vh] overflow-y-auto custom-scrollbar pr-1">
+            <div className="space-y-2 max-h-[calc(100vh-11rem)] overflow-y-auto custom-scrollbar pr-1">
               {rows.filter((r) => !hideDuplicates || !r.duplicate).map((r) => {
                 const catOptions = r.type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
                 return (
@@ -536,11 +544,14 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
           {/* Resize handle (drag to widen/narrow the PDF pane) */}
           {pdfUri && !pdfMinimized && (
             <div
-              onMouseDown={startResize}
+              onPointerDown={onHandlePointerDown}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={endResize}
+              onPointerCancel={endResize}
               role="separator"
               aria-orientation="vertical"
               aria-label="Resize statement preview"
-              className="hidden lg:block w-1.5 mx-1.5 flex-shrink-0 cursor-col-resize rounded-full bg-app-border hover:bg-primary/50 transition-colors"
+              className="hidden lg:block w-1.5 mx-1.5 flex-shrink-0 cursor-col-resize rounded-full bg-app-border hover:bg-primary/50 transition-colors touch-none select-none"
             />
           )}
 
@@ -554,12 +565,14 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                   <button onClick={() => setPdfMinimized(true)} className="text-[11px] font-semibold text-app-faint hover:text-app-text">Minimize</button>
                 </div>
               </div>
-              <iframe src={pdfUri} title="Uploaded statement" className="w-full h-[66vh] rounded-lg border border-app-border bg-white" />
+              <iframe src={pdfUri} title="Uploaded statement" className="w-full h-[calc(100vh-11rem)] rounded-lg border border-app-border bg-white" />
             </div>
           )}
         </div>
       )}
-    </Modal>
+        </div>
+      </div>
+    </div>
   );
 };
 
