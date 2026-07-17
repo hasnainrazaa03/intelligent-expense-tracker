@@ -14,6 +14,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface IncomeSummaryProps {
   /** Incomes for the currently selected income period. */
   incomes: Income[];
+  /** Incomes for the equivalent previous period, for the change indicator. */
+  previousPeriodIncomes?: Income[];
   /** All incomes, used for the 6-month trend + comparisons. */
   allIncomes: Income[];
   /** All expenses, for the income-vs-expense comparison. */
@@ -27,8 +29,15 @@ const SOURCE_COLORS = ['#16a34a', '#0d9488', '#0284c7', '#6d5cf0', '#9333ea', '#
 
 /** The Income hub — the income counterpart to the expense Financial hub, with its
  *  own date filter, summary cards, and income-focused charts. */
-const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, allIncomes, allExpenses, selectedRange, onDateRangeChange }) => {
+const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIncomes = [], allIncomes, allExpenses, selectedRange, onDateRangeChange }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+
+  const incomeChange = useMemo(() => {
+    const prev = previousPeriodIncomes.reduce((s, i) => s + Number(i.amount), 0);
+    const curr = incomes.reduce((s, i) => s + Number(i.amount), 0);
+    if (prev > 0) return ((curr - prev) / prev) * 100;
+    return curr > 0 ? Infinity : undefined;
+  }, [incomes, previousPeriodIncomes]);
 
   const { total, topSource, sourceCount, avgEntry, bySource } = useMemo(() => {
     const total = incomes.reduce((sum, i) => sum + Number(i.amount), 0);
@@ -92,7 +101,7 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, allIncomes, allE
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-        <SummaryCard title="TOTAL_INCOME" value={total} icon={<BanknotesIcon className="h-6 w-6" />} accent="green" />
+        <SummaryCard title="TOTAL_INCOME" value={total} percentageChange={incomeChange} icon={<BanknotesIcon className="h-6 w-6" />} accent="green" />
         <SummaryCard title="TOP_SOURCE" value={topSource} isString icon={<TagIcon className="h-6 w-6" />} accent="indigo" />
         <SummaryCard title="SOURCES" value={String(sourceCount)} isString icon={<ChartPieIcon className="h-6 w-6" />} accent="sky" />
         <SummaryCard title="AVG_ENTRY" value={avgEntry} icon={<TrendingUpIcon className="h-6 w-6" />} accent="amber" />

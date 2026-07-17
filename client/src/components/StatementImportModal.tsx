@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Expense, Income } from '../types';
 import { Modal, Button } from './ui';
@@ -66,10 +66,31 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   const [fileName, setFileName] = useState('');
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [pdfMinimized, setPdfMinimized] = useState(false);
+  const [pdfPct, setPdfPct] = useState(42);
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [enrichingAll, setEnrichingAll] = useState(false);
+  const paneRef = useRef<HTMLDivElement>(null);
+
+  // Drag the divider to resize the PDF pane (25%–60% of the split).
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const onMove = (ev: MouseEvent) => {
+      const box = paneRef.current?.getBoundingClientRect();
+      if (!box || box.width === 0) return;
+      const pct = ((box.right - ev.clientX) / box.width) * 100;
+      setPdfPct(Math.max(25, Math.min(60, pct)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+    };
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   // CSV mapping state.
   const [headers, setHeaders] = useState<string[] | null>(null);
@@ -244,8 +265,12 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   if (!isOpen) return null;
 
   const selected = rows?.filter((r) => r.include) ?? [];
-  const selExp = selected.filter((r) => r.type === 'expense').length;
-  const selInc = selected.filter((r) => r.type === 'income').length;
+  const selExpRows = selected.filter((r) => r.type === 'expense');
+  const selIncRows = selected.filter((r) => r.type === 'income');
+  const selExp = selExpRows.length;
+  const selInc = selIncRows.length;
+  const expTotal = selExpRows.reduce((s, r) => s + r.amount, 0);
+  const incTotal = selIncRows.reduce((s, r) => s + r.amount, 0);
 
   const footer = rows ? (
     <>
@@ -336,12 +361,15 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
 
       {/* REVIEW STAGE */}
       {rows && (
-        <div className="flex gap-4">
+        <div ref={paneRef} className="flex">
           {/* Review list */}
           <div className="flex-1 min-w-0 space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <p className="text-xs text-app-muted tabular-nums">
                 {rows.length} detected · {selExp} expense{selExp === 1 ? '' : 's'} · {selInc} income selected
+                {selected.length > 0 && (
+                  <span className="text-app-faint"> · <span className="text-app-text">{formatCurrency(expTotal, displayCurrency, conversionRate)}</span> out · <span className="text-ok">{formatCurrency(incTotal, displayCurrency, conversionRate)}</span> in</span>
+                )}
               </p>
               <div className="flex items-center gap-3 text-[11px]">
                 <button onClick={() => setAll(true)} className="font-semibold text-primary hover:underline">Select all</button>
@@ -441,12 +469,26 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
             </div>
           </div>
 
+          {/* Resize handle (drag to widen/narrow the PDF pane) */}
+          {pdfUri && !pdfMinimized && (
+            <div
+              onMouseDown={startResize}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize statement preview"
+              className="hidden lg:block w-1.5 mx-1.5 flex-shrink-0 cursor-col-resize rounded-full bg-app-border hover:bg-primary/50 transition-colors"
+            />
+          )}
+
           {/* PDF preview */}
           {pdfUri && !pdfMinimized && (
-            <div className="hidden lg:flex flex-col w-[42%] flex-shrink-0">
-              <div className="flex items-center justify-between mb-1.5">
+            <div className="hidden lg:flex flex-col flex-shrink-0" style={{ width: `${pdfPct}%` }}>
+              <div className="flex items-center justify-between mb-1.5 gap-2">
                 <p className="text-[11px] font-semibold text-app-muted uppercase tracking-wide">Uploaded statement</p>
-                <button onClick={() => setPdfMinimized(true)} className="text-[11px] font-semibold text-app-faint hover:text-app-text">Minimize</button>
+                <div className="flex items-center gap-3">
+                  <a href={pdfUri} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-app-faint hover:text-app-text">Open ↗</a>
+                  <button onClick={() => setPdfMinimized(true)} className="text-[11px] font-semibold text-app-faint hover:text-app-text">Minimize</button>
+                </div>
               </div>
               <iframe src={pdfUri} title="Uploaded statement" className="w-full h-[66vh] rounded-lg border border-app-border bg-white" />
             </div>

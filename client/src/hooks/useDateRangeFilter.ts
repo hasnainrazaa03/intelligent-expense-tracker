@@ -14,6 +14,7 @@ interface DateRangeResult {
   filteredExpenses: Expense[];
   filteredIncomes: Income[];
   previousPeriodExpenses: Expense[];
+  previousPeriodIncomes: Income[];
 }
 
 interface Window {
@@ -74,7 +75,7 @@ export default function useDateRangeFilter(
   return useMemo(() => {
     const window = computeWindow(dateRange);
     if (!window) {
-      return { filteredExpenses: expenses, filteredIncomes: incomes, previousPeriodExpenses: [] };
+      return { filteredExpenses: expenses, filteredIncomes: incomes, previousPeriodExpenses: [], previousPeriodIncomes: [] };
     }
 
     const { start, end, prevStart, prevEnd } = window;
@@ -83,6 +84,7 @@ export default function useDateRangeFilter(
       filteredExpenses: expenses.filter((exp) => isWithinRange(exp.date, start, end)),
       filteredIncomes: incomes.filter((inc) => isWithinRange(inc.date, start, end)),
       previousPeriodExpenses: expenses.filter((exp) => isWithinRange(exp.date, prevStart, prevEnd)),
+      previousPeriodIncomes: incomes.filter((inc) => isWithinRange(inc.date, prevStart, prevEnd)),
     };
   }, [expenses, incomes, dateRange]);
 }
