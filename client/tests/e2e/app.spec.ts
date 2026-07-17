@@ -70,8 +70,10 @@ test('search dropdown surfaces a transaction and opens its detail', async ({ pag
 
 test('bank statement CSV maps columns and reaches the review step', async ({ page }) => {
   await page.getByRole('button', { name: 'Open data import and export' }).click();
+  // Launch the dedicated statement-import modal from the data modal.
+  await page.getByRole('dialog').getByRole('button', { name: /Import a bank statement/ }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('Bank statement · CSV or PDF')).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Import bank statement' })).toBeVisible();
 
   // Upload an in-memory statement: 3 debits + 1 credit.
   const csv = [
@@ -87,10 +89,7 @@ test('bank statement CSV maps columns and reaches the review step', async ({ pag
     buffer: Buffer.from(csv),
   });
 
-  // Auto-detected mapping + credit-skipping: 3 debits ready, 1 credit skipped.
-  await expect(dialog.getByText(/3 transaction\(s\) ready · 1 skipped/)).toBeVisible();
-
-  // Advance to the review table and confirm the 3 rows are selected to import.
+  // Auto-detected mapping + credit-skipping: advance to review (3 debits ready).
   await dialog.getByRole('button', { name: /Review 3 transactions/ }).click();
   await expect(dialog.getByText(/3 detected · 3 expenses · 0 income selected/)).toBeVisible();
   await expect(dialog.getByRole('button', { name: /Import 3 transactions/ })).toBeEnabled();
