@@ -25,6 +25,8 @@ interface DataModalProps {
   onImport: (expenses: Omit<Expense, 'id'>[]) => void;
   /** Opens the dedicated bank-statement import experience. */
   onOpenStatementImport: () => void;
+  /** Permanently deletes all of the user's data (already confirmed by the modal). */
+  onWipeAll: () => Promise<void> | void;
   onRestoreBackup: (payload: {
     expenses: Omit<Expense, 'id'>[];
     incomes: Omit<Income, 'id'>[];
@@ -40,8 +42,10 @@ const ranges: { id: DateRange; label: string }[] = [
   { id: 'all_time', label: 'All time' },
 ];
 
-const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onOpenStatementImport, onRestoreBackup }) => {
+const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onOpenStatementImport, onWipeAll, onRestoreBackup }) => {
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
+  const [wipeConfirm, setWipeConfirm] = useState('');
+  const [isWiping, setIsWiping] = useState(false);
   const [includeExpenses, setIncludeExpenses] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
   const [format, setFormat] = useState<ExportFormat>('pdf');
@@ -493,6 +497,47 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               className="py-3"
             >
               {isRestoringBackup ? 'Restoring backup…' : 'Restore full backup'}
+            </Button>
+          </div>
+
+          {/* --- DANGER ZONE --- */}
+          <div className="relative flex items-center justify-center py-1 mt-2">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-danger/30" /></div>
+            <span className="relative bg-surface px-4 text-[11px] font-medium tracking-[0.12em] text-danger uppercase">Danger zone</span>
+          </div>
+
+          <div className="rounded-xl border border-danger/40 bg-danger/5 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-app-text">Delete all my data</p>
+              <p className="text-[11px] text-app-muted mt-0.5">
+                Permanently deletes every expense, income, budget, semester and receipt on your account. This cannot be undone — export a backup first if you might want it back.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="wipe-confirm" className="block text-[11px] text-app-muted mb-1">
+                Type <span className="font-semibold text-danger">DELETE</span> to confirm
+              </label>
+              <input
+                id="wipe-confirm"
+                type="text"
+                value={wipeConfirm}
+                onChange={(e) => setWipeConfirm(e.target.value)}
+                placeholder="DELETE"
+                autoComplete="off"
+                className="w-full bg-surface border border-app-border rounded-lg px-3 py-2 text-sm text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-danger/50"
+              />
+            </div>
+            <Button
+              variant="secondary"
+              fullWidth
+              disabled={wipeConfirm !== 'DELETE' || isWiping}
+              onClick={async () => {
+                setIsWiping(true);
+                try { await onWipeAll(); } finally { setIsWiping(false); setWipeConfirm(''); }
+              }}
+              className="py-3 !bg-danger/15 !text-danger !border-danger/40 hover:!bg-danger/25 disabled:opacity-50"
+            >
+              {isWiping ? 'Deleting…' : 'Permanently delete all my data'}
             </Button>
           </div>
     </Modal>

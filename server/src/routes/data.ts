@@ -308,4 +308,61 @@ router.post('/restore', async (req: Request, res: Response) => {
   }
 });
 
+// --- Wipe all of the user's financial data (irreversible) ---
+// POST /api/data/wipe  { confirm: "DELETE" }
+// Uses POST (not DELETE) because the client omits Content-Type on DELETE, which
+// would leave the confirmation body unparsed. Requires the exact phrase so it
+// can't fire by accident.
+router.post('/wipe', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { confirm } = req.body || {};
+
+  if (confirm !== 'DELETE') {
+    return sendError(res, 400, 'CONFIRMATION_REQUIRED', 'Type DELETE to confirm data deletion.');
+  }
+
+  try {
+    const deleted = await prisma.$transaction(async (tx) => {
+      // Tuition installments hang off semesters; remove them first.
+      await tx.tuitionInstallment.deleteMany({ where: { semesterUserId: userId } }).catch(() => undefined);
+      const receipts = await tx.receipt.deleteMany({ where: { userId } }).catch(() => ({ count: 0 }));
+      const semesters = await tx.semester.deleteMany({ where: { userId } });
+      const expenses = await tx.expense.deleteMany({ where: { userId } });
+      const incomes = await tx.income.deleteMany({ where: { userId } });
+      const budgets = await tx.budget.deleteMany({ where: { userId } });
+      return {
+        expenses: expenses.count,
+        incomes: incomes.count,
+        budgets: budgets.count,
+        semesters: semesters.count,
+        receipts: (receipts as { count: number }).count,
+      };
+    });
+
+    await writeAuditLog({
+      action: 'data_wipe',
+      userId,
+      success: true,
+      route: '/api/data/wipe',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: deleted,
+    });
+
+    return res.json({ message: 'All data deleted.', deleted });
+  } catch (error: any) {
+    console.error('Failed to wipe data:', error);
+    await writeAuditLog({
+      action: 'data_wipe',
+      userId,
+      success: false,
+      route: '/api/data/wipe',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { error: error?.message || 'unknown' },
+    });
+    return sendError(res, 500, 'WIPE_FAILED', 'Failed to delete data.');
+  }
+});
+
 export default router;

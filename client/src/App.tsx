@@ -13,7 +13,7 @@ import { computeDueRecurring, getRecurrenceFrequency } from './utils/recurrence'
 import { expenseMatchesBudget } from './utils/budgetUtils';
 import { getAllData, isAuthError } from './services/api';
 import { useAuth } from './contexts/AuthContext';
-import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, createBulkIncomes, restoreAllData } from './services/api';
+import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, createBulkIncomes, restoreAllData, wipeAllData } from './services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from './lib/queryClient';
 import type { AllDataResponse } from './types/api';
@@ -546,6 +546,21 @@ const handleDeleteIncome = async (id: string) => {
     } catch (error) {
       console.error("Failed to import expenses:", error);
       notify.error('Could not import expenses.');
+    }
+  };
+
+  // Danger zone: permanently wipe all of the user's data (confirmed by typing
+  // "DELETE" in the modal).
+  const handleWipeAll = async () => {
+    try {
+      const { deleted } = await wipeAllData('DELETE');
+      const total = Object.values(deleted).reduce((s, n) => s + n, 0);
+      notify.success(`Deleted ${total} record${total === 1 ? '' : 's'}. Your data is now empty.`);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
+      setIsDataModalOpen(false);
+    } catch (error) {
+      console.error('Failed to wipe data:', error);
+      notify.error('Could not delete your data.');
     }
   };
 
@@ -1167,6 +1182,7 @@ const handleDeleteIncome = async (id: string) => {
                   onImport={handleImportExpenses}
                   onOpenStatementImport={() => { setIsDataModalOpen(false); setIsStatementImportOpen(true); }}
                   onRestoreBackup={handleRestoreBackup}
+                  onWipeAll={handleWipeAll}
                 />
               </Suspense>
             )}
