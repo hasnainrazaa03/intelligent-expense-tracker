@@ -439,27 +439,8 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {subscriptionCreep.length > 0 && (
-        <div className={cardCls}>
-          <p className={subLabelCls}>Subscription watch · price increases</p>
-          <div className="space-y-2">
-            {subscriptionCreep.map((s) => (
-              <div key={`${s.title}-${s.category}`} className="flex items-center justify-between rounded-lg border border-warn/30 bg-warn/10 p-2.5 gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-app-text truncate">{s.title}</p>
-                  <p className="text-[11px] text-app-muted tabular-nums">
-                    {formatCurrency(s.from, displayCurrency, conversionRate)} → {formatCurrency(s.to, displayCurrency, conversionRate)} · {s.count} charges · {formatCurrency(s.total, displayCurrency, conversionRate)} total
-                  </p>
-                </div>
-                <span className="flex-shrink-0 rounded-lg bg-warn/20 text-warn px-2 py-1 text-[11px] font-bold tabular-nums">+{s.pct.toFixed(0)}%</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-[11px] text-app-muted mt-2.5">Based on recurring-flagged charges whose amount rose over time.</p>
-        </div>
-      )}
-
+      {/* Settle-up only exists once you split expenses, so keep it conditional —
+          but full width, so it never leaves a lonely gap beside another card. */}
       {settleUp.length > 0 && (
         <div className={cardCls}>
           <div className="flex items-center justify-between mb-3">
@@ -478,16 +459,43 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
         </div>
       )}
 
-      <div className={cardCls}>
-        <div className="flex items-center justify-between mb-3">
-          <p className={`${subLabelCls} mb-0`}>Net-worth trend · 6-month</p>
-          <span className="text-xs font-semibold text-app-text tabular-nums">{formatCurrency(netWorth, displayCurrency, conversionRate)}</span>
+      {/* Subscription watch is always rendered (with an empty state) so it always
+          pairs with the net-worth chart — no half-empty row. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <div className={cardCls}>
+          <p className={subLabelCls}>Subscription watch · price increases</p>
+          {subscriptionCreep.length > 0 ? (
+            <>
+              <div className="space-y-2">
+                {subscriptionCreep.map((s) => (
+                  <div key={`${s.title}-${s.category}`} className="flex items-center justify-between rounded-lg border border-warn/30 bg-warn/10 p-2.5 gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-app-text truncate">{s.title}</p>
+                      <p className="text-[11px] text-app-muted tabular-nums">
+                        {formatCurrency(s.from, displayCurrency, conversionRate)} → {formatCurrency(s.to, displayCurrency, conversionRate)} · {s.count} charges · {formatCurrency(s.total, displayCurrency, conversionRate)} total
+                      </p>
+                    </div>
+                    <span className="flex-shrink-0 rounded-lg bg-warn/20 text-warn px-2 py-1 text-[11px] font-bold tabular-nums">+{s.pct.toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-app-muted mt-2.5">Based on recurring-flagged charges whose amount rose over time.</p>
+            </>
+          ) : (
+            <p className="text-xs text-app-muted">No price increases detected. Recurring charges whose amount rises over time will appear here.</p>
+          )}
         </div>
-        <div className="h-32 md:h-36">
-          <SpendingBarChart data={netWorthTrend} />
+
+        <div className={cardCls}>
+          <div className="flex items-center justify-between mb-3">
+            <p className={`${subLabelCls} mb-0`}>Net-worth trend · 6-month</p>
+            <span className="text-xs font-semibold text-app-text tabular-nums">{formatCurrency(netWorth, displayCurrency, conversionRate)}</span>
+          </div>
+          <div className="h-32 md:h-36">
+            <SpendingBarChart data={netWorthTrend} />
+          </div>
+          <p className="text-[11px] text-app-muted mt-2">Cumulative cash flow plus current portfolio value — an estimate, not audited net worth.</p>
         </div>
-        <p className="text-[11px] text-app-muted mt-2">Cumulative cash flow plus current portfolio value — an estimate, not audited net worth.</p>
-      </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
