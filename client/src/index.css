@@ -34,6 +34,8 @@
   --shadow-sm: 0 2px 8px rgba(20, 20, 45, 0.06);
   --shadow: 0 12px 34px rgba(20, 20, 45, 0.10);
   --ring: rgba(109, 92, 240, 0.45);
+  /* Themed chevron for native <select> controls (see the global select rule). */
+  --select-chevron: url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2363627e'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpolyline%20points='6%209%2012%2015%2018%209'/%3E%3C/svg%3E");
 }
 
 .dark {
@@ -62,6 +64,7 @@
   --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
   --shadow: 0 16px 48px rgba(0, 0, 0, 0.50);
   --ring: rgba(139, 127, 246, 0.6);
+  --select-chevron: url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23a19fc0'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpolyline%20points='6%209%2012%2015%2018%209'/%3E%3C/svg%3E");
 }
 
 /* Expose the semantic tokens (and the fixed category palette) as Tailwind
@@ -102,7 +105,12 @@
   /* Global density: 1rem = 15px (down from the 16px default) scales all
      rem-based type and spacing down ~6% so screens read tighter and fit more
      without touching every component. Breakpoints are px-based, so unaffected. */
-  html { color-scheme: light dark; font-size: 15px; }
+  /* The app toggles a `.dark` class rather than following the OS, so pin
+     color-scheme to the ACTIVE theme. This makes native form controls — select
+     option popups, date-picker calendars, spinners, scrollbars — render in the
+     matching light/dark palette instead of a jarring OS-default. */
+  html { color-scheme: light; font-size: 15px; }
+  html.dark { color-scheme: dark; }
 
   body {
     margin: 0;
@@ -128,6 +136,37 @@
   }
 
   ::selection { background: var(--primary-soft); color: var(--text); }
+
+  /* Native <select> — give every dropdown a consistent, theme-coloured chevron
+     instead of the OS arrow, so all dropdowns read as part of the app. The
+     option popup itself follows `color-scheme` (set on <html>), so it renders
+     dark in dark mode. */
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: var(--select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 0.55rem center;
+    background-size: 1.05em;
+    padding-right: 1.9rem !important;
+  }
+  select[multiple] { background-image: none; padding-right: revert !important; }
+
+  /* Native date/time pickers: nudge the calendar indicator to a subtle,
+     theme-matching tone (the popup calendar follows color-scheme). */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  input[type="date"]:hover::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator,
+  input[type="month"]:hover::-webkit-calendar-picker-indicator {
+    opacity: 1;
+  }
 
   ::-webkit-scrollbar { width: 11px; height: 11px; }
   ::-webkit-scrollbar-track { background: transparent; }

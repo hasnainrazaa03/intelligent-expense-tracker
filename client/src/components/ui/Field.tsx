@@ -19,7 +19,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     <input
       ref={ref}
       type={type}
-      className={cn(fieldClass, type === 'date' && '[color-scheme:dark]', className)}
+      className={cn(fieldClass, className)}
       {...props}
     />
   ),
