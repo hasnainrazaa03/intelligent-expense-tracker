@@ -447,4 +447,67 @@ Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} 
   }
 });
 
+// Enrich a single transaction with AI-generated details (a concise note + tags,
+// and a refined category / payment method) so a user importing many rows can
+// auto-fill the optional fields per row instead of typing them.
+router.post('/enrich-transaction', async (req: Request, res: Response) => {
+  if (!genAI) {
+    return res.status(503).json({ message: 'AI service is not configured.' });
+  }
+
+  const { type, description, amount } = req.body || {};
+  if (!description || typeof description !== 'string') {
+    return res.status(400).json({ message: 'description is required' });
+  }
+  const isIncome = type === 'income';
+  const categories = isIncome ? INCOME_CATEGORIES : RECEIPT_CATEGORIES;
+
+  const prompt = `You are helping a user log a ${isIncome ? 'income' : 'expense'} transaction. Given:
+- description: "${String(description).slice(0, 120)}"
+- amount: ${Number(amount) || 0}
+
+Return ONLY JSON with:
+- "notes": one concise, human sentence adding useful context about what this likely is (max 100 chars).
+- "tags": array of 1-3 short lowercase tags (single words or short phrases, no "#").
+- "category": the single best fit from EXACTLY: ${JSON.stringify(categories)}.
+${isIncome ? '' : `- "paymentMethod": best guess from ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} or "".`}
+Respond with JSON only, no markdown.`;
+
+  const callModel = async (modelName: string): Promise<string> => {
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
+    const result = await model.generateContent(prompt);
+    return (await result.response).text();
+  };
+
+  try {
+    let text: string;
+    try {
+      text = await callModel(PRIMARY_MODEL);
+    } catch {
+      text = await callModel(FALLBACK_MODEL);
+    }
+    const parsed = safeParseJson(text);
+    if (!parsed || typeof parsed !== 'object') {
+      return res.status(422).json({ message: 'Could not generate details.' });
+    }
+    const tags = Array.isArray(parsed.tags)
+      ? parsed.tags.map((t: any) => String(t).trim().toLowerCase().replace(/^#/, '')).filter(Boolean).slice(0, 3)
+      : [];
+    return res.json({
+      details: {
+        notes: String(parsed.notes || '').slice(0, 100),
+        tags,
+        category: categories.includes(parsed.category) ? parsed.category : '',
+        paymentMethod: !isIncome && RECEIPT_PAYMENT_METHODS.includes(parsed.paymentMethod) ? parsed.paymentMethod : '',
+      },
+    });
+  } catch (error) {
+    console.error('Enrich transaction error:', error);
+    return res.status(500).json({ message: 'Failed to generate details.' });
+  }
+});
+
 export default router;

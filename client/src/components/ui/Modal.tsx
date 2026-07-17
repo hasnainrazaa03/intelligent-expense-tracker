@@ -9,6 +9,8 @@ const SIZES = {
   md: 'max-w-md',
   lg: 'max-w-xl',
   xl: 'max-w-3xl',
+  '2xl': 'max-w-5xl',
+  full: 'max-w-[96vw]',
 } as const;
 
 export interface ModalProps {

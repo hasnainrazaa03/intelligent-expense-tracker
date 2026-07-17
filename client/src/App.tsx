@@ -33,6 +33,7 @@ const IncomeModal = lazy(() => import('./components/IncomeModal'));
 const BudgetManagerModal = lazy(() => import('./components/BudgetManagerModal'));
 const CategoryManagerModal = lazy(() => import('./components/CategoryManagerModal'));
 const DataModal = lazy(() => import('./components/ExportModal'));
+const StatementImportModal = lazy(() => import('./components/StatementImportModal'));
 const AiAnalyst = lazy(() => import('./components/AiAnalyst'));
 const Auth = lazy(() => import('./components/Auth'));
 const VerifyOTP = lazy(() => import('./components/VerifyOTP'));
@@ -124,6 +125,7 @@ const App: React.FC = () => {
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const [isStatementImportOpen, setIsStatementImportOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
   
@@ -1106,7 +1108,7 @@ const handleDeleteIncome = async (id: string) => {
                   onClose={() => setIsExpenseModalOpen(false)}
                   onSave={editingExpense ? handleUpdateExpense : handleAddExpense}
                   expense={editingExpense}
-                  onImportStatement={() => { setIsExpenseModalOpen(false); setIsDataModalOpen(true); }}
+                  onImportStatement={() => { setIsExpenseModalOpen(false); setIsStatementImportOpen(true); }}
                 />
               </Suspense>
             )}
@@ -1117,17 +1119,28 @@ const handleDeleteIncome = async (id: string) => {
                   onClose={() => setIsIncomeModalOpen(false)}
                   onSave={editingIncome ? handleUpdateIncome : handleAddIncome}
                   income={editingIncome}
-                  onImportStatement={() => { setIsIncomeModalOpen(false); setIsDataModalOpen(true); }}
+                  onImportStatement={() => { setIsIncomeModalOpen(false); setIsStatementImportOpen(true); }}
                 />
               </Suspense>
             )}
             {isBudgetModalOpen && (
               <Suspense fallback={null}>
-                <BudgetManagerModal 
-                  isOpen={isBudgetModalOpen} 
-                  onClose={() => setIsBudgetModalOpen(false)} 
-                  onSave={handleSaveBudgets} 
-                  currentBudgets={budgets} 
+                <BudgetManagerModal
+                  isOpen={isBudgetModalOpen}
+                  onClose={() => setIsBudgetModalOpen(false)}
+                  onSave={handleSaveBudgets}
+                  currentBudgets={budgets}
+                />
+              </Suspense>
+            )}
+            {isStatementImportOpen && (
+              <Suspense fallback={null}>
+                <StatementImportModal
+                  isOpen={isStatementImportOpen}
+                  onClose={() => setIsStatementImportOpen(false)}
+                  existingExpenses={expenses}
+                  existingIncomes={incomes}
+                  onImport={handleImportStatement}
                 />
               </Suspense>
             )}
@@ -1141,7 +1154,7 @@ const handleDeleteIncome = async (id: string) => {
                   budgets={budgets} 
                   semesters={semesters}
                   onImport={handleImportExpenses}
-                  onImportStatement={handleImportStatement}
+                  onOpenStatementImport={() => { setIsDataModalOpen(false); setIsStatementImportOpen(true); }}
                   onRestoreBackup={handleRestoreBackup}
                 />
               </Suspense>

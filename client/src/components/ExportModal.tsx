@@ -12,7 +12,6 @@ import {
   ClipboardDocumentListIcon
 } from './Icons'; // Swapped to icons already in your project
 import { Modal, Button, Label } from './ui';
-import BankStatementImport from './BankStatementImport';
 
 export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
 
@@ -24,7 +23,8 @@ interface DataModalProps {
   budgets: Budget[];
   semesters: Semester[];
   onImport: (expenses: Omit<Expense, 'id'>[]) => void;
-  onImportStatement: (payload: { expenses: Omit<Expense, 'id'>[]; incomes: Omit<Income, 'id'>[] }) => void;
+  /** Opens the dedicated bank-statement import experience. */
+  onOpenStatementImport: () => void;
   onRestoreBackup: (payload: {
     expenses: Omit<Expense, 'id'>[];
     incomes: Omit<Income, 'id'>[];
@@ -40,7 +40,7 @@ const ranges: { id: DateRange; label: string }[] = [
   { id: 'all_time', label: 'All time' },
 ];
 
-const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onImportStatement, onRestoreBackup }) => {
+const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onOpenStatementImport, onRestoreBackup }) => {
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [includeExpenses, setIncludeExpenses] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
@@ -457,11 +457,13 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               {isImporting ? 'Importing…' : 'Import CSV'}
             </Button>
 
-            <BankStatementImport
-              existingExpenses={allExpenses}
-              existingIncomes={allIncomes}
-              onImport={onImportStatement}
-            />
+            <button
+              onClick={onOpenStatementImport}
+              className="w-full text-left rounded-xl border border-app-border bg-surface-2 p-4 hover:border-app-border-strong transition-colors"
+            >
+              <p className="text-sm font-semibold text-app-text">Import a bank statement · CSV or PDF</p>
+              <p className="text-[11px] text-app-muted mt-0.5">Detects expenses <em>and</em> income, with a side-by-side PDF preview and AI-generated details. Review everything before importing.</p>
+            </button>
 
             <div className="relative flex items-center justify-center py-1">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-app-border" /></div>
