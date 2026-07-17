@@ -222,6 +222,15 @@ export const resetPassword = (email: string, code: string, newPassword: string) 
 /**
  * Fetches all of the logged-in user's data (expenses, incomes, etc.)
  */
+/** Permanently deletes ALL of the user's financial data. Requires the exact
+ *  confirmation phrase "DELETE" (also enforced server-side). */
+export const wipeAllData = (confirm: string): Promise<{ message: string; deleted: Record<string, number> }> => {
+  return fetchApi<{ message: string; deleted: Record<string, number> }>('/data/wipe', {
+    method: 'POST',
+    body: JSON.stringify({ confirm }),
+  });
+};
+
 export const getAllData = (): Promise<AllDataResponse> => {
   return fetchApi<AllDataResponse>('/data/all', {
     method: 'GET',
