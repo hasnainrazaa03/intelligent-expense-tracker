@@ -1092,6 +1092,14 @@ const handleDeleteIncome = async (id: string) => {
                       >
                         + Add income
                       </button>
+                      <div className="my-1 border-t border-app-border" />
+                      <button
+                        role="menuitem"
+                        onClick={() => { setIsQuickActionsOpen(false); setIsStatementImportOpen(true); }}
+                        className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors flex items-center gap-2"
+                      >
+                        <span aria-hidden="true">📄</span> Scan a statement (CSV / PDF)
+                      </button>
                     </div>
                   )}
                   <button
