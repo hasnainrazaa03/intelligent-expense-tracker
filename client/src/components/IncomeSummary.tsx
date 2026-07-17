@@ -79,6 +79,17 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
     return data;
   }, [allIncomes, allExpenses]);
 
+  const savings = useMemo(() => {
+    const inc = incomeVsExpense.reduce((s, d) => s + d.income, 0);
+    const exp = incomeVsExpense.reduce((s, d) => s + d.expense, 0);
+    return { rate: inc > 0 ? ((inc - exp) / inc) * 100 : null };
+  }, [incomeVsExpense]);
+
+  const largestEntries = useMemo(
+    () => [...incomes].sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 5),
+    [incomes]
+  );
+
   const hasIncome = incomes.length > 0;
 
   return (
@@ -125,7 +136,14 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
 
       {/* Income vs Expenses (6-month) */}
       <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
-        <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Income vs expenses · 6-month window</h3>
+        <div className="flex items-center justify-between gap-2 mb-5">
+          <h3 className="font-display text-base md:text-lg font-semibold text-app-text">Income vs expenses · 6-month window</h3>
+          {savings.rate !== null && (
+            <span className={`text-xs font-semibold tabular-nums rounded-lg px-2.5 py-1 ${savings.rate >= 0 ? 'bg-ok/15 text-ok' : 'bg-danger/15 text-danger'}`}>
+              {savings.rate >= 0 ? 'Saved' : 'Overspent'} {Math.abs(savings.rate).toFixed(0)}%
+            </span>
+          )}
+        </div>
         <div className="h-64 md:h-72">
           {incomeVsExpense.some((d) => d.income > 0 || d.expense > 0) ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -149,32 +167,53 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
         </div>
       </div>
 
-      {/* Top sources ranked list */}
-      <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
-        <h3 className="font-display text-base md:text-lg font-semibold mb-4 text-app-text">Top sources · this period</h3>
-        {hasIncome ? (
-          <div className="space-y-2.5">
-            {bySource.slice(0, 6).map((s) => (
-              <div key={s.name}>
-                <div className="flex justify-between items-center mb-1 gap-2">
-                  <span className="text-sm font-medium text-app-text truncate flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.fill }} />
-                    {s.name}
-                  </span>
-                  <span className="text-sm font-semibold text-app-text tabular-nums flex-shrink-0">
-                    {formatCurrency(s.value, displayCurrency, conversionRate)}
-                    <span className="text-app-muted text-xs ml-1.5">{total > 0 ? ((s.value / total) * 100).toFixed(0) : 0}%</span>
-                  </span>
+      {/* Top sources + Largest entries */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 items-start">
+        <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
+          <h3 className="font-display text-base md:text-lg font-semibold mb-4 text-app-text">Top sources · this period</h3>
+          {hasIncome ? (
+            <div className="space-y-2.5">
+              {bySource.slice(0, 6).map((s) => (
+                <div key={s.name}>
+                  <div className="flex justify-between items-center mb-1 gap-2">
+                    <span className="text-sm font-medium text-app-text truncate flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.fill }} />
+                      {s.name}
+                    </span>
+                    <span className="text-sm font-semibold text-app-text tabular-nums flex-shrink-0">
+                      {formatCurrency(s.value, displayCurrency, conversionRate)}
+                      <span className="text-app-muted text-xs ml-1.5">{total > 0 ? ((s.value / total) * 100).toFixed(0) : 0}%</span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-surface-2 border border-app-border overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${total > 0 ? (s.value / total) * 100 : 0}%`, backgroundColor: s.fill }} />
+                  </div>
                 </div>
-                <div className="h-1.5 rounded-full bg-surface-2 border border-app-border overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${total > 0 ? (s.value / total) * 100 : 0}%`, backgroundColor: s.fill }} />
+              ))}
+            </div>
+          ) : (
+            <div className="min-h-[8rem]"><ChartEmpty /></div>
+          )}
+        </div>
+
+        <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
+          <h3 className="font-display text-base md:text-lg font-semibold mb-4 text-app-text">Largest income · this period</h3>
+          {largestEntries.length > 0 ? (
+            <div className="space-y-2">
+              {largestEntries.map((e) => (
+                <div key={e.id} className="flex items-center justify-between gap-3 rounded-lg border border-app-border bg-surface-2 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-app-text truncate">{e.title}</p>
+                    <p className="text-[11px] text-app-muted tabular-nums">{e.date} · {e.category}</p>
+                  </div>
+                  <span className="text-sm font-semibold text-ok tabular-nums flex-shrink-0">{formatCurrency(Number(e.amount), displayCurrency, conversionRate)}</span>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="min-h-[8rem]"><ChartEmpty /></div>
-        )}
+              ))}
+            </div>
+          ) : (
+            <div className="min-h-[8rem]"><ChartEmpty /></div>
+          )}
+        </div>
       </div>
     </div>
   );
