@@ -748,7 +748,7 @@ const handleDeleteIncome = async (id: string) => {
 
   // Financial hub uses `dateRange`; the Income hub uses its own `incomeDateRange`.
   const { filteredExpenses, filteredIncomes: dashboardIncomes, previousPeriodExpenses } = useDateRangeFilter(expenses, incomes, dateRange);
-  const { filteredIncomes: incomeHubIncomes } = useDateRangeFilter(expenses, incomes, incomeDateRange);
+  const { filteredIncomes: incomeHubIncomes, previousPeriodIncomes: incomeHubPrevIncomes } = useDateRangeFilter(expenses, incomes, incomeDateRange);
 
   const searchedAndSortedItems = useMemo(() => {
     const itemsToFilter = activeView === 'income' ? [...incomeHubIncomes] : [...filteredExpenses];
@@ -1029,6 +1029,7 @@ const handleDeleteIncome = async (id: string) => {
                       ? <SectionSkeleton title="Loading income" rows={4} />
                       : <IncomeSummary
                           incomes={incomeHubIncomes}
+                          previousPeriodIncomes={incomeHubPrevIncomes}
                           allIncomes={incomes}
                           allExpenses={expenses}
                           selectedRange={incomeDateRange}
