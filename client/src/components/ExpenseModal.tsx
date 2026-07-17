@@ -13,7 +13,7 @@ import { downscaleImage } from '../utils/image';
 import toast from 'react-hot-toast';
 import useForeignToUsd from '../hooks/useForeignToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { Modal, Button, Input, Textarea, Label } from './ui';
+import { Modal, Button, Input, Textarea, Label, Select } from './ui';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -601,14 +601,14 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             <div>
                 <Label htmlFor="exp-payment">Payment method</Label>
-                <Input
+                <Select
                     id="exp-payment"
-                    list="methods" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
-                    placeholder="Card, cash, transfer…"
-                />
-                <datalist id="methods">
-                    {PAYMENT_METHODS.map(m => <option key={m} value={m} />)}
-                </datalist>
+                    value={PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : ''}
+                    onChange={e => setPaymentMethod(e.target.value)}
+                >
+                    <option value="">Select method…</option>
+                    {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                </Select>
             </div>
 
             {/* Household (optional) — only shown when the user has households */}

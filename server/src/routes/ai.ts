@@ -35,7 +35,8 @@ const RECEIPT_CATEGORIES = [
   'Emergency Fund', 'Gifts', 'Other',
 ];
 const RECEIPT_PAYMENT_METHODS = [
-  'Credit Card', 'Debit Card', 'Cash', 'Bank Transfer', 'Venmo', 'PayPal', 'Apple Pay', 'Google Pay',
+  'Debit Card', 'Credit Card', 'Cash', 'Bank Transfer', 'Zelle', 'Venmo', 'PayPal',
+  'Cash App', 'Apple Pay', 'Google Pay', 'Check', 'Wire Transfer', 'Direct Deposit', 'Other',
 ];
 // Income categories — kept in sync with the client's constants.ts.
 const INCOME_CATEGORIES = [
@@ -381,7 +382,7 @@ Each real transaction must appear EXACTLY ONCE even if it is echoed in a per-acc
     "CVS/PHARM 02396" -> "CVS Pharmacy"
     "ACH VENMO TYPE: CASHOUT" -> "Venmo cash-in"
     "ACH KAMRAN BADR TYPE: P2P ... BANK OF AMERICA" -> "Payment from Kamran Badr"
-- "paymentMethod": expenses only — "Debit Card" for debit-card/POS lines, "Bank Transfer" for ACH, "Cash" for ATM cash withdrawals; else "". Income: always "".
+- "paymentMethod": expenses only, chosen from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. This is a BANK/CHECKING account statement, so a card or POS purchase is "Debit Card" — NEVER "Credit Card" (only use Credit Card if the statement is explicitly a credit-card statement). Map by the raw wording: "Debit Card"/"POS"/"purchase" -> "Debit Card"; "ACH"/electronic payment/bill-pay -> "Bank Transfer"; ATM cash withdrawal -> "Cash"; "CHECK"/"draft" -> "Check"; "WIRE" -> "Wire Transfer". Recognizable P2P/wallets: Venmo -> "Venmo", Zelle -> "Zelle", PayPal -> "PayPal", Cash App -> "Cash App", Apple Cash/Apple Pay -> "Apple Pay", Google Pay -> "Google Pay". If genuinely unclear, "". Income: always "".
 - "category": the SINGLE BEST fit, chosen DECISIVELY. Use "Other" only as a genuine last resort.
   * EXPENSE — choose from EXACTLY: ${JSON.stringify(RECEIPT_CATEGORIES)}. Apply this reasoning:
     - GROCERIES: supermarkets and food/grocery stores of EVERY kind, INCLUDING international / ethnic / halal / South-Asian / Hispanic / Asian grocers and markets. Treat a merchant whose name contains "bazaar", "market", "supermarket", "mart", "foods", "grocery", "grocers", "produce", "meat", or "halal" as Groceries UNLESS it is clearly a restaurant. Known grocers include: Trader Joe's, Ralphs, Vons, Whole Foods, Safeway, Kroger, Aldi, Costco, Sprouts, Sam's Club, Smart & Final, H Mart, 99 Ranch, Patel Brothers, India Bazaar, JH Bazaar, Al-Noor, Superior Grocers, El Super, Northgate.
@@ -494,7 +495,7 @@ Return ONLY JSON with:
 - "notes": one concise, human sentence adding useful context about what this likely is (max 100 chars).
 - "tags": array of 1-3 short lowercase tags (single words or short phrases, no "#").
 - "category": the single best fit from EXACTLY: ${JSON.stringify(categories)}. Categorize decisively.${isIncome ? '' : ' Any grocery / supermarket / market / "bazaar" / "mart" / ethnic or international grocer (e.g. JH Bazaar, H Mart, Patel Brothers) is "Groceries", not "Household Items". Restaurants/cafes are "Dining Out".'}
-${isIncome ? '' : `- "paymentMethod": best guess from ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} or "".`}
+${isIncome ? '' : `- "paymentMethod": from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. From a bank/checking statement a normal card purchase is "Debit Card" (not Credit Card); P2P/wallet names map to themselves; else "".`}
 Respond with JSON only, no markdown.`;
 
   const callModel = async (modelName: string): Promise<string> => {
@@ -562,7 +563,7 @@ Rules per item:
 - "notes": one concise human sentence of useful context (max 100 chars).
 - "tags": 1-3 short lowercase tags (no "#").
 - "category": for an EXPENSE item choose from EXACTLY ${JSON.stringify(RECEIPT_CATEGORIES)}; for an INCOME item from EXACTLY ${JSON.stringify(INCOME_CATEGORIES)}. Categorize decisively — any grocery/supermarket/market/"bazaar"/"mart"/ethnic or international grocer (JH Bazaar, H Mart, Patel Brothers, 99 Ranch) is "Groceries", restaurants/cafes are "Dining Out".
-- "paymentMethod": for EXPENSE items best guess from ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} or ""; for INCOME always "".
+- "paymentMethod": for EXPENSE items, from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. These come from a bank/checking statement, so a normal card purchase is "Debit Card", never "Credit Card". P2P/wallet names (Venmo/Zelle/PayPal/Cash App/Apple Pay/Google Pay) map to themselves. If unclear, "". For INCOME always "".
 
 INPUT (JSON array of {i, type, description, amount}):
 ${JSON.stringify(items)}

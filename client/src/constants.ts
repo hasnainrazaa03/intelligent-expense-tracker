@@ -43,14 +43,20 @@ export const CATEGORY_COLORS: { [key: string]: string } = {
 };
 
 export const PAYMENT_METHODS = [
-  'Credit Card',
   'Debit Card',
+  'Credit Card',
   'Cash',
   'Bank Transfer',
+  'Zelle',
   'Venmo',
   'PayPal',
+  'Cash App',
   'Apple Pay',
   'Google Pay',
+  'Check',
+  'Wire Transfer',
+  'Direct Deposit',
+  'Other',
 ];
 
 export const USC_SEMESTERS: { id: string; name: string; }[] = [

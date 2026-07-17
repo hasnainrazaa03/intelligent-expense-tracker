@@ -229,7 +229,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
           notes: details.notes || r.notes,
           tagsInput: details.tags.length ? details.tags.join(', ') : r.tagsInput,
           category: details.category && validCats.includes(details.category) ? details.category : r.category,
-          paymentMethod: r.type === 'expense' && details.paymentMethod ? details.paymentMethod : r.paymentMethod,
+          paymentMethod: r.type === 'expense' ? (r.paymentMethod || details.paymentMethod || '') : '',
           expanded: true,
           enriching: false,
         };
@@ -262,7 +262,9 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
           notes: d.notes || r.notes,
           tagsInput: d.tags.length ? d.tags.join(', ') : r.tagsInput,
           category: d.category && validCats.includes(d.category) ? d.category : r.category,
-          paymentMethod: r.type === 'expense' && d.paymentMethod ? d.paymentMethod : r.paymentMethod,
+          // Keep the payment method the statement parser inferred from the raw
+          // text (it saw "Debit Card"/"POS"/"ACH"); only fill from AI if empty.
+          paymentMethod: r.type === 'expense' ? (r.paymentMethod || d.paymentMethod || '') : '',
         };
       }));
       const filled = included.filter((r) => byIndex.has(included.indexOf(r))).length;
@@ -511,8 +513,10 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                         {r.type === 'expense' && (
                           <div>
                             <label className="block text-[10px] text-app-faint uppercase tracking-wide mb-1">Payment method</label>
-                            <input value={r.paymentMethod} onChange={(e) => patch(r.id, { paymentMethod: e.target.value })} list="stmt-methods" placeholder="Card, cash…" className={fieldSm} />
-                            <datalist id="stmt-methods">{PAYMENT_METHODS.map((m) => <option key={m} value={m} />)}</datalist>
+                            <select value={PAYMENT_METHODS.includes(r.paymentMethod) ? r.paymentMethod : ''} onChange={(e) => patch(r.id, { paymentMethod: e.target.value })} className={fieldSm} aria-label={`Payment method for ${r.description}`}>
+                              <option value="">Unspecified</option>
+                              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
                           </div>
                         )}
                         {r.type === 'expense' && (
