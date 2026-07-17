@@ -195,7 +195,13 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
       if (!transactions.length) { setError('No transactions were found in that PDF.'); return; }
       setRows(buildRows(transactions));
     } catch (err: any) {
-      setError(err?.status === 503 ? 'AI parsing isn’t configured on the server.' : 'Could not read that PDF. Try a CSV export instead.');
+      setError(
+        err?.status === 503
+          ? 'AI parsing isn’t configured on the server.'
+          : (err?.status === 500 || err?.status === 429)
+            ? 'The AI couldn’t process this statement just now — it may be large or the service is busy. Wait a moment and try again, or upload a CSV export.'
+            : 'Could not read that PDF. Try a CSV export instead.'
+      );
     } finally {
       setParsing(false);
     }
