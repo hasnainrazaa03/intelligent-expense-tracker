@@ -24,6 +24,7 @@ interface DataModalProps {
   budgets: Budget[];
   semesters: Semester[];
   onImport: (expenses: Omit<Expense, 'id'>[]) => void;
+  onImportStatement: (payload: { expenses: Omit<Expense, 'id'>[]; incomes: Omit<Income, 'id'>[] }) => void;
   onRestoreBackup: (payload: {
     expenses: Omit<Expense, 'id'>[];
     incomes: Omit<Income, 'id'>[];
@@ -39,7 +40,7 @@ const ranges: { id: DateRange; label: string }[] = [
   { id: 'all_time', label: 'All time' },
 ];
 
-const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onRestoreBackup }) => {
+const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onImportStatement, onRestoreBackup }) => {
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [includeExpenses, setIncludeExpenses] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
@@ -458,10 +459,8 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
 
             <BankStatementImport
               existingExpenses={allExpenses}
-              onImport={(expenses) => {
-                onImport(expenses);
-                toast(`Imported ${expenses.length} transaction(s) from your bank statement.`);
-              }}
+              existingIncomes={allIncomes}
+              onImport={onImportStatement}
             />
 
             <div className="relative flex items-center justify-center py-1">

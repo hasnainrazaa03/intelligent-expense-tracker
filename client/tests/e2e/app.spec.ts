@@ -92,8 +92,8 @@ test('bank statement CSV maps columns and reaches the review step', async ({ pag
 
   // Advance to the review table and confirm the 3 rows are selected to import.
   await dialog.getByRole('button', { name: /Review 3 transactions/ }).click();
-  await expect(dialog.getByText(/3 detected · 3 selected/)).toBeVisible();
-  await expect(dialog.getByRole('button', { name: /Import 3 expenses/ })).toBeEnabled();
+  await expect(dialog.getByText(/3 detected · 3 expenses · 0 income selected/)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: /Import 3 transactions/ })).toBeEnabled();
 });
 
 test('offline: an expense is queued and syncs on reconnect', async ({ page, context }) => {

@@ -15,6 +15,56 @@ router.use(authMiddleware);
 
 // S4: Input length limits
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
+const MAX_BULK_SIZE = SERVER_CONFIG.limits.maxBulkImportSize;
+
+// --- Bulk create incomes (bank-statement import) ---
+// POST /api/incomes/bulk  — mirrors /api/expenses/bulk so a statement's credits
+// can be imported alongside its debits.
+router.post('/bulk', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const incomes = req.body as any[];
+
+  if (!Array.isArray(incomes) || incomes.length === 0) {
+    return res.status(400).json({ message: 'Request body must be a non-empty array of incomes' });
+  }
+  if (incomes.length > MAX_BULK_SIZE) {
+    return res.status(400).json({ message: `Maximum bulk import size is ${MAX_BULK_SIZE} records` });
+  }
+
+  try {
+    const dataToCreate = incomes.map((income, index) => {
+      const parsedDate = parseValidDate(income.date);
+      if (!parsedDate) throw new Error(`Invalid date at row ${index + 1}`);
+
+      const safeTitle = sanitizeText(income.title);
+      const safeCategory = sanitizeText(income.category);
+      if (!safeTitle || !safeCategory) throw new Error(`Title and category are required at row ${index + 1}`);
+      if (safeTitle.length > MAX_TEXT_LENGTH || safeCategory.length > MAX_TEXT_LENGTH) {
+        throw new Error(`Text field too long at row ${index + 1}`);
+      }
+
+      const parsedAmount = parseFiniteFloat(income.amount);
+      if (parsedAmount === null || parsedAmount <= 0) throw new Error(`Invalid amount at row ${index + 1}`);
+
+      return {
+        title: safeTitle,
+        amount: toCents(toFinPrecision(parsedAmount)),
+        category: safeCategory,
+        date: parsedDate,
+        notes: sanitizeText(income.notes) || undefined,
+        tags: normalizeTags(income.tags),
+        metadata: normalizeMetadata(income.metadata),
+        userId,
+      };
+    });
+
+    await prisma.income.createMany({ data: dataToCreate });
+    res.status(201).json({ message: `${incomes.length} incomes imported successfully` });
+  } catch (error: any) {
+    console.error('Failed to bulk create incomes:', error);
+    res.status(500).json({ message: 'Failed to import incomes' });
+  }
+});
 
 // --- 1. Create new Income ---
 // POST /api/incomes

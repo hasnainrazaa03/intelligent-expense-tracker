@@ -451,6 +451,7 @@ export const parseReceipt = (image: string): Promise<{ receipt: ParsedReceipt }>
 };
 
 export interface ParsedStatementTxn {
+  type: 'income' | 'expense';
   date: string;
   description: string;
   amount: number;
@@ -479,5 +480,15 @@ export const createBulkExpenses = (expenses: Omit<Expense, 'id'>[]): Promise<Bul
   return fetchApi<BulkCreateResponse>('/expenses/bulk', {
     method: 'POST',
     body: JSON.stringify(expenses),
+  });
+};
+
+/**
+ * Creates a batch of new incomes (e.g. a bank statement's detected credits).
+ */
+export const createBulkIncomes = (incomes: Omit<Income, 'id'>[]): Promise<BulkCreateResponse> => {
+  return fetchApi<BulkCreateResponse>('/incomes/bulk', {
+    method: 'POST',
+    body: JSON.stringify(incomes),
   });
 };
