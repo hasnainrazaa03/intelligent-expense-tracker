@@ -26,7 +26,6 @@ export const INCOME_CATEGORIES = [
     'Investment',
     'Gift',
     'Rental Income',
-    'Side Hustle',
     'Other'
 ];
 
