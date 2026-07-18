@@ -3,9 +3,14 @@ import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { expenseToClient, incomeToClient, budgetToClient } from '../utils/money';
-// Imported from the internal path so pdf-parse's index-file "debug mode" (which
-// tries to read a bundled sample PDF) never runs in our server process.
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
+// Load pdf-parse from its internal path: the package index runs a "debug mode"
+// block (reads a bundled sample PDF via module.parent, which is deprecated on
+// modern Node) — lib/pdf-parse.js hard-codes debug off, so it never fires.
+// require() with an inline type keeps this resolvable under both tsc and
+// ts-node without depending on an ambient .d.ts that ts-node may not load.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pdfParse: (data: Buffer) => Promise<{ text: string; numpages: number }> =
+  require('pdf-parse/lib/pdf-parse.js');
 
 const router = Router();
 
@@ -394,7 +399,7 @@ Each real transaction must appear EXACTLY ONCE even if it is echoed in a per-acc
 === FIELDS (per transaction) ===
 - "type": "expense" or "income". Decide from the sign / column (debit/withdrawal = expense; credit/deposit = income) and the wording.
 - "date": "YYYY-MM-DD". Use the transaction date and the statement's year. US statements are MM/DD.
-- "amount": exact POSITIVE number with cents (e.g. 46.31). Never include a sign or currency symbol.
+- "amount": exact POSITIVE number with cents (e.g. 46.31). Never include a sign or currency symbol. CRITICAL: use ONLY the transaction's own Amount column. Extracted text often GLUES the amount to the running "New Balance" that follows it with no space, so one line can hold two stuck-together numbers. The amount always ends at its 2 decimal places; anything after that is the next (balance) number — split there. E.g. "ATT-185.87910.61" → amount is 185.87 (the balance is 910.61); "-798.70111.91" → 798.70. Never drop a leading digit and never keep balance digits. Read every digit of the amount exactly as printed.
 - "description": a SHORT, CLEAN, human merchant/purpose name (max 60 chars). Strip store numbers, street addresses, POS/auth/reference codes, "POS/ACH/Debit Card/Withdrawal/Deposit" prefixes, and ALL-CAPS noise; keep the recognizable brand or person. Examples:
     "POS TRADER JOE S #250 3131 S HOOVER" -> "Trader Joe's"
     "POS JH BAZAAR 1401 W..." -> "JH Bazaar"
