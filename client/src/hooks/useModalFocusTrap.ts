@@ -15,6 +15,13 @@ export default function useModalFocusTrap<T extends HTMLElement>(
 ) {
   const modalRef = useRef<T | null>(null);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  // Hold the latest close handler in a ref so the trap effect depends ONLY on
+  // isOpen. Callers commonly pass an inline onClose whose identity changes every
+  // render (e.g. a `handleRequestClose` closure); if that were an effect dep,
+  // typing in any modal field would re-run this effect and yank focus back to
+  // the first focusable element (the ✕ button) after the first keystroke.
+  const onRequestCloseRef = useRef(onRequestClose);
+  onRequestCloseRef.current = onRequestClose;
 
   useEffect(() => {
     if (!isOpen || !modalRef.current) return;
@@ -31,7 +38,7 @@ export default function useModalFocusTrap<T extends HTMLElement>(
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onRequestClose?.();
+        onRequestCloseRef.current?.();
         return;
       }
 
@@ -61,7 +68,7 @@ export default function useModalFocusTrap<T extends HTMLElement>(
       container.removeEventListener('keydown', onKeyDown);
       lastActiveElementRef.current?.focus();
     };
-  }, [isOpen, onRequestClose]);
+  }, [isOpen]);
 
   return modalRef;
 }
