@@ -25,24 +25,48 @@ import { notify } from './utils/notifications';
 import SectionSkeleton from './components/SectionSkeleton';
 import { APP_CONFIG } from './config';
 
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const ExpenseList = lazy(() => import('./components/ExpenseList'));
-const IncomeList = lazy(() => import('./components/IncomeList'));
-const ExpenseModal = lazy(() => import('./components/ExpenseModal'));
-const IncomeModal = lazy(() => import('./components/IncomeModal'));
-const BudgetManagerModal = lazy(() => import('./components/BudgetManagerModal'));
-const CategoryManagerModal = lazy(() => import('./components/CategoryManagerModal'));
-const DataModal = lazy(() => import('./components/ExportModal'));
-const StatementImportModal = lazy(() => import('./components/StatementImportModal'));
-const AiAnalyst = lazy(() => import('./components/AiAnalyst'));
-const Auth = lazy(() => import('./components/Auth'));
-const VerifyOTP = lazy(() => import('./components/VerifyOTP'));
-const LandingPage = lazy(() => import('./components/LandingPage'));
-const KnowledgeBase = lazy(() => import('./components/KnowledgeBase'));
-const MobileInstallPrompt = lazy(() => import('./components/MobileInstallPrompt'));
-const USCPaymentTracker = lazy(() => import('./components/USCPaymentTracker'));
-const PivotAnalysis = lazy(() => import('./components/PivotAnalysis'));
-const Reports = lazy(() => import('./components/Reports'));
+// A dynamic-import ("chunk load") failure almost always means this browser is
+// holding a stale index.html from before a new deploy — it points at hashed
+// chunk filenames the server no longer serves, so the request falls back to
+// index.html (text/html) and the module fails its MIME check. Force ONE reload
+// to pick up the fresh index + chunks; a sessionStorage guard prevents an
+// infinite reload loop if the failure is something else. On success we clear the
+// guard so a future deploy can reload again.
+const lazyWithReload = <T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) =>
+  lazy(async () => {
+    const RELOAD_KEY = 'orbit:chunk-reloaded';
+    try {
+      const mod = await factory();
+      sessionStorage.removeItem(RELOAD_KEY);
+      return mod;
+    } catch (err) {
+      if (!sessionStorage.getItem(RELOAD_KEY)) {
+        sessionStorage.setItem(RELOAD_KEY, '1');
+        window.location.reload();
+        return await new Promise<{ default: T }>(() => {}); // hold until reload
+      }
+      throw err;
+    }
+  });
+
+const Dashboard = lazyWithReload(() => import('./components/Dashboard'));
+const ExpenseList = lazyWithReload(() => import('./components/ExpenseList'));
+const IncomeList = lazyWithReload(() => import('./components/IncomeList'));
+const ExpenseModal = lazyWithReload(() => import('./components/ExpenseModal'));
+const IncomeModal = lazyWithReload(() => import('./components/IncomeModal'));
+const BudgetManagerModal = lazyWithReload(() => import('./components/BudgetManagerModal'));
+const CategoryManagerModal = lazyWithReload(() => import('./components/CategoryManagerModal'));
+const DataModal = lazyWithReload(() => import('./components/ExportModal'));
+const StatementImportModal = lazyWithReload(() => import('./components/StatementImportModal'));
+const AiAnalyst = lazyWithReload(() => import('./components/AiAnalyst'));
+const Auth = lazyWithReload(() => import('./components/Auth'));
+const VerifyOTP = lazyWithReload(() => import('./components/VerifyOTP'));
+const LandingPage = lazyWithReload(() => import('./components/LandingPage'));
+const KnowledgeBase = lazyWithReload(() => import('./components/KnowledgeBase'));
+const MobileInstallPrompt = lazyWithReload(() => import('./components/MobileInstallPrompt'));
+const USCPaymentTracker = lazyWithReload(() => import('./components/USCPaymentTracker'));
+const PivotAnalysis = lazyWithReload(() => import('./components/PivotAnalysis'));
+const Reports = lazyWithReload(() => import('./components/Reports'));
 
 type ActiveView = 'expenses' | 'income' | 'ai' | 'pivot' | 'usc' | 'reports';
 

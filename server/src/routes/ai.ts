@@ -67,7 +67,7 @@ const RECEIPT_PAYMENT_METHODS = [
 ];
 // Income categories — kept in sync with the client's constants.ts.
 const INCOME_CATEGORIES = [
-  'Salary', 'Freelance', 'Investment', 'Gift', 'Rental Income', 'Other',
+  'Salary', 'Freelance', 'Investment', 'Gift', 'Rental Income', 'Loan', 'Other',
 ];
 
 // Strip ``` fences and pull the first JSON object out of a model response.
@@ -461,7 +461,7 @@ Each real transaction must appear EXACTLY ONCE even if it is echoed in a per-acc
     - CLOTHING: apparel/shoes retailers. FITNESS: gyms (LA Fitness, Planet Fitness, ClassPass). ENTERTAINMENT: movies, events, games.
     - HOUSEHOLD ITEMS / FURNITURE: only for clear home-goods/furniture stores (IKEA, Target home, Bed Bath). Do NOT default grocery/market names here.
     - PERSONAL CARE: salons, barbers, cosmetics. GENERAL big-box (Target, Walmart, Amazon) with no other signal -> "Other" (or the item type if evident).
-  * INCOME — choose from EXACTLY: ${JSON.stringify(INCOME_CATEGORIES)}. payroll/employer/direct deposit -> "Salary"; freelance/client/contract/gig -> "Freelance"; interest/dividends/investment -> "Investment"; rent received -> "Rental Income"; anything else (P2P received, refunds, cash deposits, gifts of money, misc) -> "Other".
+  * INCOME — choose from EXACTLY: ${JSON.stringify(INCOME_CATEGORIES)}. payroll/employer/direct deposit -> "Salary"; freelance/client/contract/gig -> "Freelance"; interest/dividends/investment -> "Investment"; rent received -> "Rental Income"; loan disbursement / student loan / financial aid / "loan" credit -> "Loan"; anything else (P2P received, refunds, cash deposits, gifts of money, misc) -> "Other".
 
 Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} items, ordered as they appear. No markdown, no commentary.`;
 
