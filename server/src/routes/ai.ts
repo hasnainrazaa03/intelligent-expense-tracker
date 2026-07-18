@@ -85,6 +85,42 @@ const safeParseJson = (text: string): any => {
   }
 };
 
+/**
+ * Recover as many complete `{...}` objects as possible from inside a named JSON
+ * array, even when the response was truncated mid-array (e.g. the model hit its
+ * output-token budget on a long statement, leaving invalid JSON that
+ * safeParseJson can't parse). Scans the array body tracking brace depth and
+ * string state, JSON.parsing each balanced object and skipping any incomplete
+ * trailing one — so a cut-off response still yields all the rows that arrived.
+ */
+const salvageArrayObjects = (text: string, key: string): any[] | null => {
+  if (!text) return null;
+  const keyIdx = text.indexOf(`"${key}"`);
+  const start = text.indexOf('[', keyIdx >= 0 ? keyIdx : 0);
+  if (start < 0) return null;
+  const objs: any[] = [];
+  let depth = 0, inStr = false, esc = false, objStart = -1;
+  for (let i = start + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{') { if (depth === 0) objStart = i; depth++; }
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0 && objStart >= 0) {
+        try { objs.push(JSON.parse(text.slice(objStart, i + 1))); } catch { /* skip malformed */ }
+        objStart = -1;
+      }
+    } else if (ch === ']' && depth === 0) break; // clean end of the array
+  }
+  return objs.length ? objs : null;
+};
+
 router.use(authMiddleware);
 
 const buildFinancialManifest = async (userId: string) => {
@@ -463,9 +499,10 @@ Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} 
   const callModel = async (modelName: string): Promise<string> => {
     const model = genAI.getGenerativeModel({
       model: modelName,
-      // A busy month or a multi-account statement can emit a lot of rows, so give
-      // the JSON generous headroom to avoid truncation.
-      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192 },
+      // A busy month or a multi-account statement can emit a lot of rows, and on
+      // 2.5-flash the model's hidden "thinking" tokens also draw from this
+      // budget — so keep it generous to avoid truncating the JSON mid-array.
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 32768 },
     });
     const result = await model.generateContent(parts!);
     return (await result.response).text();
@@ -496,8 +533,18 @@ Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} 
     }
 
     const parsed = safeParseJson(text);
-    const rawTxns = Array.isArray(parsed) ? parsed : parsed?.transactions;
-    if (!Array.isArray(rawTxns)) {
+    let rawTxns = Array.isArray(parsed) ? parsed : parsed?.transactions;
+    // If the JSON didn't parse or came back empty, the response was most likely
+    // truncated — salvage whatever complete rows did arrive rather than 422ing
+    // the whole statement.
+    if (!Array.isArray(rawTxns) || rawTxns.length === 0) {
+      const salvaged = salvageArrayObjects(text, 'transactions');
+      if (salvaged) {
+        console.warn(`Statement parse: recovered ${salvaged.length} rows from an unparseable/truncated response.`);
+        rawTxns = salvaged;
+      }
+    }
+    if (!Array.isArray(rawTxns) || rawTxns.length === 0) {
       return res.status(422).json({ message: 'Could not read any transactions from that statement.' });
     }
 
