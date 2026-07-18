@@ -670,6 +670,30 @@ const handleDeleteIncome = async (id: string) => {
     const baseSemesterName = semester.name.split('USC TUITION')[0].trim();
     const cleanTitle = `USC Tuition - ${baseSemesterName} (Inst #${installment.id})`;
 
+    // Self-heal / anti-duplicate: if a tuition expense for THIS exact installment
+    // already exists (e.g. it was created on a previous "mark paid" but the
+    // semester link was lost — as happened when the semesters save was failing),
+    // re-link to that existing expense instead of creating a second one.
+    const existingExpense = expenses.find(
+      (e) => e.category === 'Tuition' && e.title === cleanTitle
+    );
+    if (existingExpense) {
+      setSemesters(prevSemesters =>
+        prevSemesters.map(s =>
+          s.id === semesterId
+            ? { ...s, installments: s.installments.map(i =>
+                i.id === installmentId
+                  ? { ...i, status: 'paid', expenseId: existingExpense.id, paidDate: existingExpense.date }
+                  : i
+              )}
+            : s
+        )
+      );
+      setIsSemestersDirty(true);
+      notify.success('Linked to your existing tuition payment (no duplicate created).');
+      return;
+    }
+
     // 1. Define the new expense data
     const newExpenseData: Omit<Expense, 'id'> = {
       title: cleanTitle,
