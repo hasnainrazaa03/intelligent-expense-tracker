@@ -3,12 +3,34 @@ import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { expenseToClient, incomeToClient, budgetToClient } from '../utils/money';
+// Imported from the internal path so pdf-parse's index-file "debug mode" (which
+// tries to read a bundled sample PDF) never runs in our server process.
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 
 const router = Router();
 
-// Configurable model names via environment variables
+// Configurable model names via environment variables. The fallback defaults to
+// a current GA model — gemini-1.5-flash is being retired by Google, so it makes
+// a poor safety net when the primary is rate-limited.
 const PRIMARY_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-2.5-flash';
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-1.5-flash';
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
+
+/**
+ * Pull the text layer out of a PDF so we can send Gemini plain text instead of
+ * the rasterised document. Text is ~20-50x fewer tokens than the page images,
+ * which is dramatically faster and far less likely to trip the free-tier
+ * per-minute token quota (the main cause of intermittent 500/429s). Returns ''
+ * for scanned / image-only PDFs that have no extractable text.
+ */
+const extractPdfText = async (buffer: Buffer): Promise<string> => {
+  try {
+    const { text } = await pdfParse(buffer);
+    return (text || '').trim();
+  } catch (e) {
+    console.warn('PDF text extraction failed; will fall back to image path.', e);
+    return '';
+  }
+};
 
 let genAI: GoogleGenerativeAI;
 try {
@@ -412,7 +434,16 @@ Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} 
     if (base64.length > 14_000_000) {
       return res.status(413).json({ message: 'PDF is too large (max ~10MB).' });
     }
-    parts = [{ text: instruction }, { inlineData: { mimeType: 'application/pdf', data: base64 } }];
+    // Prefer the PDF's text layer: sending text instead of the rasterised pages
+    // slashes token usage, so we stay under the free-tier per-minute quota and
+    // the call is far faster and more reliable. Only fall back to the (heavy,
+    // flaky) image path for scanned / image-only PDFs with no extractable text.
+    const extractedText = await extractPdfText(Buffer.from(base64, 'base64'));
+    if (extractedText.length >= 200) {
+      parts = [{ text: `${instruction}\n\nSTATEMENT (text extracted from the PDF):\n${extractedText.slice(0, 200_000)}` }];
+    } else {
+      parts = [{ text: instruction }, { inlineData: { mimeType: 'application/pdf', data: base64 } }];
+    }
   } else if (typeof csvText === 'string' && csvText.trim()) {
     if (csvText.length > 1_000_000) {
       return res.status(413).json({ message: 'CSV text is too large.' });
