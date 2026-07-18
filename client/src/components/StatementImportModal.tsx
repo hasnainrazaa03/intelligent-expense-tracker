@@ -484,9 +484,24 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                         className="flex-1 min-w-0 bg-transparent text-sm text-app-text focus:outline-none focus:bg-surface rounded px-1 py-0.5"
                       />
                       {r.duplicate && <span className="rounded bg-warn/15 text-warn px-1.5 py-0.5 text-[9px] font-semibold uppercase flex-shrink-0">Dup</span>}
-                      <span className={`text-sm tabular-nums whitespace-nowrap flex-shrink-0 ${r.type === 'income' ? 'text-ok' : 'text-app-text'}`}>
-                        {r.type === 'income' ? '+' : ''}{formatCurrency(r.amount, displayCurrency, conversionRate)}
-                      </span>
+                      {/* Editable amount — AI can misread digits on messy multi-column
+                          PDFs (e.g. a running-balance column bleeding in), so let the
+                          user correct it. Stored/imported as a positive USD magnitude;
+                          the +/- sign is carried by the row type. */}
+                      <div className={`flex items-center gap-0.5 flex-shrink-0 ${r.type === 'income' ? 'text-ok' : 'text-app-text'}`}>
+                        <span className="text-sm select-none" aria-hidden="true">{r.type === 'income' ? '+' : '−'}$</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          value={Number.isFinite(r.amount) ? r.amount : ''}
+                          onChange={(e) => patch(r.id, { amount: Math.max(0, Number(e.target.value) || 0) })}
+                          aria-label={`Amount for ${r.description}`}
+                          title={formatCurrency(r.amount, displayCurrency, conversionRate)}
+                          className="w-16 bg-transparent text-sm tabular-nums text-right focus:outline-none focus:bg-surface rounded px-1 py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
                       <select
                         value={catOptions.includes(r.category) ? r.category : 'Other'}
                         onChange={(e) => patch(r.id, { category: e.target.value })}
