@@ -8,7 +8,7 @@ import { suggestCategory } from '../services/categorySuggestionService';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { parseStatement, enrichTransaction, enrichTransactions } from '../services/api';
-import { ChevronUpDownIcon, SparklesIcon } from './Icons';
+import { PencilIcon, SparklesIcon } from './Icons';
 import {
   parseCsvRows,
   autoDetectColumns,
@@ -484,24 +484,9 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                         className="flex-1 min-w-0 bg-transparent text-sm text-app-text focus:outline-none focus:bg-surface rounded px-1 py-0.5"
                       />
                       {r.duplicate && <span className="rounded bg-warn/15 text-warn px-1.5 py-0.5 text-[9px] font-semibold uppercase flex-shrink-0">Dup</span>}
-                      {/* Editable amount — AI can misread digits on messy multi-column
-                          PDFs (e.g. a running-balance column bleeding in), so let the
-                          user correct it. Stored/imported as a positive USD magnitude;
-                          the +/- sign is carried by the row type. */}
-                      <div className={`flex items-center gap-0.5 flex-shrink-0 ${r.type === 'income' ? 'text-ok' : 'text-app-text'}`}>
-                        <span className="text-sm select-none" aria-hidden="true">{r.type === 'income' ? '+' : '−'}$</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.01"
-                          min="0"
-                          value={Number.isFinite(r.amount) ? r.amount : ''}
-                          onChange={(e) => patch(r.id, { amount: Math.max(0, Number(e.target.value) || 0) })}
-                          aria-label={`Amount for ${r.description}`}
-                          title={formatCurrency(r.amount, displayCurrency, conversionRate)}
-                          className="w-16 bg-transparent text-sm tabular-nums text-right focus:outline-none focus:bg-surface rounded px-1 py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                      </div>
+                      <span className={`text-sm tabular-nums whitespace-nowrap flex-shrink-0 ${r.type === 'income' ? 'text-ok' : 'text-app-text'}`}>
+                        {r.type === 'income' ? '+' : ''}{formatCurrency(r.amount, displayCurrency, conversionRate)}
+                      </span>
                       <select
                         value={catOptions.includes(r.category) ? r.category : 'Other'}
                         onChange={(e) => patch(r.id, { category: e.target.value })}
@@ -521,17 +506,37 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                       </button>
                       <button
                         onClick={() => patch(r.id, { expanded: !r.expanded })}
-                        aria-label={`${r.expanded ? 'Collapse' : 'Expand'} details for ${r.description}`}
+                        title="Edit amount and details"
+                        aria-label={`Edit details for ${r.description}`}
                         aria-expanded={r.expanded}
-                        className="flex-shrink-0 grid place-items-center w-6 h-6 rounded-md text-app-faint hover:text-app-text hover:bg-surface"
+                        className={`flex-shrink-0 grid place-items-center w-6 h-6 rounded-md hover:bg-surface ${r.expanded ? 'text-primary bg-primary/10' : 'text-app-faint hover:text-app-text'}`}
                       >
-                        <ChevronUpDownIcon className="h-4 w-4" />
+                        <PencilIcon className="h-4 w-4" />
                       </button>
                     </div>
 
                     {r.expanded && (
                       <div className="mt-2.5 pt-2.5 border-t border-app-border grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="sm:col-span-2">
+                        <div>
+                          {/* Amount is editable here because AI can misread digits on
+                              messy multi-column PDFs. Positive magnitude; the +/- sign
+                              is carried by the row's expense/income type. */}
+                          <label className="block text-[10px] text-app-faint uppercase tracking-wide mb-1">Amount ({displayCurrency})</label>
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-app-muted pointer-events-none">{r.type === 'income' ? '+' : '−'}</span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              step="0.01"
+                              min="0"
+                              value={Number.isFinite(r.amount) ? r.amount : ''}
+                              onChange={(e) => patch(r.id, { amount: Math.max(0, Number(e.target.value) || 0) })}
+                              aria-label={`Amount for ${r.description}`}
+                              className={`${fieldSm} pl-5 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                            />
+                          </div>
+                        </div>
+                        <div>
                           <label className="block text-[10px] text-app-faint uppercase tracking-wide mb-1">Notes</label>
                           <input value={r.notes} onChange={(e) => patch(r.id, { notes: e.target.value })} placeholder="Optional note" className={fieldSm} />
                         </div>
