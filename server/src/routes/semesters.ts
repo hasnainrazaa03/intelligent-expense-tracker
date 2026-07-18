@@ -46,22 +46,24 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   try {
-    // Run the whole reconciliation atomically: a mid-loop failure (or the
-    // destructive cleanup) can no longer leave semesters half-updated (SRV-H2).
-    // Requires a replica set (MongoDB Atlas / local rs) for $transaction.
-    await prisma.$transaction(async (tx) => {
+    // Reconcile with plain (non-transactional) writes. On MongoDB/Atlas an
+    // interactive transaction adds a commit round-trip that flakes over Render's
+    // network — the writes land but the commit ack errors, surfacing as a 500 on
+    // data that actually saved. The client always POSTs the full manifest, so
+    // this reconcile is idempotent and a retry simply converges. The destructive
+    // full-wipe case is still guarded by the empty-array no-op above (SRV-H2).
     for (const incoming of incomingSemesters) {
       const parsedTuition = parseFiniteFloat(incoming.totalTuition as any) ?? 0;
 
       // 1. Reconcile the Parent Semester
-      const existing = await tx.semester.findUnique({
+      const existing = await prisma.semester.findUnique({
         where: { id_userId: { id: incoming.id, userId } },
         include: { installments: true }
       });
 
       if (!existing) {
         // Create new semester and all its installments
-        await tx.semester.create({
+        await prisma.semester.create({
           data: {
             id: incoming.id,
             name: incoming.name.trim(),
@@ -79,7 +81,7 @@ router.post('/', async (req: Request, res: Response) => {
         });
       } else {
         // Update basic semester metadata
-        await tx.semester.update({
+        await prisma.semester.update({
           where: { id_internal: existing.id_internal },
           data: {
             name: incoming.name.trim(),
@@ -96,7 +98,7 @@ router.post('/', async (req: Request, res: Response) => {
           .filter(id => typeof id === 'string') as string[];
 
         // A. Delete removed installments
-        await tx.tuitionInstallment.deleteMany({
+        await prisma.tuitionInstallment.deleteMany({
           where: {
             semesterId: incoming.id,
             semesterUserId: userId,
@@ -115,13 +117,13 @@ router.post('/', async (req: Request, res: Response) => {
 
           if (typeof inst.id === 'string' && existingInstIds.includes(inst.id)) {
             // Update existing record
-            await tx.tuitionInstallment.update({
+            await prisma.tuitionInstallment.update({
               where: { id: inst.id },
               data: installmentData
             });
           } else {
             // Create new record (it's either a number ID or null)
-            await tx.tuitionInstallment.create({
+            await prisma.tuitionInstallment.create({
               data: {
                 ...installmentData,
                 semester: { connect: { id_userId: { id: incoming.id, userId } } }
@@ -134,13 +136,12 @@ router.post('/', async (req: Request, res: Response) => {
 
     // 3. Cleanup: Remove semesters that are no longer in the manifest
     const incomingIds = incomingSemesters.map(s => s.id);
-    await tx.semester.deleteMany({
+    await prisma.semester.deleteMany({
       where: {
         userId,
         id: { notIn: incomingIds }
       }
     });
-    }); // end $transaction — all of the above commits atomically or rolls back
 
     // 4. Return the fully synchronized state (read after commit)
     const updatedData = await prisma.semester.findMany({
