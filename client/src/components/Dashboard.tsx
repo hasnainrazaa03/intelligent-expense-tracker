@@ -256,9 +256,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="@container glass rounded-2xl p-4 md:p-5 min-w-0 flex flex-col">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 md:mb-6 gap-2">
               <h3 className="font-display text-lg md:text-xl font-bold text-app-text">Budget protocols</h3>
-              <p className="text-[11px] font-medium text-app-muted">This month vs. allocation</p>
+              <p className="text-[11px] font-medium text-app-muted">Usage vs. allocation, by month</p>
             </div>
-            <BudgetTracker expenses={monthExpenses} budgets={budgets} />
+            {/* Pass ALL expenses — BudgetTracker has its own month selector. */}
+            <BudgetTracker expenses={allExpenses} budgets={budgets} />
           </div>
         </div>
 
