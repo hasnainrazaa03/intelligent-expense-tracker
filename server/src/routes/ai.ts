@@ -10,10 +10,10 @@ import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 const router = Router();
 
 // Configurable model names via environment variables. The fallback defaults to
-// a current GA model — gemini-1.5-flash is being retired by Google, so it makes
-// a poor safety net when the primary is rate-limited.
+// a current, cheaper GA model. (Both gemini-1.5-flash and gemini-2.0-flash have
+// been retired/shut down by Google, so they make useless safety nets.)
 const PRIMARY_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-2.5-flash';
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash-lite';
 
 /**
  * Pull the text layer out of a PDF so we can send Gemini plain text instead of
