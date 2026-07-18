@@ -574,7 +574,7 @@ router.post('/enrich-transactions', async (req: Request, res: Response) => {
     amount: Number(t?.amount) || 0,
   }));
 
-  const prompt = `You are enriching a batch of transactions a user is importing. For EACH input item, generate helpful details.
+  const buildPrompt = (chunk: typeof items) => `You are enriching a batch of transactions a user is importing. For EACH input item, generate helpful details.
 
 Rules per item:
 - "i": copy the item's index exactly.
@@ -584,35 +584,38 @@ Rules per item:
 - "paymentMethod": for EXPENSE items, from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. These come from a bank/checking statement, so a normal card purchase is "Debit Card", never "Credit Card". P2P/wallet names (Venmo/Zelle/PayPal/Cash App/Apple Pay/Google Pay) map to themselves. If unclear, "". For INCOME always "".
 
 INPUT (JSON array of {i, type, description, amount}):
-${JSON.stringify(items)}
+${JSON.stringify(chunk)}
 
 Return ONLY: {"details":[{"i":0,"notes":"...","tags":["..."],"category":"...","paymentMethod":"..."}, ...]} with exactly one entry per input item, same "i" values. No markdown, no commentary.`;
 
-  const callModel = async (modelName: string): Promise<string> => {
+  const callModel = async (modelName: string, chunk: typeof items): Promise<string> => {
     const model = genAI.getGenerativeModel({
       model: modelName,
-      generationConfig: { responseMimeType: 'application/json' },
+      // Notes + tags per row add up; give the JSON headroom so a full batch
+      // doesn't truncate (which yields empty text and a hard failure).
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192 },
     });
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(buildPrompt(chunk));
     return (await result.response).text();
   };
 
-  try {
-    let text: string;
-    try {
-      text = await callModel(PRIMARY_MODEL);
-    } catch (modelError) {
-      console.warn(`Batch enrich: primary model failed, falling back. ${modelError}`);
-      text = await callModel(FALLBACK_MODEL);
+  // Retry each model before falling back — free-tier Gemini rate-limits and
+  // times out transiently, especially right after a statement parse.
+  const attempt = async (modelName: string, chunk: typeof items, tries: number): Promise<string> => {
+    let lastErr: unknown;
+    for (let i = 0; i < tries; i++) {
+      try {
+        return await callModel(modelName, chunk);
+      } catch (e) {
+        lastErr = e;
+        if (i < tries - 1) await new Promise((r) => setTimeout(r, 1200));
+      }
     }
+    throw lastErr;
+  };
 
-    const parsed = safeParseJson(text);
-    const rawDetails = Array.isArray(parsed) ? parsed : parsed?.details;
-    if (!Array.isArray(rawDetails)) {
-      return res.status(422).json({ message: 'Could not generate details.' });
-    }
-
-    const details = rawDetails
+  const normalize = (rawDetails: any[]) =>
+    rawDetails
       .map((d: any) => {
         const idx = Number(d?.i);
         const item = items.find((it) => it.i === idx);
@@ -631,11 +634,43 @@ Return ONLY: {"details":[{"i":0,"notes":"...","tags":["..."],"category":"...","p
       })
       .filter(Boolean);
 
-    return res.json({ details });
-  } catch (error) {
-    console.error('Batch enrich error:', error);
+  // Split large imports into smaller batches: one giant call is the thing most
+  // likely to overflow the output budget and fail, and a per-chunk failure
+  // should only drop that chunk's rows — not 500 the whole request.
+  const CHUNK = 25;
+  const chunks: (typeof items)[] = [];
+  for (let i = 0; i < items.length; i += CHUNK) chunks.push(items.slice(i, i + CHUNK));
+
+  const all: any[] = [];
+  let failedChunks = 0;
+  for (const chunk of chunks) {
+    try {
+      let text: string;
+      try {
+        text = await attempt(PRIMARY_MODEL, chunk, 2);
+      } catch (modelError) {
+        console.warn(`Batch enrich: primary model failed, falling back. ${modelError}`);
+        text = await attempt(FALLBACK_MODEL, chunk, 2);
+      }
+      const parsed = safeParseJson(text);
+      const rawDetails = Array.isArray(parsed) ? parsed : parsed?.details;
+      if (Array.isArray(rawDetails)) {
+        all.push(...normalize(rawDetails));
+      } else {
+        failedChunks++;
+      }
+    } catch (chunkError) {
+      failedChunks++;
+      console.error('Batch enrich: chunk failed after retries:', chunkError);
+    }
+  }
+
+  // Only a total wipe-out is a 500 — otherwise return whatever we enriched so
+  // the user keeps partial results instead of losing the whole batch.
+  if (all.length === 0) {
     return res.status(500).json({ message: 'Failed to generate details.' });
   }
+  return res.json({ details: all, partial: failedChunks > 0 });
 });
 
 export default router;
