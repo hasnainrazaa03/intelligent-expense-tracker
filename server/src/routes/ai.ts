@@ -362,7 +362,8 @@ EXPENSE — money leaving the account for goods, services or bills: card/POS/deb
 INCOME — money genuinely arriving: payroll / direct deposit, client/freelance payments, refunds, interest/dividends, rent received, cash deposits, and P2P money received (Venmo/Zelle/PayPal/Cash App/Apple Cash cash-ins).
 
 === WHAT TO EXCLUDE (emit NEITHER) ===
-- Internal transfers between the holder's OWN accounts (e.g. "Transfer To/From Share", "to Savings", "to Secured", moving money between the checking/savings/certificate lines on the SAME statement). These are not spending or income.
+- Internal transfers between the holder's OWN accounts (e.g. "Transfer To/From Share", "to Savings", "to Secured", "Transfer To Loan", moving money between the checking/savings/certificate/loan lines on the SAME statement). These are not spending or income.
+- Credit-card PAYMENTS (e.g. "Payment ... Transfer From Share", "Online Banking Transfer From ...", paying off the card balance). Paying your own card is not spending — the underlying purchases are already listed in the card section.
 - Account-verification micro-entries (e.g. "ACCTVERIFY", trial deposits/withdrawals, tiny sub-$1 amounts that pair with a matching offsetting entry the same day).
 - Pure reversals/adjustments that net to zero with another line.
 - "Beginning Balance", "Ending Balance", subtotals and running-balance rows.
@@ -382,7 +383,7 @@ Each real transaction must appear EXACTLY ONCE even if it is echoed in a per-acc
     "CVS/PHARM 02396" -> "CVS Pharmacy"
     "ACH VENMO TYPE: CASHOUT" -> "Venmo cash-in"
     "ACH KAMRAN BADR TYPE: P2P ... BANK OF AMERICA" -> "Payment from Kamran Badr"
-- "paymentMethod": expenses only, chosen from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. This is a BANK/CHECKING account statement, so a card or POS purchase is "Debit Card" — NEVER "Credit Card" (only use Credit Card if the statement is explicitly a credit-card statement). Map by the raw wording: "Debit Card"/"POS"/"purchase" -> "Debit Card"; "ACH"/electronic payment/bill-pay -> "Bank Transfer"; ATM cash withdrawal -> "Cash"; "CHECK"/"draft" -> "Check"; "WIRE" -> "Wire Transfer". Recognizable P2P/wallets: Venmo -> "Venmo", Zelle -> "Zelle", PayPal -> "PayPal", Cash App -> "Cash App", Apple Cash/Apple Pay -> "Apple Pay", Google Pay -> "Google Pay". If genuinely unclear, "". Income: always "".
+- "paymentMethod": expenses only, chosen from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. Decide debit-vs-credit by the ACCOUNT SECTION the transaction sits under: a checking / debit / savings section means a card or POS purchase is "Debit Card"; a CREDIT-CARD section (e.g. a "MASTERCARD"/"VISA" statement or a "Credit Purchases" list) means "Credit Card". Also map by wording: "ACH"/electronic/bill-pay -> "Bank Transfer"; ATM cash withdrawal -> "Cash"; "CHECK"/"draft" -> "Check"; "WIRE" -> "Wire Transfer". Recognizable P2P/wallets: Venmo -> "Venmo", Zelle -> "Zelle", PayPal -> "PayPal", Cash App -> "Cash App", Apple Cash/Apple Pay -> "Apple Pay", Google Pay -> "Google Pay". If genuinely unclear, "". Income: always "".
 - "category": the SINGLE BEST fit, chosen DECISIVELY. Use "Other" only as a genuine last resort.
   * EXPENSE — choose from EXACTLY: ${JSON.stringify(RECEIPT_CATEGORIES)}. Apply this reasoning:
     - GROCERIES: supermarkets and food/grocery stores of EVERY kind, INCLUDING international / ethnic / halal / South-Asian / Hispanic / Asian grocers and markets. Treat a merchant whose name contains "bazaar", "market", "supermarket", "mart", "foods", "grocery", "grocers", "produce", "meat", or "halal" as Groceries UNLESS it is clearly a restaurant. Known grocers include: Trader Joe's, Ralphs, Vons, Whole Foods, Safeway, Kroger, Aldi, Costco, Sprouts, Sam's Club, Smart & Final, H Mart, 99 Ranch, Patel Brothers, India Bazaar, JH Bazaar, Al-Noor, Superior Grocers, El Super, Northgate.
@@ -426,19 +427,36 @@ Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} 
   const callModel = async (modelName: string): Promise<string> => {
     const model = genAI.getGenerativeModel({
       model: modelName,
-      generationConfig: { responseMimeType: 'application/json' },
+      // A busy month or a multi-account statement can emit a lot of rows, so give
+      // the JSON generous headroom to avoid truncation.
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192 },
     });
     const result = await model.generateContent(parts!);
     return (await result.response).text();
   };
 
+  // Large / image-heavy / multi-page PDFs can make the model call fail
+  // transiently (timeouts, brief rate limits), so retry before giving up.
+  const attempt = async (modelName: string, tries: number): Promise<string> => {
+    let lastErr: unknown;
+    for (let i = 0; i < tries; i++) {
+      try {
+        return await callModel(modelName);
+      } catch (e) {
+        lastErr = e;
+        if (i < tries - 1) await new Promise((r) => setTimeout(r, 1200));
+      }
+    }
+    throw lastErr;
+  };
+
   try {
     let text: string;
     try {
-      text = await callModel(PRIMARY_MODEL);
+      text = await attempt(PRIMARY_MODEL, 2);
     } catch (modelError) {
       console.warn(`Statement parse: primary model failed, falling back. ${modelError}`);
-      text = await callModel(FALLBACK_MODEL);
+      text = await attempt(FALLBACK_MODEL, 2);
     }
 
     const parsed = safeParseJson(text);

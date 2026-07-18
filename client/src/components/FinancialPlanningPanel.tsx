@@ -61,6 +61,8 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<InvestmentAccount['type']>('brokerage');
   const [newAccountValue, setNewAccountValue] = useState('');
+  // The Calendar-spending card can browse any month, independent of "now".
+  const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
 
   const now = new Date();
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -318,25 +320,51 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
     return dailyNet * 30;
   }, [expenses, incomes]);
 
-  const calendarCells = useMemo(() => {
-    const year = now.getFullYear();
-    const month = now.getMonth();
+  const calKey = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, '0')}`;
+  const isCurrentCalMonth = calKey === currentMonthPrefix;
+
+  const { calendarCells, calMonthTotal } = useMemo(() => {
+    const year = calMonth.getFullYear();
+    const month = calMonth.getMonth();
+    const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const totals: Record<number, number> = {};
+    let monthTotal = 0;
 
     expenses
-      .filter((e) => e.date.startsWith(currentMonthPrefix))
+      .filter((e) => e.date.startsWith(prefix))
       .forEach((e) => {
         const day = Number.parseInt(e.date.slice(8, 10), 10);
         totals[day] = (totals[day] || 0) + e.amount;
+        monthTotal += e.amount;
       });
 
     const cells: Array<{ day: number | null; total: number }> = [];
     for (let i = 0; i < firstDay; i++) cells.push({ day: null, total: 0 });
     for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, total: totals[d] || 0 });
-    return cells;
-  }, [expenses, currentMonthPrefix, now]);
+    return { calendarCells: cells, calMonthTotal: monthTotal };
+  }, [expenses, calMonth]);
+
+  // Month options for the jump dropdown: from the earliest expense to now.
+  const calMonthOptions = useMemo(() => {
+    let earliest = new Date(now.getFullYear(), now.getMonth(), 1);
+    for (const e of expenses) {
+      const [y, m] = e.date.split('-').map(Number);
+      if (y && m) { const d = new Date(y, m - 1, 1); if (d < earliest) earliest = d; }
+    }
+    const opts: Array<{ key: string; label: string }> = [];
+    const cur = new Date(now.getFullYear(), now.getMonth(), 1);
+    for (let d = new Date(cur); d >= earliest; d.setMonth(d.getMonth() - 1)) {
+      opts.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+      });
+    }
+    return opts;
+  }, [expenses, now]);
+
+  const shiftCalMonth = (delta: number) => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
 
   const cardCls = "rounded-2xl border border-app-border bg-surface-2 p-4 md:p-5";
   const subLabelCls = "font-display text-sm font-semibold text-app-text mb-3";
@@ -400,7 +428,37 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={cardCls}>
-          <p className={subLabelCls}>Calendar spending</p>
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <p className={`${subLabelCls} mb-0`}>
+              Calendar spending
+              <span className="ml-2 text-[11px] font-normal text-app-muted tabular-nums">{formatCurrency(calMonthTotal, displayCurrency, conversionRate)}</span>
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => shiftCalMonth(-1)}
+                aria-label="Previous month"
+                className="grid place-items-center w-7 h-7 rounded-lg border border-app-border bg-surface text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="h-3.5 w-3.5"><polyline points="15 18 9 12 15 6" /></svg>
+              </button>
+              <select
+                value={calKey}
+                onChange={(e) => { const [y, m] = e.target.value.split('-').map(Number); setCalMonth(new Date(y, m - 1, 1)); }}
+                aria-label="Jump to month"
+                className="bg-surface border border-app-border rounded-lg px-2 py-1 text-xs text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                {calMonthOptions.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
+              <button
+                onClick={() => shiftCalMonth(1)}
+                disabled={isCurrentCalMonth}
+                aria-label="Next month"
+                className="grid place-items-center w-7 h-7 rounded-lg border border-app-border bg-surface text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors disabled:opacity-40 disabled:hover:text-app-muted"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="h-3.5 w-3.5"><polyline points="9 18 15 12 9 6" /></svg>
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-7 gap-1 text-[10px]">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
               <div key={d} className="text-center font-semibold text-app-faint uppercase tracking-wide">{d}</div>
