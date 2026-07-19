@@ -16,7 +16,8 @@ import {
   BanknotesIcon,
   CalendarDaysIcon,
   Cog6ToothIcon,
-  ArrowDownTrayIcon
+  ArrowDownTrayIcon,
+  AcademicCapIcon
 } from './Icons';
 import { IconButton } from './ui';
 import CurrencyPicker from './CurrencyPicker';
@@ -33,6 +34,9 @@ interface HeaderProps {
   onDataAction: () => void;
   onToggleTwoFactor: () => void;
   twoFactorEnabled: boolean;
+  /** Hide tuition + tuition-loan from the Financial hub & Income summary. */
+  hideTuition: boolean;
+  onToggleHideTuition: () => void;
   onSearch: (query: string) => void;
   activeView: string;
   offlineStatus?: { isOnline: boolean; pendingCount: number; syncing: boolean };
@@ -58,7 +62,7 @@ const ActionTip: React.FC<{ label: string; children: React.ReactNode }> = ({ lab
 
 const Header: React.FC<HeaderProps> = ({
   onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch,
-  offlineStatus, expenses, incomes, onSelectTransaction
+  hideTuition, onToggleHideTuition, offlineStatus, expenses, incomes, onSelectTransaction
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const { theme, toggleTheme } = useTheme();
@@ -307,6 +311,16 @@ const Header: React.FC<HeaderProps> = ({
                     </IconButton>
                   </ActionTip>
                 )}
+                <ActionTip label={hideTuition ? 'Tuition hidden — show' : 'Hide tuition'}>
+                  <button
+                    onClick={onToggleHideTuition}
+                    aria-label={hideTuition ? 'Show tuition in summaries' : 'Hide tuition from summaries'}
+                    aria-pressed={hideTuition}
+                    className={`grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl border transition-colors ${hideTuition ? 'bg-primary-soft border-primary/40 text-primary' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
+                  >
+                    <AcademicCapIcon className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                </ActionTip>
                 <ActionTip label="Budgets">
                   <IconButton onClick={onManageBudgets} aria-label="Manage budgets" className="md:w-10 md:h-10">
                     <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
