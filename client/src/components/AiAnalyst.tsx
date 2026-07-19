@@ -116,108 +116,85 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
   const hasConversation = messages.length > 0;
 
   return (
-    <div className="glass rounded-2xl p-4 md:p-5 relative overflow-hidden flex flex-col md:h-[calc(100dvh-12rem)]">
+    <div className="glass rounded-2xl p-4 md:p-5 relative overflow-hidden flex flex-col md:h-[calc(100dvh-9rem)]">
       {/* ambient cosmic glow */}
       <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 w-80 h-80 rounded-full opacity-40"
         style={{ background: 'radial-gradient(circle, rgba(124,108,255,0.28), transparent 70%)' }} />
 
-      {/* On desktop the panel is bounded to the viewport and the chat area flexes
-          to fill, so the whole tab fits on screen without page scrolling. */}
+      {/* The chat area is the star: header + suggestions stay compact so the
+          conversation gets the vertical space. Suggestions only show before the
+          first message; once chatting, the chat area flexes to fill. */}
       <div className="relative z-10 flex flex-col flex-1 min-h-0">
-        {/* HEADER */}
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 lg:gap-5 mb-4">
-          <div className="flex items-start gap-3 min-w-0">
-            <Mascot className="w-14 h-14 md:w-16 md:h-16 -my-0.5 -ml-1 flex-shrink-0" />
+        {/* COMPACT HEADER */}
+        <div className="flex items-center justify-between gap-3 mb-3 flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Mascot className="w-10 h-10 md:w-11 md:h-11 flex-shrink-0" />
             <div className="min-w-0">
-              <h2 className="font-display text-xl md:text-2xl font-bold text-app-text leading-tight flex items-center gap-2">
-                AI Analyst <SparklesIcon className="h-5 w-5 text-primary" />
+              <h2 className="font-display text-lg md:text-xl font-bold text-app-text leading-none flex items-center gap-1.5">
+                AI Analyst <SparklesIcon className="h-4 w-4 text-primary" />
               </h2>
-              <p className="text-sm text-app-muted mt-1 max-w-lg leading-snug">
-                Your smart financial companion. Ask anything about your spending and get personalized, actionable insights.
-              </p>
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                <span className="w-2 h-2 rounded-full bg-ok animate-pulse" />
-                <span className="text-xs font-medium text-app-muted">{recordCount === 0 ? 'Waiting for transactions' : 'Context loaded'}</span>
-                {recordCount > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-primary-soft text-primary text-xs font-semibold tabular-nums">
-                    {recordCount} records analyzed
-                  </span>
-                )}
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-ok animate-pulse" />
+                <span className="text-xs text-app-muted">
+                  {recordCount === 0 ? 'Waiting for transactions' : `${recordCount} records analyzed`}
+                </span>
               </div>
             </div>
           </div>
-
-          {/* Cosmic tip */}
-          <div className="rounded-2xl border border-app-border bg-surface-2 p-3 w-full lg:max-w-xs flex gap-3 items-start flex-shrink-0">
-            <div className="grid place-items-center w-10 h-10 rounded-xl flex-shrink-0 text-xl"
-              style={{ background: 'radial-gradient(circle at 35% 30%, #7c6cff, #2a2350 75%)' }}>
-              <span aria-hidden="true">🪐</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-app-text">Cosmic tip</p>
-              <p className="text-xs text-app-muted mt-1 leading-relaxed">{cosmicTip}</p>
-            </div>
-          </div>
+          {hasConversation && (
+            <button
+              onClick={handleReset}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-surface-2 border border-app-border px-3 py-1.5 text-xs font-semibold text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors flex-shrink-0"
+              title="New chat"
+              aria-label="Start a new chat"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-3.5 w-3.5"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
+              New chat
+            </button>
+          )}
         </div>
 
-        {/* TRY ASKING */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2.5">
-            <p className="text-sm font-semibold text-app-text flex items-center gap-1.5">
-              Try asking <SparklesIcon className="h-4 w-4 text-primary" />
-            </p>
-            {hasConversation && (
-              <button
-                onClick={handleReset}
-                className="grid place-items-center w-9 h-9 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
-                title="New chat"
-                aria-label="Start a new chat"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {QUICK_PROMPTS.map((p) => (
-              <button
-                key={p.text}
-                onClick={() => void handleSend(p.text)}
-                disabled={isLoading}
-                className="flex items-center gap-3 text-left rounded-xl bg-surface-2 border border-app-border px-3.5 py-2.5 hover:border-app-border-strong hover:bg-surface transition-colors disabled:opacity-50"
-              >
-                <span className={`grid place-items-center w-8 h-8 rounded-lg flex-shrink-0 ${p.tint}`}>{p.icon}</span>
-                <span className="text-sm font-medium text-app-text leading-snug">{p.text}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* CHAT AREA */}
+        {/* CHAT AREA — flex-1, the main real estate */}
         <div
           ref={scrollRef}
-          className="min-h-[14rem] max-h-[24rem] md:min-h-0 md:max-h-none md:flex-1 overflow-y-auto rounded-2xl border border-app-border bg-surface-2 p-4 mb-3"
+          className="flex-1 min-h-[16rem] overflow-y-auto rounded-2xl border border-app-border bg-surface-2 p-4 mb-3"
         >
           {!hasConversation ? (
-            <div className="relative overflow-hidden rounded-xl h-full min-h-[12rem] flex items-center p-5 md:p-6"
-              style={{ background: 'radial-gradient(120% 120% at 85% 20%, rgba(124,108,255,0.20), transparent 60%)' }}>
-              <div className="flex items-center gap-3 md:gap-4">
-                <Mascot className="w-24 h-24 md:w-28 md:h-28 flex-shrink-0" />
-                <div>
-                  <p className="font-display text-xl md:text-2xl font-bold text-app-text">Hi, Explorer! 👋</p>
-                  <p className="text-sm md:text-base text-app-muted mt-1.5 max-w-md leading-relaxed">
-                    I&rsquo;m here to help you understand your finances better. Ask me anything, or pick a suggestion above.
-                  </p>
+            <div className="h-full flex flex-col">
+              {/* greeting + cosmic tip */}
+              <div className="relative overflow-hidden rounded-xl flex items-center gap-3 md:gap-4 p-4 md:p-5"
+                style={{ background: 'radial-gradient(120% 120% at 85% 20%, rgba(124,108,255,0.20), transparent 60%)' }}>
+                <Mascot className="w-16 h-16 md:w-20 md:h-20 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-display text-lg md:text-xl font-bold text-app-text">Hi, Explorer! 👋</p>
+                  <p className="text-sm text-app-muted mt-1 leading-relaxed">{cosmicTip}</p>
                 </div>
+              </div>
+
+              {/* suggestions */}
+              <p className="text-xs font-semibold text-app-muted uppercase tracking-wide mt-4 mb-2">Try asking</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {QUICK_PROMPTS.map((p) => (
+                  <button
+                    key={p.text}
+                    onClick={() => void handleSend(p.text)}
+                    disabled={isLoading}
+                    className="flex items-center gap-2.5 text-left rounded-xl bg-surface border border-app-border px-3 py-2 hover:border-app-border-strong hover:bg-surface-2 transition-colors disabled:opacity-50"
+                  >
+                    <span className={`grid place-items-center w-7 h-7 rounded-lg flex-shrink-0 ${p.tint}`}>{p.icon}</span>
+                    <span className="text-[13px] font-medium text-app-text leading-snug">{p.text}</span>
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               {messages.map((message, index) => (
                 <div key={`${message.role}-${index}`} className={`w-full flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[90%] md:max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm md:text-base ${
+                  <div className={`max-w-[92%] md:max-w-[85%] px-4 py-3 rounded-2xl text-sm md:text-[15px] ${
                     message.role === 'user'
-                      ? 'bg-primary text-on-primary'
-                      : 'bg-surface border border-app-border text-app-text'
+                      ? 'bg-primary text-on-primary rounded-br-md'
+                      : 'bg-surface border border-app-border text-app-text rounded-bl-md shadow-soft'
                   }`}>
                     {message.role === 'assistant' ? renderAssistantMessage(message.content) : <span className="whitespace-pre-wrap">{message.content}</span>}
                   </div>
@@ -225,7 +202,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
               ))}
               {isLoading && (
                 <div className="w-full flex justify-start">
-                  <div className="px-3.5 py-2.5 rounded-2xl bg-surface border border-app-border text-app-muted text-sm inline-flex items-center gap-2">
+                  <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-surface border border-app-border text-app-muted text-sm inline-flex items-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     Analyzing…
                   </div>
@@ -235,14 +212,14 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
           )}
         </div>
 
-        {/* INPUT */}
-        <div className="relative">
+        {/* INPUT — larger */}
+        <div className="relative flex-shrink-0">
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask anything about your spending, categories, or budget performance…"
-            className="w-full h-20 resize-none bg-surface-2 border border-app-border rounded-2xl pl-4 pr-32 py-3.5 text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+            className="w-full h-24 resize-none bg-surface-2 border border-app-border rounded-2xl pl-4 pr-32 py-3.5 text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
             disabled={isLoading}
           />
           <button
@@ -256,14 +233,14 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
         </div>
 
         {error && (
-          <div className="mt-4 p-3 rounded-xl bg-danger/10 border border-danger/40 text-danger flex items-center text-sm">
+          <div className="mt-3 p-3 rounded-xl bg-danger/10 border border-danger/40 text-danger flex items-center text-sm flex-shrink-0">
             <ExclamationTriangleIcon className="h-4 w-4 mr-2 flex-shrink-0" />
             {error}
           </div>
         )}
 
-        <p className="mt-3 text-center text-xs text-app-muted flex items-center justify-center gap-1.5">
-          <span aria-hidden="true">🔒</span> Your data is secure and private. AI insights are for informational purposes only.
+        <p className="mt-2 text-center text-[11px] text-app-faint flex items-center justify-center gap-1.5 flex-shrink-0">
+          <span aria-hidden="true">🔒</span> Private &amp; secure · AI insights are informational only.
         </p>
       </div>
     </div>
