@@ -137,6 +137,11 @@ const buildFinancialManifest = async (userId: string) => {
   const incomes = rawIncomes.map(incomeToClient);
   const budgets = rawBudgets.map(budgetToClient);
 
+  // Round every money figure to cents before it reaches the model — summing
+  // floats otherwise yields values like 291.34999999999997 that the model
+  // repeats verbatim in its answer.
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
   const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
 
@@ -146,21 +151,25 @@ const buildFinancialManifest = async (userId: string) => {
     budgets,
     manifest: {
       summary: {
-        totalIncome,
-        totalExpenses,
-        netCashFlow: totalIncome - totalExpenses,
+        totalIncome: round2(totalIncome),
+        totalExpenses: round2(totalExpenses),
+        netCashFlow: round2(totalIncome - totalExpenses),
       },
-      budgets: budgets.map((b) => ({ category: b.category, limit: b.amount })),
-      categoryBreakdown: expenses.reduce((acc: Record<string, number>, e) => {
-        acc[e.category] = (acc[e.category] || 0) + e.amount;
-        return acc;
-      }, {}),
+      budgets: budgets.map((b) => ({ category: b.category, limit: round2(b.amount) })),
+      categoryBreakdown: Object.fromEntries(
+        Object.entries(
+          expenses.reduce((acc: Record<string, number>, e) => {
+            acc[e.category] = (acc[e.category] || 0) + e.amount;
+            return acc;
+          }, {})
+        ).map(([cat, sum]) => [cat, round2(sum)])
+      ),
       recurringFixedCosts: expenses
         .filter((e) => e.isRecurring)
-        .map((e) => ({ title: e.title, amount: e.amount, category: e.category })),
+        .map((e) => ({ title: e.title, amount: round2(e.amount), category: e.category })),
       recentHistory: expenses.slice(0, 12).map((e) => ({
         title: e.title,
-        amount: e.amount,
+        amount: round2(e.amount),
         category: e.category,
         date: e.date.toISOString().split('T')[0],
         notes: e.notes ? String(e.notes).slice(0, 80) : undefined,
@@ -229,6 +238,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
 
       Keep the tone encouraging and not judgmental.
       Format your entire response in Markdown with clear headings and bullet points.
+      Write like a human advisor: NEVER mention internal field names or the data structure — do not say "FINANCIAL_MANIFEST", "categoryBreakdown", "recentHistory", "recurringFixedCosts", "manifest", or "according to the data". State facts naturally. Show money as whole dollars or two decimals (e.g. $291.35), never long decimals.
     `;
 
     // --- ROBUST MODEL CALL WITH FALLBACK ---
@@ -299,7 +309,8 @@ Rules:
   1) ### Quick read
   2) ### What to do next
 - Under each section use short bullet points only.
-- If a number is used, cite the exact source from the manifest context.
+- Write like a human advisor. NEVER mention internal field names or the data structure — do NOT say "FINANCIAL_MANIFEST", "categoryBreakdown", "recentHistory", "recurringFixedCosts", "manifest", "according to the data/context", or reference JSON. Just state the fact naturally (e.g. "You spent $291 on Dining Out vs a $50 budget").
+- Money must read cleanly: whole dollars or two decimals (e.g. $291.35), never long decimals.
 - If data is missing, say what is missing in one bullet and ask one short follow-up question.
 `;
 

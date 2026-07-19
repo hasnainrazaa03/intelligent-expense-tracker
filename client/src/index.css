@@ -248,18 +248,58 @@
     box-shadow: var(--shadow);
   }
 
-  /* AI markdown (retuned to the sans display face) */
+  /* AI markdown — styled to read like a briefing, not a wall of text */
+  .ai-markdown { font-size: 0.9rem; }
+  .ai-markdown > :first-child { margin-top: 0; }
+  .ai-markdown > :last-child { margin-bottom: 0; }
   .ai-markdown h1, .ai-markdown h2, .ai-markdown h3, .ai-markdown h4 {
     font-family: var(--font-display);
     font-weight: 700;
-    letter-spacing: -0.01em;
-    margin: 0 0 0.4rem 0;
-    line-height: 1.15;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    color: var(--primary);
+    margin: 1rem 0 0.5rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid color-mix(in oklab, var(--primary) 22%, transparent);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
   }
-  .ai-markdown h3, .ai-markdown h4 { font-size: 0.9rem; }
-  .ai-markdown ul { margin: 0; padding-left: 1rem; display: grid; gap: 0.2rem; }
-  .ai-markdown p { margin: 0 0 0.4rem 0; line-height: 1.45; }
-  .ai-markdown li { line-height: 1.4; }
+  .ai-markdown h1::before, .ai-markdown h2::before,
+  .ai-markdown h3::before, .ai-markdown h4::before {
+    content: "";
+    width: 0.45rem; height: 0.45rem; border-radius: 999px;
+    background: var(--primary);
+    flex-shrink: 0;
+  }
+  .ai-markdown ul, .ai-markdown ol { margin: 0.25rem 0 0.6rem 0; padding-left: 0; display: grid; gap: 0.4rem; list-style: none; }
+  .ai-markdown li { line-height: 1.5; padding-left: 1.15rem; position: relative; }
+  .ai-markdown ul > li::before {
+    content: "";
+    position: absolute; left: 0.1rem; top: 0.55em;
+    width: 0.35rem; height: 0.35rem; border-radius: 999px;
+    background: color-mix(in oklab, var(--primary) 65%, var(--app-text));
+  }
+  .ai-markdown ol { counter-reset: aic; }
+  .ai-markdown ol > li { counter-increment: aic; }
+  .ai-markdown ol > li::before {
+    content: counter(aic);
+    position: absolute; left: 0; top: 0.05em;
+    font-size: 0.62rem; font-weight: 700; line-height: 1.1;
+    min-width: 0.95rem; height: 0.95rem; padding: 0 0.15rem;
+    display: grid; place-items: center; border-radius: 0.35rem;
+    color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 15%, transparent);
+  }
+  .ai-markdown p { margin: 0 0 0.5rem 0; line-height: 1.5; }
+  .ai-markdown strong { color: var(--app-text); font-weight: 700; }
+  .ai-markdown em { color: var(--app-muted); }
+  .ai-markdown code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.82em; padding: 0.05rem 0.3rem; border-radius: 0.3rem;
+    background: color-mix(in oklab, var(--app-text) 8%, transparent);
+  }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
