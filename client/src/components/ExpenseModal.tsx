@@ -13,7 +13,7 @@ import { downscaleImage } from '../utils/image';
 import toast from 'react-hot-toast';
 import useForeignToUsd from '../hooks/useForeignToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { Modal, Button, Input, Textarea, Label, Select } from './ui';
+import { Modal, Button, Input, Textarea, Label, Select, DatePicker } from './ui';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -513,7 +513,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             {/* Date */}
             <div>
               <Label htmlFor="exp-date">Date</Label>
-              <Input id="exp-date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
+              <DatePicker id="exp-date" value={date} onChange={setDate} required aria-label="Date" />
             </div>
 
             {/* Category Dropdown */}

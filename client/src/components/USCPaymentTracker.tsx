@@ -5,7 +5,7 @@ import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { Button, Input } from './ui';
+import { Button, Input, DatePicker } from './ui';
 
 interface USCPaymentTrackerProps {
   semesters: Semester[];
@@ -214,12 +214,12 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                       <div className="flex flex-col md:flex-row items-center gap-3">
                         <div className="flex flex-col">
                           <label className="text-[9px] text-app-faint uppercase tracking-[0.16em] mb-1">Payment date</label>
-                          <input
-                            type="date"
-                            // Default to today if no date is selected yet
+                          <DatePicker
                             value={selectedDates[inst.id] || todayCalendar()}
-                            onChange={(e) => setSelectedDates(prev => ({ ...prev, [inst.id]: e.target.value }))}
-                            className="bg-surface-2 border border-app-border rounded-xl px-3 py-1.5 text-[11px] text-app-text [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+                            onChange={(v) => setSelectedDates(prev => ({ ...prev, [inst.id]: v }))}
+                            required
+                            aria-label={`Payment date for installment ${inst.id}`}
+                            className="!px-3 !py-1.5 !text-[11px] !rounded-xl"
                           />
                         </div>
 
