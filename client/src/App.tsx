@@ -11,6 +11,7 @@ import { distributeAmount } from './utils/currencyUtils';
 import { startOfMonth, endOfMonth, isWithinRange, todayCalendar } from './utils/dateUtils';
 import { computeDueRecurring, getRecurrenceFrequency } from './utils/recurrence';
 import { expenseMatchesBudget } from './utils/budgetUtils';
+import { stripTuition } from './utils/tuition';
 import { getAllData, isAuthError } from './services/api';
 import { useAuth } from './contexts/AuthContext';
 import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, createBulkIncomes, restoreAllData, wipeAllData } from './services/api';
@@ -173,6 +174,16 @@ const App: React.FC = () => {
   // Currency state/logic lives in CurrencyProvider now.
 
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
+
+  // Hide tuition + tuition-loan from the analytical overviews (Financial hub &
+  // Income summary) so day-to-day cash flow isn't dwarfed by one-off tuition.
+  // Persisted so the choice survives reloads. The tuition ledger is unaffected.
+  const [hideTuition, setHideTuition] = useState<boolean>(() => {
+    try { return localStorage.getItem('hideTuition') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('hideTuition', hideTuition ? '1' : '0'); } catch { /* ignore */ }
+  }, [hideTuition]);
   const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
   const [selectedRecurring, setSelectedRecurring] = useState<Set<number>>(new Set());
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
@@ -813,6 +824,18 @@ const handleDeleteIncome = async (id: string) => {
   const { filteredExpenses, filteredIncomes: dashboardIncomes, previousPeriodExpenses } = useDateRangeFilter(expenses, incomes, dateRange);
   const { filteredIncomes: incomeHubIncomes, previousPeriodIncomes: incomeHubPrevIncomes } = useDateRangeFilter(expenses, incomes, incomeDateRange);
 
+  // Tuition-aware inputs for the analytical overviews only. When `hideTuition` is
+  // on, tuition + tuition-loan are stripped from the Financial hub and Income
+  // summary (their totals, charts, top-category, net flow). The raw `expenses` /
+  // `incomes` and the tuition ledger are untouched.
+  const hubExpenses = useMemo(() => stripTuition(filteredExpenses, hideTuition), [filteredExpenses, hideTuition]);
+  const hubIncomes = useMemo(() => stripTuition(dashboardIncomes, hideTuition), [dashboardIncomes, hideTuition]);
+  const hubPrevExpenses = useMemo(() => stripTuition(previousPeriodExpenses, hideTuition), [previousPeriodExpenses, hideTuition]);
+  const hubAllExpenses = useMemo(() => stripTuition(expenses, hideTuition), [expenses, hideTuition]);
+  const hubAllIncomes = useMemo(() => stripTuition(incomes, hideTuition), [incomes, hideTuition]);
+  const incomeHubIncomesView = useMemo(() => stripTuition(incomeHubIncomes, hideTuition), [incomeHubIncomes, hideTuition]);
+  const incomeHubPrevView = useMemo(() => stripTuition(incomeHubPrevIncomes, hideTuition), [incomeHubPrevIncomes, hideTuition]);
+
   const searchedAndSortedItems = useMemo(() => {
     const itemsToFilter = activeView === 'income' ? [...incomeHubIncomes] : [...filteredExpenses];
 
@@ -902,6 +925,8 @@ const handleDeleteIncome = async (id: string) => {
               onDataAction={() => setIsDataModalOpen(true)}
               onToggleTwoFactor={toggleTwoFactor}
               twoFactorEnabled={twoFactorEnabled}
+              hideTuition={hideTuition}
+              onToggleHideTuition={() => setHideTuition((v) => !v)}
               onSearch={setDebouncedSearchQuery}
               activeView={activeView}
               offlineStatus={{ isOnline: offline.isOnline, pendingCount: offline.pendingCount, syncing: offline.syncing }}
@@ -1075,11 +1100,11 @@ const handleDeleteIncome = async (id: string) => {
                   {activeView === 'expenses' && hubTab === 'overview' && (
                     <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>
                       <Dashboard
-                        expenses={filteredExpenses}
-                        incomes={dashboardIncomes}
-                        allIncomes={incomes}
-                        allExpenses={expenses}
-                        previousPeriodExpenses={previousPeriodExpenses}
+                        expenses={hubExpenses}
+                        incomes={hubIncomes}
+                        allIncomes={hubAllIncomes}
+                        allExpenses={hubAllExpenses}
+                        previousPeriodExpenses={hubPrevExpenses}
                         selectedRange={dateRange}
                         onDateRangeChange={setDateRange}
                         budgets={budgets}
@@ -1091,10 +1116,10 @@ const handleDeleteIncome = async (id: string) => {
                     isLoadingData
                       ? <SectionSkeleton title="Loading income" rows={4} />
                       : <IncomeSummary
-                          incomes={incomeHubIncomes}
-                          previousPeriodIncomes={incomeHubPrevIncomes}
-                          allIncomes={incomes}
-                          allExpenses={expenses}
+                          incomes={incomeHubIncomesView}
+                          previousPeriodIncomes={incomeHubPrevView}
+                          allIncomes={hubAllIncomes}
+                          allExpenses={hubAllExpenses}
                           selectedRange={incomeDateRange}
                           onDateRangeChange={setIncomeDateRange}
                         />

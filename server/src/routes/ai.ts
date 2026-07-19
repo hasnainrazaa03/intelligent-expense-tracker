@@ -123,7 +123,14 @@ const salvageArrayObjects = (text: string, key: string): any[] | null => {
 
 router.use(authMiddleware);
 
-const buildFinancialManifest = async (userId: string) => {
+// Tuition and the loan taken to pay it are one-off, structural money movements
+// that dwarf everyday spending — counting them in general analysis makes tuition
+// look like the #1 "leak" and the loan inflate income. So they're excluded from
+// the manifest unless the user is specifically asking about tuition.
+const isTuitionRelated = (item: { category?: string; title?: string }) =>
+  item.category === 'Tuition' || item.category === 'Loan' || /tuition/i.test(item.title || '');
+
+const buildFinancialManifest = async (userId: string, includeTuition = false) => {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
@@ -133,9 +140,17 @@ const buildFinancialManifest = async (userId: string) => {
     prisma.budget.findMany({ where: { userId } }),
   ]);
   // DB stores integer cents; work in dollars from here on.
-  const expenses = rawExpenses.map(expenseToClient);
-  const incomes = rawIncomes.map(incomeToClient);
+  let expenses = rawExpenses.map(expenseToClient);
+  let incomes = rawIncomes.map(incomeToClient);
   const budgets = rawBudgets.map(budgetToClient);
+
+  // Capture the tuition slice (for an optional summary) before dropping it.
+  const tuitionExpenses = expenses.filter(isTuitionRelated);
+  const tuitionIncomes = incomes.filter(isTuitionRelated);
+  if (!includeTuition) {
+    expenses = expenses.filter((e) => !isTuitionRelated(e));
+    incomes = incomes.filter((i) => !isTuitionRelated(i));
+  }
 
   // Round every money figure to cents before it reaches the model — summing
   // floats otherwise yields values like 291.34999999999997 that the model
@@ -145,11 +160,23 @@ const buildFinancialManifest = async (userId: string) => {
   const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
 
+  const round2t = (arr: { amount: number }[]) => Math.round((arr.reduce((s, x) => s + x.amount, 0) + Number.EPSILON) * 100) / 100;
+
   return {
     expenses,
     incomes,
     budgets,
     manifest: {
+      // Always surface the tuition totals so a tuition question can reference the
+      // loan; when tuition is EXCLUDED from the main figures, add a note so the
+      // model never treats it as a spending leak or as missing income.
+      tuition: {
+        totalTuitionSpent: round2t(tuitionExpenses),
+        totalTuitionLoan: round2t(tuitionIncomes),
+        ...(includeTuition ? {} : {
+          note: 'Tuition and the loan taken to pay it are tracked in a separate tuition ledger and are intentionally EXCLUDED from the spending/income figures below. Do NOT flag tuition as a spending leak and do NOT treat the tuition loan as regular income.',
+        }),
+      },
       summary: {
         totalIncome: round2(totalIncome),
         totalExpenses: round2(totalExpenses),
@@ -275,7 +302,10 @@ router.post('/chat', async (req: Request, res: Response) => {
   }
 
   try {
-    const { expenses, incomes, manifest } = await buildFinancialManifest(userId);
+    // Include tuition only when the user is actually asking about it — otherwise
+    // it's excluded so "where are my leaks?" doesn't just surface tuition.
+    const wantsTuition = /tuition|semester|bursar|financial aid|student loan|\bloan\b/i.test(message);
+    const { expenses, incomes, manifest } = await buildFinancialManifest(userId, wantsTuition);
 
     if (expenses.length === 0 && incomes.length === 0) {
       return res.json({ reply: 'No financial data available yet. Add some transactions and I can help analyze your spending.' });
