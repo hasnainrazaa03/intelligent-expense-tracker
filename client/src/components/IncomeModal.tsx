@@ -4,7 +4,7 @@ import { INCOME_CATEGORIES } from '../constants';
 import { todayCalendar } from '../utils/dateUtils';
 import useForeignToUsd from '../hooks/useForeignToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { Modal, Button, Input, Textarea, Label } from './ui';
+import { Modal, Button, Input, Textarea, Label, DatePicker } from './ui';
 
 interface IncomeModalProps {
   isOpen: boolean;
@@ -243,7 +243,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
 
             <div>
               <Label htmlFor="income-date">Date</Label>
-              <Input id="income-date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
+              <DatePicker id="income-date" value={date} onChange={setDate} required aria-label="Date" />
             </div>
 
             <div className="relative" ref={categoryDropdownRef}>

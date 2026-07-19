@@ -3,7 +3,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
-import { Button, Card } from './ui';
+import { Button, Card, DatePicker } from './ui';
 import SpendingBarChart from './SpendingBarChart';
 import HouseholdsManager from './HouseholdsManager';
 
@@ -385,7 +385,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             <input type="number" value={newGoalTarget} onChange={(e) => setNewGoalTarget(e.target.value)} className={`${fieldCls} sm:w-28`} placeholder="Target" aria-label="Goal target amount" />
           </div>
           <div className="flex gap-2 mb-3">
-            <input type="date" value={newGoalDeadline} onChange={(e) => setNewGoalDeadline(e.target.value)} className={`flex-1 ${fieldCls}`} aria-label="Goal deadline (optional)" />
+            <DatePicker value={newGoalDeadline} onChange={setNewGoalDeadline} className={`flex-1 ${fieldCls}`} placeholder="Deadline (optional)" aria-label="Goal deadline (optional)" />
             <Button size="sm" onClick={addSavingsGoal} className="px-4">Add goal</Button>
           </div>
 
