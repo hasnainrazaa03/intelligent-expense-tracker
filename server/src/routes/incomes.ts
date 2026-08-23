@@ -22,13 +22,33 @@ const MAX_BULK_SIZE = SERVER_CONFIG.limits.maxBulkImportSize;
 // can be imported alongside its debits.
 router.post('/bulk', async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const incomes = req.body as any[];
+
+  // Accept either a bare array (the original shape) or an envelope carrying a
+  // batch idempotency key.
+  const body = req.body;
+  const isEnvelope = body && !Array.isArray(body) && typeof body === 'object' && Array.isArray(body.incomes);
+  const incomes = (isEnvelope ? body.incomes : body) as any[];
+  const rawBatchId = isEnvelope ? body.clientRequestId : undefined;
+  // Restricted to an id-safe charset: the key is used in a `startsWith` filter,
+  // which the MongoDB connector compiles to a regex, so no metacharacters.
+  const batchId =
+    typeof rawBatchId === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(rawBatchId) ? rawBatchId : null;
 
   if (!Array.isArray(incomes) || incomes.length === 0) {
     return res.status(400).json({ message: 'Request body must be a non-empty array of incomes' });
   }
   if (incomes.length > MAX_BULK_SIZE) {
     return res.status(400).json({ message: `Maximum bulk import size is ${MAX_BULK_SIZE} records` });
+  }
+
+  // Idempotency (B5): a retried import must not insert the batch twice.
+  if (batchId) {
+    const already = await prisma.income.count({
+      where: { userId, clientRequestId: { startsWith: `${batchId}#` } },
+    });
+    if (already > 0) {
+      return res.status(200).json({ message: `${already} incomes already imported`, imported: already, duplicate: true });
+    }
   }
 
   try {
@@ -54,12 +74,13 @@ router.post('/bulk', async (req: Request, res: Response) => {
         notes: sanitizeText(income.notes) || undefined,
         tags: normalizeTags(income.tags),
         metadata: normalizeMetadata(income.metadata),
+        clientRequestId: batchId ? `${batchId}#${index}` : undefined,
         userId,
       };
     });
 
     await prisma.income.createMany({ data: dataToCreate });
-    res.status(201).json({ message: `${incomes.length} incomes imported successfully` });
+    res.status(201).json({ message: `${incomes.length} incomes imported successfully`, imported: incomes.length });
   } catch (error: any) {
     console.error('Failed to bulk create incomes:', error);
     res.status(500).json({ message: 'Failed to import incomes' });
