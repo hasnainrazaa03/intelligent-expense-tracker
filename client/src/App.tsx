@@ -71,6 +71,11 @@ const Reports = lazyWithReload(() => import('./components/Reports'));
 
 type ActiveView = 'expenses' | 'income' | 'ai' | 'pivot' | 'usc' | 'reports';
 
+/** Idempotency key for one bulk-import batch, so a retry can be recognised and
+ *  rejected server-side instead of duplicating the whole import. */
+const newBatchId = (): string =>
+  (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+
 // Default (empty) tuition plan used when the server has no semesters yet.
 const buildDefaultSemesters = (): Semester[] =>
   USC_SEMESTERS.map((s) => ({
@@ -569,8 +574,8 @@ const handleDeleteIncome = async (id: string) => {
 };
   const handleImportExpenses = async (importedExpenses: Omit<Expense, 'id'>[]) => {
     try {
-      // 1. Send the batch to the server
-      await createBulkExpenses(importedExpenses);
+      // 1. Send the batch to the server (keyed, so a retry can't duplicate it).
+      await createBulkExpenses(importedExpenses, newBatchId());
 
       // 2. The import was successful, show an alert
       notify.success(`${importedExpenses.length} expenses successfully imported.`);
@@ -604,19 +609,42 @@ const handleDeleteIncome = async (id: string) => {
   const handleImportStatement = async (payload: { expenses: Omit<Expense, 'id'>[]; incomes: Omit<Income, 'id'>[] }) => {
     const { expenses, incomes } = payload;
     if (expenses.length === 0 && incomes.length === 0) return;
+
+    // The two batches are separate requests, so the second can fail after the
+    // first has already been written. Track what actually landed and ALWAYS
+    // refetch — otherwise the inserted rows stay invisible and re-importing
+    // silently duplicates them (B4).
+    let expensesSaved = 0;
+    let incomesSaved = 0;
+    let failure: unknown = null;
+
+    // One key per batch, so a retry of this exact import is rejected server-side
+    // as a duplicate rather than inserting everything a second time (B5).
+    const batchId = newBatchId();
+
     try {
-      if (expenses.length > 0) await createBulkExpenses(expenses);
-      if (incomes.length > 0) await createBulkIncomes(incomes);
-
-      const parts: string[] = [];
-      if (expenses.length > 0) parts.push(`${expenses.length} expense${expenses.length === 1 ? '' : 's'}`);
-      if (incomes.length > 0) parts.push(`${incomes.length} income`);
-      notify.success(`Imported ${parts.join(' and ')}.`);
-
-      await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
+      if (expenses.length > 0) { await createBulkExpenses(expenses, `${batchId}-exp`); expensesSaved = expenses.length; }
+      if (incomes.length > 0) { await createBulkIncomes(incomes, `${batchId}-inc`); incomesSaved = incomes.length; }
     } catch (error) {
+      failure = error;
       console.error('Failed to import statement:', error);
-      notify.error('Could not import the statement.');
+    }
+
+    if (expensesSaved > 0 || incomesSaved > 0) {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
+    }
+
+    const parts: string[] = [];
+    if (expensesSaved > 0) parts.push(`${expensesSaved} expense${expensesSaved === 1 ? '' : 's'}`);
+    if (incomesSaved > 0) parts.push(`${incomesSaved} income`);
+
+    if (!failure) {
+      notify.success(`Imported ${parts.join(' and ')}.`);
+    } else if (parts.length > 0) {
+      // Partial write: say exactly what saved so the user re-imports only the rest.
+      notify.error(`Imported ${parts.join(' and ')}, but the rest failed. Those are already saved — don't re-import them.`);
+    } else {
+      notify.error('Could not import the statement. Nothing was saved.');
     }
   };
 
@@ -846,7 +874,14 @@ const handleDeleteIncome = async (id: string) => {
           const titleMatch = fuzzyMatch(query, item.title, threshold);
           const categoryMatch = fuzzyMatch(query, item.category, threshold);
           const notesMatch = item.notes ? fuzzyMatch(query, item.notes, threshold) : false;
-          return titleMatch || categoryMatch || notesMatch;
+          // Tags are set by the importer and the AI enricher, so they need to be
+          // searchable too — otherwise they're write-only metadata (B6).
+          const tagMatch = item.tags?.some((tag) => fuzzyMatch(query, tag, threshold)) ?? false;
+          // Payment method makes "credit card" / "discover" style filtering work
+          // on expenses without a dedicated account field. (Incomes have none.)
+          const method = (item as Partial<Expense>).paymentMethod;
+          const methodMatch = method ? fuzzyMatch(query, method, threshold) : false;
+          return titleMatch || categoryMatch || notesMatch || tagMatch || methodMatch;
         })
       : itemsToFilter;
 

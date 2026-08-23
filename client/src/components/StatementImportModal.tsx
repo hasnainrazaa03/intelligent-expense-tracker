@@ -13,8 +13,10 @@ import {
   parseCsvRows,
   autoDetectColumns,
   parseBankTransactions,
+  isMappingReady,
   type BankColumnMapping,
   type BankDateFormat,
+  type BankParseOptions,
 } from '../utils/bankImport';
 
 export interface StatementImportPayload {
@@ -31,7 +33,20 @@ interface Props {
 }
 
 type TxnType = 'income' | 'expense';
-type MappingKey = 'date' | 'description' | 'amount' | 'category';
+type MappingKey = 'date' | 'description' | 'amount' | 'debit' | 'credit' | 'category';
+
+const MAPPING_FIELDS: Array<{ key: MappingKey; label: string; hint?: string }> = [
+  { key: 'date', label: 'Date' },
+  { key: 'description', label: 'Description' },
+  { key: 'amount', label: 'Amount', hint: 'single signed column' },
+  { key: 'debit', label: 'Debit / money out', hint: 'if split' },
+  { key: 'credit', label: 'Credit / money in', hint: 'if split' },
+  { key: 'category', label: 'Category', hint: 'optional' },
+];
+
+// The server caps AI statement text at 1MB; keep the client in step so the
+// "Read with AI" option is only offered when it can actually succeed.
+const MAX_AI_CSV_CHARS = 1_000_000;
 
 interface Row {
   id: string;
@@ -51,7 +66,19 @@ interface Row {
 }
 
 const dupeKey = (date: string, amount: number, description: string) =>
-  `${date}|${Math.round(amount * 100)}|${description.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16)}`;
+  `${date}|${Math.round(amount * 100)}|${description.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24)}`;
+
+/** Count occurrences of each key, so duplicate detection is a MULTISET match:
+ *  if you genuinely have two identical same-day charges on file, a statement
+ *  holding two only flags two — not every future one (B7). */
+const countKeys = (items: Array<{ date: string; amount: number; title?: string }>): Map<string, number> => {
+  const counts = new Map<string, number>();
+  for (const it of items) {
+    const k = dupeKey(it.date, Number(it.amount), it.title || '');
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  return counts;
+};
 
 const defaultCategoryFor = (type: TxnType, description: string): string =>
   type === 'income' ? 'Other' : (suggestCategory(description) || 'Other');
@@ -117,39 +144,40 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   // CSV mapping state.
   const [headers, setHeaders] = useState<string[] | null>(null);
   const [dataRows, setDataRows] = useState<string[][]>([]);
+  const [csvText, setCsvText] = useState<string>('');
   const [mapping, setMapping] = useState<Partial<BankColumnMapping>>({});
   const [dateFormat, setDateFormat] = useState<BankDateFormat>('auto');
-  const [negativeIsExpense, setNegativeIsExpense] = useState(true);
+  const [signMode, setSignMode] = useState<BankParseOptions['signMode']>('auto');
 
-  const existingExpenseKeys = useMemo(() => {
-    const s = new Set<string>();
-    for (const e of existingExpenses) s.add(dupeKey(e.date, Number(e.amount), e.title || ''));
-    return s;
-  }, [existingExpenses]);
-  const existingIncomeKeys = useMemo(() => {
-    const s = new Set<string>();
-    for (const i of existingIncomes) s.add(dupeKey(i.date, Number(i.amount), i.title || ''));
-    return s;
-  }, [existingIncomes]);
+  const existingExpenseKeys = useMemo(() => countKeys(existingExpenses), [existingExpenses]);
+  const existingIncomeKeys = useMemo(() => countKeys(existingIncomes), [existingIncomes]);
 
   const resetAll = () => {
     setFileName(''); setPdfUri(null); setPdfMinimized(false); setParsing(false);
-    setError(null); setRows(null); setHeaders(null); setDataRows([]); setMapping({});
+    setError(null); setRows(null); setHeaders(null); setDataRows([]); setCsvText(''); setMapping({});
   };
   const close = () => { resetAll(); onClose(); };
 
   const buildRows = (
     items: Array<{ type?: string; date: string; description: string; amount: number; category?: string; paymentMethod?: string }>
-  ): Row[] =>
-    [...items]
+  ): Row[] => {
+    // Consume from a copy of the existing-key counts so N identical charges on
+    // file only mask N incoming rows, not every one that follows (B7).
+    const remaining = new Map<string, number>([
+      ...[...existingExpenseKeys].map(([k, n]) => [`e:${k}`, n] as [string, number]),
+      ...[...existingIncomeKeys].map(([k, n]) => [`i:${k}`, n] as [string, number]),
+    ]);
+    return [...items]
       .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
       .map((it, i) => {
         const type: TxnType = it.type === 'income' ? 'income' : 'expense';
         const validCats = type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
         const aiCat = it.category && it.category !== 'Other' && validCats.includes(it.category) ? it.category : null;
         const category = aiCat || defaultCategoryFor(type, it.description);
-        const keys = type === 'income' ? existingIncomeKeys : existingExpenseKeys;
-        const duplicate = keys.has(dupeKey(it.date, it.amount, it.description));
+        const key = `${type === 'income' ? 'i' : 'e'}:${dupeKey(it.date, it.amount, it.description)}`;
+        const left = remaining.get(key) || 0;
+        const duplicate = left > 0;
+        if (duplicate) remaining.set(key, left - 1);
         return {
           id: `${i}-${it.date}-${it.amount}`,
           type, date: it.date, description: it.description, amount: it.amount, category,
@@ -157,6 +185,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
           include: !duplicate, duplicate, enriching: false, expanded: false,
         };
       });
+  };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -166,13 +195,15 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
     const isPdf = name.endsWith('.pdf');
     if (!isCsv && !isPdf) { setError('Please choose a .csv or .pdf file.'); return; }
     if (file.size > APP_CONFIG.maxImportFileSizeBytes) { setError('That file is too large.'); return; }
-    setError(null); setFileName(file.name); setRows(null); setHeaders(null); setPdfUri(null);
+    setError(null); setFileName(file.name); setRows(null); setHeaders(null); setPdfUri(null); setCsvText('');
 
     if (isCsv) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const parsed = parseCsvRows(String(ev.target?.result || ''));
+        const text = String(ev.target?.result || '');
+        const parsed = parseCsvRows(text);
         if (parsed.length < 2) { setError('This CSV has no data rows.'); return; }
+        setCsvText(text);
         setHeaders(parsed[0]);
         setDataRows(parsed.slice(1, 1 + APP_CONFIG.maxCsvImportRows));
         setMapping(autoDetectColumns(parsed[0]));
@@ -207,16 +238,49 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
     }
   };
 
-  const ready = mapping.date != null && mapping.description != null && mapping.amount != null;
+  const ready = isMappingReady(mapping);
   const csvPreview = useMemo(() => {
     if (!ready || headers == null) return null;
-    return parseBankTransactions(dataRows, mapping as BankColumnMapping, { dateFormat, negativeIsExpense });
-  }, [ready, headers, dataRows, mapping, dateFormat, negativeIsExpense]);
+    return parseBankTransactions(dataRows, mapping as BankColumnMapping, { dateFormat, signMode });
+  }, [ready, headers, dataRows, mapping, dateFormat, signMode]);
 
   const reviewCsv = () => {
     if (!csvPreview || csvPreview.imported === 0) return;
-    setRows(buildRows(csvPreview.expenses.map((e) => ({ ...e, type: 'expense', description: e.title }))));
+    setRows(buildRows(csvPreview.transactions));
   };
+
+  // B2: run the CSV through the same AI parser the PDF path uses, so credit-card
+  // payments and internal transfers are excluded and income is detected. The
+  // column mapper below stays as a no-AI fallback.
+  const aiCsvAvailable = csvText.length > 0 && csvText.length <= MAX_AI_CSV_CHARS;
+  const readCsvWithAi = async () => {
+    if (!aiCsvAvailable) return;
+    setParsing(true); setError(null);
+    try {
+      const { transactions } = await parseStatement({ csvText });
+      if (!transactions.length) { setError('No transactions were found in that CSV.'); return; }
+      setRows(buildRows(transactions));
+    } catch (err: any) {
+      setError(
+        err?.status === 503
+          ? 'AI parsing isn’t configured on the server — map the columns below instead.'
+          : 'The AI couldn’t read this CSV just now. Map the columns below instead.'
+      );
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  // Explain an empty column-mapped result instead of showing a dead button (B1).
+  const skipHint = useMemo(() => {
+    if (!csvPreview || csvPreview.imported > 0) return null;
+    const { noDescription, badDate, badAmount } = csvPreview.skipReasons;
+    if (badAmount >= badDate && badAmount >= noDescription) {
+      return 'No usable amounts were found in that column. If your statement splits money out and money in, map both the Debit and Credit columns.';
+    }
+    if (badDate >= noDescription) return 'The dates in that column couldn’t be read — try setting the date format explicitly.';
+    return 'The description column looks empty — pick the column holding the merchant or payee.';
+  }, [csvPreview]);
 
   // --- Row mutations ---
   const patch = (id: string, p: Partial<Row>) => setRows((rs) => rs!.map((r) => (r.id === id ? { ...r, ...p } : r)));
@@ -366,26 +430,53 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
           )}
           {error && <p role="alert" className="text-sm text-danger font-medium">{error}</p>}
 
+          {headers && !parsing && (
+            <div className="space-y-3 rounded-xl border border-primary/40 bg-primary/5 p-4">
+              <div>
+                <p className="text-sm font-semibold text-app-text">Read this CSV with AI</p>
+                <p className="text-[11px] text-app-muted mt-0.5">
+                  Recommended. Detects income, cleans up merchant names, and <strong>skips credit-card payments and
+                  transfers between your own accounts</strong> — so importing a bank statement and a card statement
+                  doesn’t double-count.
+                </p>
+              </div>
+              <Button size="sm" onClick={readCsvWithAi} disabled={!aiCsvAvailable}>
+                <SparklesIcon className="h-3.5 w-3.5 mr-1.5" /> Read with AI
+              </Button>
+              {!aiCsvAvailable && (
+                <p className="text-[11px] text-app-muted">This CSV is too large for AI parsing — map the columns below instead.</p>
+              )}
+            </div>
+          )}
+
           {headers && (
             <div className="space-y-3 rounded-xl border border-app-border bg-surface-2 p-4">
-              <p className="text-sm font-semibold text-app-text">Map your CSV columns</p>
+              <div>
+                <p className="text-sm font-semibold text-app-text">Or map the columns yourself</p>
+                <p className="text-[11px] text-app-muted mt-0.5">
+                  No AI. Map either a single signed <em>Amount</em> column, or a separate <em>Debit</em> and{' '}
+                  <em>Credit</em> pair if your statement splits them.
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-2.5">
-                {(['date', 'amount', 'description', 'category'] as MappingKey[]).map((key) => (
+                {MAPPING_FIELDS.map(({ key, label, hint }) => (
                   <div key={key}>
-                    <label className="block text-[11px] text-app-muted mb-1 capitalize">{key}{key === 'category' ? ' (optional)' : ''}</label>
+                    <label className="block text-[11px] text-app-muted mb-1">
+                      {label}{hint ? <span className="text-app-faint"> ({hint})</span> : null}
+                    </label>
                     <select
                       value={mapping[key] ?? ''}
                       onChange={(e) => setMapping((m) => ({ ...m, [key]: e.target.value === '' ? undefined : Number(e.target.value) }))}
                       className={fieldSm}
-                      aria-label={`${key} column`}
+                      aria-label={`${label} column`}
                     >
-                      <option value="">{key === 'category' ? '— none —' : 'Select column'}</option>
+                      <option value="">— none —</option>
                       {headers.map((h, i) => <option key={i} value={i}>{h || `Column ${i + 1}`}</option>)}
                     </select>
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-2.5 items-end">
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-[11px] text-app-muted mb-1">Date format</label>
                   <select value={dateFormat} onChange={(e) => setDateFormat(e.target.value as BankDateFormat)} className={fieldSm} aria-label="Date format">
@@ -395,12 +486,24 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                     <option value="ymd">YYYY-MM-DD</option>
                   </select>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-app-muted pb-1.5 cursor-pointer">
-                  <input type="checkbox" checked={negativeIsExpense} onChange={(e) => setNegativeIsExpense(e.target.checked)} className="accent-[color:var(--primary)]" />
-                  Negatives are expenses
-                </label>
+                <div>
+                  <label className="block text-[11px] text-app-muted mb-1">Money in / money out</label>
+                  <select
+                    value={signMode}
+                    onChange={(e) => setSignMode(e.target.value as BankParseOptions['signMode'])}
+                    className={fieldSm}
+                    aria-label="How to classify money in and money out"
+                  >
+                    <option value="auto">Detect income from the sign / column</option>
+                    <option value="expenses">Treat every row as an expense</option>
+                  </select>
+                </div>
               </div>
-              <Button size="sm" onClick={reviewCsv} disabled={!csvPreview || csvPreview.imported === 0}>
+              {csvPreview && csvPreview.skipped > 0 && csvPreview.imported > 0 && (
+                <p className="text-[11px] text-app-muted">{csvPreview.skipped} row{csvPreview.skipped === 1 ? '' : 's'} will be skipped.</p>
+              )}
+              {skipHint && <p role="alert" className="text-[11px] text-danger font-medium">{skipHint}</p>}
+              <Button size="sm" variant="secondary" onClick={reviewCsv} disabled={!csvPreview || csvPreview.imported === 0}>
                 Review {csvPreview?.imported || 0} transaction{(csvPreview?.imported || 0) === 1 ? '' : 's'}
               </Button>
             </div>
@@ -408,7 +511,9 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
 
           {!headers && !parsing && (
             <p className="text-xs text-app-muted">
-              PDF statements are read by AI (with a side-by-side preview to verify). CSV exports let you map the columns. Both detect expenses <em>and</em> income.
+              PDF statements are read by AI (with a side-by-side preview to verify). CSV exports can be read by AI too,
+              or mapped column-by-column. Both detect expenses <em>and</em> income, and skip credit-card payments so a
+              bank statement and a card statement can be imported one after the other without double-counting.
             </p>
           )}
         </div>

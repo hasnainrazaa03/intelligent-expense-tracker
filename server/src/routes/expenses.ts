@@ -312,7 +312,17 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // POST /api/expenses/bulk
 router.post('/bulk', async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const expenses = req.body as Omit<Expense, 'id'>[];
+
+  // Accept either a bare array (the original shape) or an envelope carrying a
+  // batch idempotency key and an optional household tag.
+  const body = req.body;
+  const isEnvelope = body && !Array.isArray(body) && typeof body === 'object' && Array.isArray(body.expenses);
+  const expenses = (isEnvelope ? body.expenses : body) as Omit<Expense, 'id'>[];
+  const rawBatchId = isEnvelope ? body.clientRequestId : undefined;
+  // Restricted to an id-safe charset: the key is used in a `startsWith` filter,
+  // which the MongoDB connector compiles to a regex, so no metacharacters.
+  const batchId =
+    typeof rawBatchId === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(rawBatchId) ? rawBatchId : null;
 
   if (!Array.isArray(expenses) || expenses.length === 0) {
     return res.status(400).json({ message: 'Request body must be a non-empty array of expenses' });
@@ -320,6 +330,24 @@ router.post('/bulk', async (req: Request, res: Response) => {
 
   if (expenses.length > MAX_BULK_SIZE) {
     return res.status(400).json({ message: `Maximum bulk import size is ${MAX_BULK_SIZE} records` });
+  }
+
+  // Idempotency (B5): a retried import — a flaky network, a double-click, the
+  // offline queue replaying — must not insert the batch twice. Rows are stamped
+  // with `${batchId}#${index}`, so seeing any row from this batch means it
+  // already landed.
+  if (batchId) {
+    const already = await prisma.expense.count({
+      where: { userId, clientRequestId: { startsWith: `${batchId}#` } },
+    });
+    if (already > 0) {
+      return res.status(200).json({ message: `${already} expenses already imported`, imported: already, duplicate: true });
+    }
+  }
+
+  const resolvedHouseholdId = isEnvelope ? await resolveHouseholdId(userId, body.householdId) : null;
+  if (resolvedHouseholdId === 'FORBIDDEN') {
+    return res.status(403).json({ message: 'You are not a member of that household.' });
   }
 
   try {
@@ -371,15 +399,17 @@ router.post('/bulk', async (req: Request, res: Response) => {
         splitShares: normalizeNumberArray(expense.splitShares).map(toCents),
         receiptText: sanitizeOptionalText(expense.receiptText),
         receiptFileName: sanitizeOptionalText(expense.receiptFileName),
-        userId: userId, 
+        householdId: resolvedHouseholdId,
+        clientRequestId: batchId ? `${batchId}#${index}` : undefined,
+        userId: userId,
       };
     });
 
     await prisma.expense.createMany({
       data: dataToCreate,
     });
-    
-    res.status(201).json({ message: `${expenses.length} expenses imported successfully` });
+
+    res.status(201).json({ message: `${expenses.length} expenses imported successfully`, imported: expenses.length });
 
   } catch (error: any) {
     // Don't surface internal/Prisma error text to the client.

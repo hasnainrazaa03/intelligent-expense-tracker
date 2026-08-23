@@ -522,19 +522,27 @@ export const enrichTransactions = (
 /**
  * Creates a batch of new expenses from a CSV import.
  */
-export const createBulkExpenses = (expenses: Omit<Expense, 'id'>[]): Promise<BulkCreateResponse> => {
+export const createBulkExpenses = (
+  expenses: Omit<Expense, 'id'>[],
+  clientRequestId?: string
+): Promise<BulkCreateResponse> => {
   return fetchApi<BulkCreateResponse>('/expenses/bulk', {
     method: 'POST',
-    body: JSON.stringify(expenses),
+    // The envelope carries a batch idempotency key so a retry (flaky network,
+    // double submit) is a no-op server-side instead of a duplicate import.
+    body: JSON.stringify(clientRequestId ? { expenses, clientRequestId } : expenses),
   });
 };
 
 /**
  * Creates a batch of new incomes (e.g. a bank statement's detected credits).
  */
-export const createBulkIncomes = (incomes: Omit<Income, 'id'>[]): Promise<BulkCreateResponse> => {
+export const createBulkIncomes = (
+  incomes: Omit<Income, 'id'>[],
+  clientRequestId?: string
+): Promise<BulkCreateResponse> => {
   return fetchApi<BulkCreateResponse>('/incomes/bulk', {
     method: 'POST',
-    body: JSON.stringify(incomes),
+    body: JSON.stringify(clientRequestId ? { incomes, clientRequestId } : incomes),
   });
 };

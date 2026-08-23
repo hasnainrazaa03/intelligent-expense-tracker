@@ -28,6 +28,10 @@ export interface RestoreDataResponse extends AllDataResponse {
 
 export interface BulkCreateResponse {
   message: string;
+  /** Rows written (or already present when `duplicate` is true). */
+  imported?: number;
+  /** True when the batch key was already used, so nothing new was inserted. */
+  duplicate?: boolean;
 }
 
 export interface AuditEventResponse {
