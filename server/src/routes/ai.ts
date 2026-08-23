@@ -3,14 +3,11 @@ import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { expenseToClient, incomeToClient, budgetToClient } from '../utils/money';
-// Load pdf-parse from its internal path: the package index runs a "debug mode"
-// block (reads a bundled sample PDF via module.parent, which is deprecated on
-// modern Node) — lib/pdf-parse.js hard-codes debug off, so it never fires.
-// require() with an inline type keeps this resolvable under both tsc and
-// ts-node without depending on an ambient .d.ts that ts-node may not load.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfParse: (data: Buffer) => Promise<{ text: string; numpages: number }> =
-  require('pdf-parse/lib/pdf-parse.js');
+// pdf-parse v2 is a rewrite: it exports a PDFParse class instead of a default
+// function, and its package `exports` no longer expose the internal lib path the
+// v1 workaround relied on. v2's entry point has no debug-mode block, so the
+// public import is now the correct one.
+import { PDFParse } from 'pdf-parse';
 
 const router = Router();
 
@@ -28,12 +25,17 @@ const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash-li
  * for scanned / image-only PDFs that have no extractable text.
  */
 const extractPdfText = async (buffer: Buffer): Promise<string> => {
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
-    const { text } = await pdfParse(buffer);
+    const { text } = await parser.getText();
     return (text || '').trim();
   } catch (e) {
     console.warn('PDF text extraction failed; will fall back to image path.', e);
     return '';
+  } finally {
+    // v2 spins up a pdfjs worker per instance — always release it, or the
+    // process accumulates workers across statement uploads.
+    await parser.destroy().catch(() => { /* already torn down */ });
   }
 };
 

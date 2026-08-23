@@ -7,6 +7,9 @@ interface AppErrorBoundaryProps {
 }
 
 const ErrorFallback: React.FC<FallbackProps & { title?: string }> = ({ error, title, resetErrorBoundary }) => {
+  // react-error-boundary types `error` as `{}` (it can be any thrown value), so
+  // pull the message out defensively rather than assuming an Error instance.
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-2xl w-full glass rounded-2xl p-8 text-center">
@@ -17,9 +20,9 @@ const ErrorFallback: React.FC<FallbackProps & { title?: string }> = ({ error, ti
         <p className="mt-4 text-app-muted">
           The interface hit an unexpected error. Your data is safe. Reload to continue.
         </p>
-        {error?.message && (
+        {message && (
           <p className="mt-4 text-xs text-app-muted bg-surface-2 border border-app-border rounded-xl p-3">
-            {error.message}
+            {message}
           </p>
         )}
         <button

@@ -62,7 +62,7 @@ const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses }) => {
         <YAxis tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)} />
         <Tooltip 
              cursor={{fill: 'rgba(20, 184, 166, 0.1)'}}
-            formatter={(value: number) => formatCurrency(value, displayCurrency, conversionRate)}
+            formatter={(value) => formatCurrency(Number(value), displayCurrency, conversionRate)}
             contentStyle={{
                 backgroundColor: 'var(--modal-surface)',
                 border: '1px solid var(--border)',

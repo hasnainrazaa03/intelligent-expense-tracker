@@ -833,7 +833,7 @@ const handleDeleteIncome = async (id: string) => {
           return {
             id: i + 1,
             amount: splits[unpaidIdx++] ?? 0,
-            status: 'unpaid',
+            status: 'unpaid' as const,
             expenseId: undefined,
             paidDate: undefined,
           };

@@ -159,7 +159,7 @@ interface VirtualRowData {
   onDelete: (id: string) => void;
 }
 
-const VirtualExpenseRow: React.FC<RowComponentProps<VirtualRowData>> = ({ index, style, expenses, onEdit, onQuickSave, onDelete }) => {
+const VirtualExpenseRow = ({ index, style, expenses, onEdit, onQuickSave, onDelete }: RowComponentProps<VirtualRowData>) => {
   const expense = expenses[index];
   return (
     <div style={style} className="pr-2 pb-4">

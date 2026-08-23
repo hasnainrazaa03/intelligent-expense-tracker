@@ -1,4 +1,6 @@
-import { defineConfig } from 'vite';
+// vitest 4 no longer augments vite's UserConfig with `test` — the typed
+// defineConfig now comes from vitest/config.
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
