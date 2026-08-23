@@ -275,11 +275,12 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
     const owed: Record<string, number> = {};
     expenses.forEach((e) => {
       if (!e.splitParticipants?.length || !e.splitShares?.length) return;
+      const shares = e.splitShares;
       e.splitParticipants.forEach((name, i) => {
         const n = (name || '').trim();
         const lower = n.toLowerCase();
         if (!n || lower === 'you' || lower === 'me') return;
-        owed[n] = (owed[n] || 0) + (Number(e.splitShares[i]) || 0);
+        owed[n] = (owed[n] || 0) + (Number(shares[i]) || 0);
       });
     });
     return Object.entries(owed)

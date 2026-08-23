@@ -155,7 +155,7 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
                   contentStyle={{ backgroundColor: 'var(--modal-surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
                   itemStyle={{ color: 'var(--app-text)' }}
                   labelStyle={{ color: 'var(--app-text)' }}
-                  formatter={(v: number) => formatCurrency(v, displayCurrency, conversionRate)}
+                  formatter={(v) => formatCurrency(Number(v), displayCurrency, conversionRate)}
                   cursor={{ fill: 'rgba(100,116,139,0.08)' }}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px' }} />

@@ -59,7 +59,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
     <div className="glass rounded-2xl p-4 h-full flex flex-col justify-between transition-all hover:-translate-y-0.5">
       <div className="flex items-center gap-2.5">
         <div className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${ACCENT[accent].chip}`}>
-          {React.cloneElement(icon as React.ReactElement, { className: 'h-5 w-5' })}
+          {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'h-5 w-5' })}
         </div>
         <span className="text-xs md:text-[13px] font-medium text-app-muted capitalize">{label.toLowerCase()}</span>
       </div>
