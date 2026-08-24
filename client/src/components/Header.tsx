@@ -311,10 +311,10 @@ const Header: React.FC<HeaderProps> = ({
                     </IconButton>
                   </ActionTip>
                 )}
-                <ActionTip label={hideTuition ? 'Tuition hidden — show' : 'Hide tuition'}>
+                <ActionTip label={hideTuition ? 'Tuition hidden everywhere — show' : 'Hide tuition (all charts & reports)'}>
                   <button
                     onClick={onToggleHideTuition}
-                    aria-label={hideTuition ? 'Show tuition in summaries' : 'Hide tuition from summaries'}
+                    aria-label={hideTuition ? 'Show tuition across summaries, charts and reports' : 'Hide tuition from summaries, charts and reports'}
                     aria-pressed={hideTuition}
                     className={`grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl border transition-colors ${hideTuition ? 'bg-primary-soft border-primary/40 text-primary' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
                   >
