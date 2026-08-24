@@ -8,12 +8,16 @@ Most budgeting apps treat *Tuition* as a one-off expense and *International FX* 
 
 ---
 
-> ### ✅ Status: redesign shipped · quality hardening
-> A full codebase review was completed on **2026-07-05**. Data-integrity, security, and
-> architecture phases (1–4) are done, and the UI has fully migrated from the neo-brutalist
-> look to the **cosmic-glass "Orbit"** design (both light & dark themes) — see
-> [docs/design-direction.md](./docs/design-direction.md). Remaining work is quality
-> hardening (accessibility audit, broader E2E, the Prisma 7 migration).
+> ### ✅ Status: shipped · in active use
+> The UI has fully migrated from the neo-brutalist look to the **cosmic-glass "Orbit"**
+> design (both light & dark themes) — see [docs/design-direction.md](./docs/design-direction.md).
+> Data-integrity, security, and architecture phases are done. As of **2026-08-24** the app is
+> running against real multi-account statement data. Remaining work is quality hardening
+> (accessibility audit, broader E2E).
+>
+> ⚠️ **Do not upgrade Prisma past 6.x.** Prisma 7 requires a driver adapter for every
+> database and ships none for MongoDB, so `new PrismaClient()` throws at boot. Prisma's own
+> guidance is that MongoDB users stay on 6.x. Both `prisma` and `@prisma/client` are pinned.
 >
 > - **Findings catalog:** [docs/01-codebase-review.md](./docs/01-codebase-review.md)
 > - **Phased plan with checklists:** [docs/02-roadmap.md](./docs/02-roadmap.md)
@@ -22,14 +26,14 @@ Most budgeting apps treat *Tuition* as a one-off expense and *International FX* 
 
 ---
 
-## 🧠 Why USC Ledger Exists
+## 🧠 Why Orbit Exists
 International students deal with:
 - Multi‑installment tuition plans
 - Constant foreign exchange conversions
 - Category‑heavy budgeting (rent, food, transport, fees)
 - Context that generic finance apps simply don’t understand
 
-USC Ledger is opinionated, precise, and engineered specifically for this environment.
+Orbit is opinionated, precise, and engineered specifically for this environment.
 
 ---
 
@@ -71,7 +75,7 @@ This prevents silent drift (e.g., `$10.10 → 10.08`) and guarantees accuracy ac
 ### 3. Hierarchical Budgeting Logic
 Most apps stop at: **Food**.
 
-USC Ledger supports **recursive allocation**:
+Orbit supports **recursive allocation**:
 - Global parent budgets (e.g., *Food*)
 - Granular sub‑budgets (e.g., *Dining Out*, *USC Village Groceries*)
 
@@ -96,7 +100,39 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 
 ## 🚀 Feature Overview
 
-### 🆕 Latest Release Notes (March 2026)
+### 🆕 Latest Release Notes (August 2026)
+**Multi-account support**
+- New **`account`** field on expenses and incomes — `paymentMethod` says *how* you paid,
+  `account` says *which card or account*, so two cards that are both "Credit Card" stay
+  distinct.
+- The statement importer reads the account off the statement header and stamps every row
+  from that file; it suggests accounts already in use so one card can't end up under two labels.
+- New **Spend by account / card** report.
+
+**Statement import hardening**
+- CSV can now be read by the same AI parser the PDF path uses, so **credit-card payments and
+  internal transfers are excluded** — a bank statement and a card statement can be imported
+  back-to-back without double-counting.
+- Split **Debit / Credit** column layouts import correctly (they previously imported *zero*
+  rows, silently).
+- Accounting amount notations parse: `(45.00)`, `45.00-`, `$45.00 DR/CR`.
+- Bulk imports are **idempotent** — a retry is a no-op instead of a duplicate batch.
+- Duplicate detection is a multiset match, so two genuine identical same-day charges no
+  longer mask every future one.
+
+**Charts & lists**
+- Chart tooltips are opaque (they were 4.5% opacity in dark mode, so gridlines read through them).
+- Fixed **swapped Spent/Budget labels** in the historical-analytics tooltip — it had been
+  reporting over-budget months as under.
+- Transaction lists keep their pagination and per-page dropdown on **every** date range,
+  including *All time*; page sizes now `10 / 25 / 50 / 100 / All`.
+- Hiding tuition is global — Reports and Pivot honour it too (the Tuition tab excepted).
+- Monthly category flow follows the currency toggle, and its legend toggles categories on/off.
+
+**Toolchain**
+- Vite 8 · vitest 4 · TypeScript 7 · pdf-parse 2. Prisma stays on **6.x** (see the note above).
+
+### 🆕 Release Notes (March 2026)
 - Dedicated **AI tab** in navigation (desktop + mobile), separate from transaction views.
 - Refactored AI from one-shot analysis to **interactive account-aware chat**.
 - Added quick-prompt chips and reset flow for faster, focused prompts.
@@ -107,6 +143,27 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
   - temporary login response token compatibility for staggered deploys
 - Replaced external texture asset that caused `noise.svg` 403 with local CSS texture.
 - Removed image preload hints that were generating preload warnings.
+
+### 🏦 Multi-Account Statement Import
+Orbit is built around the awkward reality that one bank PDF can bundle **several accounts**,
+and a credit card arrives as its own separate statement.
+
+- **`account` vs `paymentMethod`** — `paymentMethod` records *how* (Debit Card, ACH, Zelle),
+  `account` records *which source* (`Discover`, `USCCU Checking`). Two cards that are both
+  "Credit Card" stay distinguishable in lists, search and reports.
+- **The importer sets it once per file.** The AI reads the account off the statement header
+  and prefills it; every row from that statement inherits it.
+- **Card payments are excluded automatically.** A "PAYMENT TO DISCOVER" line on your bank
+  statement is a transfer, not spending — the underlying purchases live on the card
+  statement. The parser drops those, along with internal transfers between your own
+  accounts, so both statements can be imported without double-counting.
+- **Statement periods straddle months.** A card statement dated "March" typically runs
+  mid-Feb → mid-March, so its rows land in both calendar months. That's correct, not a bug.
+- **Reconcile:** a card cycle's purchases should equal the payment on the bank statement
+  roughly a month later (you pay in arrears), plus interest and fees.
+
+`server/scripts/backfill-accounts.ts` assigns `account` to rows imported before the field
+existed. Dry-run by default; `--apply` to commit. It never overwrites an account already set.
 
 ### 🎓 Bursar Management
 - Built specifically for USC’s **4‑installment tuition plans**
@@ -121,8 +178,9 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 
 ### 📄 Modular Pagination
 - Reusable frontend component
-- Configurable page size (10 / 25 / 50)
-- Auto-virtualized rendering for very large lists
+- Configurable page size (10 / 25 / 50 / 100 / All)
+- Available on every date range — including *All time*
+- Choosing **All** switches to a virtualized scroll for very large lists
 - Maintains UI performance even with thousands of transactions
 
 ### ⚡ Performance and Loading
@@ -227,8 +285,8 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 |------|------------|
 | Frontend | React, TypeScript, Vite, Tailwind CSS |
 | Backend | Node.js, Express |
-| ORM / DB | Prisma + MongoDB Atlas |
-| Intelligence | Google Gemini 1.5 Flash |
+| ORM / DB | Prisma **6.x** + MongoDB Atlas (Prisma 7 does not support MongoDB) |
+| Intelligence | Google Gemini 2.5 Flash (falls back to 2.5 Flash-Lite) |
 | External APIs | Frankfurter (FX Rates) |
 
 ---
@@ -237,45 +295,78 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/your-username/usc-ledger.git
-cd usc-ledger
+git clone https://github.com/hasnainrazaa03/intelligent-expense-tracker.git
+cd intelligent-expense-tracker
 ```
 
-### 2. Backend Setup
+### 2. Local MongoDB (replica set required)
+Prisma's MongoDB connector needs a **replica set** — a standalone `mongod` will not work.
+The quickest local setup:
+
+```bash
+docker run -d --name orbit-mongo -p 27018:27017 mongo:7 --replSet rs0 --bind_ip_all
+sleep 5
+docker exec orbit-mongo mongosh --quiet --eval \
+  'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+```
+
+After the first run, `docker start orbit-mongo` is enough.
+
+### 3. Backend Setup
 ```bash
 cd server
 npm install
 
 # Create a .env file with:
-# DATABASE_URL="your_mongodb_uri"
+# DATABASE_URL="mongodb://localhost:27018/etracker?replicaSet=rs0&directConnection=true"
 # GEMINI_API_KEY="your_api_key"
-# JWT_SECRET="your_secret"
+# JWT_SECRET="your_secret"          # >= 32 chars
 # FRONTEND_URL="http://localhost:5173"   # recommended for OAuth redirect consistency
 
 npx prisma generate
+npx prisma db push      # creates indexes; safe to re-run
 npm run dev
 ```
 
-### 3. Frontend Setup
+> **Signing in locally:** registration emails an OTP. Without a mail provider configured,
+> verify the account directly:
+> ```bash
+> docker exec orbit-mongo mongosh etracker --quiet --eval \
+>   'db.User.updateOne({email:"you@example.com"},{$set:{isVerified:true}})'
+> ```
+> Five failed sign-ins lock the account for 15 minutes; clear it by resetting
+> `loginAttempts` / `lockUntil` on the user and restarting the server (the per-IP limiter
+> is in-memory).
+
+### 4. Frontend Setup
 ```bash
 cd client
 npm install
 npm run dev
 ```
 
-Open: **http://localhost:5173**
+Open: **http://localhost:5173** (Vite picks the next free port if 5173 is taken — check its output).
 
-### 4. Build Validation
+### 5. Build Validation
 Run these checks after pulling updates:
 
 ```bash
 cd server && npx tsc --noEmit
-cd ../client && npx tsc --noEmit
+cd ../client && npx tsc --noEmit && npx vitest run && npm run build
 ```
 
-Both should complete without TypeScript errors.
+All should complete without errors.
 
-### 5. Deployment Notes (Vercel + Render)
+### 6. Schema changes
+This is MongoDB, so there are no migrations — `db push` syncs **indexes** only, and new
+optional fields need no backfill to start working:
+
+```bash
+cd server
+DATABASE_URL="<target url>" npx prisma db push --skip-generate
+```
+
+### 7. Deployment Notes (Vercel + Render)
 - Vercel (frontend): set Root Directory to `client`, build command `npm run build`, output directory `dist`.
 - Render (backend): set Root Directory to `server`, build command `npm install --include=dev && npm run build`, start command `npm run start`.
 - Backend now binds to `0.0.0.0` via `HOST` (defaults safely), and uses `PORT` from environment.
@@ -291,16 +382,18 @@ Both should complete without TypeScript errors.
 ---
 
 ## 🎨 Design — Cosmic Dark ("Orbit")
-The app shipped as *USC Ledger* with a **Neo‑Brutalist** look. It is migrating to
+The app shipped as *USC Ledger* with a **Neo‑Brutalist** look. It has since migrated to
 **Orbit** — a **dark, cosmic "glassmorphism"** interface: an animated starfield,
 translucent glass panels, an indigo accent, soft glow, and clean **Sora + Inter**
 typography, with a working **light/dark** toggle (dark is the signature theme).
 
-The full token spec, palette (colorblind-validated), and slice-by-slice migration
-plan live in **[docs/design-direction.md](./docs/design-direction.md)**. The
-foundation (design tokens for both themes, fixed dark mode, fonts, starfield,
-theme toggle) is in place; feature surfaces are being restyled slice by slice.
-Financial calculations and data schemas are unchanged.
+The full token spec and palette (colorblind-validated) live in
+**[docs/design-direction.md](./docs/design-direction.md)**. Both themes are complete.
+Financial calculations and data schemas were unchanged by the redesign.
+
+One rule worth keeping: `.glass` uses a **translucent** surface, which is right for page
+chrome but wrong for anything rendered *over* a chart. Tooltips use `.chart-tooltip`
+(opaque `--modal-surface`) so plotted lines don't read through the numbers.
 
 ---
 

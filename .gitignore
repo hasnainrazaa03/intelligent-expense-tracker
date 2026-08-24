@@ -33,3 +33,7 @@ client/playwright-report/
 
 # server runtime logs
 server/logs/
+
+# Real statement rows used by server/scripts/backfill-accounts.ts — personal
+# financial data, keep local only.
+server/scripts/cu-card-rows.json
