@@ -475,8 +475,8 @@ export interface ParsedStatementTxn {
  */
 export const parseStatement = (
   input: { pdf?: string; csvText?: string }
-): Promise<{ transactions: ParsedStatementTxn[] }> => {
-  return fetchApi<{ transactions: ParsedStatementTxn[] }>('/ai/parse-statement', {
+): Promise<{ account?: string; transactions: ParsedStatementTxn[] }> => {
+  return fetchApi<{ account?: string; transactions: ParsedStatementTxn[] }>('/ai/parse-statement', {
     method: 'POST',
     body: JSON.stringify(input),
   });

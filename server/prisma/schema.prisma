@@ -53,6 +53,10 @@ model Expense {
   splitShares      Int[]  // integer cents
   receiptText      String?
   receiptFileName  String?
+  // Which real-world account/card this came from (e.g. "Discover", "USCCU
+  // Checking"). paymentMethod says HOW it was paid; account says WHICH source,
+  // so two cards that are both "Credit Card" stay distinguishable.
+  account          String?
   // Optional: tags this expense to a shared household so members can pool it.
   householdId      String?  @db.ObjectId
   // Idempotency key for offline-queued creates: replaying the same key returns
@@ -63,6 +67,7 @@ model Expense {
   @@index([userId])
   @@index([userId, date])
   @@index([userId, category, date])
+  @@index([userId, account])
   @@index([householdId])
   @@index([userId, clientRequestId])
 }
@@ -78,6 +83,8 @@ model Income {
   originalCurrency String?
   tags             String[]
   metadata         Json?
+  // Which real-world account this landed in. Mirrors Expense.account.
+  account          String?
   // Idempotency key for bulk/offline creates: replaying the same key is a no-op
   // instead of inserting the batch twice. Mirrors Expense.clientRequestId.
   clientRequestId  String?
@@ -85,6 +92,7 @@ model Income {
   userId           String   @db.ObjectId
   @@index([userId])
   @@index([userId, date])
+  @@index([userId, account])
   @@index([userId, clientRequestId])
 }
 

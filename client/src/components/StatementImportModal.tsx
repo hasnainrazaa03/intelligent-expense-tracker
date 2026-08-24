@@ -91,6 +91,11 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   const { displayCurrency, conversionRate } = useCurrency();
 
   const [fileName, setFileName] = useState('');
+  // Which real-world account this statement belongs to. Stamped onto every row
+  // from this file, so two cards that are both "Credit Card" stay apart.
+  const [account, setAccount] = useState(() => {
+    try { return localStorage.getItem('stmtLastAccount') || ''; } catch { return ''; }
+  });
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [pdfMinimized, setPdfMinimized] = useState(false);
   const [pdfPct, setPdfPct] = useState(() => {
@@ -148,6 +153,15 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   const [mapping, setMapping] = useState<Partial<BankColumnMapping>>({});
   const [dateFormat, setDateFormat] = useState<BankDateFormat>('auto');
   const [signMode, setSignMode] = useState<BankParseOptions['signMode']>('auto');
+
+  // Accounts already in use, so the input can suggest them instead of relying on
+  // the user retyping the exact same label (which would split one card in two).
+  const knownAccounts = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of existingExpenses) if (e.account) set.add(e.account);
+    for (const i of existingIncomes) if (i.account) set.add(i.account);
+    return [...set].sort();
+  }, [existingExpenses, existingIncomes]);
 
   const existingExpenseKeys = useMemo(() => countKeys(existingExpenses), [existingExpenses]);
   const existingIncomeKeys = useMemo(() => countKeys(existingIncomes), [existingIncomes]);
@@ -222,8 +236,11 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
         r.readAsDataURL(file);
       });
       setPdfUri(dataUri);
-      const { transactions } = await parseStatement({ pdf: dataUri });
+      const { account: detected, transactions } = await parseStatement({ pdf: dataUri });
       if (!transactions.length) { setError('No transactions were found in that PDF.'); return; }
+      // Prefill from the statement header, but never clobber a label the user
+      // already typed for this import.
+      if (detected && !account.trim()) setAccount(detected);
       setRows(buildRows(transactions));
     } catch (err: any) {
       setError(
@@ -257,8 +274,9 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
     if (!aiCsvAvailable) return;
     setParsing(true); setError(null);
     try {
-      const { transactions } = await parseStatement({ csvText });
+      const { account: detected, transactions } = await parseStatement({ csvText });
       if (!transactions.length) { setError('No transactions were found in that CSV.'); return; }
+      if (detected && !account.trim()) setAccount(detected);
       setRows(buildRows(transactions));
     } catch (err: any) {
       setError(
@@ -363,6 +381,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
       notes: r.notes || undefined,
       tags: parseTags(r.tagsInput),
       isRecurring: r.isRecurring,
+      account: account.trim() || undefined,
     }));
     const incomes: Omit<Income, 'id'>[] = sel.filter((r) => r.type === 'income').map((r) => ({
       title: r.description.slice(0, 120),
@@ -371,8 +390,10 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
       date: r.date,
       notes: r.notes || undefined,
       tags: parseTags(r.tagsInput),
+      account: account.trim() || undefined,
     }));
     if (expenses.length === 0 && incomes.length === 0) return;
+    try { localStorage.setItem('stmtLastAccount', account.trim()); } catch { /* ignore */ }
     onImport({ expenses, incomes });
     close();
   };
@@ -400,6 +421,22 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
               <p className="text-[11px] text-app-muted hidden sm:block">Upload a CSV or PDF — expenses and income are detected for review before importing.</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              {rows && (
+                <label className="hidden sm:flex items-center gap-1.5 text-[11px] text-app-muted">
+                  <span className="whitespace-nowrap">Account</span>
+                  <input
+                    value={account}
+                    onChange={(e) => setAccount(e.target.value)}
+                    list="stmt-account-suggestions"
+                    placeholder="e.g. Discover"
+                    aria-label="Account or card this statement belongs to"
+                    className="w-36 bg-surface border border-app-border rounded-md px-2 py-1.5 text-xs text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  <datalist id="stmt-account-suggestions">
+                    {knownAccounts.map((a) => <option key={a} value={a} />)}
+                  </datalist>
+                </label>
+              )}
               <Button variant="secondary" onClick={close}>Cancel</Button>
               {rows && (
                 <Button onClick={doImport} disabled={selected.length === 0}>

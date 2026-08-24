@@ -19,6 +19,9 @@ export interface Expense {
   splitShares?: number[];
   receiptText?: string;
   receiptFileName?: string;
+  /** Which real-world account/card this came from (e.g. "Discover"). Distinct
+   *  from paymentMethod, which is HOW it was paid. */
+  account?: string;
   userId?: string;
 }
 

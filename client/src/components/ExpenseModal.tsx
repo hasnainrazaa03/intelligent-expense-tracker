@@ -22,9 +22,12 @@ interface ExpenseModalProps {
   expense: Expense | null;
   /** Opens the bank-statement importer (bulk add many at once). */
   onImportStatement?: () => void;
+  /** Accounts already in use, offered as suggestions so one card doesn't end up
+   *  under two slightly different labels. */
+  knownAccounts?: string[];
 }
 
-const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, onImportStatement }) => {
+const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, onImportStatement, knownAccounts = [] }) => {
   const { displayCurrency, conversionRate: parentConversionRate, availableCurrencies } = useCurrency();
   // --- CORE STATE (PRESERVED) ---
   const [title, setTitle] = useState(expense?.title || '');
@@ -32,6 +35,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [category, setCategory] = useState<Category>(expense?.category || 'Miscellaneous');
   const [date, setDate] = useState(todayCalendar());
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [account, setAccount] = useState('');
   const [notes, setNotes] = useState('');
   const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -93,6 +97,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       setCategory(expense.category);
       setDate(expense.date);
       setPaymentMethod(expense.paymentMethod || '');
+      setAccount(expense.account || '');
       setNotes(expense.notes || '');
       setHasManuallySelectedCategory(true);
       setIsRecurring(expense.isRecurring || false);
@@ -254,6 +259,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       category,
       date,
       paymentMethod: paymentMethod.trim() || 'CASH', // Default to cash if empty
+      account: account.trim() || undefined,
       notes: notes.trim() || undefined,
       originalAmount: enterInForeign ? parseFloat(originalAmount) : undefined,
       originalCurrency: enterInForeign ? foreignCurrency : 'USD',
@@ -609,6 +615,21 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                     <option value="">Select method…</option>
                     {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                 </Select>
+            </div>
+
+            <div>
+                <Label htmlFor="exp-account">Account / card (optional)</Label>
+                <Input
+                    id="exp-account"
+                    value={account}
+                    onChange={e => setAccount(e.target.value)}
+                    list="exp-account-suggestions"
+                    placeholder="e.g. Discover"
+                />
+                <datalist id="exp-account-suggestions">
+                    {knownAccounts.map(a => <option key={a} value={a} />)}
+                </datalist>
+                <p className="mt-1.5 text-[11px] text-app-muted">Which card or account this came from — keeps two "Credit Card" sources apart.</p>
             </div>
 
             {/* Household (optional) — only shown when the user has households */}
