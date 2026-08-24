@@ -3,6 +3,7 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense, Budget } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
+import { seriesValue } from '../../utils/chartPayload';
 import { computeBudgetSpend } from '../../utils/budgetUtils';
 import { startOfMonth, endOfMonth, isWithinRange } from '../../utils/dateUtils';
 import ChartEmpty from '../ChartEmpty';
@@ -17,8 +18,8 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
     return (
       <div className="glass glass-blur rounded-xl px-3 py-2">
         <p className="text-[11px] font-medium text-app-muted mb-1">{label}</p>
-        <p className="text-sm tabular-nums" style={{color: payload[0].fill}}>{`Actual: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}</p>
-        <p className="text-sm tabular-nums" style={{color: payload[1].fill}}>{`Budget: ${formatCurrency(payload[1].value, displayCurrency, conversionRate)}`}</p>
+        <p className="text-sm tabular-nums" style={{color: '#14b8a6'}}>{`Actual: ${formatCurrency(seriesValue(payload, 'actual'), displayCurrency, conversionRate)}`}</p>
+        <p className="text-sm tabular-nums" style={{color: '#a8a29e'}}>{`Budget: ${formatCurrency(seriesValue(payload, 'budget'), displayCurrency, conversionRate)}`}</p>
       </div>
     );
   }
