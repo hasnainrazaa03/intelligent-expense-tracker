@@ -12,6 +12,7 @@ import BudgetActualChart from './reports/BudgetActualChart';
 import CategoryDrilldown from './reports/CategoryDrilldown';
 import MonthlyCategoryChart from './reports/MonthlyCategoryChart';
 import PaymentMethodChart from './reports/PaymentMethodChart';
+import AccountChart from './reports/AccountChart';
 import RecurringVsOneTimeChart from './reports/RecurringVsOneTimeChart';
 import TimePeriodSummaries from './reports/TimePeriodSummaries';
 import YearOverYearChart from './reports/YearOverYearChart';
@@ -235,6 +236,13 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
           <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Payment method distribution</h4>
           <div className="flex-1 min-h-[16rem]">
             <PaymentMethodChart expenses={allExpenses} />
+          </div>
+        </div>
+
+        <div className="glass rounded-2xl p-4 md:p-6 min-w-0 flex flex-col">
+          <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Spend by account / card</h4>
+          <div className="flex-1 min-h-[16rem]">
+            <AccountChart expenses={allExpenses} />
           </div>
         </div>
 

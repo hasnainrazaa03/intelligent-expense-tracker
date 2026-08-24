@@ -506,7 +506,10 @@ Each real transaction must appear EXACTLY ONCE even if it is echoed in a per-acc
     - PERSONAL CARE: salons, barbers, cosmetics. GENERAL big-box (Target, Walmart, Amazon) with no other signal -> "Other" (or the item type if evident).
   * INCOME — choose from EXACTLY: ${JSON.stringify(INCOME_CATEGORIES)}. payroll/employer/direct deposit -> "Salary"; freelance/client/contract/gig -> "Freelance"; interest/dividends/investment -> "Investment"; rent received -> "Rental Income"; loan disbursement / student loan / financial aid / "loan" credit -> "Loan"; anything else (P2P received, refunds, cash deposits, gifts of money, misc) -> "Other".
 
-Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} items, ordered as they appear. No markdown, no commentary.`;
+=== ACCOUNT (statement-level, not per transaction) ===
+Also return "account": a SHORT label for the account/card this statement belongs to, taken from the statement header — the issuer or product name plus the last 4 digits if shown. Examples: "Discover ...9663", "USCCU Checking", "Chase Sapphire ...1234". If the statement clearly covers multiple accounts, use the primary one. If you genuinely cannot tell, use "".
+
+Return ONLY a JSON object {"account": "...", "transactions":[...]}, at most ${MAX_STATEMENT_TXNS} items, ordered as they appear. No markdown, no commentary.`;
 
   if (typeof pdf === 'string' && pdf) {
     const match = pdf.match(/^data:application\/pdf;base64,([a-z0-9+/=\s]+)$/i);
@@ -609,7 +612,8 @@ Return ONLY a JSON object {"transactions":[...]}, at most ${MAX_STATEMENT_TXNS} 
       .filter((t) => t.description && t.amount > 0)
       .slice(0, MAX_STATEMENT_TXNS);
 
-    return res.json({ transactions });
+    const account = typeof parsed?.account === 'string' ? parsed.account.trim().slice(0, 60) : '';
+    return res.json({ account, transactions });
   } catch (error) {
     console.error('Statement parse error:', error);
     return res.status(500).json({ message: 'Failed to parse the statement.' });

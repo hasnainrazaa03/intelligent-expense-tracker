@@ -50,6 +50,7 @@ router.post('/', async (req: Request, res: Response) => {
     splitShares,
     receiptText,
     receiptFileName,
+    account,
     householdId,
     clientRequestId,
   } = req.body;
@@ -61,6 +62,7 @@ router.post('/', async (req: Request, res: Response) => {
   const safeTaxCategory = sanitizeText(taxCategory);
   const safeReceiptText = sanitizeText(receiptText);
   const safeReceiptFileName = sanitizeText(receiptFileName);
+  const safeAccount = sanitizeText(account);
   const safeTags = normalizeTags(tags);
   const safeMetadata = normalizeMetadata(metadata);
   const safeSplitParticipants = normalizeStringArray(splitParticipants);
@@ -130,6 +132,7 @@ router.post('/', async (req: Request, res: Response) => {
         splitShares: safeSplitShares.map(toCents),
         receiptText: safeReceiptText || undefined,
         receiptFileName: safeReceiptFileName || undefined,
+        account: safeAccount || undefined,
         householdId: resolvedHouseholdId,
         clientRequestId: typeof clientRequestId === 'string' ? clientRequestId : undefined,
         userId: userId,
@@ -169,6 +172,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     splitShares,
     receiptText,
     receiptFileName,
+    account,
     householdId,
     clientRequestId,
   } = req.body;
@@ -180,6 +184,7 @@ router.put('/:id', async (req: Request, res: Response) => {
   const safeTaxCategory = sanitizeText(taxCategory);
   const safeReceiptText = sanitizeText(receiptText);
   const safeReceiptFileName = sanitizeText(receiptFileName);
+  const safeAccount = sanitizeText(account);
   const safeTags = normalizeTags(tags);
   const safeMetadata = normalizeMetadata(metadata);
   const safeSplitParticipants = normalizeStringArray(splitParticipants);
@@ -243,6 +248,9 @@ router.put('/:id', async (req: Request, res: Response) => {
         splitShares: safeSplitShares.map(toCents),
         receiptText: safeReceiptText || undefined,
         receiptFileName: safeReceiptFileName || undefined,
+        // null (not undefined) so clearing the field in the form actually
+        // unsets it — undefined would leave the old account in place.
+        account: safeAccount || null,
         householdId: resolvedHouseholdId,
       },
     });
@@ -399,6 +407,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         splitShares: normalizeNumberArray(expense.splitShares).map(toCents),
         receiptText: sanitizeOptionalText(expense.receiptText),
         receiptFileName: sanitizeOptionalText(expense.receiptFileName),
+        account: sanitizeOptionalText(expense.account),
         householdId: resolvedHouseholdId,
         clientRequestId: batchId ? `${batchId}#${index}` : undefined,
         userId: userId,

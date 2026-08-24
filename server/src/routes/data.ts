@@ -157,6 +157,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           splitShares: normalizeNumberArray(e.splitShares).map(toCents),
           receiptText: sanitizeOptionalText(e.receiptText),
           receiptFileName: sanitizeOptionalText(e.receiptFileName),
+          account: sanitizeOptionalText(e.account),
           userId,
         };
       });

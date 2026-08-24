@@ -19,6 +19,9 @@ export interface Expense {
   splitShares?: number[];
   receiptText?: string;
   receiptFileName?: string;
+  /** Which real-world account/card this came from (e.g. "Discover"). Distinct
+   *  from paymentMethod, which is HOW it was paid. */
+  account?: string;
   /** Optional: tags this expense to a shared household. */
   householdId?: string | null;
   /** Idempotency key for offline-queued creates (dedupes replays). */
@@ -36,6 +39,8 @@ export interface Income {
   originalCurrency?: string;
   tags?: string[];
   metadata?: Record<string, string>;
+  /** Which real-world account this landed in. Mirrors Expense.account. */
+  account?: string;
 }
 
 export interface InvestmentAccount {

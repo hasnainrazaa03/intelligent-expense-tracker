@@ -74,6 +74,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         notes: sanitizeText(income.notes) || undefined,
         tags: normalizeTags(income.tags),
         metadata: normalizeMetadata(income.metadata),
+        account: sanitizeText(income.account) || undefined,
         clientRequestId: batchId ? `${batchId}#${index}` : undefined,
         userId,
       };
@@ -91,13 +92,14 @@ router.post('/bulk', async (req: Request, res: Response) => {
 // POST /api/incomes
 router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { title, amount, category, date, notes, originalAmount, originalCurrency, tags, metadata } = req.body;
+  const { title, amount, category, date, notes, originalAmount, originalCurrency, tags, metadata, account } = req.body;
 
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
   const safeNotes = sanitizeText(notes);
   const safeTags = normalizeTags(tags);
   const safeMetadata = normalizeMetadata(metadata);
+  const safeAccount = sanitizeText(account);
 
   if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
@@ -135,6 +137,7 @@ router.post('/', async (req: Request, res: Response) => {
         originalCurrency: originalCurrency || undefined,
         tags: safeTags,
         metadata: safeMetadata,
+        account: safeAccount || undefined,
         userId: userId,
       },
     });
@@ -154,13 +157,14 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const incomeId = req.params.id;
-  const { title, amount, category, date, notes, originalAmount, originalCurrency, tags, metadata } = req.body;
+  const { title, amount, category, date, notes, originalAmount, originalCurrency, tags, metadata, account } = req.body;
 
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
   const safeNotes = sanitizeText(notes);
   const safeTags = normalizeTags(tags);
   const safeMetadata = normalizeMetadata(metadata);
+  const safeAccount = sanitizeText(account);
 
   if (!safeTitle || amount == null || !safeCategory || !date) {
     return res.status(400).json({ message: 'Missing required fields' });
@@ -201,6 +205,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         originalCurrency: originalCurrency || undefined,
         tags: safeTags,
         metadata: safeMetadata,
+        account: safeAccount || null,
       },
     });
 

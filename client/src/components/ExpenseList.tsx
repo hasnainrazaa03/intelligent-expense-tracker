@@ -101,6 +101,20 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave,
                       {expense.paymentMethod && (
                           <p className="text-[11px] text-app-muted flex items-center md:justify-end mt-1">
                               <CreditCardIcon className="h-3 w-3 mr-1" /> {expense.paymentMethod}
+                              {/* The account disambiguates two sources that share a
+                                  payment method (e.g. two different credit cards). */}
+                              {expense.account && (
+                                <span className="ml-1.5 px-1.5 py-0.5 rounded bg-surface-2 border border-app-border text-app-faint">
+                                  {expense.account}
+                                </span>
+                              )}
+                          </p>
+                      )}
+                      {!expense.paymentMethod && expense.account && (
+                          <p className="text-[11px] text-app-muted flex items-center md:justify-end mt-1">
+                              <span className="px-1.5 py-0.5 rounded bg-surface-2 border border-app-border text-app-faint">
+                                {expense.account}
+                              </span>
                           </p>
                       )}
                       {isInlineEditing && (

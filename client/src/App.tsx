@@ -864,6 +864,15 @@ const handleDeleteIncome = async (id: string) => {
   const incomeHubIncomesView = useMemo(() => stripTuition(incomeHubIncomes, hideTuition), [incomeHubIncomes, hideTuition]);
   const incomeHubPrevView = useMemo(() => stripTuition(incomeHubPrevIncomes, hideTuition), [incomeHubPrevIncomes, hideTuition]);
 
+  // Accounts already in use across expenses and incomes — offered as suggestions
+  // wherever an account can be typed, so one card can't end up under two labels.
+  const knownAccounts = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of expenses) if (e.account) set.add(e.account);
+    for (const i of incomes) if (i.account) set.add(i.account);
+    return [...set].sort();
+  }, [expenses, incomes]);
+
   const searchedAndSortedItems = useMemo(() => {
     const itemsToFilter = activeView === 'income' ? [...incomeHubIncomes] : [...filteredExpenses];
 
@@ -881,7 +890,9 @@ const handleDeleteIncome = async (id: string) => {
           // on expenses without a dedicated account field. (Incomes have none.)
           const method = (item as Partial<Expense>).paymentMethod;
           const methodMatch = method ? fuzzyMatch(query, method, threshold) : false;
-          return titleMatch || categoryMatch || notesMatch || tagMatch || methodMatch;
+          // Account makes "discover" / "usccu" isolate one card's transactions.
+          const accountMatch = item.account ? fuzzyMatch(query, item.account, threshold) : false;
+          return titleMatch || categoryMatch || notesMatch || tagMatch || methodMatch || accountMatch;
         })
       : itemsToFilter;
 
@@ -1251,6 +1262,7 @@ const handleDeleteIncome = async (id: string) => {
                   onSave={editingExpense ? handleUpdateExpense : handleAddExpense}
                   expense={editingExpense}
                   onImportStatement={() => { setIsExpenseModalOpen(false); setIsStatementImportOpen(true); }}
+                  knownAccounts={knownAccounts}
                 />
               </Suspense>
             )}
