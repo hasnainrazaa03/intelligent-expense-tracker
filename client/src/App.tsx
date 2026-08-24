@@ -942,11 +942,11 @@ const handleDeleteIncome = async (id: string) => {
         case 'ai':
           return <AiAnalyst expenses={expenses} incomes={incomes} />;
         case 'pivot':
-            return <PivotAnalysis expenses={expenses} />;
+            return <PivotAnalysis expenses={hubAllExpenses} />;
         case 'usc':
             return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onUpdateInstallmentCount={handleUpdateInstallmentCount} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} />;
         case 'reports':
-          return <Reports allExpenses={expenses} budgets={budgets} isLoading={isLoadingData} />;
+          return <Reports allExpenses={hubAllExpenses} budgets={budgets} isLoading={isLoadingData} />;
         default: return null;
     }
   };

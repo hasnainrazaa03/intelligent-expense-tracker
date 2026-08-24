@@ -25,7 +25,7 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
     const spent = seriesValue(payload, 'spent');
     const budgeted = seriesValue(payload, 'budgeted');
     return (
-      <div className="glass glass-blur rounded-xl px-3 py-2 z-50">
+      <div className="chart-tooltip rounded-xl px-3 py-2.5 z-50">
         <p className="text-[11px] font-medium text-app-muted mb-1.5">{label}</p>
         <p className="font-display text-sm font-bold text-danger tabular-nums">
           {`Spent: ${formatCurrency(spent, displayCurrency, conversionRate)}`}

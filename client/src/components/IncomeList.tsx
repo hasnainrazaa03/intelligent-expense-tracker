@@ -154,17 +154,28 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
 
-  const shouldVirtualize = incomes.length >= APP_CONFIG.maxVirtualizedItemsThreshold;
+  // Virtualize only when the user explicitly picks "All" as the page size.
+  // Previously this was a row-count threshold, so ANY range returning >=75 rows
+  // silently lost its pagination controls and became an unbounded scroll — the
+  // per-page dropdown vanished exactly when it was most needed.
+  const shouldVirtualize = itemsPerPage === 'all';
+  const pageSize = itemsPerPage === 'all' ? incomes.length || 1 : itemsPerPage;
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: APP_CONFIG.virtualRowHeight });
 
   React.useEffect(() => {
     setCurrentPage(1);
   }, [incomes.length]);
 
-  const totalPages = Math.ceil(incomes.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(incomes.length / pageSize));
+
+  // Switching filters (or page size) can leave currentPage past the end — clamp
+  // rather than render an empty page.
+  React.useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
   const paginatedIncomes = incomes.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
   const handleConfirmDelete = () => {
@@ -180,18 +191,19 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
         <h2 className="font-display text-xl md:text-2xl font-bold text-app-text truncate">Income stream</h2>
         <div className="flex items-center gap-2 flex-wrap">
           {dateFilter}
-          {!shouldVirtualize && (
+          {(
             <select
               aria-label="Income rows per page"
               value={itemsPerPage}
               onChange={(e) => {
-                setItemsPerPage(Number(e.target.value) as PageSizeOption);
+                const v = e.target.value;
+                setItemsPerPage((v === 'all' ? 'all' : Number(v)) as PageSizeOption);
                 setCurrentPage(1);
               }}
               className="bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-xs text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               {PAGE_SIZE_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}/page</option>
+                <option key={option} value={option}>{option === 'all' ? 'All' : `${option}/page`}</option>
               ))}
             </select>
           )}
@@ -241,7 +253,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
                 totalItems={incomes.length}
-                itemsPerPage={itemsPerPage}
+                itemsPerPage={pageSize}
               />
           </>
         )}
