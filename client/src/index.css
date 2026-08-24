@@ -248,6 +248,18 @@
     box-shadow: var(--shadow);
   }
 
+  /* Chart tooltips sit ON TOP of dense plotted lines, so they must be OPAQUE.
+     `.glass` uses --surface, which is rgba(255,255,255,0.045) in dark mode —
+     4.5% opacity, so gridlines and series read straight through the numbers.
+     This uses the solid --modal-surface plus a stronger shadow to lift it off
+     the plot. No backdrop-filter: tooltips move with the cursor, and re-blurring
+     every frame is expensive. */
+  .chart-tooltip {
+    background: var(--modal-surface);
+    border: 1px solid var(--border-strong, var(--border));
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  }
+
   /* AI markdown — styled to read like a briefing, not a wall of text */
   .ai-markdown { font-size: 0.9rem; }
   .ai-markdown > :first-child { margin-top: 0; }
