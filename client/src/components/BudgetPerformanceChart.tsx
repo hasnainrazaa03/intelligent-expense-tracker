@@ -4,6 +4,7 @@ import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Respon
 import { formatCurrency } from '../utils/currencyUtils';
 import { useTheme } from '../hooks/useTheme';
 import { getChartColors } from '../utils/chartTheme';
+import { seriesValue } from '../utils/chartPayload';
 
 interface ChartData {
   name: string;
@@ -17,14 +18,20 @@ interface BudgetPerformanceChartProps {
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
   if (active && payload && payload.length) {
+    // Read by dataKey, never by index: the budget <Line> is declared BEFORE the
+    // spent <Area>, so payload[0] is the BUDGET. Indexing positionally printed
+    // the budget under "Spent" and the spend under "Budget" — inverting whether
+    // a month looked over or under budget.
+    const spent = seriesValue(payload, 'spent');
+    const budgeted = seriesValue(payload, 'budgeted');
     return (
       <div className="glass glass-blur rounded-xl px-3 py-2 z-50">
         <p className="text-[11px] font-medium text-app-muted mb-1.5">{label}</p>
         <p className="font-display text-sm font-bold text-danger tabular-nums">
-          {`Spent: ${formatCurrency(payload[0].value, displayCurrency, conversionRate)}`}
+          {`Spent: ${formatCurrency(spent, displayCurrency, conversionRate)}`}
         </p>
         <p className="text-xs font-medium text-app-muted tabular-nums">
-          {`Budget: ${formatCurrency(payload[1].value, displayCurrency, conversionRate)}`}
+          {`Budget: ${formatCurrency(budgeted, displayCurrency, conversionRate)}`}
         </p>
       </div>
     );
