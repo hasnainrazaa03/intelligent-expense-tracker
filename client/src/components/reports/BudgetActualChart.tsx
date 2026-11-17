@@ -4,7 +4,7 @@ import { Expense, Budget } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { seriesValue } from '../../utils/chartPayload';
-import { computeBudgetSpend } from '../../utils/budgetUtils';
+import { computeBudgetSpend, budgetLabel } from '../../utils/budgetUtils';
 import { startOfMonth, endOfMonth, isWithinRange } from '../../utils/dateUtils';
 import ChartEmpty from '../ChartEmpty';
 
@@ -38,9 +38,10 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
     const monthEnd = endOfMonth();
     const monthlyExpenses = expenses.filter((exp) => isWithinRange(exp.date, monthStart, monthEnd));
 
+    const budgetCategories = budgets.map((b) => b.category);
     return budgets.map(budget => ({
-      name: budget.category,
-      actual: computeBudgetSpend(budget.category, monthlyExpenses),
+      name: budgetLabel(budget.category, budgetCategories),
+      actual: computeBudgetSpend(budget.category, monthlyExpenses, budgetCategories),
       budget: budget.amount,
     }));
   }, [expenses, budgets]);

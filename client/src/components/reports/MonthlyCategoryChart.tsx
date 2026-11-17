@@ -1,7 +1,8 @@
+import { getMainCategory } from '../../utils/colorUtils';
 import React, { useMemo, useState } from 'react';
 import { Expense } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP, CATEGORY_COLORS } from '../../constants';
+import { CATEGORIES, CATEGORY_COLORS } from '../../constants';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 
@@ -29,7 +30,7 @@ const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses })
     expenses.forEach(expense => {
       const date = new Date(expense.date);
       const monthKey = date.toLocaleString('default', { month: 'short', year: '2-digit', timeZone: 'UTC' });
-      const mainCategory = SUBCATEGORY_TO_CATEGORY_MAP[expense.category] || 'Miscellaneous';
+      const mainCategory = getMainCategory(expense.category);
 
       if (!monthlyData[monthKey]) {
         // Numeric sort key (year*12 + month) — reliable across engines, unlike
