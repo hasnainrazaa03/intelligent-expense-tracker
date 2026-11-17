@@ -6,7 +6,7 @@ import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
-import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray } from '../utils/normalize';
+import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, expenseToClient, incomeToClient, budgetToClient, semesterToClient } from '../utils/money';
 
 const router = Router();
@@ -147,7 +147,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           paymentMethod: sanitizeOptionalText(e.paymentMethod),
           notes: sanitizeOptionalText(e.notes),
           originalAmount: e.originalAmount != null ? toCents(toFinPrecision(parseFiniteFloat(e.originalAmount) ?? 0)) : undefined,
-          originalCurrency: sanitizeOptionalText(e.originalCurrency),
+          originalCurrency: normalizeCurrencyCode(e.originalCurrency),
           isRecurring: Boolean(e.isRecurring),
           tags: normalizeTags(e.tags),
           metadata: normalizeMetadata(e.metadata),
@@ -180,7 +180,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           date,
           notes: sanitizeOptionalText(i.notes),
           originalAmount: i.originalAmount != null ? toCents(toFinPrecision(parseFiniteFloat(i.originalAmount) ?? 0)) : undefined,
-          originalCurrency: sanitizeOptionalText(i.originalCurrency),
+          originalCurrency: normalizeCurrencyCode(i.originalCurrency),
           tags: normalizeTags(i.tags),
           metadata: normalizeMetadata(i.metadata),
           userId,
