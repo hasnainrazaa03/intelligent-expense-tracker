@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Income } from '../types';
 import { 
@@ -12,7 +12,7 @@ import SectionSkeleton from './SectionSkeleton';
 import { List, RowComponentProps, useDynamicRowHeight } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
 import ConfirmationDialog from './ConfirmationDialog';
-import useUndoableDelete from '../hooks/useUndoableDelete';
+import useUndoableDelete, { usePendingDeleteIds, UNDO_WINDOW_MS } from '../hooks/useUndoableDelete';
 import { Button, IconButton } from './ui';
 
 interface IncomeListProps {
@@ -148,9 +148,15 @@ const VirtualIncomeRow = ({ index, style, incomes, onEdit, onQuickSave, onDelete
   );
 };
 
-const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter }) => {
+const IncomeList: React.FC<IncomeListProps> = ({ incomes: allIncomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
   const scheduleDelete = useUndoableDelete(onDelete);
+  // Rows with a delete pending disappear at once; UNDO brings them back.
+  const pendingDeleteIds = usePendingDeleteIds();
+  const incomes = useMemo(
+    () => (pendingDeleteIds.size ? allIncomes.filter((i) => !pendingDeleteIds.has(i.id)) : allIncomes),
+    [allIncomes, pendingDeleteIds]
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
 
@@ -273,7 +279,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes, onEdit, onQuickSave, o
         onConfirm={handleConfirmDelete}
         title="Delete income?"
       >
-        This income record will be permanently deleted. This action cannot be undone.
+        This income record will be deleted. You'll have {UNDO_WINDOW_MS / 1000} seconds to undo it.
       </ConfirmationDialog>
     </div>
   );

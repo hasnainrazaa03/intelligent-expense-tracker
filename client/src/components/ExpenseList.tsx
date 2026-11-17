@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense } from '../types';
 import { getCategoryColor } from '../utils/colorUtils';
@@ -13,7 +13,7 @@ import SectionSkeleton from './SectionSkeleton';
 import { List, RowComponentProps, useDynamicRowHeight } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
 import ConfirmationDialog from './ConfirmationDialog';
-import useUndoableDelete from '../hooks/useUndoableDelete';
+import useUndoableDelete, { usePendingDeleteIds, UNDO_WINDOW_MS } from '../hooks/useUndoableDelete';
 import { Button, IconButton } from './ui';
 
 interface ExpenseListProps {
@@ -187,9 +187,15 @@ const VirtualExpenseRow = ({ index, style, expenses, onEdit, onQuickSave, onDele
   );
 };
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses: allExpenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
   const scheduleDelete = useUndoableDelete(onDelete);
+  // Rows with a delete pending disappear at once; UNDO brings them back.
+  const pendingDeleteIds = usePendingDeleteIds();
+  const expenses = useMemo(
+    () => (pendingDeleteIds.size ? allExpenses.filter((e) => !pendingDeleteIds.has(e.id)) : allExpenses),
+    [allExpenses, pendingDeleteIds]
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<PageSizeOption>(APP_CONFIG.defaultItemsPerPage as PageSizeOption);
 
@@ -314,7 +320,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, onEdit, onQuickSave
         onConfirm={handleConfirmDelete}
         title="Delete transaction?"
       >
-        You're about to permanently delete this transaction. This action cannot be undone.
+        This transaction will be deleted. You'll have {UNDO_WINDOW_MS / 1000} seconds to undo it.
       </ConfirmationDialog>
     </div>
   );
