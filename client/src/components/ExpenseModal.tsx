@@ -30,7 +30,7 @@ interface ExpenseModalProps {
 }
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, onImportStatement, knownAccounts = [] }) => {
-  const { displayCurrency, conversionRate: parentConversionRate, availableCurrencies } = useCurrency();
+  const { displayCurrency, rateForEntry, availableCurrencies } = useCurrency();
   // --- CORE STATE (PRESERVED) ---
   const [title, setTitle] = useState(expense?.title || '');
   const [amount, setAmount] = useState(''); 
@@ -75,7 +75,10 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
   // Reuse the cached display rate only when the entry currency matches it;
   // otherwise the hook fetches the correct foreign→USD rate itself.
-  const parentRateForForeign = foreignCurrency === displayCurrency ? (parentConversionRate ?? null) : null;
+  // Only a fresh real rate (rateForEntry) — never the hardcoded fallback or an
+  // old cached table, which used to become the saved USD amount silently. Without
+  // one, the hook fetches today's rate itself, and blocks the save if it can't.
+  const parentRateForForeign = foreignCurrency === displayCurrency ? rateForEntry : null;
   const {
     convertedAmount,
     rate: conversionRate,

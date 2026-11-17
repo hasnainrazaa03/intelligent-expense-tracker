@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
+import useEntryCurrency from '../hooks/useEntryCurrency';
 import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
@@ -31,6 +32,9 @@ const templateKey = (e: Expense): string => `${e.title}|${e.category}|${e.amount
 
 const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expenses, incomes }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  // Typed amounts are in the entry currency and stored in USD (they used to be
+  // stored as typed, then shown multiplied by the display rate).
+  const entry = useEntryCurrency();
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
     try {
       const parsed = JSON.parse(localStorage.getItem(SAVINGS_GOALS_KEY) || '[]');
@@ -95,7 +99,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           name: newAccountName.trim(),
           type: newAccountType,
-          value: parsed,
+          value: entry.toUsd(parsed),
           asOf: todayIso(),
         },
       ];
@@ -115,7 +119,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
     if (!newGoalName.trim() || !Number.isFinite(target) || target <= 0) return;
     persistSavingsGoals([
       ...savingsGoals,
-      { id: `${Date.now()}-${savingsGoals.length}`, name: newGoalName.trim(), target, saved: 0, deadline: newGoalDeadline || undefined },
+      { id: `${Date.now()}-${savingsGoals.length}`, name: newGoalName.trim(), target: entry.toUsd(target), saved: 0, deadline: newGoalDeadline || undefined },
     ]);
     setNewGoalName('');
     setNewGoalTarget('');
@@ -124,7 +128,8 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const addFundsToGoal = (id: string) => {
     const amount = Number.parseFloat(fundInputs[id] || '');
     if (!Number.isFinite(amount) || amount === 0) return;
-    persistSavingsGoals(savingsGoals.map((g) => (g.id === id ? { ...g, saved: Math.max(0, g.saved + amount) } : g)));
+    const usd = entry.toUsd(amount);
+    persistSavingsGoals(savingsGoals.map((g) => (g.id === id ? { ...g, saved: Math.max(0, g.saved + usd) } : g)));
     setFundInputs((prev) => ({ ...prev, [id]: '' }));
   };
   const removeSavingsGoal = (id: string) => persistSavingsGoals(savingsGoals.filter((g) => g.id !== id));
@@ -383,7 +388,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
 
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mb-2">
             <input value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)} className={fieldCls} placeholder="Goal name (e.g. Emergency fund)" />
-            <input type="number" value={newGoalTarget} onChange={(e) => setNewGoalTarget(e.target.value)} className={`${fieldCls} sm:w-28`} placeholder="Target" aria-label="Goal target amount" />
+            <input type="number" value={newGoalTarget} onChange={(e) => setNewGoalTarget(e.target.value)} className={`${fieldCls} sm:w-28`} placeholder={`Target (${entry.symbol})`} aria-label={`Goal target amount in ${entry.currency}`} />
           </div>
           <div className="flex gap-2 mb-3">
             <DatePicker value={newGoalDeadline} onChange={setNewGoalDeadline} className={`flex-1 ${fieldCls}`} placeholder="Deadline (optional)" aria-label="Goal deadline (optional)" />
@@ -411,7 +416,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
                     {fc.label}{goal.deadline ? ` · due ${goal.deadline}${fc.onTrack === false ? ' (behind)' : fc.onTrack ? ' (on track)' : ''}` : ''}
                   </p>
                   <div className="flex gap-2 mt-2">
-                    <input type="number" value={fundInputs[goal.id] || ''} onChange={(e) => setFundInputs((prev) => ({ ...prev, [goal.id]: e.target.value }))} className={`flex-1 ${fieldCls}`} placeholder="Add funds" aria-label={`Add funds to ${goal.name}`} />
+                    <input type="number" value={fundInputs[goal.id] || ''} onChange={(e) => setFundInputs((prev) => ({ ...prev, [goal.id]: e.target.value }))} className={`flex-1 ${fieldCls}`} placeholder={`Add funds (${entry.symbol})`} aria-label={`Add funds to ${goal.name}, in ${entry.currency}`} />
                     <Button size="sm" onClick={() => addFundsToGoal(goal.id)} className="px-3">+ Fund</Button>
                   </div>
                 </div>
@@ -577,7 +582,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
               <option value="loan">Loan</option>
               <option value="other">Other</option>
             </select>
-            <input type="number" value={newAccountValue} onChange={(e) => setNewAccountValue(e.target.value)} className={fieldCls} placeholder="Value" />
+            <input type="number" value={newAccountValue} onChange={(e) => setNewAccountValue(e.target.value)} className={fieldCls} placeholder={`Value (${entry.symbol})`} aria-label={`Account value in ${entry.currency}`} />
           </div>
           <Button size="sm" onClick={addInvestmentAccount} className="mt-2.5">Add account</Button>
           <div className="mt-3 space-y-1.5 max-h-28 overflow-y-auto">

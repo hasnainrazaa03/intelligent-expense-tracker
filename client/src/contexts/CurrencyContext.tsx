@@ -10,6 +10,11 @@ interface CurrencyContextValue {
   /** True when INR is falling back to the hardcoded rate, or a non-USD currency
    *  has no rate yet — figures are approximate/unavailable, so the UI can flag it. */
   isRateFallback: boolean;
+  /** USD→displayCurrency rate that's safe for turning a TYPED amount into the
+   *  stored USD value: 1 for USD, otherwise a real rate fetched within the last
+   *  day. Null when only the hardcoded fallback or an old cached table exists —
+   *  then inputs take USD instead, so a wrong rate is never baked into data. */
+  rateForEntry: number | null;
   /** Currencies offered in the picker. */
   availableCurrencies: CurrencyMeta[];
 }
@@ -19,6 +24,8 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 const RATE_TABLE_KEY = 'usdRateTableV2';
 const DISPLAY_CURRENCY_KEY = 'displayCurrency';
 const ONE_HOUR_MS = 60 * 60 * 1000;
+// Oldest fetched table still trusted for converting typed amounts.
+const MAX_ENTRY_RATE_AGE_MS = 24 * ONE_HOUR_MS;
 // Last-resort USD→INR rate so the historically INR-default users never see "..."
 // when the live FX API is unreachable. Only applies to INR.
 const FALLBACK_USD_INR = 87.5;
@@ -47,6 +54,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return new Date().getTimezoneOffset() === -330 ? 'INR' : 'USD';
   });
   const [rates, setRates] = useState<RateTable | null>(() => readRateTable()?.rates ?? null);
+  const [ratesFetchedAt, setRatesFetchedAt] = useState<number>(() => readRateTable()?.timestamp ?? 0);
 
   const setDisplayCurrency = (currency: string) => {
     setDisplayCurrencyState(currency);
@@ -60,6 +68,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const cached = readRateTable();
       if (cached && Date.now() - cached.timestamp < ONE_HOUR_MS) {
         setRates(cached.rates);
+        setRatesFetchedAt(cached.timestamp);
         return;
       }
       try {
@@ -67,11 +76,13 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (!response.ok) throw new Error('Failed to fetch rates');
         const data = await response.json();
         if (!data?.rates || typeof data.rates !== 'object') throw new Error('Unexpected rate response shape');
+        const fetchedAt = Date.now();
         setRates(data.rates);
-        localStorage.setItem(RATE_TABLE_KEY, JSON.stringify({ rates: data.rates, timestamp: Date.now() }));
+        setRatesFetchedAt(fetchedAt);
+        localStorage.setItem(RATE_TABLE_KEY, JSON.stringify({ rates: data.rates, timestamp: fetchedAt }));
       } catch (error) {
         console.error('Could not fetch conversion rates:', error);
-        if (cached) setRates(cached.rates); // keep the stale-but-real table
+        if (cached) { setRates(cached.rates); setRatesFetchedAt(cached.timestamp); } // keep the stale-but-real table
       }
     };
     fetchRates();
@@ -91,8 +102,15 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return !(typeof live === 'number' && Number.isFinite(live));
   }, [rates, displayCurrency]);
 
+  const rateForEntry = useMemo<number | null>(() => {
+    if (displayCurrency === 'USD') return 1;
+    const live = rates?.[displayCurrency];
+    if (!(typeof live === 'number' && Number.isFinite(live) && live > 0)) return null;
+    return Date.now() - ratesFetchedAt <= MAX_ENTRY_RATE_AGE_MS ? live : null;
+  }, [rates, ratesFetchedAt, displayCurrency]);
+
   return (
-    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, conversionRate, isRateFallback, availableCurrencies: SUPPORTED_CURRENCIES }}>
+    <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, conversionRate, isRateFallback, rateForEntry, availableCurrencies: SUPPORTED_CURRENCIES }}>
       {children}
     </CurrencyContext.Provider>
   );
