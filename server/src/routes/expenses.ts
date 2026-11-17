@@ -24,12 +24,16 @@ const MAX_SHORT_TEXT_LENGTH = 200;
 const MAX_RECEIPT_TEXT_LENGTH = 5000;
 
 // Validate an optional household tag: returns the id only if the user is an
-// active member (so nobody can tag an expense into a household they're not in),
-// null when untagged, or 'FORBIDDEN' when they aren't a member.
-const resolveHouseholdId = async (userId: string, householdId: unknown): Promise<string | null | 'FORBIDDEN'> => {
+// active member, so nobody can tag an expense into a household they're not in.
+// Otherwise the expense is saved untagged rather than refused (S10): the form
+// only offers households you're in, so a non-member id comes from stale state
+// (a copy cached before you left or were removed, another tab, an offline save
+// replayed later). Refusing with 403 lost the edit, and the offline queue
+// retries 403s, so a queued expense stayed stuck forever.
+const resolveHouseholdId = async (userId: string, householdId: unknown): Promise<string | null> => {
   if (!householdId || typeof householdId !== 'string') return null;
   const member = await prisma.householdMember.findFirst({ where: { householdId, userId, status: 'active' } });
-  return member ? householdId : 'FORBIDDEN';
+  return member ? householdId : null;
 };
 
 // --- 1. Create new Expense ---
@@ -113,9 +117,6 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   const resolvedHouseholdId = await resolveHouseholdId(userId, householdId);
-  if (resolvedHouseholdId === 'FORBIDDEN') {
-    return res.status(403).json({ message: 'You are not a member of that household.' });
-  }
 
   // Idempotency (offline replay): if this client key already created an expense
   // for this user, return that one instead of creating a duplicate. The lock
@@ -247,9 +248,6 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 
   const resolvedHouseholdId = await resolveHouseholdId(userId, householdId);
-  if (resolvedHouseholdId === 'FORBIDDEN') {
-    return res.status(403).json({ message: 'You are not a member of that household.' });
-  }
 
   try {
     const updatedExpense = await prisma.expense.update({
@@ -389,9 +387,6 @@ router.post('/bulk', async (req: Request, res: Response) => {
   }
 
   const resolvedHouseholdId = isEnvelope ? await resolveHouseholdId(userId, body.householdId) : null;
-  if (resolvedHouseholdId === 'FORBIDDEN') {
-    return res.status(403).json({ message: 'You are not a member of that household.' });
-  }
 
   try {
     const dataToCreate = expenses.map((expense, index) => {

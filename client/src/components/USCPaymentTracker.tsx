@@ -34,7 +34,10 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   
-  const [selectedDates, setSelectedDates] = useState<Record<number, string>>({});
+  // Keyed by semester + installment: installment ids repeat (1..N) across
+  // semesters, so a date picked in one semester showed up in another.
+  const [selectedDates, setSelectedDates] = useState<Record<string, string>>({});
+  const dateKey = (semesterId: string, installmentId: number | string) => `${semesterId}:${installmentId}`;
   // Installments with a "mark paid" request in flight: the button is disabled so
   // a double-click can't create two tuition expenses.
   const [markingPaid, setMarkingPaid] = useState<Set<string>>(new Set());
@@ -157,6 +160,11 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                     {activeSemester.installments.length} <span className="text-xs text-app-faint">installments</span>
                   </span>
                   <input
+                    // Remount per semester (and per count): the input is uncontrolled, so
+                    // a number typed for one semester stayed in the box after switching
+                    // tabs, and the next blur re-split THAT semester (F10).
+                    key={`${activeSemester.id}-${activeSemester.installments.length}`}
+                    aria-label={`Installment count for ${activeSemester.name}`}
                     type="number"
                     // Calculate the minimum allowed count based on the last paid installment index
                     min={activeSemester.installments.reduce((max, inst, idx) =>
@@ -219,8 +227,8 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                         <div className="flex flex-col">
                           <label className="text-[9px] text-app-faint uppercase tracking-[0.16em] mb-1">Payment date</label>
                           <DatePicker
-                            value={selectedDates[inst.id] || todayCalendar()}
-                            onChange={(v) => setSelectedDates(prev => ({ ...prev, [inst.id]: v }))}
+                            value={selectedDates[dateKey(activeSemester.id, inst.id)] || todayCalendar()}
+                            onChange={(v) => setSelectedDates(prev => ({ ...prev, [dateKey(activeSemester.id, inst.id)]: v }))}
                             required
                             aria-label={`Payment date for installment ${inst.id}`}
                             className="!px-3 !py-1.5 !text-[11px] !rounded-xl"
@@ -233,7 +241,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                           onClick={async () => {
                             const key = `${activeSemester.id}:${inst.id}`;
                             if (markingPaid.has(key)) return;
-                            const dateToUse = selectedDates[inst.id] || todayCalendar();
+                            const dateToUse = selectedDates[dateKey(activeSemester.id, inst.id)] || todayCalendar();
                             setMarkingPaid((prev) => new Set(prev).add(key));
                             try {
                               await onMarkAsPaid(activeSemester.id, inst.id, dateToUse);
