@@ -1,7 +1,7 @@
 // Bump CACHE_VERSION on any change to the caching strategy or shell asset list.
 // (Content-hashed build assets rotate by URL, so a bump mainly clears stale
 // HTML and orphaned chunks from previous deploys.)
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `usc-ledger-shell-${CACHE_VERSION}`;
 const APP_SHELL = ['/', '/index.html', '/trojan1.png', '/trojan-logo.png'];
 
@@ -43,8 +43,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+          // Only a real page becomes the offline shell. Storing any response
+          // here meant a 404/500 error page (or a redirect) could be what the
+          // app showed next time the user was offline.
+          const isHtml = (response.headers.get('content-type') || '').includes('text/html');
+          if (response.ok && response.type === 'basic' && isHtml) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+          }
           return response;
         })
         .catch(() =>

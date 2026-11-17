@@ -34,22 +34,38 @@ import { APP_CONFIG } from './config';
 // to pick up the fresh index + chunks; a sessionStorage guard prevents an
 // infinite reload loop if the failure is something else. On success we clear the
 // guard so a future deploy can reload again.
+//
+// Offline is different (C15): a reload can't fetch anything new, it only throws
+// away the screen the user is on, and the tab still fails afterwards. So while
+// offline, wait for the connection (the Suspense skeleton stays up) and retry.
+const waitUntilOnline = () =>
+  new Promise<void>((resolve) => window.addEventListener('online', () => resolve(), { once: true }));
+
 const lazyWithReload = <T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) =>
-  lazy(async () => {
-    const RELOAD_KEY = 'orbit:chunk-reloaded';
-    try {
-      const mod = await factory();
-      sessionStorage.removeItem(RELOAD_KEY);
-      return mod;
-    } catch (err) {
-      if (!sessionStorage.getItem(RELOAD_KEY)) {
-        sessionStorage.setItem(RELOAD_KEY, '1');
-        window.location.reload();
-        return await new Promise<{ default: T }>(() => {}); // hold until reload
+  Object.assign(
+    lazy(async () => {
+      const RELOAD_KEY = 'orbit:chunk-reloaded';
+      try {
+        const mod = await factory();
+        sessionStorage.removeItem(RELOAD_KEY);
+        return mod;
+      } catch (err) {
+        if (!navigator.onLine) {
+          await waitUntilOnline();
+          try { return await factory(); } catch { /* fall through to the one-time reload */ }
+        }
+        if (!sessionStorage.getItem(RELOAD_KEY)) {
+          sessionStorage.setItem(RELOAD_KEY, '1');
+          window.location.reload();
+          return await new Promise<{ default: T }>(() => {}); // hold until reload
+        }
+        throw err;
       }
-      throw err;
-    }
-  });
+    }),
+    // Fetch the chunk ahead of time (the service worker caches it) so the
+    // screen also opens offline. Failures are ignored; the lazy load retries.
+    { preload: () => { factory().catch(() => undefined); } },
+  );
 
 const Dashboard = lazyWithReload(() => import('./components/Dashboard'));
 const ExpenseList = lazyWithReload(() => import('./components/ExpenseList'));
@@ -70,7 +86,9 @@ const USCPaymentTracker = lazyWithReload(() => import('./components/USCPaymentTr
 const PivotAnalysis = lazyWithReload(() => import('./components/PivotAnalysis'));
 const Reports = lazyWithReload(() => import('./components/Reports'));
 
-type ActiveView = 'expenses' | 'income' | 'ai' | 'pivot' | 'usc' | 'reports';
+const ACTIVE_VIEWS = ['expenses', 'income', 'ai', 'pivot', 'usc', 'reports'] as const;
+type ActiveView = typeof ACTIVE_VIEWS[number];
+const ACTIVE_VIEW_KEY = 'orbit:active-view';
 
 /** Idempotency key for one bulk-import batch, so a retry can be recognised and
  *  rejected server-side instead of duplicating the whole import. */
@@ -201,7 +219,18 @@ const App: React.FC = () => {
   // The Income hub keeps its own date range, independent of the expense-centric
   // Financial hub, so filtering one never moves the other.
   const [incomeDateRange, setIncomeDateRange] = useState<DateRange>('this_month');
-  const [activeView, setActiveView] = useState<ActiveView>('expenses');
+  // Remember the screen per browser tab (sessionStorage), so a reload, including
+  // the automatic one after a deploy or a reconnect (C15), returns to it
+  // instead of dropping the user back on Expenses.
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    try {
+      const saved = sessionStorage.getItem(ACTIVE_VIEW_KEY);
+      return saved && (ACTIVE_VIEWS as readonly string[]).includes(saved) ? (saved as ActiveView) : 'expenses';
+    } catch { return 'expenses'; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem(ACTIVE_VIEW_KEY, activeView); } catch { /* storage unavailable */ }
+  }, [activeView]);
   // Sub-tab within the Expenses / Income hubs: the overview (dashboard/summary)
   // vs the transactions list. Reset to overview whenever the top-level view changes.
   const [hubTab, setHubTab] = useState<'overview' | 'list'>('overview');
@@ -294,6 +323,27 @@ const App: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allDataQuery.data, hasServerSnapshot]);
+
+  // Once signed in, fetch the other screens' code while the browser is idle so
+  // they still open after the connection drops (C15). Small chunks only (about
+  // 25 kB gzipped in total): Reports and the data modal pull in the 180 kB PDF
+  // library, so they load on demand. Skipped offline and on data-saver.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const run = () => {
+      const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+      if (!navigator.onLine || saveData) return;
+      [ExpenseList, IncomeList, ExpenseModal, IncomeModal, BudgetManagerModal, CategoryManagerModal,
+        AiAnalyst, USCPaymentTracker, PivotAnalysis].forEach((screen) => screen.preload());
+    };
+    // Safari has no requestIdleCallback; fall back to a short delay there.
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(run, { timeout: 8000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(run, 4000);
+    return () => clearTimeout(id);
+  }, [isAuthenticated]);
 
   // U6: Keyboard shortcuts
   useEffect(() => {

@@ -2,8 +2,12 @@
 
 Derived from the multi-agent codebase audit run on 2026-07-15 (server security,
 client correctness, feature/roadmap synthesis). The Phase 0–7 roadmap in
-[02-roadmap.md](./02-roadmap.md) is essentially complete; this document tracks
-what remains plus the forward feature backlog, in execution order.
+[02-roadmap.md](./02-roadmap.md) is closed; this document tracks what remains
+plus the forward feature backlog.
+
+**Latest:** a second full review on 2026-11-17 and its fixes are in
+[Section D](#section-d--november-2026-review-2026-11-17), which also lists everything
+still open. Start there.
 
 ## Status snapshot
 
@@ -98,16 +102,17 @@ that each need a deliberate decision:
 and dashboard (PR #63) — fixed an unlabeled select and deepened the dark-mode
 accent to meet 4.5:1. The user-triggered **`/security-review`** still can't be self-run.
 
-**Recommended next:** schedule **A4 (money-as-cents)** as a focused migration —
-it's the last substantive correctness item and everything else is either infra-
-gated or a larger product build.
+**Recommended next:** see [Section D](#section-d--november-2026-review-2026-11-17).
+(A4, money-as-cents, shipped in PR #64.)
 
 ---
 
 ## Section C — Go-live checklist (deploy config)
 
+The [deploy runbook](./04-deploy-runbook.md) is the up-to-date version of this list.
+
 - [ ] `NODE_ENV=production` on the backend (enables Secure/SameSite=None cookies + strict CORS).
-- [ ] `TRUST_PROXY=1` on Render (one proxy); server refuses to boot in prod without it.
+- [ ] `TRUST_PROXY=2` on Render: requests pass Vercel's `/api` rewrite, then Render's proxy (it was `1` before PR #158 moved the API behind the site). The server refuses to boot in prod without it.
 - [ ] `FRONTEND_URL` = deployed origin(s).
 - [ ] Rotate + inject secrets via the platform store (`JWT_SECRET` ≥32, `DATABASE_URL`, `GEMINI_API_KEY`, `RESEND_API_KEY`).
 - [ ] Load-balancer readiness probe → `GET /health/ready`.
@@ -116,6 +121,8 @@ gated or a larger product build.
 ---
 
 ## Execution order
+
+*(July 2026 order, kept for history. Current priorities are in Section D.)*
 
 1. **A1 + A2** (correctness/labeling + FX transparency) — quick, safe, no schema. ← start here
 2. **B1–B3** (Tier 1 features) — high value, no migration risk.
@@ -140,3 +147,47 @@ on every path.** No critical/high issues. Fixed pre-launch (PR #69):
 - **Email output-encoding (L3)** + **migration crash-safety (M2)** — HTML-escape category names in the summary email; per-collection markers make the cents migration re-runnable after a partial run (overall-marker fast path still protects an already-migrated DB).
 
 **Accepted / deferred (documented, low-risk):** members (not just owners) can invite — an intentional roommate-friendly choice; editing/deleting a not-yet-synced offline row is a narrow edge (bounded to an offline session) — documented; and household amounts render in `$` regardless of display currency (values are USD).
+
+---
+
+## Section D — November 2026 review (2026-11-17)
+
+A second full review (client, server, deploy) found new bugs in data integrity,
+security and correctness. They were fixed in phases, one PR per batch, and each fix
+was checked in the browser or API against the original code before merging.
+
+| Phase | What | PRs |
+|---|---|---|
+| 1 Data integrity | Tuition ↔ expense sync, safe restore and statement import, money in the entered currency (never a fallback rate), pending deletes survive unmount | #150–#153 |
+| 2 Security | Sign-in hardening (code limits, verification, lockout, logout, Google), per-account local data, body and amount caps, per-user AI and email budgets, API through the site with security headers | #154–#158 |
+| 3a Budgets | One rule for parent and subcategory budgets (F14, C8) | #159 |
+| 3b Dates | Whole-month view, local due dates, recurring anchor day, the user's month in email summaries (C12, F15, C13, S19) | #160 |
+| 3c Planning, tuition, households, AI | Loans subtract from net worth, per-semester installment box, household untagging, monthly AI budgets (F16, F10, S10, S9) | #168 |
+| 3d Import, PDF, dialogs | CSV import, PDF currency text, Escape guard, wipe-all reset, small defaults (F18, F21, F13, C14, F22) | #170 |
+| 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | 3e PR |
+| Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
+
+Found already done when re-checked in 3e: C17 (canonical link and JSON-LD point at the
+live site), P4 (the demo seed script writes cents), and removing `server/prisma.config.ts.bak`.
+
+### Still open
+
+**Phase 4 — quality gates**
+- [ ] 4a CI on every PR (typecheck, tests, build, E2E) plus ESLint with `react-hooks`.
+- [ ] 4b Keyboard-usable date picker, labelled inputs, an accessible confirm dialog (focus trap and Escape), full keyboard audit (F19, F20). Replaces A5's accessibility item.
+- [ ] 4c Server test suite; E2E for import, restore, AI chat and tuition. Replaces A5's E2E item.
+
+**Phase 5 — product**
+- [ ] 5a Own domain, with the API on the same site.
+- [ ] 5b Server-side user settings and goals, one Settings page, account deletion.
+- [ ] 5c Privacy policy and terms.
+- [ ] 5d Move tuition reconciliation to the server; split `App.tsx` into feature hooks.
+- [ ] 5e Alerts, scheduled summaries, a reports period selector, round-trip export (B3, B6).
+- [ ] 5f Copy, empty states, PWA icons, analytics, net-worth accounts saved to the server, Redis-backed limiter, encrypted backups (B9, A6).
+
+**Also open**
+- [ ] PDF statement parsing still runs on the main thread: move it to a worker with a timeout (the rest of S13).
+- [ ] The server crashes at boot without `RESEND_API_KEY`; it should start with email disabled.
+- [ ] Rotate production secrets (P3).
+- [ ] A3: custom categories as a single source of truth (CMP-M24).
+- [ ] SRV-L5: normalise dates to a calendar day on the server (`parseValidDate` still accepts any timestamp).
