@@ -128,7 +128,8 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                   <Input
                     type="number"
                     min="0"
-                    placeholder="Set amount"
+                    placeholder="Set amount (USD)"
+                    aria-label="Total tuition in USD"
                     className="max-w-[180px] text-center"
                     onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     onBlur={(e) => {

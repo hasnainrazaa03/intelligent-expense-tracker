@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useCurrency } from '../contexts/CurrencyContext';
+import useEntryCurrency from '../hooks/useEntryCurrency';
 import { Budget } from '../types';
 import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { Modal, Button, Label } from './ui';
@@ -13,7 +13,9 @@ interface BudgetManagerModalProps {
 }
 
 const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose, onSave, currentBudgets }) => {
-  const { displayCurrency, conversionRate } = useCurrency();
+  // Amounts are edited in the entry currency (the display currency when a fresh
+  // rate exists, else USD) and stored in USD. This used to convert for INR only.
+  const entry = useEntryCurrency();
   const [budgets, setBudgets] = useState<{ [key: string]: string }>({});
   const [isDirty, setIsDirty] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
@@ -80,16 +82,14 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
 
   useEffect(() => {
     const budgetMap = currentBudgets.reduce((acc, budget) => {
-      let displayAmount = budget.amount;
-      if (displayCurrency === 'INR' && conversionRate) {
-        displayAmount *= conversionRate;
-      }
+      const displayAmount = entry.fromUsd(budget.amount);
       acc[budget.category] = displayAmount > 0 ? displayAmount.toFixed(2) : '';
       return acc;
     }, {} as { [key: string]: string });
     setBudgets(budgetMap);
     setIsDirty(false);
-  }, [currentBudgets, isOpen, displayCurrency, conversionRate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBudgets, isOpen, entry.currency, entry.fromUsd]);
 
   const totalBudget = useMemo(() => {
     return (Object.values(budgets) as string[]).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0);
@@ -104,7 +104,7 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
     const template = budgetTemplates[templateKey];
     const mapped = Object.entries(template).reduce((acc, [category, amount]) => {
       const categoryName = category.replace(/_/g, ' ');
-      const displayAmount = displayCurrency === 'INR' && conversionRate ? amount * conversionRate : amount;
+      const displayAmount = entry.fromUsd(amount);
       acc[categoryName] = displayAmount.toFixed(2);
       return acc;
     }, {} as Record<string, string>);
@@ -118,23 +118,16 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
     e.preventDefault();
     const formattedBudgets: Budget[] = Object.entries(budgets)
       .map(([category, amountStr]: [string, string]) => {
-        let val = parseFloat(amountStr) || 0;
-        
-        // Fix: Precision and Currency Drift prevention
-        let amountInUSD = displayCurrency === 'INR' && conversionRate 
-          ? val / conversionRate 
-          : val;
-        
-        amountInUSD = Math.round((amountInUSD + Number.EPSILON) * 100) / 100;
-        
-        return { category, amount: amountInUSD };
+        const val = parseFloat(amountStr) || 0;
+        // Entry currency → stored USD, rounded to cents.
+        return { category, amount: entry.toUsd(val) };
       })
       .filter(b => b.amount > 0);
       
     onSave(formattedBudgets);
   };
 
-  const currencySymbol = displayCurrency === 'INR' ? '₹' : '$';
+  const currencySymbol = entry.symbol;
 
   return (
     <>

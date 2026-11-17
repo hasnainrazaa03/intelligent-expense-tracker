@@ -20,7 +20,7 @@ interface IncomeModalProps {
 }
 
 const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, onImportStatement, knownAccounts = [] }) => {
-  const { displayCurrency, conversionRate: parentConversionRate, availableCurrencies } = useCurrency();
+  const { displayCurrency, rateForEntry, availableCurrencies } = useCurrency();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
@@ -38,7 +38,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   // rate unless the user actually edits the foreign amount (H1).
   const [originalAmountDirty, setOriginalAmountDirty] = useState(false);
 
-  const parentRateForForeign = foreignCurrency === displayCurrency ? (parentConversionRate ?? null) : null;
+  // Fresh real rate only — see ExpenseModal.
+  const parentRateForForeign = foreignCurrency === displayCurrency ? rateForEntry : null;
   const {
     convertedAmount,
     rate: conversionRate,

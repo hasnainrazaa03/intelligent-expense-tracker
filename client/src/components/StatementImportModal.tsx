@@ -734,7 +734,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                           {/* Amount is editable here because AI can misread digits on
                               messy multi-column PDFs. Positive magnitude; the +/- sign
                               is carried by the row's expense/income type. */}
-                          <label className="block text-[10px] text-app-faint uppercase tracking-wide mb-1">Amount ({displayCurrency})</label>
+                          <label className="block text-[10px] text-app-faint uppercase tracking-wide mb-1">Amount (USD)</label>
                           <div className="relative">
                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-app-muted pointer-events-none">{r.type === 'income' ? '+' : '−'}</span>
                             <input
