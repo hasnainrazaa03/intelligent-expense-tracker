@@ -5,6 +5,16 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      # react and react-dom must be the exact same version: React refuses to
+      # start otherwise (error #527, a blank page). Bumping react alone (as a
+      # separate PR once did) passes the build but breaks the site.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
     ignore:
       - dependency-name: "jspdf"
         update-types:
