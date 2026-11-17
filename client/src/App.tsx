@@ -25,7 +25,6 @@ import { enqueueExpense, type PendingExpense } from './utils/offlineQueue';
 import { notify } from './utils/notifications';
 import { userStorage } from './utils/userStorage';
 import SectionSkeleton from './components/SectionSkeleton';
-import { APP_CONFIG } from './config';
 
 // A dynamic-import ("chunk load") failure almost always means this browser is
 // holding a stale index.html from before a new deploy — it points at hashed
@@ -345,14 +344,16 @@ const App: React.FC = () => {
     return () => clearTimeout(id);
   }, [isAuthenticated]);
 
-  // U6: Keyboard shortcuts
+  // U6: Keyboard shortcuts. The handler reads the latest handleOpenModal through
+  // a ref, so the listener isn't re-attached on every render.
+  const openModalRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!isAuthenticated) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+N or Cmd+N: New expense/income
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
-        handleOpenModal();
+        openModalRef.current();
       }
       // No Escape handling here: every modal closes on Escape through its own
       // onClose (ui/Modal's focus trap). Closing them from here as well skipped
@@ -361,7 +362,7 @@ const App: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAuthenticated, isExpenseModalOpen, isIncomeModalOpen, isBudgetModalOpen, isDataModalOpen, isCategoryModalOpen, activeView]);
+  }, [isAuthenticated]);
 
   // Auto-save semesters (a full-state replace) 800ms after the last change.
   useEffect(() => {
@@ -440,7 +441,7 @@ const App: React.FC = () => {
   const toggleRecurringSelection = (index: number) => {
     setSelectedRecurring((prev) => {
       const next = new Set(prev);
-      next.has(index) ? next.delete(index) : next.add(index);
+      if (next.has(index)) next.delete(index); else next.add(index);
       return next;
     });
   };
@@ -688,6 +689,7 @@ const handleDeleteIncome = async (id: string) => {
         setIsExpenseModalOpen(true);
     }
   };
+  openModalRef.current = handleOpenModal;
 
   const handleOpenExpenseModal = () => {
     setEditingExpense(null);
@@ -698,16 +700,6 @@ const handleDeleteIncome = async (id: string) => {
   const handleOpenIncomeModal = () => {
     setEditingIncome(null);
     setIsIncomeModalOpen(true);
-    setIsQuickActionsOpen(false);
-  };
-
-  const handleOpenBudgetModal = () => {
-    setIsBudgetModalOpen(true);
-    setIsQuickActionsOpen(false);
-  };
-
-  const handleOpenDataModal = () => {
-    setIsDataModalOpen(true);
     setIsQuickActionsOpen(false);
   };
 

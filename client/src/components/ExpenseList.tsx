@@ -4,7 +4,7 @@ import { Expense } from '../types';
 import { getCategoryColor } from '../utils/colorUtils';
 import { 
   PencilIcon, TrashIcon, CalendarDaysIcon, TagIcon, 
-  CreditCardIcon, ChatBubbleBottomCenterTextIcon, ExclamationTriangleIcon 
+  CreditCardIcon, ChatBubbleBottomCenterTextIcon 
 } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
 import Pagination from './Pagination';
@@ -94,7 +94,7 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave,
                           className="w-28 bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                         />
                       ) : (
-                        <p className="font-display text-lg md:text-xl font-bold text-app-text leading-none tabular-nums cursor-default" onDoubleClick={() => { displayCurrency === 'USD' ? setIsInlineEditing(true) : onEdit(expense); }}>
+                        <p className="font-display text-lg md:text-xl font-bold text-app-text leading-none tabular-nums cursor-default" onDoubleClick={() => { if (displayCurrency === 'USD') setIsInlineEditing(true); else onEdit(expense); }}>
                             {formatCurrency(expense.amount, displayCurrency, conversionRate)}
                         </p>
                       )}

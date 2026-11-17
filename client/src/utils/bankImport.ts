@@ -136,7 +136,7 @@ export const parseAmountCell = (raw: unknown): number | null => {
   // Trailing minus: "45.00-".
   if (/-\s*$/.test(s)) { negative = true; s = s.replace(/-\s*$/, ''); }
 
-  const cleaned = s.replace(/[^0-9.\-]/g, '');
+  const cleaned = s.replace(/[^0-9.-]/g, '');
   // Needs at least one digit, and a lone/interior "-" (e.g. "1-2") is not a number.
   if (!/\d/.test(cleaned)) return null;
   const n = Number(cleaned);
@@ -155,7 +155,7 @@ export const normalizeBankDate = (raw: string, format: BankDateFormat): string |
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
-  const parts = s.split(/[/.\-]/).map((p) => p.trim()).filter(Boolean);
+  const parts = s.split(/[/.-]/).map((p) => p.trim()).filter(Boolean);
   if (parts.length < 3) return null;
 
   let y: string, mo: string, da: string;

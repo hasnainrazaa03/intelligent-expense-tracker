@@ -73,7 +73,13 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   // The Calendar-spending card can browse any month, independent of "now".
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
 
-  const now = new Date();
+  // Today at local midnight, stable for the whole day. A fresh `new Date()` each
+  // render made every memo below that depends on it recompute on every render.
+  const todayKey = todayCalendar();
+  const now = useMemo(() => {
+    const [y, m, d] = todayKey.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }, [todayKey]);
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const monthlyExpense = useMemo(

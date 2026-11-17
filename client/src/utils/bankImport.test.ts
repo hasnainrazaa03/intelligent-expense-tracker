@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   parseCsvRows,
   autoDetectColumns,
-  normalizeBankDate,
   parseBankTransactions,
   parseAmountCell,
   isMappingReady,

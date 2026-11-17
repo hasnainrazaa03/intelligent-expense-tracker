@@ -173,7 +173,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 ### Still open
 
 **Phase 4 — quality gates**
-- [ ] 4a CI on every PR (typecheck, tests, build, E2E) plus ESLint with `react-hooks`.
+- [x] 4a CI on every PR (`.github/workflows/ci.yml`: lint, typecheck, unit tests, build, Playwright E2E against a real API and MongoDB). Linting uses oxlint, not ESLint: typescript-eslint doesn't support TypeScript 7 yet. React hooks rules are errors; the React Compiler readiness rules are off for now.
 - [ ] 4b Keyboard-usable date picker, labelled inputs, an accessible confirm dialog (focus trap and Escape), full keyboard audit (F19, F20). Replaces A5's accessibility item.
 - [ ] 4c Server test suite; E2E for import, restore, AI chat and tuition. Replaces A5's E2E item.
 
@@ -191,3 +191,6 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [ ] Rotate production secrets (P3).
 - [ ] A3: custom categories as a single source of truth (CMP-M24).
 - [ ] SRV-L5: normalise dates to a calendar day on the server (`parseValidDate` still accepts any timestamp).
+- [ ] A paid tuition installment's date can't be changed in the UI: `App` has the handler (`handleUpdateInstallmentDate`) but the tracker never calls it.
+- [ ] React Compiler readiness: about 30 lint findings (`react/purity`, `react/set-state-in-effect`, `react/refs`), switched off in `client/.oxlintrc.json`.
+- [ ] Lint the server too (it isn't linted yet).

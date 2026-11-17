@@ -42,7 +42,6 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   const parentRateForForeign = foreignCurrency === displayCurrency ? rateForEntry : null;
   const {
     convertedAmount,
-    rate: conversionRate,
     loading: conversionLoading,
     error: conversionError,
   } = useForeignToUsd(enterInForeign ? foreignCurrency : 'USD', originalAmount, parentRateForForeign);
@@ -57,7 +56,6 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
     }
   }, [convertedAmount, enterInForeign, originalAmountDirty]);
 
-  const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const categoryDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -124,7 +122,6 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
 
   const handleCategorySelect = (selectedCategory: string) => {
     setCategory(selectedCategory);
-    setHasManuallySelectedCategory(true);
     setIsCategoryDropdownOpen(false);
     setCategorySearchTerm('');
   };

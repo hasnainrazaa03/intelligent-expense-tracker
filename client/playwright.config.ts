@@ -3,6 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 60_000,
+  // In CI: one retry (so a failure leaves a trace to inspect), failures shown
+  // inline on the PR, and an HTML report uploaded as an artifact.
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   expect: {
     timeout: 10_000,
   },
@@ -16,7 +20,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run build && npm run preview -- --host localhost --port 4173',
     url: 'http://localhost:4173',
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
   projects: [

@@ -1,0 +1,19 @@
+{
+  // oxlint, not ESLint: typescript-eslint can't parse with TypeScript 7 (the
+  // native compiler has no JS API yet), and oxlint ships its own TS parser plus
+  // the React hooks rules. `// eslint-disable-next-line` comments still work.
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "unicorn", "oxc"],
+  "categories": { "correctness": "error" },
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    // React Compiler readiness rules: about 30 findings, mostly Date.now() and
+    // setState inside effects. Worth doing as its own refactor, not as a gate.
+    "react/purity": "off",
+    "react/set-state-in-effect": "off",
+    "react/refs": "off",
+    "react/preserve-manual-memoization": "off"
+  },
+  "ignorePatterns": ["dist/**", "node_modules/**", "tests/e2e/.auth/**", "public/sw.js"]
+}
