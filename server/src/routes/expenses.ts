@@ -6,7 +6,7 @@ import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math'
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
-import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray } from '../utils/normalize';
+import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, expenseToClient } from '../utils/money';
 
 const router = Router();
@@ -122,7 +122,7 @@ router.post('/', async (req: Request, res: Response) => {
         paymentMethod: safePaymentMethod || undefined,
         notes: safeNotes || undefined,
         originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
-        originalCurrency: originalCurrency || undefined,
+        originalCurrency: normalizeCurrencyCode(originalCurrency),
         isRecurring: Boolean(isRecurring),
         tags: safeTags,
         metadata: safeMetadata,
@@ -235,21 +235,22 @@ router.put('/:id', async (req: Request, res: Response) => {
         amount: toCents(toFinPrecision(parsedAmount)),
         category: safeCategory,
         date: parsedDate,
-        paymentMethod: safePaymentMethod || undefined,
-        notes: safeNotes || undefined,
-        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
-        originalCurrency: originalCurrency || undefined,
+        // PUT is a full replace: every optional field uses null (not undefined)
+        // so clearing it in the form actually unsets it — undefined tells Prisma
+        // to leave the old value in place, which made cleared notes reappear.
+        paymentMethod: safePaymentMethod || null,
+        notes: safeNotes || null,
+        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : null,
+        originalCurrency: normalizeCurrencyCode(originalCurrency),
         isRecurring: Boolean(isRecurring),
         tags: safeTags,
-        metadata: safeMetadata,
-        taxCategory: safeTaxCategory || undefined,
+        metadata: safeMetadata ?? {},
+        taxCategory: safeTaxCategory || null,
         isTaxDeductible: Boolean(isTaxDeductible),
         splitParticipants: safeSplitParticipants,
         splitShares: safeSplitShares.map(toCents),
-        receiptText: safeReceiptText || undefined,
-        receiptFileName: safeReceiptFileName || undefined,
-        // null (not undefined) so clearing the field in the form actually
-        // unsets it — undefined would leave the old account in place.
+        receiptText: safeReceiptText || null,
+        receiptFileName: safeReceiptFileName || null,
         account: safeAccount || null,
         householdId: resolvedHouseholdId,
       },
@@ -397,7 +398,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         paymentMethod: sanitizeOptionalText(expense.paymentMethod),
         notes: sanitizeOptionalText(expense.notes),
         originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
-        originalCurrency: expense.originalCurrency || undefined,
+        originalCurrency: normalizeCurrencyCode(expense.originalCurrency),
         isRecurring: Boolean(expense.isRecurring),
         tags: normalizeTags(expense.tags),
         metadata: normalizeMetadata(expense.metadata),

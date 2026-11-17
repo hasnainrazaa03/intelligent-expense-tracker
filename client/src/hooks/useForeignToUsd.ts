@@ -37,6 +37,10 @@ export default function useForeignToUsd(
       return;
     }
 
+    // Pending from the first keystroke, not only once the debounced fetch
+    // starts — otherwise a form submitted inside the 500ms window sees
+    // loading=false and saves the previous conversion.
+    setLoading(true);
     let cancelled = false;
     const convert = async () => {
       setLoading(true);

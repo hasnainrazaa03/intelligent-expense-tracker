@@ -22,7 +22,15 @@ export const normalizeMetadata = (input: unknown): Record<string, string> | unde
   return Object.fromEntries(pairs);
 };
 
-export const normalizeStringArray = (input: unknown, limit = 20): string[] => {
+// A 3-letter ISO 4217 code such as "INR", or null. originalCurrency used to be
+// stored verbatim from the request body — unsanitized and unbounded.
+export const normalizeCurrencyCode = (input: unknown): string | null => {
+  if (typeof input !== 'string') return null;
+  const code = input.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(code) ? code : null;
+};
+
+export const normalizeStringArray =(input: unknown, limit = 20): string[] => {
   if (!Array.isArray(input)) return [];
   return input
     .map((item) => sanitizeText(item))

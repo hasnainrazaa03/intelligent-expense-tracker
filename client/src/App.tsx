@@ -355,7 +355,9 @@ const App: React.FC = () => {
     onSynced: useCallback(() => { void queryClient.invalidateQueries({ queryKey: queryKeys.allData }); }, [queryClient]),
   });
 
-  const handleAddExpense = async (expense: Omit<Expense, 'id'>) => {
+  // Save handlers resolve true/false so the entry modals close only on success
+  // and keep the user's input on failure.
+  const handleAddExpense = async (expense: Omit<Expense, 'id'>): Promise<boolean> => {
     // Offline: queue it in IndexedDB and optimistically show it (temp id) so no
     // data is lost; it replays automatically on reconnect.
     if (!navigator.onLine) {
@@ -368,11 +370,12 @@ const App: React.FC = () => {
         });
         await offline.refreshCount();
         notify.info('Saved offline — will sync when you reconnect.');
+        return true;
       } catch (error) {
         console.error('Failed to queue expense offline:', error);
-        notify.error('Could not save offline.');
+        notify.error('Could not save offline. Your entry is still in the form.');
+        return false;
       }
-      return;
     }
     try {
       const newExpense = await createExpense(expense);
@@ -381,13 +384,15 @@ const App: React.FC = () => {
         checkBudgetAlert(newExpense.category, updated);
         return updated;
       });
+      return true;
     } catch (error) {
       console.error("Failed to add expense:", error);
-      notify.error('Could not add expense.');
+      notify.error('Could not add expense. Your entry is still in the form.');
+      return false;
     }
   };
 
-const handleUpdateExpense = async (updatedExpense: Expense) => {
+const handleUpdateExpense = async (updatedExpense: Expense): Promise<boolean> => {
   try {
     const returnedExpense = await updateExpense(updatedExpense);
     setExpenses(prev => {
@@ -412,9 +417,11 @@ const handleUpdateExpense = async (updatedExpense: Expense) => {
     }
     setEditingExpense(null);
     setIsExpenseModalOpen(false);
+    return true;
   } catch (error) {
     console.error("Failed to update expense:", error);
-    notify.error('Could not update expense.');
+    notify.error('Could not update expense. Your changes are still in the form.');
+    return false;
   }
 };
 
@@ -487,24 +494,28 @@ const handleDeleteExpense = async (id: string) => {
   const handleEditExpenseClick = (expense: Expense) => { setEditingExpense(expense); setIsExpenseModalOpen(true); };
 
   // Income Handlers
-const handleAddIncome = async (income: Omit<Income, 'id'>) => {
+const handleAddIncome = async (income: Omit<Income, 'id'>): Promise<boolean> => {
   try {
     const newIncome = await createIncome(income);
     setIncomes(prev => [...prev, newIncome]);
+    return true;
   } catch (error) {
     console.error("Failed to add income:", error);
-    notify.error('Could not add income.');
+    notify.error('Could not add income. Your entry is still in the form.');
+    return false;
   }
 };
 
-const handleUpdateIncome = async (updatedIncome: Income) => {
+const handleUpdateIncome = async (updatedIncome: Income): Promise<boolean> => {
   try {
     const returnedIncome = await updateIncome(updatedIncome);
     setIncomes(prev => prev.map(inc => inc.id === returnedIncome.id ? returnedIncome : inc));
     setEditingIncome(null);
+    return true;
   } catch (error) {
     console.error("Failed to update income:", error);
-    notify.error('Could not update income.');
+    notify.error('Could not update income. Your changes are still in the form.');
+    return false;
   }
 };
 
@@ -1274,6 +1285,7 @@ const handleDeleteIncome = async (id: string) => {
                   onSave={editingIncome ? handleUpdateIncome : handleAddIncome}
                   income={editingIncome}
                   onImportStatement={() => { setIsIncomeModalOpen(false); setIsStatementImportOpen(true); }}
+                  knownAccounts={knownAccounts}
                 />
               </Suspense>
             )}

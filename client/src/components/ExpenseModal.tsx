@@ -18,7 +18,9 @@ import { Modal, Button, Input, Textarea, Label, Select, DatePicker } from './ui'
 interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (expense: any) => void;
+  /** Resolves `false` when the save failed, so the form stays open with the
+   *  user's input instead of discarding it. */
+  onSave: (expense: any) => Promise<boolean | void> | boolean | void;
   expense: Expense | null;
   /** Opens the bank-statement importer (bulk add many at once). */
   onImportStatement?: () => void;
@@ -37,7 +39,11 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [paymentMethod, setPaymentMethod] = useState('');
   const [account, setAccount] = useState('');
   const [notes, setNotes] = useState('');
-  const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(false);
+  // Seeded from `expense` so the auto-suggestion can't run on the very first
+  // effect pass of an edit (before the init effect's `true` lands) and replace
+  // the stored category with a guess.
+  const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(Boolean(expense));
+  const [isSaving, setIsSaving] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -169,24 +175,26 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     return () => { ignore = true; };
   }, [isOpen, expense]);
 
-  useEffect(() => {
-    // Switching back to USD entry clears the foreign amount to avoid confusion.
-    if (!enterInForeign) {
-      setOriginalAmount('');
-      setOriginalAmountDirty(false);
-    }
-  }, [enterInForeign]);
+  // Switching back to USD entry clears the foreign amount to avoid confusion.
+  // Done in the button handler, not an effect on `enterInForeign`: that effect
+  // also ran on open with the initial `false` and wiped the foreign amount of
+  // the record being edited, after the init effect had just loaded it.
+  const switchToUsdEntry = () => {
+    setEnterInForeign(false);
+    setOriginalAmount('');
+    setOriginalAmountDirty(false);
+  };
 
   // --- LOGIC: AUTO-CATEGORY SUGGESTION ---
+  // New expenses only: an existing expense already has a category the user (or
+  // the import review) chose, and editing its notes must not change it.
   useEffect(() => {
-  // If the user hasn't touched the category yet and there's a title...
-  if (!hasManuallySelectedCategory && title.trim()) {
+    if (expense || hasManuallySelectedCategory || !title.trim()) return;
     const suggested = suggestCategory(title);
     if (suggested) {
       setCategory(suggested);
     }
-  }
-}, [title, hasManuallySelectedCategory]);
+  }, [title, hasManuallySelectedCategory, expense]);
 
   useEffect(() => {
     if (!expense && !title.trim()) {
@@ -217,12 +225,31 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     setCategorySearchTerm('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // A foreign amount the user just typed is converted after a 500ms debounce;
+  // until then `amount` still holds the previous conversion, so saving would
+  // store a mismatched USD value.
+  const isConversionPending = enterInForeign && originalAmountDirty && conversionLoading;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (isSaving) return;
+    if (isConversionPending) {
+      toast.error('Still converting the amount — try again in a moment.');
+      return;
+    }
+
     // Validation: Ensure we have the necessary numeric data
     const finalAmount = parseFloat(amount);
-    if (!title || isNaN(finalAmount) || finalAmount <= 0) return;
+    if (!title.trim()) {
+      toast.error('Add a title for this expense.');
+      return;
+    }
+    if (isNaN(finalAmount) || finalAmount <= 0) {
+      toast.error(enterInForeign && conversionError
+        ? 'Could not convert this amount to USD. Enter it in USD instead.'
+        : 'Enter an amount greater than zero.');
+      return;
+    }
 
     const tags = tagsInput
       .split(',')
@@ -275,8 +302,15 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       householdId: householdId || null,
     };
 
-    onSave(expense ? { ...expenseData, id: expense.id } : expenseData);
-    onClose();
+    // Wait for the save: on failure the handler has already shown an error, and
+    // the form stays open so nothing the user typed is lost.
+    setIsSaving(true);
+    try {
+      const ok = await onSave(expense ? { ...expenseData, id: expense.id } : expenseData);
+      if (ok !== false) onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Effective categories (defaults + the user's custom ones). Re-read when the
@@ -427,7 +461,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       footer={
         <>
           <Button variant="secondary" fullWidth onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="expense-form" fullWidth>{expense ? 'Save changes' : 'Add expense'}</Button>
+          <Button type="submit" form="expense-form" fullWidth disabled={isSaving || isConversionPending}>
+            {isSaving ? 'Saving…' : expense ? 'Save changes' : 'Add expense'}
+          </Button>
         </>
       }
     >
@@ -460,7 +496,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             <div>
               <Label id="exp-currency-label">Entry currency</Label>
               <div role="group" aria-labelledby="exp-currency-label" className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
-                  <button type="button" onClick={() => setEnterInForeign(false)} className={`py-2 rounded-lg text-sm font-semibold transition-all ${!enterInForeign ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
+                  <button type="button" onClick={switchToUsdEntry} className={`py-2 rounded-lg text-sm font-semibold transition-all ${!enterInForeign ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
                   <button type="button" onClick={() => setEnterInForeign(true)} className={`py-2 rounded-lg text-sm font-semibold transition-all ${enterInForeign ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>Other currency</button>
               </div>
           </div>

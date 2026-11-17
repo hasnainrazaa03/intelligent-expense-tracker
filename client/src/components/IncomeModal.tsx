@@ -5,23 +5,29 @@ import { todayCalendar } from '../utils/dateUtils';
 import useForeignToUsd from '../hooks/useForeignToUsd';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label, DatePicker } from './ui';
+import toast from 'react-hot-toast';
 
 interface IncomeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (income: any) => void;
+  /** Resolves `false` when the save failed, so the form stays open. */
+  onSave: (income: any) => Promise<boolean | void> | boolean | void;
   income: Income | null;
   /** Opens the bank-statement importer (bulk add many at once). */
   onImportStatement?: () => void;
+  /** Accounts already in use, offered as suggestions (mirrors ExpenseModal). */
+  knownAccounts?: string[];
 }
 
-const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, onImportStatement }) => {
+const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, onImportStatement, knownAccounts = [] }) => {
   const { displayCurrency, conversionRate: parentConversionRate, availableCurrencies } = useCurrency();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
   const [date, setDate] = useState(todayCalendar());
   const [notes, setNotes] = useState('');
+  const [account, setAccount] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [tagsInput, setTagsInput] = useState('');
   const [metadataInput, setMetadataInput] = useState('');
 
@@ -62,6 +68,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       setCategory(income.category);
       setDate(income.date);
       setNotes(income.notes || '');
+      setAccount(income.account || '');
       setTagsInput((income.tags || []).join(', '));
       setMetadataInput(
         income.metadata
@@ -86,6 +93,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       setCategory(INCOME_CATEGORIES[0]);
       setDate(todayCalendar());
       setNotes('');
+      setAccount('');
       setTagsInput('');
       setMetadataInput('');
       setEnterInForeign(false);
@@ -120,10 +128,28 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
     setCategorySearchTerm('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // See ExpenseModal: until the debounced conversion lands, `amount` holds the
+  // previous conversion, so saving would store a mismatched USD value.
+  const isConversionPending = enterInForeign && originalAmountDirty && conversionLoading;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
+    if (isConversionPending) {
+      toast.error('Still converting the amount — try again in a moment.');
+      return;
+    }
     const primaryAmount = enterInForeign ? originalAmount : amount;
-    if (!title || !primaryAmount || parseFloat(primaryAmount) <= 0 || (isAmountUSDReadOnly && !amount)) return;
+    if (!title.trim()) {
+      toast.error('Add a source for this income.');
+      return;
+    }
+    if (!primaryAmount || parseFloat(primaryAmount) <= 0 || (isAmountUSDReadOnly && !amount)) {
+      toast.error(enterInForeign && conversionError
+        ? 'Could not convert this amount to USD. Enter it in USD instead.'
+        : 'Enter an amount greater than zero.');
+      return;
+    }
 
     const incomeData = {
       tags: tagsInput.split(',').map((tag) => tag.trim()).filter(Boolean).slice(0, 20),
@@ -142,12 +168,21 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       category,
       date,
       notes: notes.trim() || undefined,
+      // Always sent: the server's PUT treats a missing account as "clear it",
+      // which used to erase the account of every income edited here.
+      account: account.trim() || undefined,
       originalAmount: enterInForeign && originalAmount ? parseFloat(originalAmount) : undefined,
       originalCurrency: enterInForeign ? foreignCurrency : 'USD',
     };
-    
-    onSave(income ? { ...incomeData, id: income.id } : incomeData);
-    onClose();
+
+    // Wait for the save; on failure keep the form open so nothing is lost.
+    setIsSaving(true);
+    try {
+      const ok = await onSave(income ? { ...incomeData, id: income.id } : incomeData);
+      if (ok !== false) onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const inputBase = "w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-base text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-app-faint appearance-none";
@@ -163,7 +198,9 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       footer={
         <>
           <Button variant="secondary" fullWidth onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="income-form" fullWidth>{income ? 'Save changes' : 'Add income'}</Button>
+          <Button type="submit" form="income-form" fullWidth disabled={isSaving || isConversionPending}>
+            {isSaving ? 'Saving…' : income ? 'Save changes' : 'Add income'}
+          </Button>
         </>
       }
     >
@@ -282,6 +319,21 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             </div>
           )}
         </div>
+
+            <div>
+              <Label htmlFor="income-account">Account (optional)</Label>
+              <Input
+                id="income-account"
+                value={account}
+                onChange={e => setAccount(e.target.value)}
+                list="income-account-suggestions"
+                placeholder="e.g. USCCU Checking"
+              />
+              <datalist id="income-account-suggestions">
+                {knownAccounts.map(a => <option key={a} value={a} />)}
+              </datalist>
+              <p className="mt-1.5 text-[11px] text-app-muted">Which account this landed in.</p>
+            </div>
 
             <div>
               <Label htmlFor="income-notes">Notes</Label>

@@ -5,7 +5,7 @@ import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math'
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText } from '../utils/sanitize';
-import { normalizeTags, normalizeMetadata } from '../utils/normalize';
+import { normalizeTags, normalizeMetadata, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, incomeToClient } from '../utils/money';
 
 const router = Router();
@@ -134,7 +134,7 @@ router.post('/', async (req: Request, res: Response) => {
         date: parsedDate,
         notes: safeNotes || undefined,
         originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
-        originalCurrency: originalCurrency || undefined,
+        originalCurrency: normalizeCurrencyCode(originalCurrency),
         tags: safeTags,
         metadata: safeMetadata,
         account: safeAccount || undefined,
@@ -200,11 +200,12 @@ router.put('/:id', async (req: Request, res: Response) => {
         amount: toCents(toFinPrecision(parsedAmount)),
         category: safeCategory,
         date: parsedDate,
-        notes: safeNotes || undefined,
-        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
-        originalCurrency: originalCurrency || undefined,
+        // Full replace: null (not undefined) so a cleared field really clears.
+        notes: safeNotes || null,
+        originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : null,
+        originalCurrency: normalizeCurrencyCode(originalCurrency),
         tags: safeTags,
-        metadata: safeMetadata,
+        metadata: safeMetadata ?? {},
         account: safeAccount || null,
       },
     });
