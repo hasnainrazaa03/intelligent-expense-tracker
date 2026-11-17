@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await apiToggleTwoFactor(!twoFactorEnabled, password);
       setTwoFactorEnabled(result.twoFactorEnabled);
       notify.success(result.message);
-    } catch (error) {
+    } catch {
       notify.error(
         disabling
           ? 'Could not disable 2FA. Check your password and try again.'

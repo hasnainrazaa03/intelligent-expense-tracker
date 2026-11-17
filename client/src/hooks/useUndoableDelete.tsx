@@ -40,7 +40,8 @@ const fire = (id: string) => {
 
 /** Run every pending delete now instead of when its timer ends. */
 export const flushPendingDeletes = () => {
-  for (const id of [...pending.keys()]) fire(id);
+  // Snapshot the ids first: fire() removes each entry from `pending`.
+  for (const id of Array.from(pending.keys())) fire(id);
 };
 
 // A hidden or closing page may never get its timers back (mobile browsers

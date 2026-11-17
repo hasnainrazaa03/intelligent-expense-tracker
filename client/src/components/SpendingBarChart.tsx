@@ -45,7 +45,8 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
     // series always have a fixed number of buckets (days / 6 months), so a brand
     // new account would otherwise render a flat row of zero bars (a blank box)
     // instead of a clear "No data available".
-    if (data.length === 0 || data.every((d) => !Number(d.amount))) {
+    // (`every` is also true for an empty series.)
+    if (data.every((d) => !Number(d.amount))) {
         return <ChartEmpty />;
     }
 

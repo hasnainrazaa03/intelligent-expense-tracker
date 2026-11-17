@@ -30,7 +30,9 @@ const detectCurrentSemesterId = () => {
 };
 
 const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
-  semesters, onUpdateTuition, onUpdateInstallmentCount, onMarkAsPaid, onUpdateDate
+  // onUpdateDate is accepted but not used yet: there's no control for changing a
+  // paid installment's date (tracked in the post-launch plan).
+  semesters, onUpdateTuition, onUpdateInstallmentCount, onMarkAsPaid,
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   
@@ -51,7 +53,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
     if (!exists && semesters.length > 0) {
       setActiveSemesterId(semesters[0].id);
     }
-  }, [semesters]);
+  }, [semesters, activeSemesterId]);
 
   const activeSemester = semesters.find(s => s.id === activeSemesterId);
 

@@ -1,0 +1,127 @@
+name: CI
+
+# Every PR (and every push to main) must lint, typecheck, test and build both
+# packages, and pass the Playwright end-to-end suite against a real API + DB.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  client:
+    name: Client · lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - name: Lint (oxlint, incl. React hooks rules)
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  server:
+    name: Server · typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  e2e:
+    name: End-to-end · Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Throwaway CI-only values; nothing here is a real secret.
+      DATABASE_URL: mongodb://localhost:27017/orbit_ci?replicaSet=rs0&directConnection=true
+      JWT_SECRET: ci-only-jwt-secret-not-used-anywhere-else-000
+      RESEND_API_KEY: re_ci_dummy_key
+      FRONTEND_URL: http://localhost:4173
+      PORT: "3001"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+
+      - name: Start MongoDB (single-node replica set, which Prisma requires)
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval "db.adminCommand('ping').ok" && break; sleep 1; done
+          docker exec mongo mongosh --quiet --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"
+          for i in $(seq 1 30); do [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ] && break; sleep 1; done
+
+      - name: Install server, create schema, test account and demo data
+        working-directory: server
+        run: |
+          npm ci
+          npx prisma generate
+          npx prisma db push --skip-generate
+          npx ts-node --transpile-only scripts/ensure-test-user.ts
+          npx ts-node --transpile-only scripts/seed-demo.ts test@test.com
+
+      - name: Build and start the API
+        working-directory: server
+        run: |
+          npm run build
+          nohup node dist/src/index.js > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3001/health > /dev/null && exit 0; sleep 1; done
+          echo "API did not start"; cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - name: Install client and Chromium
+        working-directory: client
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright
+        working-directory: client
+        run: npm run test:e2e
+
+      - name: Collect the API log
+        if: failure()
+        run: cp "$RUNNER_TEMP/api.log" client/playwright-report/ 2>/dev/null || true
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            client/playwright-report
+            client/test-results
+          retention-days: 7

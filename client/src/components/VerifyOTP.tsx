@@ -4,7 +4,7 @@ import { verifyOtp, resendOtp } from '../services/api';
 import { takeVerificationPassword } from '../utils/pendingVerification';
 
 const VerifyOTP: React.FC = () => {
-  const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
+  const [otp, setOtp] = useState<string[]>(Array.from({ length: 6 }, () => ''));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -35,7 +35,7 @@ const VerifyOTP: React.FC = () => {
   const handleChange = (element: HTMLInputElement, index: number) => {
     if (isNaN(Number(element.value))) return false;
 
-    setOtp([...otp.map((d, idx) => (idx === index ? element.value : d))]);
+    setOtp(otp.map((d, idx) => (idx === index ? element.value : d)));
 
     // Auto-focus next input
     if (element.value !== "" && index < 5) {
@@ -54,7 +54,7 @@ const VerifyOTP: React.FC = () => {
     e.preventDefault();
     const digits = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     if (!digits) return;
-    const next = new Array(6).fill("");
+    const next = Array.from({ length: 6 }, () => '');
     for (let i = 0; i < digits.length; i++) next[i] = digits[i];
     setOtp(next);
     inputRefs.current[Math.min(digits.length, 5)]?.focus();

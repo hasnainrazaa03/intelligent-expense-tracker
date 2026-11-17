@@ -9,7 +9,6 @@ import { APP_CONFIG } from '../config';
 import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange } from '../utils/dateUtils';
 import {
   TableCellsIcon,
-  PlusCircleIcon,
   ExclamationTriangleIcon,
   ClipboardDocumentListIcon
 } from './Icons'; // Swapped to icons already in your project

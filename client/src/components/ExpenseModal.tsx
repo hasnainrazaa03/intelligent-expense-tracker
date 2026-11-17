@@ -3,7 +3,7 @@ import { Expense, Category } from '../types';
 import { suggestCategory, recordCategorySelection } from '../services/categorySuggestionService';
 import { PAYMENT_METHODS } from '../constants';
 import { getEffectiveCategories } from '../utils/categories';
-import { ChevronUpDownIcon, MagnifyingGlassIcon } from './Icons';
+import { ChevronUpDownIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { distributeAmount } from '../utils/currencyUtils';
@@ -320,6 +320,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
   // Effective categories (defaults + the user's custom ones). Re-read when the
   // modal opens so categories added in the manager show up here (CMP-M24).
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isOpen is the re-read trigger
   const effectiveCategories = useMemo(() => getEffectiveCategories(), [isOpen]);
 
   const filteredCategories = useMemo<Record<string, string[]>>(() => {
