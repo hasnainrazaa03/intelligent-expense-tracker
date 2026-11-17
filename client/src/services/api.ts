@@ -33,6 +33,7 @@ export const isAuthError = (error: unknown): boolean =>
 // cookie is still sent automatically with `credentials: 'include'`; the header
 // just has to carry the same value (double-submit).
 let cachedCsrfToken: string | null = null;
+let csrfInFlight: Promise<string | null> | null = null;
 
 /** Forget the cached CSRF token (on logout, so the next session fetches its own). */
 export const resetCsrfToken = (): void => { cachedCsrfToken = null; };
@@ -49,17 +50,25 @@ const ensureCsrfToken = async (): Promise<string | null> => {
   const fromCookie = readCsrfCookie();
   if (fromCookie) return fromCookie; // same-origin / local dev
   if (cachedCsrfToken) return cachedCsrfToken;
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/csrf`, { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      cachedCsrfToken = data?.csrfToken ?? null;
-      return cachedCsrfToken;
-    }
-  } catch {
-    /* network error — the caller's request will surface its own failure */
+  // Concurrent first writes share ONE fetch. Each /auth/csrf call rotates the
+  // cookie, so parallel fetches could leave a header token that no longer
+  // matched the final cookie, and the writes failed with 403 (C16).
+  if (!csrfInFlight) {
+    csrfInFlight = (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/csrf`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          cachedCsrfToken = data?.csrfToken ?? null;
+          return cachedCsrfToken;
+        }
+      } catch {
+        /* network error — the caller's request will surface its own failure */
+      }
+      return null;
+    })().finally(() => { csrfInFlight = null; });
   }
-  return null;
+  return csrfInFlight;
 };
 
 /**

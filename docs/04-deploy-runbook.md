@@ -27,7 +27,7 @@ data on **MongoDB Atlas**. Follow top-to-bottom; the DB steps are order-sensitiv
 | Var | Value | Notes |
 |---|---|---|
 | `NODE_ENV` | `production` | **Required.** Only in prod are cookies `Secure`+`SameSite=None` and CORS locked to the allowlist. |
-| `TRUST_PROXY` | `1` | **Required in prod** (server refuses to boot otherwise). Render puts exactly one proxy in front, so `1`. |
+| `TRUST_PROXY` | `2` | **Required in prod** (server refuses to boot otherwise). Requests arrive through Vercel's `/api` rewrite and then Render's proxy: two hops, so `2`. (Use `1` only if the frontend calls Render directly.) |
 | `DATABASE_URL` | your MongoDB SRV URI | |
 | `JWT_SECRET` | 32+ char random string | boot fails if shorter |
 | `FRONTEND_URL` | `https://your-app.vercel.app` | comma-separated if multiple origins; drives CORS |
@@ -78,11 +78,28 @@ no-op and order doesn't matter. On an **existing** DB, run 2c before/at cutover.
 
 | Var | Value |
 |---|---|
-| `VITE_API_BASE_URL` | `https://your-backend.onrender.com/api`  *(the Render URL + `/api`)* |
+| `VITE_API_BASE_URL` | `/api`  *(same-origin: `client/vercel.json` rewrites `/api/*` to Render, so the session cookie is first-party — Safari/iOS block it cross-site)* |
 
 > This is baked in at build time, so **redeploy the frontend** whenever the backend URL changes. After deploying, set the backend's `FRONTEND_URL` to this Vercel URL and redeploy the backend so CORS allows it.
 
 ---
+
+### Same-site API (Safari/iOS sign-in)
+
+`client/vercel.json` proxies `/api/*` to the Render service and sets the security
+headers (CSP and friends). With `VITE_API_BASE_URL=/api` the browser only ever
+talks to the Vercel domain, so session cookies are first-party; cross-site
+(`*.vercel.app` → `*.onrender.com`) they are blocked by Safari, iOS browsers and
+strict privacy modes.
+
+- Render: `TRUST_PROXY=2` (Vercel + Render's proxy) and
+  `GOOGLE_CALLBACK_URL=https://<your-vercel-domain>/api/auth/google/callback`.
+- Google Cloud Console → the OAuth client → **Authorized redirect URIs**: add the
+  same callback URL (keep the old one until the switch is done).
+- If the Render URL changes, update the rewrite destination and `connect-src` in
+  `client/vercel.json`.
+- The inline theme script in `client/index.html` is allowed by its sha256 in the
+  CSP; `securityHeaders.test.ts` fails if they drift.
 
 ## 4. Post-deploy verification
 
