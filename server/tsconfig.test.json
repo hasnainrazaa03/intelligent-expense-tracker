@@ -1,0 +1,6 @@
+{
+  // Type-checks the app AND the tests (tsconfig.json builds src only).
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src/**/*", "prisma/**/*", "tests/**/*"]
+}

@@ -901,14 +901,19 @@ const handleDeleteIncome = async (id: string) => {
     if (!semester || !installment || installment.status === 'paid' || installment.amount <= 0) return;
 
     const baseSemesterName = semester.name.split('USC TUITION')[0].trim();
-    const cleanTitle = `USC Tuition - ${baseSemesterName} (Inst #${installment.id})`;
+    // Numbered by position, as the tracker shows it (#1, #2…). It used the
+    // installment's id, which for a semester saved on the server is a database
+    // id: "USC Tuition - Fall 2026 (Inst #6afbf9f7…)" (found by the 4c E2E test).
+    const position = semester.installments.findIndex((i) => i.id === installmentId) + 1;
+    const cleanTitle = `USC Tuition - ${baseSemesterName} (Inst #${position})`;
+    const legacyTitle = `USC Tuition - ${baseSemesterName} (Inst #${installment.id})`;
 
     // Self-heal / anti-duplicate: if a tuition expense for THIS exact installment
     // already exists (e.g. it was created on a previous "mark paid" but the
     // semester link was lost — as happened when the semesters save was failing),
     // re-link to that existing expense instead of creating a second one.
     const existingExpense = expenses.find(
-      (e) => e.category === 'Tuition' && e.title === cleanTitle
+      (e) => e.category === 'Tuition' && (e.title === cleanTitle || e.title === legacyTitle)
     );
     if (existingExpense) {
       setSemesters(prevSemesters =>
