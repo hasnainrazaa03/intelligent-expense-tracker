@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
+import { aiCaller, chargeAiCall, AiBudgetExceeded, isQuotaError } from '../utils/aiBudget';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { expenseToClient, incomeToClient, budgetToClient } from '../utils/money';
 // pdf-parse v2 is a rewrite: it exports a PDFParse class instead of a default
@@ -124,6 +125,28 @@ const salvageArrayObjects = (text: string, key: string): any[] | null => {
 };
 
 router.use(authMiddleware);
+// Remember who is calling for the rest of this request, so every Gemini call
+// below is charged to their daily budget (utils/aiBudget).
+router.use((req: Request, _res: Response, next) => aiCaller.run(req.user!.id, next));
+
+// genAI.getGenerativeModel, but each generateContent call is charged to the
+// caller first (throws AiBudgetExceeded once the day's budget is spent).
+const getModel = (options: Parameters<GoogleGenerativeAI['getGenerativeModel']>[0]) => {
+  const model = genAI.getGenerativeModel(options, {
+    // A hung model call used to hold the request open indefinitely.
+    timeout: 120_000,
+    // Optional override (a proxy, or a local mock in tests).
+    ...(process.env.GEMINI_BASE_URL ? { baseUrl: process.env.GEMINI_BASE_URL } : {}),
+  });
+  const generate = model.generateContent.bind(model);
+  model.generateContent = ((...args: Parameters<typeof generate>) => {
+    chargeAiCall();
+    return generate(...args);
+  }) as typeof model.generateContent;
+  return model;
+};
+const budgetResponse = (res: Response, error: unknown) =>
+  error instanceof AiBudgetExceeded ? res.status(429).json({ message: error.message }) : null;
 
 // Tuition and the loan taken to pay it are one-off, structural money movements
 // that dwarf everyday spending — counting them in general analysis makes tuition
@@ -273,12 +296,12 @@ router.post('/analyze', async (req: Request, res: Response) => {
     // --- ROBUST MODEL CALL WITH FALLBACK ---
     let text: string;
     try {
-      const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL });
+      const model = getModel({ model: PRIMARY_MODEL });
       const result = await model.generateContent(prompt);
       text = (await result.response).text();
     } catch (modelError) {
       console.warn(`Primary model (${PRIMARY_MODEL}) failed. Attempting fallback to ${FALLBACK_MODEL}...`);
-      const fallbackModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
+      const fallbackModel = getModel({ model: FALLBACK_MODEL });
       const result = await fallbackModel.generateContent(prompt);
       text = (await result.response).text();
     }
@@ -287,9 +310,12 @@ router.post('/analyze', async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('AI analysis error:', error);
+    if (budgetResponse(res, error)) return;
     res.status(500).json({ message: 'Failed to generate AI analysis' });
   }
 });
+
+const MAX_CHAT_MESSAGE = 2000;
 
 router.post('/chat', async (req: Request, res: Response) => {
   if (!genAI) {
@@ -301,6 +327,11 @@ router.post('/chat', async (req: Request, res: Response) => {
 
   if (!message || typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ message: 'Message is required' });
+  }
+  // Bound what one chat request can put in the prompt: the message and history
+  // were unlimited, so a single request could carry ~1 MB of text (S8).
+  if (message.length > MAX_CHAT_MESSAGE) {
+    return res.status(400).json({ message: `Keep your question under ${MAX_CHAT_MESSAGE} characters.` });
   }
 
   try {
@@ -317,6 +348,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       ? history
           .filter((item) => item && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
           .slice(-8)
+          .map((item) => ({ role: item.role, content: item.content.slice(0, MAX_CHAT_MESSAGE) }))
       : [];
 
     const conversation = sanitizedHistory
@@ -348,11 +380,11 @@ Rules:
 
     let reply: string;
     try {
-      const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL });
+      const model = getModel({ model: PRIMARY_MODEL });
       const result = await model.generateContent(prompt);
       reply = (await result.response).text();
     } catch {
-      const fallbackModel = genAI.getGenerativeModel({ model: FALLBACK_MODEL });
+      const fallbackModel = getModel({ model: FALLBACK_MODEL });
       const result = await fallbackModel.generateContent(prompt);
       reply = (await result.response).text();
     }
@@ -360,6 +392,7 @@ Rules:
     return res.json({ reply });
   } catch (error) {
     console.error('AI chat error:', error);
+    if (budgetResponse(res, error)) return;
     return res.status(500).json({ message: 'Failed to generate AI chat response' });
   }
 });
@@ -402,7 +435,7 @@ If the image is not a receipt, return {"title":"","amount":0,"currency":"USD","d
 Respond with JSON only — no markdown, no commentary.`;
 
   const callModel = async (modelName: string): Promise<string> => {
-    const model = genAI.getGenerativeModel({
+    const model = getModel({
       model: modelName,
       generationConfig: { responseMimeType: 'application/json' },
     });
@@ -442,6 +475,7 @@ Respond with JSON only — no markdown, no commentary.`;
     return res.json({ receipt });
   } catch (error) {
     console.error('Receipt parse error:', error);
+    if (budgetResponse(res, error)) return;
     return res.status(500).json({ message: 'Failed to parse the receipt.' });
   }
 });
@@ -543,7 +577,7 @@ Return ONLY a JSON object {"account": "...", "transactions":[...]}, at most ${MA
   }
 
   const callModel = async (modelName: string): Promise<string> => {
-    const model = genAI.getGenerativeModel({
+    const model = getModel({
       model: modelName,
       // A busy month or a multi-account statement can emit a lot of rows, and on
       // 2.5-flash the model's hidden "thinking" tokens also draw from this
@@ -563,6 +597,8 @@ Return ONLY a JSON object {"account": "...", "transactions":[...]}, at most ${MA
         return await callModel(modelName);
       } catch (e) {
         lastErr = e;
+        // Retrying can't help when the quota or the user's budget is spent.
+        if (e instanceof AiBudgetExceeded || isQuotaError(e)) break;
         if (i < tries - 1) await new Promise((r) => setTimeout(r, 1200));
       }
     }
@@ -616,6 +652,7 @@ Return ONLY a JSON object {"account": "...", "transactions":[...]}, at most ${MA
     return res.json({ account, transactions });
   } catch (error) {
     console.error('Statement parse error:', error);
+    if (budgetResponse(res, error)) return;
     return res.status(500).json({ message: 'Failed to parse the statement.' });
   }
 });
@@ -647,7 +684,7 @@ ${isIncome ? '' : `- "paymentMethod": from EXACTLY ${JSON.stringify(RECEIPT_PAYM
 Respond with JSON only, no markdown.`;
 
   const callModel = async (modelName: string): Promise<string> => {
-    const model = genAI.getGenerativeModel({
+    const model = getModel({
       model: modelName,
       generationConfig: { responseMimeType: 'application/json' },
     });
@@ -679,6 +716,7 @@ Respond with JSON only, no markdown.`;
     });
   } catch (error) {
     console.error('Enrich transaction error:', error);
+    if (budgetResponse(res, error)) return;
     return res.status(500).json({ message: 'Failed to generate details.' });
   }
 });
@@ -719,7 +757,7 @@ ${JSON.stringify(chunk)}
 Return ONLY: {"details":[{"i":0,"notes":"...","tags":["..."],"category":"...","paymentMethod":"..."}, ...]} with exactly one entry per input item, same "i" values. No markdown, no commentary.`;
 
   const callModel = async (modelName: string, chunk: typeof items): Promise<string> => {
-    const model = genAI.getGenerativeModel({
+    const model = getModel({
       model: modelName,
       // Notes + tags per row add up; give the JSON headroom so a full batch
       // doesn't truncate (which yields empty text and a hard failure).
@@ -738,6 +776,8 @@ Return ONLY: {"details":[{"i":0,"notes":"...","tags":["..."],"category":"...","p
         return await callModel(modelName, chunk);
       } catch (e) {
         lastErr = e;
+        // Retrying can't help when the quota or the user's budget is spent.
+        if (e instanceof AiBudgetExceeded || isQuotaError(e)) break;
         if (i < tries - 1) await new Promise((r) => setTimeout(r, 1200));
       }
     }
@@ -773,6 +813,7 @@ Return ONLY: {"details":[{"i":0,"notes":"...","tags":["..."],"category":"...","p
 
   const all: any[] = [];
   let failedChunks = 0;
+  let budgetSpent: AiBudgetExceeded | null = null;
   for (const chunk of chunks) {
     try {
       let text: string;
@@ -791,13 +832,15 @@ Return ONLY: {"details":[{"i":0,"notes":"...","tags":["..."],"category":"...","p
       }
     } catch (chunkError) {
       failedChunks++;
+      if (chunkError instanceof AiBudgetExceeded) { budgetSpent = chunkError; break; }
       console.error('Batch enrich: chunk failed after retries:', chunkError);
     }
   }
 
-  // Only a total wipe-out is a 500 — otherwise return whatever we enriched so
+  // Only a total wipe-out is an error — otherwise return whatever we enriched so
   // the user keeps partial results instead of losing the whole batch.
   if (all.length === 0) {
+    if (budgetSpent) return res.status(429).json({ message: budgetSpent.message });
     return res.status(500).json({ message: 'Failed to generate details.' });
   }
   return res.json({ details: all, partial: failedChunks > 0 });

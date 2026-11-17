@@ -5,6 +5,7 @@ import { sendGenericEmail } from '../utils/mailer';
 import { writeAuditLog } from '../utils/audit';
 import { sendError } from '../utils/http';
 import { toDollars } from '../utils/money';
+import { emailSummaryLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 router.use(authMiddleware);
@@ -14,7 +15,7 @@ const money = (n: number) => `$${n.toFixed(2)}`;
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** Email the signed-in user a summary of their current-month finances. */
-router.post('/email-summary', async (req: Request, res: Response) => {
+router.post('/email-summary', emailSummaryLimiter, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const email = req.user!.email;
 
