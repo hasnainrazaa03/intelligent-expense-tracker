@@ -4,12 +4,26 @@ import { authMiddleware } from '../middleware/auth';
 import { Semester } from '../types';
 import { toFinPrecision, parseFiniteFloat } from '../utils/math';
 import { toCents, semesterToClient } from '../utils/money';
+import { holdKeyLockUntilResponse } from '../utils/keyedLock';
 
 const router = Router();
 router.use(authMiddleware);
 
 const MAX_SEMESTERS = 20;
 const MAX_INSTALLMENTS_PER_SEMESTER = 20;
+
+// paidDate as a calendar day (YYYY-MM-DD), matching /data/all — the client
+// adopts this response, so it must not switch formats under it.
+const toClientSemester = (s: any) => {
+  const out = semesterToClient(s) as any;
+  return {
+    ...out,
+    installments: (out.installments || []).map((inst: any) => ({
+      ...inst,
+      paidDate: inst.paidDate instanceof Date ? inst.paidDate.toISOString().split('T')[0] : inst.paidDate ?? null,
+    })),
+  };
+};
 
 router.post('/', async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -29,7 +43,7 @@ router.post('/', async (req: Request, res: Response) => {
   // no-op instead of letting the trailing deleteMany wipe every semester (SRV-H2).
   if (incomingSemesters.length === 0) {
     const current = await prisma.semester.findMany({ where: { userId }, include: { installments: true } });
-    return res.status(200).json(current.map(semesterToClient));
+    return res.status(200).json(current.map(toClientSemester));
   }
 
   // Validate each semester has required fields
@@ -44,6 +58,11 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ message: `Maximum ${MAX_INSTALLMENTS_PER_SEMESTER} installments per semester` });
     }
   }
+
+  // One reconcile per user at a time. Two overlapping full-state syncs (rapid
+  // autosaves, two tabs) interleave their delete/create steps and can leave
+  // duplicate installments or drop a semester the other just wrote.
+  await holdKeyLockUntilResponse(`semesters:${userId}`, res);
 
   try {
     // Reconcile with plain (non-transactional) writes. On MongoDB/Atlas an
@@ -149,7 +168,7 @@ router.post('/', async (req: Request, res: Response) => {
       include: { installments: true }
     });
 
-    res.status(200).json(updatedData.map(semesterToClient));
+    res.status(200).json(updatedData.map(toClientSemester));
 
   } catch (error: any) {
     console.error('SEMESTER_RECONCILIATION_CRITICAL_FAILURE:', error);

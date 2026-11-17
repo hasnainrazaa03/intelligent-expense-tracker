@@ -6,6 +6,7 @@ import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
+import { newObjectId } from '../utils/objectId';
 import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, expenseToClient, incomeToClient, budgetToClient, semesterToClient } from '../utils/money';
 
@@ -120,6 +121,11 @@ router.post('/restore', async (req: Request, res: Response) => {
     return sendError(res, 400, 'VALIDATION_ERROR', `Backup is too large. Maximum ${MAX_ITEMS} entries per section.`);
   }
 
+  // A restored expense keeps its household tag only if the user is still an
+  // active member there (same rule as creating one).
+  const memberships = await prisma.householdMember.findMany({ where: { userId, status: 'active' }, select: { householdId: true } });
+  const myHouseholds = new Set(memberships.map((m) => m.householdId));
+
   try {
     await prisma.$transaction(async (tx) => {
       // Clear existing user data first; order avoids FK issues.
@@ -128,7 +134,15 @@ router.post('/restore', async (req: Request, res: Response) => {
       await tx.budget.deleteMany({ where: { userId } });
       await tx.semester.deleteMany({ where: { userId } });
 
+      // Restored expenses get new ids, but tuition installments (and receipt
+      // images) point at expenses by id. Choose each new id up front and keep
+      // backup-id → new-id, so those links can be rewritten below instead of
+      // all pointing at ids that no longer exist.
+      const expenseIdMap = new Map<string, string>();
+
       const cleanExpenses = expenses.map((e: any, idx: number) => {
+        const newId = newObjectId();
+        if (e.id != null) expenseIdMap.set(String(e.id), newId);
         const safeTitle = sanitizeText(e.title);
         const safeCategory = sanitizeText(e.category);
         const amount = parseFiniteFloat(e.amount);
@@ -158,6 +172,8 @@ router.post('/restore', async (req: Request, res: Response) => {
           receiptText: sanitizeOptionalText(e.receiptText),
           receiptFileName: sanitizeOptionalText(e.receiptFileName),
           account: sanitizeOptionalText(e.account),
+          householdId: typeof e.householdId === 'string' && myHouseholds.has(e.householdId) ? e.householdId : null,
+          id: newId,
           userId,
         };
       });
@@ -205,6 +221,15 @@ router.post('/restore', async (req: Request, res: Response) => {
       if (cleanExpenses.length > 0) {
         await tx.expense.createMany({ data: cleanExpenses });
       }
+
+      // Receipt images aren't in the backup; they're keyed by expense id. Re-point
+      // the ones whose expense came back, and drop the rest (their expense is gone).
+      const receipts = await tx.receipt.findMany({ where: { userId }, select: { id: true, expenseId: true } });
+      for (const r of receipts) {
+        const newId = expenseIdMap.get(r.expenseId);
+        if (newId) await tx.receipt.update({ where: { id: r.id }, data: { expenseId: newId } });
+        else await tx.receipt.delete({ where: { id: r.id } });
+      }
       if (cleanIncomes.length > 0) {
         await tx.income.createMany({ data: cleanIncomes });
       }
@@ -239,7 +264,8 @@ router.post('/restore', async (req: Request, res: Response) => {
                 return {
                   amount: toCents(toFinPrecision(amount)),
                   status: inst.status === 'paid' ? 'paid' : 'unpaid',
-                  expenseId: inst.expenseId ? String(inst.expenseId) : null,
+                  // Through the id map: the backup's expense ids were replaced.
+                  expenseId: inst.expenseId ? expenseIdMap.get(String(inst.expenseId)) ?? null : null,
                   paidDate,
                 };
               }),

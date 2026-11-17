@@ -289,6 +289,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     // Clean up any attached receipt image (no FK cascade to the Receipt store).
     await prisma.receipt.deleteMany({ where: { expenseId, userId } });
+    // A deleted tuition payment must un-pay its installment here, not only via a
+    // later client autosave that may never run (tab closed, save failed).
+    await prisma.tuitionInstallment.updateMany({
+      where: { semesterUserId: userId, expenseId },
+      data: { expenseId: null, status: 'unpaid', paidDate: null },
+    });
 
     await writeAuditLog({
       action: 'expense_delete',
