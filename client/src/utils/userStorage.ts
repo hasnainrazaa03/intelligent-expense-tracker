@@ -64,6 +64,21 @@ const claimLegacyData = (email: string) => {
   }
 };
 
+/** Remove everything this browser keeps for `email` (after the account is deleted). */
+export const clearUserStorage = (email: string): void => {
+  const suffix = `::${email.trim().toLowerCase()}`;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.endsWith(suffix)) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // storage unavailable
+  }
+};
+
 /** Signed out (or not yet known): reads return null and writes are dropped. */
 export const userStorage = {
   getItem(key: string): string | null {

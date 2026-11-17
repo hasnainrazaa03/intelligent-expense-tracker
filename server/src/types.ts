@@ -66,6 +66,8 @@ export interface Semester {
 interface AuthUser {
   id: string;      // <-- We are standardizing on 'id'
   email: string;
+  /** When this session was signed in (JWT iat, epoch seconds). */
+  issuedAt?: number;
 }
 
 // 2. Augment Express's 'User' type

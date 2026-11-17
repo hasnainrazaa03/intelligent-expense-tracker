@@ -65,6 +65,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     return res.status(503).json({ message: 'Service temporarily unavailable' });
   }
 
-  req.user = { id: payload.id, email: payload.email };
+  req.user = { id: payload.id, email: payload.email, issuedAt: typeof payload.iat === 'number' ? payload.iat : undefined };
   next();
 };

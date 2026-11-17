@@ -8,6 +8,10 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Settings page and account deletion (#187):** one Settings page, from the header gear or
+  the sidebar, for the account, preferences, security and data. New: "Sign out everywhere"
+  and permanent account deletion (password, or a recent Google sign-in). Turning on
+  two-factor sign-in now asks first: the gear icon used to switch it on with one click.
 - **Settings on the server (#186):** savings goals, investment accounts, custom categories,
   learned category suggestions, paused recurring charges, display currency and "hide
   tuition" now belong to the account instead of one browser: they show on every device,

@@ -204,6 +204,22 @@ export const toggleTwoFactor = (
   });
 };
 
+/** Ends every session of this account on every device, this one included. */
+export const logoutEverywhere = (): Promise<{ message: string }> => {
+  return fetchApi('/auth/logout-all', { method: 'POST' });
+};
+
+/**
+ * Permanently deletes the account and all its data. Needs the password, or a
+ * sign-in within the last 10 minutes (accounts that only use Google).
+ */
+export const deleteAccount = (password: string): Promise<{ message: string }> => {
+  return fetchApi('/auth/delete-account', {
+    method: 'POST',
+    body: JSON.stringify({ confirm: 'DELETE', password }),
+  });
+};
+
 export const logoutUser = (): Promise<{ message: string }> => {
   return fetchApi('/auth/logout', {
     method: 'POST',

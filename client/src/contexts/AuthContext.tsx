@@ -1,8 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getSession, logoutUser, resetCsrfToken, toggleTwoFactor as apiToggleTwoFactor } from '../services/api';
+import {
+  getSession,
+  logoutUser,
+  resetCsrfToken,
+  toggleTwoFactor as apiToggleTwoFactor,
+  logoutEverywhere as apiLogoutEverywhere,
+  deleteAccount as apiDeleteAccount,
+} from '../services/api';
 import { notify } from '../utils/notifications';
-import { setStorageUser } from '../utils/userStorage';
+import { setStorageUser, clearUserStorage } from '../utils/userStorage';
+import { clearPendingExpenses } from '../utils/offlineQueue';
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_WARNING_MS = 2 * 60 * 1000;
@@ -37,8 +45,13 @@ interface AuthContextValue {
    *  the email that signed in so per-account storage is ready immediately. */
   loginSuccess: (email?: string) => Promise<void>;
   logout: () => void;
-  /** Toggle 2FA; prompts for the password when disabling (server-enforced). */
-  toggleTwoFactor: () => Promise<void>;
+  /** Turn two-factor sign-in on or off. Turning it off needs the password
+   *  (server-enforced). Throws ApiError, for the caller to show. */
+  setTwoFactor: (enabled: boolean, password?: string) => Promise<void>;
+  /** End every session of this account, this device's included. Throws when the server can't be reached. */
+  logoutEverywhere: () => Promise<void>;
+  /** Delete the account for good, then forget what this browser kept for it. Throws ApiError. */
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -108,25 +121,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [setUserEmail]);
 
-  const toggleTwoFactor = async () => {
-    const disabling = twoFactorEnabled;
-    let password: string | undefined;
-    if (disabling) {
-      password = window.prompt('Enter your password to disable two-factor authentication:') ?? undefined;
-      if (!password) return; // cancelled or left blank
+  const setTwoFactor = useCallback(async (enabled: boolean, password?: string) => {
+    const result = await apiToggleTwoFactor(enabled, password);
+    setTwoFactorEnabled(result.twoFactorEnabled);
+  }, []);
+
+  const logoutEverywhere = useCallback(async () => {
+    await apiLogoutEverywhere();
+    store.remove(HAS_SESSION_KEY);
+    clearLocalSession();
+  }, [clearLocalSession]);
+
+  const deleteAccount = useCallback(async (password: string) => {
+    const email = userEmail;
+    await apiDeleteAccount(password);
+    // The account is gone: drop its cached settings, unsent changes and
+    // queued offline expenses, so nothing replays into a future account.
+    if (email) {
+      clearUserStorage(email);
+      await clearPendingExpenses(email).catch(() => undefined);
     }
-    try {
-      const result = await apiToggleTwoFactor(!twoFactorEnabled, password);
-      setTwoFactorEnabled(result.twoFactorEnabled);
-      notify.success(result.message);
-    } catch {
-      notify.error(
-        disabling
-          ? 'Could not disable 2FA. Check your password and try again.'
-          : 'Could not update 2FA setting.'
-      );
-    }
-  };
+    store.remove(HAS_SESSION_KEY);
+    clearLocalSession();
+  }, [userEmail, clearLocalSession]);
 
   // On start: finish a logout that never reached the server, else reconcile the
   // session (twoFactorEnabled / email from server truth, APP-H6). Also handles
@@ -214,7 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAuthenticated, logout]);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, userEmail, twoFactorEnabled, loginSuccess, logout, toggleTwoFactor }}>
+    <AuthContext.Provider value={{ isAuthenticated, userEmail, twoFactorEnabled, loginSuccess, logout, setTwoFactor, logoutEverywhere, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

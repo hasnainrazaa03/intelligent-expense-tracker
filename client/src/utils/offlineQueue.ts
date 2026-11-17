@@ -75,5 +75,12 @@ export const removePendingExpense = async (clientId: string): Promise<void> => {
   await reqP(s.delete(clientId));
 };
 
+/** Drop everything queued by `ownerId` (after the account is deleted). */
+export const clearPendingExpenses = async (ownerId: string): Promise<void> => {
+  const s = await store('readwrite');
+  const items = await reqP(s.getAll() as IDBRequest<PendingExpense[]>);
+  await Promise.all(items.filter((item) => item.ownerId === ownerId).map((item) => reqP(s.delete(item.clientId))));
+};
+
 export const countPendingExpenses = async (ownerId: string): Promise<number> =>
   (await allPendingExpenses(ownerId)).length;
