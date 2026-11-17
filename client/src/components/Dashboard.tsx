@@ -245,7 +245,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
           <div className="flex flex-col gap-4 md:gap-5 min-w-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
-              <SummaryCard title="EXPENSES" value={periodTotalExpense} icon={<CalendarDaysIcon className="h-6 w-6" />} percentageChange={periodChange} accent="rose" />
+              <SummaryCard title="EXPENSES" value={periodTotalExpense} icon={<CalendarDaysIcon className="h-6 w-6" />} percentageChange={periodChange} upIsGood={false} accent="rose" />
               <SummaryCard title="INCOME" value={periodTotalIncome} icon={<BanknotesIcon className="h-6 w-6" />} accent="green" />
               <SummaryCard title="NET_FLOW" value={netFlow} icon={<TrendingUpIcon className="h-6 w-6" />} isNetFlow={true} accent="indigo" />
               <SummaryCard title="TOP_CATEGORY" value={topCategory} isString={true} icon={<TagIcon className="h-6 w-6" />} accent="amber" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escapeCsvCell } from './exportUtils';
+import { escapeCsvCell, pdfSafeText } from './exportUtils';
 
 describe('escapeCsvCell (RFC 4180)', () => {
   it('leaves simple values unquoted', () => {
@@ -23,5 +23,20 @@ describe('escapeCsvCell (RFC 4180)', () => {
   it('renders empty for null/undefined', () => {
     expect(escapeCsvCell(null)).toBe('');
     expect(escapeCsvCell(undefined)).toBe('');
+  });
+});
+
+describe('pdfSafeText (F21)', () => {
+  it('spells the rupee as Rs and keeps Windows-1252 symbols', () => {
+    expect(pdfSafeText('₹1,23,456.00')).toBe('Rs 1,23,456.00');
+    expect(pdfSafeText('€5 £6 ¥7 “quoted” – café')).toBe('€5 £6 ¥7 “quoted” – café');
+  });
+  it('prints every currency the app formats legibly', () => {
+    const fmt = (cur: string) => new Intl.NumberFormat(cur === 'INR' ? 'en-IN' : 'en-US', { style: 'currency', currency: cur }).format(1234.5);
+    for (const cur of Intl.supportedValuesOf('currency')) expect(pdfSafeText(fmt(cur))).not.toContain('?');
+    expect(pdfSafeText(fmt('KRW'))).toBe('KRW 1,235');
+  });
+  it('replaces characters Helvetica cannot encode, one ? per character', () => {
+    expect(pdfSafeText('Chai ☕ चाय')).toBe('Chai ? ???');
   });
 });

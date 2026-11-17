@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense, Budget } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
+import { pdfSafeCells } from '../utils/exportUtils';
 import { getMainCategory } from '../utils/colorUtils';
 import { computeTotalBudgetedSpend } from '../utils/budgetUtils';
 import { startOfMonth, endOfMonth, isWithinRange, todayCalendar } from '../utils/dateUtils';
@@ -89,6 +90,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         ['Budget Utilization', `${stats.budgetUtilization.toFixed(1)}%`],
       ],
       theme: 'grid',
+      ...pdfSafeCells,
     });
 
     // Category breakdown table
@@ -101,6 +103,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
       head: [['Category', 'Amount', '% of Total']],
       body: catRows,
       theme: 'grid',
+      ...pdfSafeCells,
     });
 
     doc.save(`usc_audit_report_${todayCalendar()}.pdf`);

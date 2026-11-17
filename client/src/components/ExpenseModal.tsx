@@ -288,7 +288,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       amount: finalAmount,
       category,
       date,
-      paymentMethod: paymentMethod.trim() || 'CASH', // Default to cash if empty
+      // No method chosen stays empty. It used to be saved as "CASH", which then
+      // showed up in reports and filters as if the user had picked it (F22).
+      paymentMethod: paymentMethod.trim() || undefined,
       account: account.trim() || undefined,
       notes: notes.trim() || undefined,
       originalAmount: enterInForeign ? parseFloat(originalAmount) : undefined,

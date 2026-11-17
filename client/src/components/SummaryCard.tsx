@@ -13,6 +13,8 @@ interface SummaryCardProps {
   percentageChange?: number;
   isNetFlow?: boolean;
   accent?: Accent;
+  /** Whether a rise in `percentageChange` is good (income) or bad (spending). */
+  upIsGood?: boolean;
 }
 
 const ACCENT: Record<Accent, { chip: string; text: string }> = {
@@ -24,7 +26,7 @@ const ACCENT: Record<Accent, { chip: string; text: string }> = {
 };
 
 const SummaryCard: React.FC<SummaryCardProps> = ({
-  title, value, isString = false, icon, percentageChange, isNetFlow = false, accent = 'indigo'
+  title, value, isString = false, icon, percentageChange, isNetFlow = false, accent = 'indigo', upIsGood = true
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const isNumeric = !isString && typeof value === 'number';
@@ -46,8 +48,11 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
     if (percentageChange === undefined || !isFinite(percentageChange)) return null;
     const isUp = percentageChange >= 0;
     const Icon = isUp ? ArrowUpIcon : ArrowDownIcon;
+    // Green means "good": more income is, more spending isn't. Expenses going up
+    // used to show green (F22). No change is neutral.
+    const tone = percentageChange === 0 ? 'text-app-muted' : isUp === upIsGood ? 'text-ok' : 'text-danger';
     return (
-      <div className={`mt-2.5 inline-flex items-center gap-1 text-xs font-semibold ${isUp ? 'text-ok' : 'text-danger'}`}>
+      <div className={`mt-2.5 inline-flex items-center gap-1 text-xs font-semibold ${tone}`}>
         <Icon className="h-3.5 w-3.5" />
         {Math.abs(percentageChange).toFixed(1)}%
         <span className="text-app-muted font-medium">vs last month</span>

@@ -6,7 +6,7 @@ import { toFinPrecision, parseFiniteFloat, parseValidDate, parseAmount, MAX_AMOU
 import { ValidationError } from '../utils/errors';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
-import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
+import { sanitizeText, sanitizeOptionalText, sanitizeNotes, sanitizeOptionalNotes } from '../utils/sanitize';
 import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, expenseToClient } from '../utils/money';
 import { holdKeyLockUntilResponse } from '../utils/keyedLock';
@@ -66,7 +66,7 @@ router.post('/', async (req: Request, res: Response) => {
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
   const safePaymentMethod = sanitizeText(paymentMethod);
-  const safeNotes = sanitizeText(notes);
+  const safeNotes = sanitizeNotes(notes);
   const safeTaxCategory = sanitizeText(taxCategory);
   const safeReceiptText = sanitizeText(receiptText);
   const safeReceiptFileName = sanitizeText(receiptFileName);
@@ -198,7 +198,7 @@ router.put('/:id', async (req: Request, res: Response) => {
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
   const safePaymentMethod = sanitizeText(paymentMethod);
-  const safeNotes = sanitizeText(notes);
+  const safeNotes = sanitizeNotes(notes);
   const safeTaxCategory = sanitizeText(taxCategory);
   const safeReceiptText = sanitizeText(receiptText);
   const safeReceiptFileName = sanitizeText(receiptFileName);
@@ -425,7 +425,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         amount: toCents(toFinPrecision(parsedAmount)),
         date: parsedDate,
         paymentMethod: sanitizeOptionalText(expense.paymentMethod),
-        notes: sanitizeOptionalText(expense.notes),
+        notes: sanitizeOptionalNotes(expense.notes),
         originalAmount: parsedOriginalAmount != null ? toCents(toFinPrecision(parsedOriginalAmount)) : undefined,
         originalCurrency: normalizeCurrencyCode(expense.originalCurrency),
         isRecurring: Boolean(expense.isRecurring),

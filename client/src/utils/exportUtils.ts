@@ -51,6 +51,29 @@ const generateCsv = (items: any[], filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
+// jsPDF's built-in Helvetica only covers Windows-1252. One character outside it
+// (₹, Hindi text, an emoji) made jsPDF write the WHOLE string as two-byte text,
+// so a cell like "₹1,234.00" printed as spaced-out garbage (F21). Spell the
+// rupee as "Rs" and replace anything else unencodable with "?", keeping the
+// rest of the text readable. Currency symbols Helvetica lacks (every one the
+// currency picker can produce) become their code instead.
+const CP1252_EXTRAS = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ');
+const PDF_CURRENCY_SYMBOLS: Record<string, string> = { '₹': 'Rs ', '₪': 'ILS ', '₩': 'KRW ', '₱': 'PHP ', '₫': 'VND ' };
+export const pdfSafeText = (value: unknown): string => {
+  let out = '';
+  const text = String(value ?? '')
+    .replace(/[₹₪₩₱₫]\s?/g, (m) => PDF_CURRENCY_SYMBOLS[m.trim()])
+    .replace(/[\u2009\u202f]/g, ' ');
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!;
+    out += code < 0x80 || (code >= 0xa0 && code <= 0xff) || CP1252_EXTRAS.has(ch) ? ch : '?';
+  }
+  return out;
+};
+
+/** autoTable hook: run every head/body cell through pdfSafeText (before widths are measured). */
+export const pdfSafeCells = { didParseCell: (data: { cell: { text: string[] } }) => { data.cell.text = data.cell.text.map(pdfSafeText); } };
+
 const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, filename: string) => {
     const doc = new jsPDF();
 
@@ -58,7 +81,7 @@ const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, 
     doc.text('Financial Report', 14, 22);
     doc.setFontSize(11);
     doc.setTextColor(100);
-    doc.text(`Date Range: ${dateRange}`, 14, 29);
+    doc.text(pdfSafeText(`Date Range: ${dateRange}`), 14, 29);
 
     if (expenses.length > 0) {
         doc.setFontSize(14);
@@ -74,6 +97,7 @@ const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, 
             ]),
             theme: 'striped',
             headStyles: { fillColor: [20, 184, 166] }, // brand-primary color
+            ...pdfSafeCells,
         });
     }
 
@@ -87,6 +111,7 @@ const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, 
             body: budgets.map(b => [b.category, `$${b.amount.toFixed(2)}`]),
             theme: 'striped',
             headStyles: { fillColor: [20, 184, 166] },
+            ...pdfSafeCells,
         });
     }
     
