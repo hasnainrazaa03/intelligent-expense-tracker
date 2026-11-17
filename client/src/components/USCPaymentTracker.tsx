@@ -11,7 +11,7 @@ interface USCPaymentTrackerProps {
   semesters: Semester[];
   onUpdateTuition: (semesterId: string, totalTuition: number) => void;
   onUpdateInstallmentCount: (semesterId: string, count: number) => void;
-  onMarkAsPaid: (semesterId: string, installmentId: number, paymentDate: string) => void;
+  onMarkAsPaid: (semesterId: string, installmentId: number, paymentDate: string) => Promise<void> | void;
   onUpdateDate: (semesterId: string, installmentId: number, newDate: string) => void;
 }
 
@@ -35,6 +35,9 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
   const { displayCurrency, conversionRate } = useCurrency();
   
   const [selectedDates, setSelectedDates] = useState<Record<number, string>>({});
+  // Installments with a "mark paid" request in flight: the button is disabled so
+  // a double-click can't create two tuition expenses.
+  const [markingPaid, setMarkingPaid] = useState<Set<string>>(new Set());
   
   // Initialize with the detected current semester
   const [activeSemesterId, setActiveSemesterId] = useState<string>(detectCurrentSemesterId());
@@ -225,13 +228,21 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
 
                         <Button
                           size="sm"
-                          onClick={() => {
+                          disabled={markingPaid.has(`${activeSemester.id}:${inst.id}`)}
+                          onClick={async () => {
+                            const key = `${activeSemester.id}:${inst.id}`;
+                            if (markingPaid.has(key)) return;
                             const dateToUse = selectedDates[inst.id] || todayCalendar();
-                            onMarkAsPaid(activeSemester.id, inst.id, dateToUse);
+                            setMarkingPaid((prev) => new Set(prev).add(key));
+                            try {
+                              await onMarkAsPaid(activeSemester.id, inst.id, dateToUse);
+                            } finally {
+                              setMarkingPaid((prev) => { const next = new Set(prev); next.delete(key); return next; });
+                            }
                           }}
                           className="rounded-xl text-[10px] md:text-xs px-3 md:px-4 py-2 flex-shrink-0"
                         >
-                          Mark paid
+                          {markingPaid.has(`${activeSemester.id}:${inst.id}`) ? 'Saving…' : 'Mark paid'}
                         </Button>
                       </div>
                     )}

@@ -130,6 +130,13 @@ const App: React.FC = () => {
     queryFn: async () => {
       const data = await getAllData();
       setHasServerSnapshot(true);
+      // A refetch (after an import, a sync, …) while tuition edits are unsaved
+      // would replace them with the server copy; keep the local ones — the
+      // autosave is about to write them.
+      if (isSemestersDirtyRef.current) {
+        const local = queryClient.getQueryData<AllDataResponse>(queryKeys.allData)?.semesters;
+        if (local) return { ...data, semesters: local };
+      }
       return data;
     },
     enabled: isAuthenticated,
@@ -206,6 +213,22 @@ const App: React.FC = () => {
   // Currency state/logic lives in CurrencyProvider now.
 
   const [isSemestersDirty, setIsSemestersDirty] = useState(false);
+  // Bumped on every local semester edit. An autosave clears the dirty flag only
+  // if no edit happened while it was in flight; clearing it unconditionally
+  // cancelled the timer queued for the newer edit, so that edit was never saved.
+  const semestersEditVersion = useRef(0);
+  const isSemestersDirtyRef = useRef(false);
+  const markSemestersDirty = useCallback(() => {
+    semestersEditVersion.current += 1;
+    isSemestersDirtyRef.current = true;
+    setIsSemestersDirty(true);
+  }, []);
+  // Latest semesters for the autosave, which may run after waiting for an earlier save.
+  const semestersRef = useRef<Semester[]>([]);
+  semestersRef.current = semesters;
+  const semesterSaveInFlight = useRef<Promise<unknown> | null>(null);
+  const semesterSaveFailures = useRef(0);
+  const [semesterRetryTick, setSemesterRetryTick] = useState(0);
 
   // Hide tuition + tuition-loan from the analytical overviews (Financial hub &
   // Income summary) so day-to-day cash flow isn't dwarfed by one-off tuition.
@@ -289,30 +312,53 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAuthenticated, isExpenseModalOpen, isIncomeModalOpen, isBudgetModalOpen, isDataModalOpen, isCategoryModalOpen, activeView]);
 
-  // Auto-save semesters to the database whenever they change
+  // Auto-save semesters (a full-state replace) 800ms after the last change.
   useEffect(() => {
-    // Only save if we're logged in AND the user has actually made a change
     // Semesters save as a full replace, so never before the real list loaded.
     if (!isAuthenticated || !isSemestersDirty || !hasServerSnapshot) {
       return;
     }
 
-    // Set a timer to wait 800ms after the last change before triggering the API
-    const saveTimer = setTimeout(() => {
-      saveSemesters(semesters)
-        .then(() => {
-          setIsSemestersDirty(false); // Reset the flag after a successful save
-        })
-        .catch(err => {
-          console.error("Failed to auto-save semesters:", err);
-          // We removed the alert here to prevent interrupting the user experience
-        });
+    let cancelled = false;
+    const saveTimer = setTimeout(async () => {
+      // One save at a time: overlapping full-state saves interleave on the server.
+      while (semesterSaveInFlight.current) {
+        await semesterSaveInFlight.current.catch(() => undefined);
+      }
+      if (cancelled) return; // a newer edit re-ran this effect; its timer saves
+      const version = semestersEditVersion.current;
+      const request = saveSemesters(semestersRef.current);
+      semesterSaveInFlight.current = request;
+      try {
+        const saved = await request;
+        if (semesterSaveFailures.current > 0) notify.success('Tuition changes saved.');
+        semesterSaveFailures.current = 0;
+        if (semestersEditVersion.current === version) {
+          // Nothing changed while saving: adopt the server's copy so new
+          // installments carry their real ids. Kept on temporary numeric ids,
+          // every later save deleted and re-created them.
+          isSemestersDirtyRef.current = false;
+          setSemesters(saved);
+          setIsSemestersDirty(false);
+        }
+        // Otherwise a newer edit is pending; its own timer saves it.
+      } catch (err) {
+        console.error('Failed to auto-save semesters:', err);
+        semesterSaveFailures.current += 1;
+        if (semesterSaveFailures.current === 1) {
+          notify.error("Couldn't save your tuition changes. Retrying…");
+        }
+        const backoffMs = Math.min(30_000, 2_000 * 2 ** (semesterSaveFailures.current - 1));
+        setTimeout(() => setSemesterRetryTick((t) => t + 1), backoffMs);
+      } finally {
+        semesterSaveInFlight.current = null;
+      }
     }, 800);
 
-    // CLEANUP: If the user makes another change within 800ms, this clears the previous timer
-    return () => clearTimeout(saveTimer);
-
-  }, [semesters, isAuthenticated, isSemestersDirty, hasServerSnapshot]);
+    // A change within 800ms supersedes this save.
+    return () => { cancelled = true; clearTimeout(saveTimer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semesters, isAuthenticated, isSemestersDirty, hasServerSnapshot, semesterRetryTick]);
   
   // Budget alert: check if a category is near or over its monthly budget
   const checkBudgetAlert = useCallback((category: string, allExpenses: Expense[]) => {
@@ -449,7 +495,7 @@ const handleUpdateExpense = async (updatedExpense: Expense): Promise<boolean> =>
             : inst
         )
       })));
-      setIsSemestersDirty(true);
+      markSemestersDirty();
     }
     setEditingExpense(null);
     setIsExpenseModalOpen(false);
@@ -480,7 +526,7 @@ const handleQuickSaveExpense = async (updatedExpense: Expense) => {
             : inst
         )
       })));
-      setIsSemestersDirty(true);
+      markSemestersDirty();
     }
   } catch (error) {
     console.error('Failed to quick update expense:', error);
@@ -516,7 +562,7 @@ const handleDeleteExpense = async (id: string) => {
           };
         })
       );
-      setIsSemestersDirty(true);
+      markSemestersDirty();
     }
 
     // 4. UPDATE LOCAL EXPENSE LIST
@@ -751,9 +797,23 @@ const handleDeleteIncome = async (id: string) => {
         return { ...semester, totalTuition, installments };
       })
     );
-    setIsSemestersDirty(true);
+    markSemestersDirty();
   };
+  // Installments with a "mark paid" request in flight. A double-click used to
+  // run this twice: both calls saw the installment unpaid and created two
+  // tuition expenses, double-counting tuition.
+  const markPaidInFlight = useRef(new Set<string>());
   const handleMarkInstallmentAsPaid = async (semesterId: string, installmentId: number, paymentDate: string) => {
+    const flightKey = `${semesterId}:${installmentId}`;
+    if (markPaidInFlight.current.has(flightKey)) return;
+    markPaidInFlight.current.add(flightKey);
+    try {
+      await markInstallmentAsPaid(semesterId, installmentId, paymentDate);
+    } finally {
+      markPaidInFlight.current.delete(flightKey);
+    }
+  };
+  const markInstallmentAsPaid = async (semesterId: string, installmentId: number, paymentDate: string) => {
     const semester = semesters.find(s => s.id === semesterId);
     const installment = semester?.installments.find(i => i.id === installmentId);
     
@@ -781,7 +841,7 @@ const handleDeleteIncome = async (id: string) => {
             : s
         )
       );
-      setIsSemestersDirty(true);
+      markSemestersDirty();
       notify.success('Linked to your existing tuition payment (no duplicate created).');
       return;
     }
@@ -797,8 +857,9 @@ const handleDeleteIncome = async (id: string) => {
     };
 
     try {
-      // 2. Save the new expense to the database
-      const savedExpense = await createExpense(newExpenseData);
+      // 2. Save the new expense. The key makes a repeat (another tab, a retry)
+      // return the same expense instead of creating a second one.
+      const savedExpense = await createExpense({ ...newExpenseData, clientRequestId: `tuition-${semesterId}-${installmentId}` });
       
       // 3. Add the *saved* expense to the local state
       setExpenses(prevExpenses => [...prevExpenses, savedExpense]);
@@ -816,7 +877,7 @@ const handleDeleteIncome = async (id: string) => {
         )
       );
       // This change to 'semesters' will trigger our useEffect to auto-save to the DB
-      setIsSemestersDirty(true);
+      markSemestersDirty();
     } catch (error) {
       console.error("Failed to mark installment as paid:", error);
       notify.error('Could not create the tuition expense.');
@@ -838,7 +899,7 @@ const handleDeleteIncome = async (id: string) => {
           ? { ...s, installments: s.installments.map(i => i.id === installmentId ? { ...i, paidDate: newDate } : i) }
           : s
       ));
-      setIsSemestersDirty(true);
+      markSemestersDirty();
 
       if (expenseSnapshot) {
         setExpenses(prevExpenses => prevExpenses.map(exp =>
@@ -898,7 +959,7 @@ const handleDeleteIncome = async (id: string) => {
     })
   );
   
-  setIsSemestersDirty(true);
+  markSemestersDirty();
 };
 
   // Financial hub uses `dateRange`; the Income hub uses its own `incomeDateRange`.
