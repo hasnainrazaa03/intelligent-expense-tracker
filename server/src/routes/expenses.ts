@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware} from '../middleware/auth';
 import { Expense } from '../types';
-import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math';
+import { toFinPrecision, parseFiniteFloat, parseValidDate, parseAmount, MAX_AMOUNT, MAX_ORIGINAL_AMOUNT } from '../utils/math';
+import { ValidationError } from '../utils/errors';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
@@ -19,6 +20,8 @@ router.use(authMiddleware);
 const MAX_BULK_SIZE = SERVER_CONFIG.limits.maxBulkImportSize;
 // S4: Input length limits
 const MAX_TEXT_LENGTH = SERVER_CONFIG.limits.maxTextLength;
+const MAX_SHORT_TEXT_LENGTH = 200;
+const MAX_RECEIPT_TEXT_LENGTH = 5000;
 
 // Validate an optional household tag: returns the id only if the user is an
 // active member (so nobody can tag an expense into a household they're not in),
@@ -84,12 +87,22 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
   }
 
-  const parsedAmount = parseFiniteFloat(amount);
-  if (parsedAmount === null || parsedAmount <= 0) {
-    return res.status(400).json({ message: 'Invalid amount' });
+  // Optional fields that had no length cap (S14).
+  if (
+    (safeReceiptText && safeReceiptText.length > MAX_RECEIPT_TEXT_LENGTH) ||
+    (safeTaxCategory && safeTaxCategory.length > MAX_SHORT_TEXT_LENGTH) ||
+    (safeAccount && safeAccount.length > MAX_SHORT_TEXT_LENGTH) ||
+    (safeReceiptFileName && safeReceiptFileName.length > MAX_SHORT_TEXT_LENGTH)
+  ) {
+    return res.status(400).json({ message: `Receipt text must be ${MAX_RECEIPT_TEXT_LENGTH} characters or less; tax category, account and file name ${MAX_SHORT_TEXT_LENGTH} or less` });
   }
 
-  const parsedOriginalAmount = originalAmount != null ? parseFiniteFloat(originalAmount) : null;
+  const parsedAmount = parseAmount(amount);
+  if (parsedAmount === null || parsedAmount <= 0) {
+    return res.status(400).json({ message: `Amount must be more than 0 and at most ${MAX_AMOUNT.toLocaleString('en-US')}` });
+  }
+
+  const parsedOriginalAmount = originalAmount != null ? parseAmount(originalAmount, MAX_ORIGINAL_AMOUNT) : null;
   if (originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
     return res.status(400).json({ message: 'Invalid original amount' });
   }
@@ -208,12 +221,22 @@ router.put('/:id', async (req: Request, res: Response) => {
     return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
   }
 
-  const parsedAmount = parseFiniteFloat(amount);
-  if (parsedAmount === null || parsedAmount <= 0) {
-    return res.status(400).json({ message: 'Invalid amount' });
+  // Optional fields that had no length cap (S14).
+  if (
+    (safeReceiptText && safeReceiptText.length > MAX_RECEIPT_TEXT_LENGTH) ||
+    (safeTaxCategory && safeTaxCategory.length > MAX_SHORT_TEXT_LENGTH) ||
+    (safeAccount && safeAccount.length > MAX_SHORT_TEXT_LENGTH) ||
+    (safeReceiptFileName && safeReceiptFileName.length > MAX_SHORT_TEXT_LENGTH)
+  ) {
+    return res.status(400).json({ message: `Receipt text must be ${MAX_RECEIPT_TEXT_LENGTH} characters or less; tax category, account and file name ${MAX_SHORT_TEXT_LENGTH} or less` });
   }
 
-  const parsedOriginalAmount = originalAmount != null ? parseFiniteFloat(originalAmount) : null;
+  const parsedAmount = parseAmount(amount);
+  if (parsedAmount === null || parsedAmount <= 0) {
+    return res.status(400).json({ message: `Amount must be more than 0 and at most ${MAX_AMOUNT.toLocaleString('en-US')}` });
+  }
+
+  const parsedOriginalAmount = originalAmount != null ? parseAmount(originalAmount, MAX_ORIGINAL_AMOUNT) : null;
   if (originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
     return res.status(400).json({ message: 'Invalid original amount' });
   }
@@ -374,13 +397,13 @@ router.post('/bulk', async (req: Request, res: Response) => {
     const dataToCreate = expenses.map((expense, index) => {
       const parsedDate = parseValidDate(expense.date);
       if (!parsedDate) {
-        throw new Error(`Invalid date at row ${index + 1}: "${expense.date}"`);
+        throw new ValidationError(`Invalid date at row ${index + 1}: "${expense.date}"`);
       }
 
       const safeTitle = sanitizeText(expense.title);
       const safeCategory = sanitizeText(expense.category);
       if (!safeTitle || !safeCategory) {
-        throw new Error(`Title and category are required at row ${index + 1}`);
+        throw new ValidationError(`Title and category are required at row ${index + 1}`);
       }
       if (
         safeTitle.length > MAX_TEXT_LENGTH ||
@@ -388,17 +411,17 @@ router.post('/bulk', async (req: Request, res: Response) => {
         (expense.paymentMethod && String(expense.paymentMethod).trim().length > MAX_TEXT_LENGTH) ||
         (expense.notes && String(expense.notes).trim().length > MAX_TEXT_LENGTH)
       ) {
-        throw new Error(`Text field too long at row ${index + 1}`);
+        throw new ValidationError(`Text field too long at row ${index + 1}`);
       }
 
-      const parsedAmount = parseFiniteFloat(expense.amount as any);
+      const parsedAmount = parseAmount(expense.amount as any);
       if (parsedAmount === null || parsedAmount <= 0) {
-        throw new Error(`Invalid amount at row ${index + 1}: "${expense.amount}"`);
+        throw new ValidationError(`Invalid amount at row ${index + 1}: "${expense.amount}"`);
       }
 
-      const parsedOriginalAmount = expense.originalAmount != null ? parseFiniteFloat(expense.originalAmount as any) : null;
+      const parsedOriginalAmount = expense.originalAmount != null ? parseAmount(expense.originalAmount as any, MAX_ORIGINAL_AMOUNT) : null;
       if (expense.originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
-        throw new Error(`Invalid original amount at row ${index + 1}`);
+        throw new ValidationError(`Invalid original amount at row ${index + 1}`);
       }
 
       return {
@@ -434,6 +457,8 @@ router.post('/bulk', async (req: Request, res: Response) => {
 
   } catch (error: any) {
     // Don't surface internal/Prisma error text to the client.
+    // A bad row: say which, as a 400 (it used to be a generic 500).
+    if (error instanceof ValidationError) return res.status(400).json({ message: error.message });
     console.error('Failed to bulk create expenses:', error);
     res.status(500).json({ message: 'Failed to import expenses' });
   }

@@ -26,3 +26,14 @@ export const parseValidDate = (value: any): Date | null => {
   const d = new Date(value);
   return isNaN(d.getTime()) ? null : d;
 };
+// Largest amount accepted anywhere: $10M. Money is stored as 32-bit integer cents
+// (max 2,147,483,647 ≈ $21.4M), so larger values used to crash with a 500.
+export const MAX_AMOUNT = 10_000_000;
+// Foreign-currency originals (e.g. INR) run larger; still under the Int32 ceiling.
+export const MAX_ORIGINAL_AMOUNT = 20_000_000;
+
+/** A finite amount within ±max, or null (callers treat null as invalid). */
+export const parseAmount = (value: any, max: number = MAX_AMOUNT): number | null => {
+  const n = parseFiniteFloat(value);
+  return n === null || Math.abs(n) > max ? null : n;
+};

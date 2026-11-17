@@ -1,7 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { parseFiniteFloat, parseValidDate, toFinPrecision } from '../utils/math';
+import { parseFiniteFloat, parseValidDate, toFinPrecision, parseAmount, MAX_AMOUNT, MAX_ORIGINAL_AMOUNT } from '../utils/math';
+import { ValidationError } from '../utils/errors';
+
+// An amount that must be valid (a backup entry): throws a 400-mapped error.
+const requireAmount = (value: unknown, max: number, where: string): number => {
+  const n = parseAmount(value, max);
+  if (n === null || n < 0) throw new ValidationError(`Invalid amount in ${where}`);
+  return n;
+};
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
@@ -145,13 +153,13 @@ router.post('/restore', async (req: Request, res: Response) => {
         if (e.id != null) expenseIdMap.set(String(e.id), newId);
         const safeTitle = sanitizeText(e.title);
         const safeCategory = sanitizeText(e.category);
-        const amount = parseFiniteFloat(e.amount);
+        const amount = parseAmount(e.amount);
         const date = parseValidDate(e.date);
         if (!safeTitle || !safeCategory || amount === null || !date) {
-          throw new Error(`Invalid expense at index ${idx}`);
+          throw new ValidationError(`Invalid expense at index ${idx}`);
         }
         if (safeTitle.length > MAX_TEXT_LENGTH || safeCategory.length > MAX_TEXT_LENGTH || (e.notes && String(e.notes).length > MAX_TEXT_LENGTH)) {
-          throw new Error(`Expense text too long at index ${idx}`);
+          throw new ValidationError(`Expense text too long at index ${idx}`);
         }
         return {
           title: safeTitle,
@@ -160,7 +168,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           date,
           paymentMethod: sanitizeOptionalText(e.paymentMethod),
           notes: sanitizeOptionalText(e.notes),
-          originalAmount: e.originalAmount != null ? toCents(toFinPrecision(parseFiniteFloat(e.originalAmount) ?? 0)) : undefined,
+          originalAmount: e.originalAmount != null ? toCents(toFinPrecision(requireAmount(e.originalAmount, MAX_ORIGINAL_AMOUNT, `expense at index ${idx}`))) : undefined,
           originalCurrency: normalizeCurrencyCode(e.originalCurrency),
           isRecurring: Boolean(e.isRecurring),
           tags: normalizeTags(e.tags),
@@ -181,13 +189,13 @@ router.post('/restore', async (req: Request, res: Response) => {
       const cleanIncomes = incomes.map((i: any, idx: number) => {
         const safeTitle = sanitizeText(i.title);
         const safeCategory = sanitizeText(i.category);
-        const amount = parseFiniteFloat(i.amount);
+        const amount = parseAmount(i.amount);
         const date = parseValidDate(i.date);
         if (!safeTitle || !safeCategory || amount === null || !date) {
-          throw new Error(`Invalid income at index ${idx}`);
+          throw new ValidationError(`Invalid income at index ${idx}`);
         }
         if (safeTitle.length > MAX_TEXT_LENGTH || safeCategory.length > MAX_TEXT_LENGTH || (i.notes && String(i.notes).length > MAX_TEXT_LENGTH)) {
-          throw new Error(`Income text too long at index ${idx}`);
+          throw new ValidationError(`Income text too long at index ${idx}`);
         }
         return {
           title: safeTitle,
@@ -195,7 +203,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           category: safeCategory,
           date,
           notes: sanitizeOptionalText(i.notes),
-          originalAmount: i.originalAmount != null ? toCents(toFinPrecision(parseFiniteFloat(i.originalAmount) ?? 0)) : undefined,
+          originalAmount: i.originalAmount != null ? toCents(toFinPrecision(requireAmount(i.originalAmount, MAX_ORIGINAL_AMOUNT, `income at index ${idx}`))) : undefined,
           originalCurrency: normalizeCurrencyCode(i.originalCurrency),
           tags: normalizeTags(i.tags),
           metadata: normalizeMetadata(i.metadata),
@@ -206,9 +214,9 @@ router.post('/restore', async (req: Request, res: Response) => {
       const cleanBudgets = budgets
         .map((b: any, idx: number) => {
           const safeCategory = sanitizeText(b.category);
-          const amount = parseFiniteFloat(b.amount);
+          const amount = parseAmount(b.amount);
           if (!safeCategory || amount === null) {
-            throw new Error(`Invalid budget at index ${idx}`);
+            throw new ValidationError(`Invalid budget at index ${idx}`);
           }
           return {
             category: safeCategory,
@@ -241,9 +249,9 @@ router.post('/restore', async (req: Request, res: Response) => {
         const sem = semesters[sIdx];
         const safeName = sanitizeText(sem?.name);
         if (!sem?.id || !safeName || !Array.isArray(sem.installments)) {
-          throw new Error(`Invalid semester at index ${sIdx}`);
+          throw new ValidationError(`Invalid semester at index ${sIdx}`);
         }
-        const totalTuition = toCents(toFinPrecision(parseFiniteFloat(sem.totalTuition) ?? 0));
+        const totalTuition = toCents(toFinPrecision(sem.totalTuition == null ? 0 : requireAmount(sem.totalTuition, MAX_AMOUNT, `semester ${sIdx} tuition`)));
 
         await tx.semester.create({
           data: {
@@ -253,13 +261,13 @@ router.post('/restore', async (req: Request, res: Response) => {
             userId,
             installments: {
               create: sem.installments.map((inst: any, iIdx: number) => {
-                const amount = parseFiniteFloat(inst.amount);
+                const amount = parseAmount(inst.amount);
                 if (amount === null) {
-                  throw new Error(`Invalid installment at semester ${sIdx}, index ${iIdx}`);
+                  throw new ValidationError(`Invalid installment at semester ${sIdx}, index ${iIdx}`);
                 }
                 const paidDate = inst.paidDate ? parseValidDate(inst.paidDate) : null;
                 if (inst.paidDate && !paidDate) {
-                  throw new Error(`Invalid installment date at semester ${sIdx}, index ${iIdx}`);
+                  throw new ValidationError(`Invalid installment date at semester ${sIdx}, index ${iIdx}`);
                 }
                 return {
                   amount: toCents(toFinPrecision(amount)),
@@ -329,6 +337,10 @@ router.post('/restore', async (req: Request, res: Response) => {
       metadata: { error: error?.message || 'unknown' },
     });
 
+    // A bad entry in the backup: say which, as a 400.
+    if (error instanceof ValidationError) {
+      return sendError(res, 400, 'INVALID_BACKUP', error.message);
+    }
     // The real error is logged and audited above; return a generic message so
     // internal/Prisma details aren't leaked to the client.
     return sendError(res, 500, 'RESTORE_FAILED', 'Failed to restore backup.');

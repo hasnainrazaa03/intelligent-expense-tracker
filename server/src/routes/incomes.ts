@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { toFinPrecision, parseFiniteFloat, parseValidDate } from '../utils/math';
+import { toFinPrecision, parseFiniteFloat, parseValidDate, parseAmount, MAX_AMOUNT, MAX_ORIGINAL_AMOUNT } from '../utils/math';
+import { ValidationError } from '../utils/errors';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText } from '../utils/sanitize';
@@ -57,17 +58,17 @@ router.post('/bulk', async (req: Request, res: Response) => {
   try {
     const dataToCreate = incomes.map((income, index) => {
       const parsedDate = parseValidDate(income.date);
-      if (!parsedDate) throw new Error(`Invalid date at row ${index + 1}`);
+      if (!parsedDate) throw new ValidationError(`Invalid date at row ${index + 1}`);
 
       const safeTitle = sanitizeText(income.title);
       const safeCategory = sanitizeText(income.category);
-      if (!safeTitle || !safeCategory) throw new Error(`Title and category are required at row ${index + 1}`);
+      if (!safeTitle || !safeCategory) throw new ValidationError(`Title and category are required at row ${index + 1}`);
       if (safeTitle.length > MAX_TEXT_LENGTH || safeCategory.length > MAX_TEXT_LENGTH) {
-        throw new Error(`Text field too long at row ${index + 1}`);
+        throw new ValidationError(`Text field too long at row ${index + 1}`);
       }
 
-      const parsedAmount = parseFiniteFloat(income.amount);
-      if (parsedAmount === null || parsedAmount <= 0) throw new Error(`Invalid amount at row ${index + 1}`);
+      const parsedAmount = parseAmount(income.amount);
+      if (parsedAmount === null || parsedAmount <= 0) throw new ValidationError(`Invalid amount at row ${index + 1}`);
 
       return {
         title: safeTitle,
@@ -86,6 +87,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
     await prisma.income.createMany({ data: dataToCreate });
     res.status(201).json({ message: `${incomes.length} incomes imported successfully`, imported: incomes.length });
   } catch (error: any) {
+    if (error instanceof ValidationError) return res.status(400).json({ message: error.message });
     console.error('Failed to bulk create incomes:', error);
     res.status(500).json({ message: 'Failed to import incomes' });
   }
@@ -113,12 +115,12 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
   }
 
-  const parsedAmount = parseFiniteFloat(amount);
+  const parsedAmount = parseAmount(amount);
   if (parsedAmount === null || parsedAmount <= 0) {
-    return res.status(400).json({ message: 'Invalid amount' });
+    return res.status(400).json({ message: `Amount must be more than 0 and at most ${MAX_AMOUNT.toLocaleString('en-US')}` });
   }
 
-  const parsedOriginalAmount = originalAmount != null ? parseFiniteFloat(originalAmount) : null;
+  const parsedOriginalAmount = originalAmount != null ? parseAmount(originalAmount, MAX_ORIGINAL_AMOUNT) : null;
   if (originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
     return res.status(400).json({ message: 'Invalid original amount' });
   }
@@ -177,12 +179,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
   }
 
-  const parsedAmount = parseFiniteFloat(amount);
+  const parsedAmount = parseAmount(amount);
   if (parsedAmount === null || parsedAmount <= 0) {
-    return res.status(400).json({ message: 'Invalid amount' });
+    return res.status(400).json({ message: `Amount must be more than 0 and at most ${MAX_AMOUNT.toLocaleString('en-US')}` });
   }
 
-  const parsedOriginalAmount = originalAmount != null ? parseFiniteFloat(originalAmount) : null;
+  const parsedOriginalAmount = originalAmount != null ? parseAmount(originalAmount, MAX_ORIGINAL_AMOUNT) : null;
   if (originalAmount != null && (parsedOriginalAmount === null || parsedOriginalAmount <= 0)) {
     return res.status(400).json({ message: 'Invalid original amount' });
   }

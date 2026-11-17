@@ -6,7 +6,9 @@ export const APP_CONFIG = {
   virtualListHeight: 620,
   maxCsvImportRows: 2000,
   maxImportFileSizeBytes: 2 * 1024 * 1024,
-  maxBackupFileSizeBytes: 5 * 1024 * 1024,
+  // The server accepts restore bodies up to 12mb (compact JSON); the exported
+  // file is pretty-printed, so allow the same on disk.
+  maxBackupFileSizeBytes: 12 * 1024 * 1024,
 } as const;
 
 // 'all' renders one continuous virtualized scroll instead of pages — the
