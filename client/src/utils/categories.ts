@@ -1,3 +1,4 @@
+import { userStorage } from './userStorage';
 import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 
 // Single source of truth for the EFFECTIVE category map: the built-in defaults
@@ -10,10 +11,11 @@ export const DELETED_SUBCATEGORIES_KEY = 'deletedSubcategories';
 
 export type CategoryMap = Record<string, string[]>;
 
+// Per-account storage (see userStorage): custom categories belong to one user.
 const readJson = <T,>(key: string): T | null => {
   if (typeof localStorage === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(key);
+    const raw = userStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
@@ -83,11 +85,11 @@ export const saveCategories = (categories: CategoryMap): void => {
     if (removed.length) deletions[main] = removed;
   }
 
-  if (Object.keys(additions).length) localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(additions));
-  else localStorage.removeItem(CUSTOM_CATEGORIES_KEY);
+  if (Object.keys(additions).length) userStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(additions));
+  else userStorage.removeItem(CUSTOM_CATEGORIES_KEY);
 
-  if (Object.keys(deletions).length) localStorage.setItem(DELETED_SUBCATEGORIES_KEY, JSON.stringify(deletions));
-  else localStorage.removeItem(DELETED_SUBCATEGORIES_KEY);
+  if (Object.keys(deletions).length) userStorage.setItem(DELETED_SUBCATEGORIES_KEY, JSON.stringify(deletions));
+  else userStorage.removeItem(DELETED_SUBCATEGORIES_KEY);
 
   invalidateCategoriesCache();
 };

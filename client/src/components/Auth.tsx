@@ -9,7 +9,8 @@ import { stashVerificationPassword } from '../utils/pendingVerification';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 interface AuthProps {
-  onLoginSuccess: () => void;
+  /** Called with the email that signed in, so per-account storage is ready at once. */
+  onLoginSuccess: (email?: string) => void;
 }
 
 const scorePassword = (value: string): number => {
@@ -97,7 +98,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           setPendingLoginEmail(data.email || email);
           setSuccessMsg('Verification code sent to your email.');
         } else {
-          onLoginSuccess();
+          onLoginSuccess(email);
         }
       } else {
         if (!isStrongPassword(password)) {
@@ -121,7 +122,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     setError(null);
     try {
       await verifyLoginOtp(pendingLoginEmail, loginOtp);
-      onLoginSuccess();
+      onLoginSuccess(pendingLoginEmail);
     } catch (err: any) {
       setError(err.message || 'TWO_FACTOR_VERIFICATION_FAILED');
     } finally {

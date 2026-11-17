@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { userStorage } from '../utils/userStorage';
 import toast from 'react-hot-toast';
 import { Expense, Budget, Income, Semester } from '../types';
 import { exportData, ExportFormat } from '../utils/exportUtils';
@@ -117,8 +118,8 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
       },
       preferences: {
         displayCurrency: localStorage.getItem('displayCurrency') || 'USD',
-        customCategories: localStorage.getItem('customCategories'),
-        deletedSubcategories: localStorage.getItem('deletedSubcategories'),
+        customCategories: userStorage.getItem('customCategories'),
+        deletedSubcategories: userStorage.getItem('deletedSubcategories'),
       },
     };
 
@@ -352,10 +353,10 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
         localStorage.setItem('displayCurrency', prefs.displayCurrency);
       }
       if (typeof prefs?.customCategories === 'string') {
-        localStorage.setItem('customCategories', prefs.customCategories);
+        userStorage.setItem('customCategories', prefs.customCategories);
       }
       if (typeof prefs?.deletedSubcategories === 'string') {
-        localStorage.setItem('deletedSubcategories', prefs.deletedSubcategories);
+        userStorage.setItem('deletedSubcategories', prefs.deletedSubcategories);
       }
 
       setPendingRestore(null);

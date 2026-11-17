@@ -1,3 +1,4 @@
+import { userStorage } from '../utils/userStorage';
 import { Category } from '../types';
 
 const MERCHANT_MAP_KEY = 'merchantCategoryMap';
@@ -15,7 +16,7 @@ const normalizeMerchantKey = (title: string): string => {
 
 const getLearnedMap = (): Record<string, Category> => {
     try {
-        const raw = localStorage.getItem(MERCHANT_MAP_KEY);
+        const raw = userStorage.getItem(MERCHANT_MAP_KEY);
         if (!raw) return {};
         const parsed = JSON.parse(raw) as Record<string, Category>;
         return parsed && typeof parsed === 'object' ? parsed : {};
@@ -29,7 +30,7 @@ export const recordCategorySelection = (title: string, category: Category): void
     if (!key || !category) return;
     const learned = getLearnedMap();
     learned[key] = category;
-    localStorage.setItem(MERCHANT_MAP_KEY, JSON.stringify(learned));
+    userStorage.setItem(MERCHANT_MAP_KEY, JSON.stringify(learned));
 };
 
 /**
