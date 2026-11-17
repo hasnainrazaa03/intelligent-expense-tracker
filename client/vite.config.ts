@@ -6,7 +6,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   server: {
     port: 5173,
-    host: '0.0.0.0',
+    // Only this machine. The dev server is not hardened for the network (Vite's
+    // own advisories, e.g. GHSA-p4f5-76q4-ffq7, only bite when it is exposed).
+    // To try the app on a phone, run `npm run dev -- --host` on a trusted network.
   },
   plugins: [react()],
   build: {

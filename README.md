@@ -18,6 +18,9 @@ Most budgeting apps treat *Tuition* as a one-off expense and *International FX* 
 > ⚠️ **Do not upgrade Prisma past 6.x.** Prisma 7 requires a driver adapter for every
 > database and ships none for MongoDB, so `new PrismaClient()` throws at boot. Prisma's own
 > guidance is that MongoDB users stay on 6.x. Both `prisma` and `@prisma/client` are pinned.
+> Because the security fix for Prisma's `deepmerge-ts` (GHSA-ggr8-5vv4-36mx) only ships in
+> Prisma 7, `server/package.json` overrides it to 8.x for `@prisma/config`, the version
+> Prisma 7.10.1 itself uses. Drop the override if Prisma 6 ever picks it up.
 >
 > - **Findings catalog:** [docs/01-codebase-review.md](./docs/01-codebase-review.md)
 > - **Phased plan with checklists:** [docs/02-roadmap.md](./docs/02-roadmap.md)
@@ -346,6 +349,10 @@ npm run dev
 ```
 
 Open: **http://localhost:5173** (Vite picks the next free port if 5173 is taken — check its output).
+
+The dev server listens on this machine only. To open it from a phone on the same
+network, run `npm run dev -- --host` — only on a network you trust, since anyone on it
+can then reach the dev server.
 
 ### 5. Build Validation
 Run these checks after pulling updates:

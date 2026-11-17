@@ -166,6 +166,7 @@ was checked in the browser or API against the original code before merging.
 | 3d Import, PDF, dialogs | CSV import, PDF currency text, Escape guard, wipe-all reset, small defaults (F18, F21, F13, C14, F22) | #170 |
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
+| Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
 
 Found already done when re-checked in 3e: C17 (canonical link and JSON-LD point at the
 live site), P4 (the demo seed script writes cents), and removing `server/prisma.config.ts.bak`.
@@ -194,4 +195,6 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [ ] A paid tuition installment's date can't be changed in the UI: `App` has the handler (`handleUpdateInstallmentDate`) but the tracker never calls it.
 - [ ] React Compiler readiness: about 30 lint findings (`react/purity`, `react/set-state-in-effect`, `react/refs`), switched off in `client/.oxlintrc.json`.
 - [ ] Lint the server too (it isn't linted yet).
+- [ ] The weekly Dependency Audit workflow isn't a required check (it only runs when a PR touches a `package*.json`). Watch its Monday runs; it had been failing unnoticed since at least May.
+- [ ] Remove the `deepmerge-ts` override in `server/package.json` if a Prisma 6.x release picks up deepmerge-ts 8.
 - [ ] Turning on two-factor sign-in is a single unconfirmed click on a header icon; ask first (turning it off already asks for the password).

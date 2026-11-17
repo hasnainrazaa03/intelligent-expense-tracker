@@ -15,10 +15,9 @@ updates:
           - "react-dom"
           - "@types/react"
           - "@types/react-dom"
-    ignore:
-      - dependency-name: "jspdf"
-        update-types:
-          - "version-update:semver-major"
+    # jspdf majors were ignored while jspdf-autotable 3 required jspdf 2. Since
+    # jspdf-autotable 5 (peer: jspdf ^2 || ^3 || ^4) they are allowed again; the
+    # E2E "PDF exports" test checks each bump still draws the report.
 
   - package-ecosystem: "npm"
     directory: "/server"

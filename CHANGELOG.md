@@ -7,7 +7,7 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
-### November 2026 review fixes (2026-11-17, PRs #150–#175)
+### November 2026 review fixes (2026-11-17, PRs #150–#179)
 A second full review (client, server, deploy) found new bugs; each batch was checked
 against the original code before merging. Details and what's still open:
 [post-launch plan, Section D](./docs/03-post-launch-plan.md#section-d--november-2026-review-2026-11-17).
@@ -31,6 +31,15 @@ against the original code before merging. Details and what's still open:
   prefetched so they open offline, and a reload returns to the same screen.
 - **Dependencies (#161–#166, #169):** routine bumps; react and react-dom now update together
   (a react-only bump would have rendered a blank page).
+- **Quality gates (#176–#178):** every PR runs lint, typecheck, unit tests, build, a server
+  API suite against MongoDB and Playwright E2E; all four are required to merge. The app is
+  usable by keyboard and screen reader (axe: 0 issues, was 158). Tuition expenses are
+  numbered "Inst #3" instead of by database id.
+- **Dependency audit (#179):** `npm audit` is clean in both packages (was 1 critical and
+  11 high). Vite 8.2.6 fixes a critical dev-server code-execution bug (GHSA-p4f5-76q4-ffq7),
+  and the dev server now listens on this machine only (`npm run dev -- --host` to share it).
+  jsPDF 2 → 4 with byte-identical reports; an E2E test now checks both PDF exports.
+  Prisma 6's `deepmerge-ts` is overridden to 8.x; the rest are in-range transitive fixes.
 
 Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 [codebase review](./docs/01-codebase-review.md). Items under **Fixed** have landed on the
