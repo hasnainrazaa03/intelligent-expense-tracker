@@ -22,7 +22,7 @@
     "react-error-boundary": "^6.1.2",
     "react-hot-toast": "^2.6.1",
     "react-router-dom": "^7.18.5",
-    "react-window": "^2.2.7",
+    "react-window": "^2.5.3",
     "recharts": "^3.4.1",
     "tesseract.js": "^6.0.1"
   },
