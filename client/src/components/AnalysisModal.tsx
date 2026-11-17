@@ -1,6 +1,6 @@
 import React from 'react';
 import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+import { sanitizeAiHtml } from '../utils/sanitizeAiHtml';
 import useModalFocusTrap from '../hooks/useModalFocusTrap';
 
 interface AnalysisModalProps {
@@ -15,7 +15,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ isOpen, onClose, analysis
   const modalRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
   if (!isOpen) return null;
 
-  const parsedAnalysis = analysis ? DOMPurify.sanitize(marked.parse(analysis) as string) : '';
+  const parsedAnalysis = analysis ? sanitizeAiHtml(marked.parse(analysis) as string) : '';
 
   return (
     <div

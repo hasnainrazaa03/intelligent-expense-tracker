@@ -1,7 +1,7 @@
 // Bump CACHE_VERSION on any change to the caching strategy or shell asset list.
 // (Content-hashed build assets rotate by URL, so a bump mainly clears stale
 // HTML and orphaned chunks from previous deploys.)
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `usc-ledger-shell-${CACHE_VERSION}`;
 const APP_SHELL = ['/', '/index.html', '/trojan1.png', '/trojan-logo.png'];
 
@@ -28,9 +28,14 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-  // Only manage same-origin GETs; let cross-origin requests (API, FX rates,
-  // fonts) go straight to the network untouched.
+  // Only manage same-origin GETs; let cross-origin requests (FX rates, fonts,
+  // CDNs) go straight to the network untouched.
   if (url.origin !== self.location.origin) return;
+  // The API is same-origin when served through the site's /api rewrite. Never
+  // cache it: account data would be served stale and kept in Cache Storage
+  // across users, and the Google sign-in redirect (a navigation) would be
+  // stored as the app shell.
+  if (url.pathname.startsWith('/api/')) return;
 
   // Navigation requests: network-first so a new deployment always reaches the
   // user. Fall back to the cached shell only when the network is unavailable.
@@ -57,7 +62,10 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       const network = fetch(request)
         .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
+          // Never store HTML under an asset URL: a missing old chunk gets the
+          // SPA's index.html (200) from the host's catch-all rewrite.
+          const isHtml = (response && response.headers.get('content-type') || '').includes('text/html');
+          if (response && response.status === 200 && response.type === 'basic' && !isHtml) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }

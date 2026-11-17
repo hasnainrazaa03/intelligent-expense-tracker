@@ -5,7 +5,7 @@ import {
   SparklesIcon, ExclamationTriangleIcon, ChartPieIcon, CalendarDaysIcon,
   ClipboardDocumentListIcon, BanknotesIcon,
 } from './Icons';
-import DOMPurify from 'dompurify';
+import { sanitizeAiHtml } from '../utils/sanitizeAiHtml';
 import { marked } from 'marked';
 import cosmicRobot from '../assets/cosmic-robot.svg';
 
@@ -44,7 +44,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
 
   const renderAssistantMessage = (content: string) => {
     const html = marked.parse(content, { breaks: true, gfm: true });
-    const sanitized = DOMPurify.sanitize(html as string);
+    const sanitized = sanitizeAiHtml(html as string);
     return <div className="ai-markdown" dangerouslySetInnerHTML={{ __html: sanitized }} />;
   };
 
