@@ -120,12 +120,39 @@ const App: React.FC = () => {
   const queryClient = useQueryClient();
   const { isAuthenticated, userEmail, twoFactorEnabled, loginSuccess, logout, toggleTwoFactor } = useAuth();
 
+  // True once /data/all has actually loaded this session. Until then the cache
+  // can hold only optimistic patches on an empty base (an offline add after a
+  // failed load), and anything that saves a FULL list back to the server —
+  // budgets, semesters — would overwrite the user's real data with it.
+  const [hasServerSnapshot, setHasServerSnapshot] = useState(false);
   const allDataQuery = useQuery({
     queryKey: queryKeys.allData,
-    queryFn: getAllData,
+    queryFn: async () => {
+      const data = await getAllData();
+      setHasServerSnapshot(true);
+      return data;
+    },
     enabled: isAuthenticated,
   });
-  const isLoadingData = isAuthenticated && allDataQuery.isPending;
+  useEffect(() => { if (!isAuthenticated) setHasServerSnapshot(false); }, [isAuthenticated]);
+  // Load failed (or never landed) → banner with Retry instead of an empty
+  // account that looks real.
+  const dataLoadFailed = isAuthenticated && !hasServerSnapshot && (allDataQuery.isError || allDataQuery.isSuccess);
+  // With nothing loaded at all, show skeletons rather than $0 totals.
+  const isLoadingData = isAuthenticated && (allDataQuery.isPending || (!hasServerSnapshot && !allDataQuery.data));
+  // Retry as soon as the connection comes back.
+  useEffect(() => {
+    if (!isAuthenticated || hasServerSnapshot) return;
+    const retry = () => { void allDataQuery.refetch(); };
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, hasServerSnapshot]);
+  const refuseUntilLoaded = (what: string): boolean => {
+    if (hasServerSnapshot) return false;
+    notify.error(`Your data hasn't loaded yet, so ${what} wasn't saved (it would overwrite what's on the server). Retry loading first.`);
+    return true;
+  };
 
   const expenses = allDataQuery.data?.expenses ?? EMPTY_ALL_DATA.expenses;
   const incomes = allDataQuery.data?.incomes ?? EMPTY_ALL_DATA.incomes;
@@ -209,7 +236,10 @@ const App: React.FC = () => {
   const didProcessLoadRef = useRef(false);
   useEffect(() => {
     const data = allDataQuery.data;
-    if (!data) {
+    // Only real server data: on a failed load `data` can be a patch on an empty
+    // base, and substituting default semesters there would later be autosaved
+    // over the user's real ones.
+    if (!data || !hasServerSnapshot) {
       didProcessLoadRef.current = false;
       return;
     }
@@ -235,7 +265,7 @@ const App: React.FC = () => {
       setPendingRecurring([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allDataQuery.data]);
+  }, [allDataQuery.data, hasServerSnapshot]);
 
   // U6: Keyboard shortcuts
   useEffect(() => {
@@ -262,7 +292,8 @@ const App: React.FC = () => {
   // Auto-save semesters to the database whenever they change
   useEffect(() => {
     // Only save if we're logged in AND the user has actually made a change
-    if (!isAuthenticated || !isSemestersDirty) {
+    // Semesters save as a full replace, so never before the real list loaded.
+    if (!isAuthenticated || !isSemestersDirty || !hasServerSnapshot) {
       return;
     }
 
@@ -281,7 +312,7 @@ const App: React.FC = () => {
     // CLEANUP: If the user makes another change within 800ms, this clears the previous timer
     return () => clearTimeout(saveTimer);
 
-  }, [semesters, isAuthenticated, isSemestersDirty]);
+  }, [semesters, isAuthenticated, isSemestersDirty, hasServerSnapshot]);
   
   // Budget alert: check if a category is near or over its monthly budget
   const checkBudgetAlert = useCallback((category: string, allExpenses: Expense[]) => {
@@ -343,7 +374,7 @@ const App: React.FC = () => {
     notify.info('Recurring reminder snoozed for 24 hours.');
   };
 
-  const showOnboarding = isAuthenticated && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0;
+  const showOnboarding = isAuthenticated && hasServerSnapshot && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0;
 
   // Offline queue: replay each queued create, then refetch so temp local rows
   // are replaced by the authoritative server data.
@@ -579,6 +610,8 @@ const handleDeleteIncome = async (id: string) => {
   };
 
   const handleSaveBudgets = async (updatedBudgets: Budget[]) => {
+  // Budgets save as a full replace (the server deletes any not in the list).
+  if (refuseUntilLoaded('your budgets')) return;
   try {
     const savedBudgets = await saveBudgets(updatedBudgets);
     setBudgets(savedBudgets);
@@ -589,6 +622,9 @@ const handleDeleteIncome = async (id: string) => {
   }
 };
   const handleImportExpenses = async (importedExpenses: Omit<Expense, 'id'>[]) => {
+    // Duplicate detection compares against the loaded data; without it a
+    // re-import would insert rows that already exist.
+    if (refuseUntilLoaded('the import')) return;
     try {
       // 1. Send the batch to the server (keyed, so a retry can't duplicate it).
       await createBulkExpenses(importedExpenses, newBatchId());
@@ -625,6 +661,7 @@ const handleDeleteIncome = async (id: string) => {
   const handleImportStatement = async (payload: { expenses: Omit<Expense, 'id'>[]; incomes: Omit<Income, 'id'>[] }) => {
     const { expenses, incomes } = payload;
     if (expenses.length === 0 && incomes.length === 0) return;
+    if (refuseUntilLoaded('the import')) return;
 
     // The two batches are separate requests, so the second can fail after the
     // first has already been written. Track what actually landed and ALWAYS
@@ -1051,6 +1088,27 @@ const handleDeleteIncome = async (id: string) => {
               {/* 3. MAIN SCROLLABLE VIEWPORT */}
               <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-1 md:pr-2 custom-scrollbar relative bg-transparent focus:outline-none">
                 <div className={`w-full max-w-full overflow-hidden space-y-5 md:space-y-7 ${activeView === 'ai' ? 'pb-28 md:pb-4' : 'pb-56 md:pb-40'}`}>
+
+                  {dataLoadFailed && (
+                    <section role="alert" className="glass rounded-2xl p-5 md:p-6 border border-danger/40">
+                      <h3 className="font-display text-lg font-bold text-app-text mb-1.5">Couldn't load your data</h3>
+                      <p className="text-sm text-app-muted mb-4">
+                        {typeof navigator !== 'undefined' && !navigator.onLine
+                          ? "You're offline. "
+                          : "The server didn't respond. "}
+                        Budgets, tuition and imports are paused until it loads, so nothing gets overwritten.
+                        {allDataQuery.data ? ' Anything you add now is kept and shown here.' : ''}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { void allDataQuery.refetch(); }}
+                        disabled={allDataQuery.isFetching}
+                        className="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold disabled:opacity-60"
+                      >
+                        {allDataQuery.isFetching ? 'Retrying…' : 'Retry'}
+                      </button>
+                    </section>
+                  )}
 
                   {showOnboarding && (
                     <section className="glass rounded-2xl p-5 md:p-6">
