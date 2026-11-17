@@ -1,8 +1,8 @@
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { test, expect, type Page, type APIRequestContext, type Download } from '@playwright/test';
 import fs from 'fs';
 
-// End-to-end flows: CSV and statement import, tuition, AI chat and backup
-// restore. Most run as the shared demo account (see auth.setup.ts); the restore
+// End-to-end flows: CSV and statement import, tuition, PDF export, AI chat and
+// backup restore. Most run as the shared demo account (see auth.setup.ts); the restore
 // test uses its own account because it replaces all of that account's data.
 
 const API = 'http://localhost:3001/api';
@@ -58,8 +58,10 @@ test.describe('as the demo account', () => {
     await imp.getByRole('button', { name: /Import 3 \(2 exp · 1 inc\)/ }).click();
 
     await expect.poll(async () => (await titles(page.request)).filter((t) => t.includes(String(tag))).length, { timeout: 15_000, intervals: [500, 1000] }).toBe(2);
-    const incomes = (await allData(page.request)).incomes as { title: string; amount: number }[];
-    expect(incomes.find((i) => i.title.includes(`E2E PAYROLL ${tag}`))?.amount).toBe(2400);
+    // Incomes are a second request, sent only after the expenses have landed.
+    const payroll = async () =>
+      ((await allData(page.request)).incomes as { title: string; amount: number }[]).find((i) => i.title.includes(`E2E PAYROLL ${tag}`))?.amount;
+    await expect.poll(payroll, { timeout: 15_000, intervals: [500, 1000] }).toBe(2400);
   });
 
   test('tuition: paying an installment adds the expense, and deleting it re-opens the installment', async ({ page }) => {
@@ -97,6 +99,46 @@ test.describe('as the demo account', () => {
     await page.mouse.move(1200, 900); // the sidebar expands under the pointer and covers the semester tabs
     await page.getByRole('button', { name: /^Fall 2026/ }).click();
     await expect(awaiting).toHaveCount(before);
+  });
+
+  test('PDF exports download a real PDF with the report and its table rows', async ({ page }, testInfo) => {
+    // jsPDF and jspdf-autotable are upgraded independently (Dependabot); this
+    // catches a pair that builds fine but no longer draws the report.
+    const tag = Date.now();
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    await page.request.post(`${API}/expenses`, {
+      headers: await csrfHeaders(page.request),
+      data: { title: `E2E PDF ${tag}`, amount: 18.25, category: 'Groceries', date: today },
+    });
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+
+    // jsPDF writes uncompressed text, so each drawn string shows up as "(text) Tj".
+    const save = async (download: Download) => {
+      const file = testInfo.outputPath(download.suggestedFilename());
+      await download.saveAs(file);
+      const raw = fs.readFileSync(file, 'latin1');
+      expect(raw.startsWith('%PDF-')).toBe(true);
+      expect(raw.trimEnd().endsWith('%%EOF')).toBe(true);
+      return raw;
+    };
+
+    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'PDF', exact: true }).click();
+    const [exported] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download export' }).click()]);
+    expect(exported.suggestedFilename()).toMatch(/^financial-report-\d{4}-\d{2}-\d{2}\.pdf$/);
+    const report = await save(exported);
+    expect(report).toContain('(Financial Report) Tj');
+    expect(report).toContain(`(E2E PDF ${tag}) Tj`); // a table row, drawn by jspdf-autotable
+    await page.keyboard.press('Escape');
+
+    await page.getByRole('tab', { name: 'Reports', exact: true }).first().click();
+    const [audit] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
+    const auditPdf = await save(audit);
+    expect(auditPdf).toContain('(USC Financial Audit Report) Tj');
+    expect(auditPdf).toContain('(Total Expenditure) Tj');
   });
 
   test('AI chat answers a question', async ({ page }) => {
