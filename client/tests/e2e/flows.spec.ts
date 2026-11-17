@@ -13,6 +13,17 @@ const titles = async (request: APIRequestContext): Promise<string[]> => (await a
 const csrfHeaders = async (request: APIRequestContext) =>
   ({ 'x-csrf-token': (await (await request.get(`${API}/auth/csrf`)).json()).csrfToken });
 
+const serverGoals = async (request: APIRequestContext): Promise<{ name: string; target: number }[]> =>
+  (await (await request.get(`${API}/settings`)).json()).settings.savingsGoals ?? [];
+
+const signIn = async (page: Page, email: string) => {
+  await page.goto('/login');
+  await page.getByPlaceholder('you@email.com').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill('Test1234!');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
+};
+
 const openApp = async (page: Page) => {
   await page.goto('/app');
   await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
@@ -141,6 +152,31 @@ test.describe('as the demo account', () => {
     expect(auditPdf).toContain('(Total Expenditure) Tj');
   });
 
+  test('a savings goal added on one device shows on another (settings live on the server)', async ({ page, browser }) => {
+    const name = `E2E goal ${Date.now()}`;
+    await page.getByLabel('Goal name').fill(name);
+    await page.getByLabel(/^Goal target amount/).fill('750');
+    await page.getByRole('button', { name: 'Add goal' }).click();
+    await expect(page.getByText(name)).toBeVisible();
+    await expect.poll(async () => (await serverGoals(page.request)).map((g) => g.name), { timeout: 10_000, intervals: [500, 1000] }).toContain(name);
+
+    // Another device: a separate browser profile, signed in on its own.
+    const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const phone = await other.newPage();
+    await signIn(phone, 'test@test.com');
+    await phone.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
+    await expect(phone.getByText(name)).toBeVisible({ timeout: 15_000 });
+
+    // Removed there, gone here too after a reload.
+    await phone.getByRole('button', { name: `Delete goal ${name}` }).click();
+    await expect.poll(async () => (await serverGoals(phone.request)).map((g) => g.name), { timeout: 10_000, intervals: [500, 1000] }).not.toContain(name);
+    await other.close();
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByLabel('Goal name')).toBeVisible();
+    await expect(page.getByText(name)).toHaveCount(0);
+  });
+
   test('AI chat answers a question', async ({ page }) => {
     test.skip(!process.env.E2E_MOCK_AI, 'Needs the API pointed at the mock Gemini (CI sets E2E_MOCK_AI).');
     await page.getByRole('tab', { name: 'AI Analyst', exact: true }).first().click();
@@ -154,11 +190,7 @@ test.describe('backup restore (own account)', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('a downloaded backup restores the data exactly as it was', async ({ page }, testInfo) => {
-    await page.goto('/login');
-    await page.getByPlaceholder('you@email.com').fill('e2e-restore@test.com');
-    await page.getByLabel('Password', { exact: true }).fill('Test1234!');
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
+    await signIn(page, 'e2e-restore@test.com');
 
     const request = page.request;
     const headers = await csrfHeaders(request);
@@ -186,4 +218,26 @@ test.describe('backup restore (own account)', () => {
 
     await expect.poll(async () => (await titles(request)).sort(), { timeout: 15_000, intervals: [500, 1000] }).toEqual(['Kept by the backup']);
   });
+
+  test('goals kept in this browser before settings moved to the server are uploaded on sign-in', async ({ page }) => {
+    const email = 'e2e-restore@test.com';
+    await signIn(page, email);
+    const headers = await csrfHeaders(page.request);
+    await page.request.patch(`${API}/settings`, { headers, data: { savingsGoals: null } });
+
+    // What an earlier version of the app left in localStorage for this account.
+    await page.evaluate((who) => {
+      localStorage.setItem(`savingsGoalsV2::${who}`, JSON.stringify([{ id: 'old-1', name: 'Saved before the move', target: 640, saved: 40 }]));
+      localStorage.removeItem(`settingsMigrated::${who}`);
+      localStorage.removeItem(`settingsCache::${who}`);
+    }, email);
+    await page.reload();
+    await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
+    await expect(page.getByText('Saved before the move')).toBeVisible({ timeout: 15_000 });
+
+    await expect.poll(async () => serverGoals(page.request), { timeout: 10_000, intervals: [500, 1000] })
+      .toEqual([expect.objectContaining({ name: 'Saved before the move', target: 640 })]);
+    expect(await page.evaluate((who) => localStorage.getItem(`savingsGoalsV2::${who}`), email)).toBeNull();
+  });
 });
+

@@ -21,6 +21,7 @@ import semesterRoutes from './routes/semesters';
 import aiRoutes from './routes/ai';
 import reportRoutes from './routes/reports';
 import householdRoutes from './routes/households';
+import settingsRoutes from './routes/settings';
 import { sendError } from './utils/http';
 import { SERVER_CONFIG, validateServerEnv } from './config';
 import { swaggerSpec } from './swagger';
@@ -160,6 +161,7 @@ app.use('/api/semesters', userApiLimiter, csrfProtection, semesterRoutes);
 app.use('/api/ai', userApiLimiter, csrfProtection, aiLimiter, aiRoutes);
 app.use('/api/reports', userApiLimiter, csrfProtection, reportRoutes);
 app.use('/api/households', userApiLimiter, csrfProtection, householdRoutes);
+app.use('/api/settings', userApiLimiter, csrfProtection, settingsRoutes);
 
 // --- Global Error Handler ---
 // Client errors keep their status: malformed JSON (400), an oversized body (413)

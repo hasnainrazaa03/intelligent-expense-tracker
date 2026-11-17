@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Expense, Budget, Semester, Income } from './types';
+import { Expense, Budget, Semester, Income, SettingsPatch } from './types';
 import Header from './components/Header';
 import { DateRangeFilter, type DateRange } from './components/DateRangeFilter';
 import IncomeSummary from './components/IncomeSummary';
@@ -23,7 +23,8 @@ import useDateRangeFilter from './hooks/useDateRangeFilter';
 import useOfflineQueue from './hooks/useOfflineQueue';
 import { enqueueExpense, type PendingExpense } from './utils/offlineQueue';
 import { notify } from './utils/notifications';
-import { userStorage } from './utils/userStorage';
+import { hydrateSettings, updateSettings, getSetting } from './utils/settingsStore';
+import { useSetting } from './hooks/useSetting';
 import SectionSkeleton from './components/SectionSkeleton';
 
 // A dynamic-import ("chunk load") failure almost always means this browser is
@@ -104,8 +105,6 @@ const buildDefaultSemesters = (): Semester[] =>
 
 const EMPTY_ALL_DATA: AllDataResponse = { expenses: [], incomes: [], budgets: [], semesters: [] };
 
-const RECURRING_SNOOZE_KEY = 'recurringReminderSnoozeUntil';
-const ONBOARDING_DISMISSED_KEY = 'onboardingDismissed';
 
 const VerticalTab = ({ icon, label, isActive, onClick }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, colorClass?: string }) => {
     return (
@@ -147,6 +146,8 @@ const App: React.FC = () => {
     queryKey: queryKeys.allData,
     queryFn: async () => {
       const data = await getAllData();
+      // Goals, accounts, categories, preferences: before the render that uses the data.
+      hydrateSettings(data.settings);
       setHasServerSnapshot(true);
       // A refetch (after an import, a sync, …) while tuition edits are unsaved
       // would replace them with the server copy; keep the local ones — the
@@ -262,21 +263,11 @@ const App: React.FC = () => {
   // Hide tuition + tuition-loan from the analytical overviews (Financial hub &
   // Income summary) so day-to-day cash flow isn't dwarfed by one-off tuition.
   // Persisted so the choice survives reloads. The tuition ledger is unaffected.
-  const [hideTuition, setHideTuition] = useState<boolean>(() => {
-    try { return localStorage.getItem('hideTuition') === '1'; } catch { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem('hideTuition', hideTuition ? '1' : '0'); } catch { /* ignore */ }
-  }, [hideTuition]);
+  // An account setting, so it follows the user to other devices.
+  const hideTuition = useSetting('hideTuition') ?? false;
   const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
   const [selectedRecurring, setSelectedRecurring] = useState<Set<number>>(new Set());
-  const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
-    return userStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true';
-  });
-  // Per-account flag: re-read when the signed-in account changes.
-  useEffect(() => {
-    setOnboardingDismissed(userStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true');
-  }, [userEmail]);
+  const onboardingDismissed = useSetting('onboardingDismissed') === true;
 
   // Log out on a data-load auth failure (401/403) — keyed off HTTP status, not
   // brittle message matching (APP-H2).
@@ -310,7 +301,7 @@ const App: React.FC = () => {
     // next due instance (weekly / monthly / yearly) for per-item review.
     const due = computeDueRecurring(data.expenses, todayCalendar());
     if (due.length > 0) {
-      const snoozeUntil = Number(userStorage.getItem(RECURRING_SNOOZE_KEY) || '0');
+      const snoozeUntil = getSetting('recurringSnoozeUntil') ?? 0;
       if (Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil) {
         setPendingRecurring([]);
         return;
@@ -477,7 +468,7 @@ const App: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
       setPendingRecurring([]);
       setSelectedRecurring(new Set());
-      userStorage.removeItem(RECURRING_SNOOZE_KEY);
+      updateSettings({ recurringSnoozeUntil: null });
       notify.success(`${toAdd.length} recurring expense(s) added.`);
     } catch (error) {
       console.error("Failed to create recurring expenses:", error);
@@ -492,7 +483,7 @@ const App: React.FC = () => {
 
   const handleSnoozeRecurring = () => {
     const until = Date.now() + 24 * 60 * 60 * 1000;
-    userStorage.setItem(RECURRING_SNOOZE_KEY, String(until));
+    updateSettings({ recurringSnoozeUntil: until });
     setPendingRecurring([]);
     setSelectedRecurring(new Set());
     notify.info('Recurring reminder snoozed for 24 hours.');
@@ -760,7 +751,9 @@ const handleDeleteIncome = async (id: string) => {
   // "DELETE" in the modal).
   const handleWipeAll = async () => {
     try {
-      const { deleted } = await wipeAllData('DELETE');
+      const { deleted, settings } = await wipeAllData('DELETE');
+      // Goals, account balances and paused charges went too; preferences stay.
+      hydrateSettings(settings, { authoritative: true });
       const total = Object.values(deleted).reduce((s, n) => s + n, 0);
       notify.success(`Deleted ${total} record${total === 1 ? '' : 's'}. Your data is now empty.`);
       // Treat the refetch like a fresh load (C14): the recurring-charge banner
@@ -833,15 +826,20 @@ const handleDeleteIncome = async (id: string) => {
     incomes: Omit<Income, 'id'>[];
     budgets: Budget[];
     semesters: Semester[];
+    settings?: SettingsPatch;
   }) => {
     try {
       const restored = await restoreAllData(payload);
+      // The backup's goals, accounts, categories and preferences replace the
+      // local ones, including changes not sent yet.
+      hydrateSettings(restored.settings, { authoritative: true });
       // Replace the whole cached dataset in one write.
       queryClient.setQueryData<AllDataResponse>(queryKeys.allData, {
         expenses: restored.expenses,
         incomes: restored.incomes,
         budgets: restored.budgets,
         semesters: restored.semesters,
+        settings: restored.settings,
       });
       setPendingRecurring([]);
       notify.success('Backup restored successfully.');
@@ -1172,7 +1170,7 @@ const handleDeleteIncome = async (id: string) => {
               onToggleTwoFactor={toggleTwoFactor}
               twoFactorEnabled={twoFactorEnabled}
               hideTuition={hideTuition}
-              onToggleHideTuition={() => setHideTuition((v) => !v)}
+              onToggleHideTuition={() => updateSettings({ hideTuition: !hideTuition })}
               onSearch={setDebouncedSearchQuery}
               activeView={activeView}
               offlineStatus={{ isOnline: offline.isOnline, pendingCount: offline.pendingCount, syncing: offline.syncing }}
@@ -1278,8 +1276,7 @@ const handleDeleteIncome = async (id: string) => {
                         </button>
                         <button
                           onClick={() => {
-                            userStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true');
-                            setOnboardingDismissed(true);
+                            updateSettings({ onboardingDismissed: true });
                           }}
                           className="text-app-muted hover:text-app-text font-semibold text-sm py-2 px-4 rounded-xl transition-all"
                         >

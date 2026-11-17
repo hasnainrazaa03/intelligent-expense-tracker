@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { userStorage } from '../utils/userStorage';
 import toast from 'react-hot-toast';
-import { Expense, Budget, Income, Semester } from '../types';
+import { Expense, Budget, Income, Semester, SettingsPatch } from '../types';
+import { getSettings, settingsFromBackup } from '../utils/settingsStore';
 import { exportData, ExportFormat } from '../utils/exportUtils';
 import { parseExpenseCsv } from '../utils/expenseCsvImport';
 import { logAuditEvent } from '../services/api';
@@ -33,6 +33,7 @@ interface DataModalProps {
     incomes: Omit<Income, 'id'>[];
     budgets: Budget[];
     semesters: Semester[];
+    settings?: SettingsPatch;
   }) => Promise<void> | void;
 }
 
@@ -63,7 +64,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   // the account (the server deletes first), so it never runs on one click.
   const [pendingRestore, setPendingRestore] = useState<null | {
     data: { expenses: any[]; incomes: any[]; budgets: Budget[]; semesters: Semester[] };
-    preferences: any;
+    settings: SettingsPatch | undefined;
     exportedAt: string | null;
   }>(null);
   const [restoreConfirm, setRestoreConfirm] = useState('');
@@ -107,7 +108,9 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
 
   const handleExportFullBackup = () => {
     const payload = {
-      version: '1.0.0',
+      // 1.1.0: `settings` (goals, accounts, categories, preferences) replaces
+      // 1.0.0's `preferences`, which had only the currency and categories.
+      version: '1.1.0',
       exportedAt: new Date().toISOString(),
       source: 'intelligent-expense-tracker',
       data: {
@@ -116,11 +119,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
         budgets,
         semesters,
       },
-      preferences: {
-        displayCurrency: localStorage.getItem('displayCurrency') || 'USD',
-        customCategories: userStorage.getItem('customCategories'),
-        deletedSubcategories: userStorage.getItem('deletedSubcategories'),
-      },
+      settings: getSettings(),
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -236,7 +235,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
         setRestoreConfirm('');
         setPendingRestore({
           data: { expenses: backupData.expenses, incomes: backupData.incomes, budgets: backupData.budgets, semesters: backupData.semesters },
-          preferences: parsed?.preferences,
+          settings: settingsFromBackup(parsed),
           exportedAt: typeof parsed?.exportedAt === 'string' ? parsed.exportedAt : null,
         });
       } catch (error: any) {
@@ -250,11 +249,11 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   // Step 2: the user confirmed — replace the account's data with the backup.
   const confirmRestoreBackup = async () => {
     if (!pendingRestore || restoreConfirm !== 'REPLACE') return;
-    const { data: backupData, preferences: prefs } = pendingRestore;
+    const { data: backupData, settings } = pendingRestore;
     setIsRestoringBackup(true);
     setBackupError(null);
     try {
-      await onRestoreBackup(backupData);
+      await onRestoreBackup({ ...backupData, settings });
       logAuditEvent('backup_restore', {
         expenses: backupData.expenses.length,
         incomes: backupData.incomes.length,
@@ -262,15 +261,6 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
         semesters: backupData.semesters.length,
       }).catch(() => undefined);
 
-      if (prefs?.displayCurrency === 'USD' || prefs?.displayCurrency === 'INR') {
-        localStorage.setItem('displayCurrency', prefs.displayCurrency);
-      }
-      if (typeof prefs?.customCategories === 'string') {
-        userStorage.setItem('customCategories', prefs.customCategories);
-      }
-      if (typeof prefs?.deletedSubcategories === 'string') {
-        userStorage.setItem('deletedSubcategories', prefs.deletedSubcategories);
-      }
 
       setPendingRestore(null);
       onClose();
@@ -495,7 +485,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             <div>
               <p className="text-sm font-semibold text-app-text">Delete all my data</p>
               <p className="text-[11px] text-app-muted mt-0.5">
-                Permanently deletes every expense, income, budget, semester and receipt on your account. This cannot be undone — export a backup first if you might want it back.
+                Permanently deletes every expense, income, budget, semester, receipt, savings goal and account balance on your account. Your categories and preferences stay. This cannot be undone — export a backup first if you might want it back.
               </p>
             </div>
             <div>

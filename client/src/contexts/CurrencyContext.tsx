@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { SUPPORTED_CURRENCIES, CurrencyMeta, isSupportedCurrency } from '../utils/currencies';
+import { useSetting } from '../hooks/useSetting';
+import { updateSettings } from '../utils/settingsStore';
 
 interface CurrencyContextValue {
   /** The currency amounts are displayed in (ISO code). Stored values are always USD. */
@@ -47,18 +49,24 @@ const readRateTable = (): { rates: RateTable; timestamp: number } | null => {
 };
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [displayCurrency, setDisplayCurrencyState] = useState<string>(() => {
-    const stored = localStorage.getItem(DISPLAY_CURRENCY_KEY);
+  // This device's last choice: used signed out, and until the account has one.
+  const [deviceCurrency, setDeviceCurrency] = useState<string>(() => {
+    let stored: string | null = null;
+    try { stored = localStorage.getItem(DISPLAY_CURRENCY_KEY); } catch { /* storage unavailable */ }
     if (stored && isSupportedCurrency(stored)) return stored;
     // Default INR for India-timezone users (UTC+5:30), else USD.
     return new Date().getTimezoneOffset() === -330 ? 'INR' : 'USD';
   });
+  // The signed-in account's choice (an account setting), so it follows the user.
+  const accountCurrency = useSetting('displayCurrency');
+  const displayCurrency = accountCurrency && isSupportedCurrency(accountCurrency) ? accountCurrency : deviceCurrency;
   const [rates, setRates] = useState<RateTable | null>(() => readRateTable()?.rates ?? null);
   const [ratesFetchedAt, setRatesFetchedAt] = useState<number>(() => readRateTable()?.timestamp ?? 0);
 
   const setDisplayCurrency = (currency: string) => {
-    setDisplayCurrencyState(currency);
-    localStorage.setItem(DISPLAY_CURRENCY_KEY, currency);
+    setDeviceCurrency(currency);
+    try { localStorage.setItem(DISPLAY_CURRENCY_KEY, currency); } catch { /* storage unavailable */ }
+    updateSettings({ displayCurrency: currency }); // ignored when signed out
   };
 
   // Fetch the whole USD→* table in one request (1h cache). One fetch covers every

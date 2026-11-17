@@ -1,30 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import useEntryCurrency from '../hooks/useEntryCurrency';
-import { userStorage } from '../utils/userStorage';
-import { Expense, Income, InvestmentAccount } from '../types';
+import { updateSettings } from '../utils/settingsStore';
+import { useSetting } from '../hooks/useSetting';
+import { Expense, Income, InvestmentAccount, SavingsGoal } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar, formatCalendarDate } from '../utils/dateUtils';
 import { Button, Card, DatePicker } from './ui';
 import SpendingBarChart from './SpendingBarChart';
 import HouseholdsManager from './HouseholdsManager';
 
-const SAVINGS_GOALS_KEY = 'savingsGoalsV2';
-const PAUSED_RECURRING_KEY = 'pausedRecurringTemplates';
-const INVESTMENT_ACCOUNTS_KEY = 'investmentAccounts';
 // Assets count up, loans count down. A loan used to be ADDED like any account,
 // so a $40k student loan raised "net worth" by $40k (F16). Its balance is a
 // liability whether it was entered as a positive or a negative number.
 const accountValue = (account: InvestmentAccount) => (account.type === 'loan' ? -Math.abs(account.value) : account.value);
 
-interface SavingsGoal {
-  id: string;
-  name: string;
-  target: number;
-  saved: number;
-  /** Optional target date (YYYY-MM-DD). */
-  deadline?: string;
-}
 
 interface FinancialPlanningPanelProps {
   expenses: Expense[];
@@ -32,6 +22,10 @@ interface FinancialPlanningPanelProps {
 }
 
 const todayIso = () => todayCalendar();
+// Stable empties, so a missing setting doesn't give the memos a new [] each render.
+const NO_GOALS: SavingsGoal[] = [];
+const NO_ACCOUNTS: InvestmentAccount[] = [];
+const NO_PAUSED: Record<string, boolean> = {};
 
 const templateKey = (e: Expense): string => `${e.title}|${e.category}|${e.amount}`;
 
@@ -40,33 +34,15 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   // Typed amounts are in the entry currency and stored in USD (they used to be
   // stored as typed, then shown multiplied by the display rate).
   const entry = useEntryCurrency();
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
-    try {
-      const parsed = JSON.parse(userStorage.getItem(SAVINGS_GOALS_KEY) || '[]');
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  // Goals, accounts and paused charges are account settings, saved on the
+  // server (they used to be this browser's localStorage only).
+  const savingsGoals = useSetting('savingsGoals') ?? NO_GOALS;
   const [newGoalName, setNewGoalName] = useState('');
   const [newGoalTarget, setNewGoalTarget] = useState('');
   const [newGoalDeadline, setNewGoalDeadline] = useState('');
   const [fundInputs, setFundInputs] = useState<Record<string, string>>({});
-  const [pausedRecurring, setPausedRecurring] = useState<Record<string, boolean>>(() => {
-    try {
-      return JSON.parse(userStorage.getItem(PAUSED_RECURRING_KEY) || '{}') as Record<string, boolean>;
-    } catch {
-      return {};
-    }
-  });
-  const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccount[]>(() => {
-    try {
-      const parsed = JSON.parse(userStorage.getItem(INVESTMENT_ACCOUNTS_KEY) || '[]');
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
+  const pausedRecurring = useSetting('pausedRecurring') ?? NO_PAUSED;
+  const investmentAccounts = useSetting('investmentAccounts') ?? NO_ACCOUNTS;
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<InvestmentAccount['type']>('brokerage');
   const [newAccountValue, setNewAccountValue] = useState('');
@@ -114,17 +90,13 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           asOf: todayIso(),
         },
       ];
-      setInvestmentAccounts(next);
-      userStorage.setItem(INVESTMENT_ACCOUNTS_KEY, JSON.stringify(next));
+      updateSettings({ investmentAccounts: next });
       setNewAccountName('');
       setNewAccountValue('');
     };
 
 
-  const persistSavingsGoals = (next: SavingsGoal[]) => {
-    setSavingsGoals(next);
-    userStorage.setItem(SAVINGS_GOALS_KEY, JSON.stringify(next));
-  };
+  const persistSavingsGoals = (next: SavingsGoal[]) => updateSettings({ savingsGoals: next });
   const addSavingsGoal = () => {
     const target = Number.parseFloat(newGoalTarget);
     if (!newGoalName.trim() || !Number.isFinite(target) || target <= 0) return;
@@ -176,8 +148,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const togglePauseRecurring = (expense: Expense) => {
     const key = templateKey(expense);
     const next = { ...pausedRecurring, [key]: !pausedRecurring[key] };
-    setPausedRecurring(next);
-    userStorage.setItem(PAUSED_RECURRING_KEY, JSON.stringify(next));
+    updateSettings({ pausedRecurring: next });
   };
 
   const upcomingBills = useMemo(() => {

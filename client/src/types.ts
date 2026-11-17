@@ -51,6 +51,44 @@ export interface InvestmentAccount {
   asOf: string;
 }
 
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  /** USD, like every stored amount. */
+  target: number;
+  saved: number;
+  /** Optional target date (YYYY-MM-DD). */
+  deadline?: string;
+}
+
+/** main category → subcategories */
+export type CategoryMap = Record<string, string[]>;
+
+/**
+ * Per-account settings and planning data, stored on the server
+ * (GET/PATCH /api/settings, and `settings` in /data/all). Unset keys are absent.
+ */
+export interface UserSettings {
+  displayCurrency?: string;
+  hideTuition?: boolean;
+  onboardingDismissed?: boolean;
+  /** Epoch ms until which the recurring-charges reminder stays hidden. */
+  recurringSnoozeUntil?: number;
+  /** Subcategories the user added to the built-in categories. */
+  customCategories?: CategoryMap;
+  /** Built-in subcategories the user removed. */
+  deletedSubcategories?: CategoryMap;
+  /** Learned "merchant words → category" from the user's own choices. */
+  merchantMap?: Record<string, string>;
+  /** Recurring templates ("title|category|amount") the user paused. */
+  pausedRecurring?: Record<string, boolean>;
+  savingsGoals?: SavingsGoal[];
+  investmentAccounts?: InvestmentAccount[];
+}
+
+/** A change to some settings: each key replaces the stored value, `null` clears it. */
+export type SettingsPatch = { [K in keyof UserSettings]?: UserSettings[K] | null };
+
 export interface Budget {
   category: string;
   amount: number;

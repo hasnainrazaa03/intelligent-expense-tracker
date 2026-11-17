@@ -1,15 +1,11 @@
-// localStorage for data that belongs to ONE account (savings goals, investment
-// accounts, custom categories, the merchant map, a few per-user preferences).
+// localStorage for data that belongs to ONE account. Each key is namespaced by
+// the signed-in email, so on a shared machine nobody sees anyone else's.
 //
-// These used to sit under fixed keys, so on a shared machine the next person to
-// sign in saw the previous person's goals and accounts. Deleting them at logout
-// isn't an option yet — they aren't stored on the server, so the owner would
-// lose them too. Instead each key is namespaced by the signed-in email: nothing
-// is deleted, and nobody sees anyone else's.
+// Settings and planning data (goals, accounts, categories, …) now live on the
+// server (see settingsStore); this holds that store's offline cache and unsent
+// changes, plus the old keys below until they've been uploaded once.
 
-import { invalidateCategoriesCache } from './categories';
-
-/** Keys whose values belong to a single account. */
+/** Keys that held one account's data before settings moved to the server. */
 export const USER_SCOPED_KEYS = [
   'savingsGoalsV2',
   'investmentAccounts',
@@ -26,6 +22,16 @@ const LEGACY_CLAIMED_KEY = 'userStorageLegacyClaimedBy';
 const RETIRED_KEYS = ['stmtLastAccount'];
 
 let currentUser: string | null = null;
+const userChangeListeners = new Set<() => void>();
+
+/** The account storage is scoped to (normalised email), or null when signed out. */
+export const getStorageUser = (): string | null => currentUser;
+
+/** Run `fn` whenever the signed-in account changes. */
+export const onStorageUserChange = (fn: () => void): (() => void) => {
+  userChangeListeners.add(fn);
+  return () => userChangeListeners.delete(fn);
+};
 
 const scoped = (key: string) => (currentUser ? `${key}::${currentUser}` : null);
 
@@ -35,8 +41,7 @@ export const setStorageUser = (email: string | null) => {
   if (next === currentUser) return;
   currentUser = next;
   if (next) claimLegacyData(next);
-  // Category lookups are cached from storage; rebuild them for this account.
-  invalidateCategoriesCache();
+  userChangeListeners.forEach((fn) => fn());
 };
 
 // Data saved before scoping existed has no owner recorded. Give it to the first

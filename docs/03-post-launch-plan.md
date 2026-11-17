@@ -167,6 +167,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| 5b-1 Settings on the server | Savings goals, investment accounts, custom categories, the merchant map, paused recurring charges, display currency and "hide tuition" move from localStorage to a per-account `UserSettings` document: they sync across devices, are in backups, and are removed by "Delete all my data" (goals and balances; preferences stay). Each browser's old values are merged in and uploaded once (C5) | #186 |
 
 Found already done when re-checked in 3e: C17 (canonical link and JSON-LD point at the
 live site), P4 (the demo seed script writes cents), and removing `server/prisma.config.ts.bak`.
@@ -179,8 +180,9 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [x] 4c Server test suite (`server/tests`: 12 unit + 19 API tests with supertest against a real MongoDB, run in CI) and E2E flows for CSV and statement import, backup restore, AI chat (mock Gemini) and tuition (`client/tests/e2e/flows.spec.ts`). The tuition test found that tuition expenses were titled with a database id ("Inst #6afbf9f7…"); they're now numbered #1, #2… Replaces A5's E2E item.
 
 **Phase 5 — product**
-- [ ] 5a Own domain, with the API on the same site.
-- [ ] 5b Server-side user settings and goals, one Settings page, account deletion.
+- [ ] 5a Own domain, with the API on the same site. **Deferred (2026-11-17):** staying on the vercel.app address for now. The `/api` half already shipped in 2c (#158).
+- [x] 5b-1 Settings and planning data on the server (#186): `GET`/`PATCH /api/settings`, per key, validated, money in cents; part of `/data/all`, backups (format 1.1.0) and restore. Theme and the statement importer's panel width stay per device.
+- [ ] 5b-2 One Settings page: currency, 2FA, "sign out everywhere", export, delete account.
 - [ ] 5c Privacy policy and terms.
 - [ ] 5d Move tuition reconciliation to the server; split `App.tsx` into feature hooks.
 - [ ] 5e Alerts, scheduled summaries, a reports period selector, round-trip export (B3, B6).
@@ -197,4 +199,6 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [ ] Lint the server too (it isn't linted yet).
 - [ ] The weekly Dependency Audit workflow isn't a required check (it only runs when a PR touches a `package*.json`). Watch its Monday runs; it had been failing unnoticed since at least May.
 - [ ] Remove the `deepmerge-ts` override in `server/package.json` if a Prisma 6.x release picks up deepmerge-ts 8.
+- [ ] Check `EMAIL_FROM` on Render. `onboarding@resend.dev` is Resend's test sender and only delivers to the Resend account's own address, so other people's sign-up codes may never arrive. Sending from a verified domain fixes it (see 5a).
+- [ ] picomatch ReDoS (GHSA-fc5q-39xc-vjpf, no fixed release yet) fails the Dependency Audit on every dependency PR. It's only in dev tooling (Vite, Vitest, the dev server's file watcher), matching our own patterns; production dependencies audit clean. Decide whether the audit gates on production dependencies only.
 - [ ] Turning on two-factor sign-in is a single unconfirmed click on a header icon; ask first (turning it off already asks for the password).

@@ -1,7 +1,5 @@
-import { userStorage } from '../utils/userStorage';
+import { getSetting, updateSettings, SETTINGS_LIMITS } from '../utils/settingsStore';
 import { Category } from '../types';
-
-const MERCHANT_MAP_KEY = 'merchantCategoryMap';
 
 const normalizeMerchantKey = (title: string): string => {
     return title
@@ -14,23 +12,18 @@ const normalizeMerchantKey = (title: string): string => {
         .join(' ');
 };
 
-const getLearnedMap = (): Record<string, Category> => {
-    try {
-        const raw = userStorage.getItem(MERCHANT_MAP_KEY);
-        if (!raw) return {};
-        const parsed = JSON.parse(raw) as Record<string, Category>;
-        return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch {
-        return {};
-    }
-};
+// Learned from the user's own choices; an account setting (settingsStore).
+const getLearnedMap = (): Record<string, Category> => getSetting('merchantMap') ?? {};
 
 export const recordCategorySelection = (title: string, category: Category): void => {
     const key = normalizeMerchantKey(title);
     if (!key || !category) return;
     const learned = getLearnedMap();
-    learned[key] = category;
-    userStorage.setItem(MERCHANT_MAP_KEY, JSON.stringify(learned));
+    if (learned[key] === category) return; // nothing new: don't send a write
+    // Re-insert at the end: the map keeps the newest choices when it's full.
+    const { [key]: _previous, ...rest } = learned;
+    const entries = Object.entries({ ...rest, [key]: category }).slice(-SETTINGS_LIMITS.merchantEntries);
+    updateSettings({ merchantMap: Object.fromEntries(entries) });
 };
 
 /**

@@ -17,6 +17,7 @@ import { sanitizeText, sanitizeOptionalText, sanitizeOptionalNotes } from '../ut
 import { newObjectId } from '../utils/objectId';
 import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, expenseToClient, incomeToClient, budgetToClient, semesterToClient } from '../utils/money';
+import { parseSettingsPatch, settingsToClient, SettingsData, WIPED_SETTINGS } from '../utils/settings';
 
 const router = Router();
 
@@ -78,7 +79,7 @@ router.get('/all', async (req: Request, res: Response) => {
   const userId = req.user!.id;
 
   try {
-    const [expenses, incomes, budgets, semesters] = await Promise.all([
+    const [expenses, incomes, budgets, semesters, settings] = await Promise.all([
       prisma.expense.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
       prisma.income.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
       prisma.budget.findMany({ where: { userId } }),
@@ -86,6 +87,7 @@ router.get('/all', async (req: Request, res: Response) => {
         where: { userId },
         include: { installments: true }
       }),
+      prisma.userSettings.findUnique({ where: { userId } }),
     ]);
     
     // Safely adjust date formats
@@ -107,6 +109,7 @@ router.get('/all', async (req: Request, res: Response) => {
       incomes: incomes.map(incomeToClient).map(cleanDate),
       budgets: budgets.map(budgetToClient),
       semesters: semesters.map(semesterToClient).map(cleanPaidDate),
+      settings: settingsToClient(settings),
     });
 
   } catch (error) {
@@ -119,7 +122,7 @@ router.get('/all', async (req: Request, res: Response) => {
 // POST /api/data/restore
 router.post('/restore', async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { expenses = [], incomes = [], budgets = [], semesters = [] } = req.body || {};
+  const { expenses = [], incomes = [], budgets = [], semesters = [], settings } = req.body || {};
 
   if (!Array.isArray(expenses) || !Array.isArray(incomes) || !Array.isArray(budgets) || !Array.isArray(semesters)) {
     return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid backup format: expenses, incomes, budgets, semesters must be arrays.');
@@ -127,6 +130,18 @@ router.post('/restore', async (req: Request, res: Response) => {
 
   if (expenses.length > MAX_ITEMS || incomes.length > MAX_ITEMS || budgets.length > MAX_ITEMS || semesters.length > MAX_ITEMS) {
     return sendError(res, 400, 'VALIDATION_ERROR', `Backup is too large. Maximum ${MAX_ITEMS} entries per section.`);
+  }
+
+  // Settings (goals, accounts, categories, …) are optional: backups made before
+  // they moved to the server don't have them, and then the current ones stay.
+  let restoredSettings: SettingsData | null = null;
+  if (settings !== undefined && settings !== null) {
+    try {
+      restoredSettings = parseSettingsPatch(settings);
+    } catch (error) {
+      if (error instanceof ValidationError) return sendError(res, 400, 'INVALID_BACKUP', `Invalid settings: ${error.message}`);
+      throw error;
+    }
   }
 
   // A restored expense keeps its household tag only if the user is still an
@@ -281,13 +296,18 @@ router.post('/restore', async (req: Request, res: Response) => {
           },
         });
       }
+
+      if (restoredSettings) {
+        await tx.userSettings.upsert({ where: { userId }, create: { userId, ...restoredSettings }, update: restoredSettings });
+      }
     }, { timeout: 20000 });
 
-    const [restoredExpenses, restoredIncomes, restoredBudgets, restoredSemesters] = await Promise.all([
+    const [restoredExpenses, restoredIncomes, restoredBudgets, restoredSemesters, settingsRow] = await Promise.all([
       prisma.expense.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
       prisma.income.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
       prisma.budget.findMany({ where: { userId } }),
       prisma.semester.findMany({ where: { userId }, include: { installments: true } }),
+      prisma.userSettings.findUnique({ where: { userId } }),
     ]);
 
     const cleanDate = (item: { date: Date | null }) => ({
@@ -308,6 +328,7 @@ router.post('/restore', async (req: Request, res: Response) => {
       incomes: restoredIncomes.map(incomeToClient).map(cleanDate),
       budgets: restoredBudgets.map(budgetToClient),
       semesters: restoredSemesters.map(semesterToClient).map(cleanPaidDate),
+      settings: settingsToClient(settingsRow),
     });
 
     await writeAuditLog({
@@ -369,6 +390,9 @@ router.post('/wipe', async (req: Request, res: Response) => {
       const expenses = await tx.expense.deleteMany({ where: { userId } });
       const incomes = await tx.income.deleteMany({ where: { userId } });
       const budgets = await tx.budget.deleteMany({ where: { userId } });
+      // Savings goals, account balances and paused recurring charges are
+      // financial data too; preferences (currency, categories, …) stay.
+      await tx.userSettings.updateMany({ where: { userId }, data: WIPED_SETTINGS });
       return {
         expenses: expenses.count,
         incomes: incomes.count,
@@ -388,7 +412,8 @@ router.post('/wipe', async (req: Request, res: Response) => {
       metadata: deleted,
     });
 
-    return res.json({ message: 'All data deleted.', deleted });
+    const settingsRow = await prisma.userSettings.findUnique({ where: { userId } });
+    return res.json({ message: 'All data deleted.', deleted, settings: settingsToClient(settingsRow) });
   } catch (error: any) {
     console.error('Failed to wipe data:', error);
     await writeAuditLog({

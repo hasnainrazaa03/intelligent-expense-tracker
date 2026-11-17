@@ -7,6 +7,14 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Phase 5 — product (2026-11-17)
+- **Settings on the server (#186):** savings goals, investment accounts, custom categories,
+  learned category suggestions, paused recurring charges, display currency and "hide
+  tuition" now belong to the account instead of one browser: they show on every device,
+  are included in backups, and survive clearing the browser. The first sign-in after the
+  update merges in and uploads whatever the browser still held. "Delete all my data" now
+  also removes goals and account balances (preferences stay).
+
 ### November 2026 review fixes (2026-11-17, PRs #150–#179)
 A second full review (client, server, deploy) found new bugs; each batch was checked
 against the original code before merging. Details and what's still open:
