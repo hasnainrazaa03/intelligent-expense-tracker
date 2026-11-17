@@ -7,7 +7,7 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
-### November 2026 review fixes (2026-11-17, PRs #150–#170 and the 3e follow-up)
+### November 2026 review fixes (2026-11-17, PRs #150–#175)
 A second full review (client, server, deploy) found new bugs; each batch was checked
 against the original code before merging. Details and what's still open:
 [post-launch plan, Section D](./docs/03-post-launch-plan.md#section-d--november-2026-review-2026-11-17).
@@ -27,7 +27,7 @@ against the original code before merging. Details and what's still open:
   line breaks; PDFs print rupees as "Rs"; Escape asks before discarding budget edits;
   "Wipe all data" resets the recurring banner and Tuition; no "CASH" default; rising
   spending shows red; deleting or leaving a household asks first.
-- **Offline (3e):** switching tabs offline no longer reloads the app; the main screens are
+- **Offline (#175):** switching tabs offline no longer reloads the app; the main screens are
   prefetched so they open offline, and a reload returns to the same screen.
 - **Dependencies (#161–#166, #169):** routine bumps; react and react-dom now update together
   (a react-only bump would have rendered a blank page).

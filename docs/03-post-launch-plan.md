@@ -164,7 +164,7 @@ was checked in the browser or API against the original code before merging.
 | 3b Dates | Whole-month view, local due dates, recurring anchor day, the user's month in email summaries (C12, F15, C13, S19) | #160 |
 | 3c Planning, tuition, households, AI | Loans subtract from net worth, per-semester installment box, household untagging, monthly AI budgets (F16, F10, S10, S9) | #168 |
 | 3d Import, PDF, dialogs | CSV import, PDF currency text, Escape guard, wipe-all reset, small defaults (F18, F21, F13, C14, F22) | #170 |
-| 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | 3e PR |
+| 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 
 Found already done when re-checked in 3e: C17 (canonical link and JSON-LD point at the
