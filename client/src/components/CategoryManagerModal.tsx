@@ -98,6 +98,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
 
               <div className="flex gap-2">
                 <Input
+                  aria-label={`New subcategory for ${activeTab}`}
                   value={newSubcategory}
                   onChange={(e) => setNewSubcategory(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddSubcategory(activeTab); }}

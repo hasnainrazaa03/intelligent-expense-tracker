@@ -398,7 +398,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
           <p className="text-xs text-app-muted mb-3 tabular-nums">Monthly net: <span className="text-app-text font-medium">{formatCurrency(monthlyNet, displayCurrency, conversionRate)}</span> · projections use this rate</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mb-2">
-            <input value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)} className={fieldCls} placeholder="Goal name (e.g. Emergency fund)" />
+            <input value={newGoalName} onChange={(e) => setNewGoalName(e.target.value)} className={fieldCls} placeholder="Goal name (e.g. Emergency fund)" aria-label="Goal name" />
             <input type="number" value={newGoalTarget} onChange={(e) => setNewGoalTarget(e.target.value)} className={`${fieldCls} sm:w-28`} placeholder={`Target (${entry.symbol})`} aria-label={`Goal target amount in ${entry.currency}`} />
           </div>
           <div className="flex gap-2 mb-3">

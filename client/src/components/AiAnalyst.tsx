@@ -215,6 +215,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
         {/* INPUT — larger */}
         <div className="relative flex-shrink-0">
           <textarea
+            aria-label="Ask the AI analyst"
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}

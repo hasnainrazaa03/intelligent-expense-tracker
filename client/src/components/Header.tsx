@@ -129,6 +129,11 @@ const Header: React.FC<HeaderProps> = ({
     setActiveIndex(-1);
   };
 
+  // Keep the keyboard-highlighted result in view while arrowing through a long list.
+  useEffect(() => {
+    if (activeIndex >= 0) document.getElementById(`search-result-${activeIndex}`)?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') { setIsSearchOpen(false); return; }
     if (!showDropdown || matches.length === 0) {
@@ -216,29 +221,32 @@ const Header: React.FC<HeaderProps> = ({
 
             {showDropdown && (
               <div
-                id="search-results"
-                role="listbox"
-                className="absolute left-0 right-0 top-full mt-2 z-50 modal-surface rounded-2xl shadow-soft border border-app-border overflow-hidden max-h-[60vh] overflow-y-auto custom-scrollbar"
+                className="absolute left-0 right-0 top-full mt-2 z-50 modal-surface rounded-2xl shadow-soft border border-app-border overflow-hidden"
               >
                 {matches.length === 0 ? (
-                  <p className="px-4 py-5 text-sm text-app-muted text-center">
+                  <p className="px-4 py-5 text-sm text-app-muted text-center" role="status">
                     No transactions match “{searchInput.trim()}”.
                   </p>
                 ) : (
-                  <ul className="py-1.5">
+                  // The list itself is the listbox and each row is an option
+                  // (no nested buttons): the search box points at the active
+                  // row via aria-activedescendant (4b).
+                  <ul id="search-results" role="listbox" aria-label="Matching transactions" className="py-1.5 max-h-[60vh] overflow-y-auto custom-scrollbar">
                     {matches.map((hit, index) => {
                       const isExpense = hit.type === 'expense';
                       const active = index === activeIndex;
                       return (
-                        <li key={`${hit.type}-${hit.item.id}`} role="option" id={`search-result-${index}`} aria-selected={active}>
-                          <button
-                            type="button"
-                            // onMouseDown (not onClick) so the selection fires before
-                            // the input's blur/outside-click can close the dropdown.
-                            onMouseDown={(e) => { e.preventDefault(); selectHit(hit); }}
-                            onMouseEnter={() => setActiveIndex(index)}
-                            className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-left transition-colors ${active ? 'bg-surface-2' : 'hover:bg-surface-2'}`}
-                          >
+                        <li
+                          key={`${hit.type}-${hit.item.id}`}
+                          role="option"
+                          id={`search-result-${index}`}
+                          aria-selected={active}
+                          // onMouseDown (not onClick) so the selection fires before
+                          // the input's blur/outside-click can close the dropdown.
+                          onMouseDown={(e) => { e.preventDefault(); selectHit(hit); }}
+                          onMouseEnter={() => setActiveIndex(index)}
+                          className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-left cursor-pointer transition-colors ${active ? 'bg-surface-2' : 'hover:bg-surface-2'}`}
+                        >
                             <span className={`grid place-items-center w-9 h-9 rounded-xl flex-shrink-0 ${isExpense ? 'bg-primary-soft text-primary' : 'bg-ok/15 text-ok'}`}>
                               {isExpense ? <TagIcon className="h-4 w-4" /> : <BanknotesIcon className="h-4 w-4" />}
                             </span>
@@ -254,7 +262,6 @@ const Header: React.FC<HeaderProps> = ({
                             <span className={`font-display text-sm font-bold tabular-nums flex-shrink-0 ${isExpense ? 'text-app-text' : 'text-ok'}`}>
                               {isExpense ? '' : '+'}{formatCurrency(hit.item.amount, displayCurrency, conversionRate)}
                             </span>
-                          </button>
                         </li>
                       );
                     })}

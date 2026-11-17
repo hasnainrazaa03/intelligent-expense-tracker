@@ -285,6 +285,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             <form onSubmit={handleTwoFactorSubmit} className="mt-6 space-y-4 rounded-2xl border border-app-border bg-surface-2 p-5">
               <p className="text-xs font-medium uppercase tracking-[0.14em] text-app-muted">Two-factor required</p>
               <Input
+                aria-label="6-digit sign-in code"
                 type="text"
                 value={loginOtp}
                 onChange={(e) => setLoginOtp(e.target.value)}

@@ -344,6 +344,27 @@ const App: React.FC = () => {
     return () => clearTimeout(id);
   }, [isAuthenticated]);
 
+  // Quick actions menu (4b): opening moves focus to the first item; arrows,
+  // Home and End move through it; Escape closes it and returns focus to the
+  // button; Tab closes it. It had menu roles but no keyboard support, and its
+  // items came before the button in tab order.
+  const quickMenuRef = useRef<HTMLDivElement>(null);
+  const quickButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (isQuickActionsOpen) quickMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [isQuickActionsOpen]);
+  const handleQuickMenuKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    const go = (n: number) => { e.preventDefault(); items[(n + items.length) % items.length]?.focus(); };
+    if (e.key === 'ArrowDown') go(i + 1);
+    else if (e.key === 'ArrowUp') go(i - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(items.length - 1);
+    else if (e.key === 'Escape') { e.preventDefault(); setIsQuickActionsOpen(false); quickButtonRef.current?.focus(); }
+    else if (e.key === 'Tab') setIsQuickActionsOpen(false);
+  };
+
   // U6: Keyboard shortcuts. The handler reads the latest handleOpenModal through
   // a ref, so the listener isn't re-attached on every render.
   const openModalRef = useRef<() => void>(() => {});
@@ -1196,7 +1217,7 @@ const handleDeleteIncome = async (id: string) => {
                 }}
                 className="group/nav absolute left-0 top-0 h-full w-[64px] hover:w-52 hover:shadow-soft transition-[width] duration-200 ease-out flex flex-col gap-1 modal-surface rounded-2xl p-2 overflow-hidden"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-faint px-3 h-4 pt-1 mb-1 whitespace-nowrap opacity-0 group-hover/nav:opacity-100 transition-opacity duration-150">Menu</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-muted px-3 h-4 pt-1 mb-1 whitespace-nowrap opacity-0 group-hover/nav:opacity-100 transition-opacity duration-150">Menu</p>
                 <VerticalTab icon={<ClipboardDocumentListIcon className="h-5 w-5" />} label="Expenses" isActive={activeView === 'expenses'} onClick={() => setActiveView('expenses')} />
                 <VerticalTab icon={<BanknotesIcon className="h-5 w-5" />} label="Income" isActive={activeView === 'income'} onClick={() => setActiveView('income')} />
                 <VerticalTab icon={<ChatBubbleBottomCenterTextIcon className="h-5 w-5" />} label="AI Analyst" isActive={activeView === 'ai'} onClick={() => setActiveView('ai')} />
@@ -1391,11 +1412,16 @@ const handleDeleteIncome = async (id: string) => {
                   )}
                   {isQuickActionsOpen && (
                     <div
+                      ref={quickMenuRef}
+                      id="quick-actions-menu"
                       role="menu"
+                      aria-label="Quick actions"
+                      onKeyDown={handleQuickMenuKey}
                       className="absolute bottom-16 right-0 w-56 modal-surface rounded-2xl p-2 space-y-0.5 origin-bottom-right animate-[fabpop_120ms_ease-out]"
                     >
                       <button
                         role="menuitem"
+                        tabIndex={-1}
                         onClick={handleOpenExpenseModal}
                         className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
@@ -1403,6 +1429,7 @@ const handleDeleteIncome = async (id: string) => {
                       </button>
                       <button
                         role="menuitem"
+                        tabIndex={-1}
                         onClick={handleOpenIncomeModal}
                         className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors"
                       >
@@ -1411,6 +1438,7 @@ const handleDeleteIncome = async (id: string) => {
                       <div className="my-1 border-t border-app-border" />
                       <button
                         role="menuitem"
+                        tabIndex={-1}
                         onClick={() => { setIsQuickActionsOpen(false); setIsStatementImportOpen(true); }}
                         className="w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors flex items-center gap-2"
                       >
@@ -1419,8 +1447,11 @@ const handleDeleteIncome = async (id: string) => {
                     </div>
                   )}
                   <button
+                    ref={quickButtonRef}
                     onClick={() => setIsQuickActionsOpen((prev) => !prev)}
                     aria-label="Quick actions"
+                    aria-haspopup="menu"
+                    aria-controls={isQuickActionsOpen ? 'quick-actions-menu' : undefined}
                     aria-expanded={isQuickActionsOpen}
                     className="grid place-items-center w-14 h-14 rounded-full bg-primary text-on-primary shadow-glow hover:brightness-110 transition-all active:scale-95"
                   >

@@ -12,6 +12,10 @@ interface BudgetManagerModalProps {
   currentBudgets: Budget[];
 }
 
+// Stable, unique ids so each visible label is tied to its amount field (F20):
+// the fields were announced only by their "0.00" placeholder.
+const budgetInputId = (name: string) => `budget-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
 const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose, onSave, currentBudgets }) => {
   // Amounts are edited in the entry currency (the display currency when a fresh
   // rate exists, else USD) and stored in USD. This used to convert for INR only.
@@ -184,10 +188,11 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* General/Other Category Input */}
                     <div className="rounded-xl border border-app-border bg-surface p-3">
-                      <Label>General {parent}</Label>
+                      <Label htmlFor={budgetInputId(`${parent}-general`)}>General {parent}</Label>
                       <div className="flex items-center">
                         <span className="text-sm text-app-faint mr-2">{currencySymbol}</span>
                         <input
+                          id={budgetInputId(`${parent}-general`)}
                           type="number"
                           value={budgets[parent] || ''}
                           onChange={e => handleBudgetChange(parent, e.target.value)}
@@ -200,10 +205,11 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
                     {/* Specific Subcategories */}
                     {groupedCategories[parent].map(sub => (
                       <div key={sub} className="rounded-xl border border-app-border bg-surface p-3">
-                        <Label>{sub}</Label>
+                        <Label htmlFor={budgetInputId(sub)}>{sub}</Label>
                         <div className="flex items-center">
                           <span className="text-sm text-app-faint mr-2">{currencySymbol}</span>
                           <input
+                            id={budgetInputId(sub)}
                             type="number"
                             value={budgets[sub] || ''}
                             onChange={e => handleBudgetChange(sub, e.target.value)}

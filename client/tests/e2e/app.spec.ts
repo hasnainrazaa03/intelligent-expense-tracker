@@ -153,7 +153,7 @@ test('create and delete a household', async ({ page }) => {
 
   // Owner deletes it — clean up after ourselves.
   await card.getByRole('button', { name: 'Delete' }).first().click();
-  await page.getByRole('dialog', { name: 'Delete household?' }).getByRole('button', { name: 'Confirm' }).click();
+  await page.getByRole('alertdialog', { name: 'Delete household?' }).getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText(name)).toBeHidden({ timeout: 10_000 });
 });
 

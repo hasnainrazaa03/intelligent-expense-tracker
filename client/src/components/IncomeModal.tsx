@@ -3,6 +3,7 @@ import { Income } from '../types';
 import { INCOME_CATEGORIES } from '../constants';
 import { todayCalendar } from '../utils/dateUtils';
 import useForeignToUsd from '../hooks/useForeignToUsd';
+import useDropdownKeyboard from '../hooks/useDropdownKeyboard';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label, DatePicker } from './ui';
 import toast from 'react-hot-toast';
@@ -59,6 +60,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const categoryDropdownRef = React.useRef<HTMLDivElement>(null);
+  useDropdownKeyboard(isCategoryDropdownOpen, () => setIsCategoryDropdownOpen(false), categoryDropdownRef, 'income-category-toggle');
 
   useEffect(() => {
     if (income) {
@@ -297,6 +299,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             <div className="absolute z-50 mt-2 w-full modal-surface rounded-xl overflow-hidden flex flex-col max-h-64">
               <div className="p-2.5 border-b border-app-border sticky top-0 z-10" style={{ background: 'var(--modal-surface)' }}>
                 <input
+                  aria-label="Search categories"
                   type="text" placeholder="Search categories…" value={categorySearchTerm}
                   onChange={(e) => setCategorySearchTerm(e.target.value)}
                   className="w-full bg-surface-2 border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
