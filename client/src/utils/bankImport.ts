@@ -26,31 +26,44 @@ export const hasAmountSource = (m: Partial<BankColumnMapping>): boolean =>
 export const isMappingReady = (m: Partial<BankColumnMapping>): m is BankColumnMapping =>
   m.date != null && m.description != null && hasAmountSource(m);
 
-/** RFC-4180-ish CSV parse (quoted fields + doubled quotes). Does not support
- *  newlines embedded in quoted fields — rare in bank exports. */
+/** RFC 4180 CSV parse: quoted fields, doubled quotes, and newlines INSIDE
+ *  quoted fields (a multi-line note used to split one row into several broken
+ *  ones). Strips a UTF-8 BOM (Excel adds one, which made the first header
+ *  "\uFEFFtitle" and failed the header check), trims cells, skips blank lines. */
 export const parseCsvRows = (text: string): string[][] => {
+  const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   const rows: string[][] = [];
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  for (const line of lines) {
-    if (line.trim() === '') continue;
-    const result: string[] = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
+  let row: string[] = [];
+  let cur = '';
+  let inQuotes = false;
+  const endRow = () => {
+    row.push(cur.trim());
+    cur = '';
+    if (!(row.length === 1 && row[0] === '')) rows.push(row);
+    row = [];
+  };
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inQuotes) {
       if (c === '"') {
-        if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (c === ',' && !inQuotes) {
-        result.push(cur.trim());
-        cur = '';
+        if (src[i + 1] === '"') { cur += '"'; i++; }
+        else inQuotes = false;
       } else {
         cur += c;
       }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(cur.trim());
+      cur = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && src[i + 1] === '\n') i++;
+      endRow();
+    } else {
+      cur += c;
     }
-    result.push(cur.trim());
-    rows.push(result);
   }
+  if (cur !== '' || row.length > 0) endRow();
   return rows;
 };
 

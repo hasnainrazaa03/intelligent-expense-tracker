@@ -5,7 +5,7 @@ import { toFinPrecision, parseFiniteFloat, parseValidDate, parseAmount, MAX_AMOU
 import { ValidationError } from '../utils/errors';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
-import { sanitizeText } from '../utils/sanitize';
+import { sanitizeText, sanitizeNotes } from '../utils/sanitize';
 import { normalizeTags, normalizeMetadata, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, incomeToClient } from '../utils/money';
 import { holdKeyLockUntilResponse } from '../utils/keyedLock';
@@ -75,7 +75,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         amount: toCents(toFinPrecision(parsedAmount)),
         category: safeCategory,
         date: parsedDate,
-        notes: sanitizeText(income.notes) || undefined,
+        notes: sanitizeNotes(income.notes) || undefined,
         tags: normalizeTags(income.tags),
         metadata: normalizeMetadata(income.metadata),
         account: sanitizeText(income.account) || undefined,
@@ -101,7 +101,7 @@ router.post('/', async (req: Request, res: Response) => {
 
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
-  const safeNotes = sanitizeText(notes);
+  const safeNotes = sanitizeNotes(notes);
   const safeTags = normalizeTags(tags);
   const safeMetadata = normalizeMetadata(metadata);
   const safeAccount = sanitizeText(account);
@@ -166,7 +166,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
   const safeTitle = sanitizeText(title);
   const safeCategory = sanitizeText(category);
-  const safeNotes = sanitizeText(notes);
+  const safeNotes = sanitizeNotes(notes);
   const safeTags = normalizeTags(tags);
   const safeMetadata = normalizeMetadata(metadata);
   const safeAccount = sanitizeText(account);

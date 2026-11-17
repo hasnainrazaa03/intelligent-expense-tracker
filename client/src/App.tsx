@@ -304,14 +304,10 @@ const App: React.FC = () => {
         e.preventDefault();
         handleOpenModal();
       }
-      // Escape: Close any open modal
-      if (e.key === 'Escape') {
-        if (isExpenseModalOpen) setIsExpenseModalOpen(false);
-        if (isIncomeModalOpen) setIsIncomeModalOpen(false);
-        if (isBudgetModalOpen) setIsBudgetModalOpen(false);
-        if (isDataModalOpen) setIsDataModalOpen(false);
-        if (isCategoryModalOpen) setIsCategoryModalOpen(false);
-      }
+      // No Escape handling here: every modal closes on Escape through its own
+      // onClose (ui/Modal's focus trap). Closing them from here as well skipped
+      // that onClose, so Escape threw away unsaved budget edits without the
+      // "discard changes?" prompt (F13).
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -704,6 +700,12 @@ const handleDeleteIncome = async (id: string) => {
       const { deleted } = await wipeAllData('DELETE');
       const total = Object.values(deleted).reduce((s, n) => s + n, 0);
       notify.success(`Deleted ${total} record${total === 1 ? '' : 's'}. Your data is now empty.`);
+      // Treat the refetch like a fresh load (C14): the recurring-charge banner
+      // kept offering the deleted expenses, and the Tuition tab stayed empty
+      // because default semesters are only filled in once per load.
+      setPendingRecurring([]);
+      setSelectedRecurring(new Set());
+      didProcessLoadRef.current = false;
       await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
       setIsDataModalOpen(false);
     } catch (error) {

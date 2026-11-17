@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Button } from './ui';
+import ConfirmationDialog from './ConfirmationDialog';
 import {
   listHouseholds,
   createHousehold,
@@ -30,6 +31,8 @@ const HouseholdsManager: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [pools, setPools] = useState<Record<string, HouseholdPool>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+  // Delete and Leave ask first (F22): one stray click removed a household for everyone.
+  const [confirming, setConfirming] = useState<{ kind: 'delete' | 'leave'; id: string; name: string } | null>(null);
 
   const togglePool = async (id: string) => {
     if (expanded === id) { setExpanded(null); return; }
@@ -122,9 +125,9 @@ const HouseholdsManager: React.FC = () => {
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-app-text truncate">{h.name}{isOwner && <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-app-faint">owner</span>}</p>
                 {isOwner ? (
-                  <button disabled={busy} onClick={() => run(() => deleteHousehold(h.id), 'Household deleted.')} className="text-[11px] font-semibold text-app-faint hover:text-danger flex-shrink-0">Delete</button>
+                  <button disabled={busy} onClick={() => setConfirming({ kind: 'delete', id: h.id, name: h.name })} className="text-[11px] font-semibold text-app-faint hover:text-danger flex-shrink-0">Delete</button>
                 ) : (
-                  <button disabled={busy} onClick={() => run(() => leaveHousehold(h.id), 'Left household.')} className="text-[11px] font-semibold text-app-faint hover:text-danger flex-shrink-0">Leave</button>
+                  <button disabled={busy} onClick={() => setConfirming({ kind: 'leave', id: h.id, name: h.name })} className="text-[11px] font-semibold text-app-faint hover:text-danger flex-shrink-0">Leave</button>
                 )}
               </div>
 
@@ -203,6 +206,22 @@ const HouseholdsManager: React.FC = () => {
           );
         })}
       </div>
+      <ConfirmationDialog
+        isOpen={confirming !== null}
+        onClose={() => setConfirming(null)}
+        onConfirm={() => {
+          const c = confirming;
+          setConfirming(null);
+          if (!c) return;
+          if (c.kind === 'delete') run(() => deleteHousehold(c.id), 'Household deleted.');
+          else run(() => leaveHousehold(c.id), 'Left household.');
+        }}
+        title={confirming?.kind === 'delete' ? 'Delete household?' : 'Leave household?'}
+      >
+        {confirming?.kind === 'delete'
+          ? <>Delete “{confirming.name}” for everyone? Expenses shared to it become personal again; nobody’s expenses are deleted.</>
+          : <>Leave “{confirming?.name}”? Your expenses shared to it become personal again, and you’ll need a new invite to rejoin.</>}
+      </ConfirmationDialog>
     </div>
   );
 };

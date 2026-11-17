@@ -3,6 +3,7 @@ import { userStorage } from '../utils/userStorage';
 import toast from 'react-hot-toast';
 import { Expense, Budget, Income, Semester } from '../types';
 import { exportData, ExportFormat } from '../utils/exportUtils';
+import { parseExpenseCsv } from '../utils/expenseCsvImport';
 import { logAuditEvent } from '../services/api';
 import { APP_CONFIG } from '../config';
 import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange } from '../utils/dateUtils';
@@ -189,95 +190,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     reader.onload = (event) => {
         try {
             const csvText = event.target?.result as string;
-            const lines = csvText.trim().split(/\r?\n/);
-            if (lines.length < 2) throw new Error("CSV_EMPTY_OR_NO_DATA");
-            if (lines.length - 1 > APP_CONFIG.maxCsvImportRows) {
-              throw new Error(`CSV_ROW_LIMIT_EXCEEDED_MAX_${APP_CONFIG.maxCsvImportRows}`);
-            }
-            
-            const header = lines[0].split(',').map(h => h.trim());
-            const requiredHeaders = ['title', 'amount', 'category', 'date'];
-            if (!requiredHeaders.every(h => header.includes(h))) {
-                throw new Error(`MISSING_HEADERS: ${requiredHeaders.join(', ')}`);
-            }
-
-            // Parse CSV line handling quoted fields (e.g., "value with, comma")
-            const parseCsvLine = (line: string): string[] => {
-                const result: string[] = [];
-                let current = '';
-                let inQuotes = false;
-                for (let i = 0; i < line.length; i++) {
-                    const char = line[i];
-                    if (char === '"') {
-                        // A doubled quote inside a quoted field is a literal quote (RFC 4180).
-                        if (inQuotes && line[i + 1] === '"') {
-                            current += '"';
-                            i++;
-                        } else {
-                            inQuotes = !inQuotes;
-                        }
-                    } else if (char === ',' && !inQuotes) {
-                        result.push(current.trim());
-                        current = '';
-                    } else {
-                        current += char;
-                    }
-                }
-                result.push(current.trim());
-                return result;
-            };
-            
-            let skippedRows = 0;
-            const importedExpenses = lines.slice(1).map((line) => {
-                if (!line.trim()) return null;
-                // Isolate each row: a single malformed row (e.g. an unparseable
-                // date) is skipped and counted, never aborting the whole import.
-                try {
-                    const values = parseCsvLine(line);
-                    const entry: any = header.reduce((obj, key, i) => {
-                        obj[key] = values[i] ? values[i].replace(/^"|"$/g, '').trim() : undefined;
-                        return obj;
-                    }, {} as any);
-
-                    if (!entry.title || isNaN(parseFloat(entry.amount)) || !entry.category || !entry.date) {
-                        skippedRows++;
-                        return null;
-                    }
-
-                    // Keep an ISO calendar day (self-export) verbatim; only a
-                    // locale date (e.g. "1/15/2025") goes through Date. Never
-                    // round-trip through toISOString() — that shifts the day for
-                    // non-UTC users. A YYYY-MM-DD string parsed by `new Date` is
-                    // UTC-midnight, so formatting its LOCAL day would shift it
-                    // backward for UTC− users; hence the verbatim branch.
-                    const rawDate = String(entry.date).trim();
-                    let dateStr: string;
-                    if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
-                        dateStr = rawDate.slice(0, 10);
-                    } else {
-                        const parsedDate = new Date(rawDate);
-                        if (isNaN(parsedDate.getTime())) {
-                            skippedRows++;
-                            return null;
-                        }
-                        dateStr = formatCalendarDate(parsedDate);
-                    }
-
-                    const newExpense: Omit<Expense, 'id'> = {
-                        title: entry.title,
-                        amount: parseFloat(entry.amount),
-                        category: entry.category,
-                        date: dateStr,
-                        paymentMethod: entry.paymentMethod || undefined,
-                        notes: entry.notes || undefined,
-                        isRecurring: entry.isRecurring?.toLowerCase() === 'true',
-                    };
-                    return newExpense;
-                } catch {
-                    skippedRows++;
-                    return null;
-                }
-            }).filter((item): item is Omit<Expense, 'id'> => item !== null);
+            const { expenses: importedExpenses, skipped: skippedRows, nonPositive } = parseExpenseCsv(csvText, APP_CONFIG.maxCsvImportRows);
 
             if (importedExpenses.length === 0) {
                 throw new Error(
@@ -288,7 +201,8 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             onImport(importedExpenses);
             logAuditEvent('expense_csv_import', { importedCount: importedExpenses.length, skippedRows }).catch(() => undefined);
             if (skippedRows > 0) {
-                toast(`Imported ${importedExpenses.length} rows, skipped ${skippedRows} invalid.`);
+                const refunds = nonPositive > 0 ? ` (${nonPositive} with a zero or negative amount, e.g. refunds)` : '';
+                toast(`Imported ${importedExpenses.length} rows, skipped ${skippedRows}${refunds}.`);
             }
             onClose();
         } catch (error: any) {

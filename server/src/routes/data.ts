@@ -13,7 +13,7 @@ const requireAmount = (value: unknown, max: number, where: string): number => {
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
-import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
+import { sanitizeText, sanitizeOptionalText, sanitizeOptionalNotes } from '../utils/sanitize';
 import { newObjectId } from '../utils/objectId';
 import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, expenseToClient, incomeToClient, budgetToClient, semesterToClient } from '../utils/money';
@@ -167,7 +167,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           category: safeCategory,
           date,
           paymentMethod: sanitizeOptionalText(e.paymentMethod),
-          notes: sanitizeOptionalText(e.notes),
+          notes: sanitizeOptionalNotes(e.notes),
           originalAmount: e.originalAmount != null ? toCents(toFinPrecision(requireAmount(e.originalAmount, MAX_ORIGINAL_AMOUNT, `expense at index ${idx}`))) : undefined,
           originalCurrency: normalizeCurrencyCode(e.originalCurrency),
           isRecurring: Boolean(e.isRecurring),
@@ -202,7 +202,7 @@ router.post('/restore', async (req: Request, res: Response) => {
           amount: toCents(toFinPrecision(amount)),
           category: safeCategory,
           date,
-          notes: sanitizeOptionalText(i.notes),
+          notes: sanitizeOptionalNotes(i.notes),
           originalAmount: i.originalAmount != null ? toCents(toFinPrecision(requireAmount(i.originalAmount, MAX_ORIGINAL_AMOUNT, `income at index ${idx}`))) : undefined,
           originalCurrency: normalizeCurrencyCode(i.originalCurrency),
           tags: normalizeTags(i.tags),
