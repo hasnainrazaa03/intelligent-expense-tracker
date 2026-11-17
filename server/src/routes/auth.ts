@@ -6,7 +6,7 @@ import passport from 'passport';
 import otpGenerator from 'otp-generator';
 import crypto from 'crypto';
 import { sendVerificationEmail, sendPasswordResetEmail, sendTwoFactorEmail } from '../utils/mailer';
-import { authLimiter, loginLimiter, otpLimiter, passwordResetLimiter } from '../middleware/rateLimiter';
+import { authLimiter, loginLimiter, otpLimiter, passwordResetLimiter, recipientEmailLimiter } from '../middleware/rateLimiter';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
@@ -150,7 +150,7 @@ router.get('/csrf', (_req: Request, res: Response) => {
 });
 
 // --- 1. Sign Up (Register) ---
-router.post('/register', authLimiter, async (req: Request, res: Response) => {
+router.post('/register', authLimiter, recipientEmailLimiter, async (req: Request, res: Response) => {
   try {
     const { email: rawEmail, password } = req.body;
     
@@ -296,7 +296,7 @@ router.post('/verify-otp', otpLimiter, async (req: Request, res: Response) => {
 });
 
 // --- 3. Resend OTP ---
-router.post('/resend-otp', otpLimiter, async (req: Request, res: Response) => {
+router.post('/resend-otp', otpLimiter, recipientEmailLimiter, async (req: Request, res: Response) => {
   try {
     const { email: rawEmail } = req.body;
 
@@ -645,7 +645,7 @@ router.post('/logout-all', csrfProtection, authMiddleware, async (req: Request, 
 });
 
 // --- 5. Forgot Password ---
-router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: Response) => {
+router.post('/forgot-password', passwordResetLimiter, recipientEmailLimiter, async (req: Request, res: Response) => {
   try {
     const { email: rawEmail } = req.body;
     if (!rawEmail) {

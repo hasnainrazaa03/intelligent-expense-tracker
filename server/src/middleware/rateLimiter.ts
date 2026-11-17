@@ -73,13 +73,44 @@ export const passwordResetLimiter = rateLimit({
   message: { message: 'Too many password reset attempts. Please try again later.' },
 });
 
-// AI endpoint: 20 requests per hour
+// AI endpoints: 20 requests per hour PER USER. It was keyed by IP, so everyone
+// behind one campus NAT shared a single bucket of 20. The daily budget of model
+// calls (utils/aiBudget) bounds cost per user on top of this.
 export const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: perUserOrIpKey,
   message: { message: 'AI analysis rate limit reached. Please try again later.' },
+});
+
+// "Email me a summary": 3 per day per account. It was limited only by the
+// general 180/min limiter, so one account could drain the shared Resend quota
+// and break every other user's verification and reset emails (S4).
+export const emailSummaryLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: perUserOrIpKey,
+  message: { message: 'You can email yourself a summary 3 times a day. Try again tomorrow.' },
+});
+
+// Endpoints that send mail to an address taken from the request (register,
+// resend code, forgot password): 5 per hour per RECIPIENT, across all IPs, so
+// rotating IPs can't flood one inbox or drain the quota. Counts requests, not
+// whether the account exists, so it doesn't reveal which emails are registered.
+export const recipientEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    return email ? `mail:${email}` : ipKeyGenerator(req.ip || 'unknown-ip');
+  },
+  message: { message: 'Too many emails requested for this address. Please try again in an hour.' },
 });
 
 // General API: 300 requests per minute, keyed per-user when authenticated so a
