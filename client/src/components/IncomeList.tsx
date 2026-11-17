@@ -65,6 +65,7 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
           <div className="min-w-0">
             {isInlineEditing ? (
               <input
+                aria-label={`Source for ${income.title}`}
                 type="text"
                 value={draftSource}
                 onChange={(e) => setDraftSource(e.target.value)}
@@ -88,6 +89,7 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
           <div className="text-left md:text-right">
             {isInlineEditing ? (
               <input
+                aria-label={`Amount for ${income.title}`}
                 type="number"
                 value={draftAmount}
                 onChange={(e) => setDraftAmount(e.target.value)}

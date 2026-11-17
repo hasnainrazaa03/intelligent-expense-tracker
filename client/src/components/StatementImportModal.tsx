@@ -751,11 +751,11 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                         </div>
                         <div>
                           <label className="block text-[10px] text-app-faint uppercase tracking-wide mb-1">Notes</label>
-                          <input value={r.notes} onChange={(e) => patch(r.id, { notes: e.target.value })} placeholder="Optional note" className={fieldSm} />
+                          <input value={r.notes} onChange={(e) => patch(r.id, { notes: e.target.value })} placeholder="Optional note" aria-label={`Notes for ${r.description || 'this row'}`} className={fieldSm} />
                         </div>
                         <div>
                           <label className="block text-[10px] text-app-faint uppercase tracking-wide mb-1">Tags (comma-separated)</label>
-                          <input value={r.tagsInput} onChange={(e) => patch(r.id, { tagsInput: e.target.value })} placeholder="e.g. groceries, weekly" className={fieldSm} />
+                          <input value={r.tagsInput} onChange={(e) => patch(r.id, { tagsInput: e.target.value })} placeholder="e.g. groceries, weekly" aria-label={`Tags for ${r.description || 'this row'}`} className={fieldSm} />
                         </div>
                         {r.type === 'expense' && (
                           <div>

@@ -199,7 +199,8 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
               <ChartEmpty />
             </div>
           ) : (
-            <div className="flex-1 p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 min-h-[18rem] max-h-[26rem] overflow-y-auto custom-scrollbar content-start">
+            // Scrolls on its own, so it must be focusable for keyboard scrolling (4b).
+            <div tabIndex={0} role="region" aria-label="Category breakdown" className="flex-1 p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 min-h-[18rem] max-h-[26rem] overflow-y-auto custom-scrollbar content-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-b-2xl">
               {(Object.entries(stats.categoryTotals) as [string, number][])
                 .sort((a, b) => b[1] - a[1])
                 .map(([name, amount]) => (

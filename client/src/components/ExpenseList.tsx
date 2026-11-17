@@ -88,6 +88,7 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave,
                   <div className="text-left md:text-right">
                       {isInlineEditing ? (
                         <input
+                          aria-label={`Amount for ${expense.title}`}
                           type="number"
                           value={draftAmount}
                           onChange={(e) => setDraftAmount(e.target.value)}
@@ -119,6 +120,7 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave,
                       )}
                       {isInlineEditing && (
                         <textarea
+                          aria-label={`Note for ${expense.title}`}
                           value={draftNotes}
                           onChange={(e) => setDraftNotes(e.target.value)}
                           className="mt-2 w-40 bg-surface-2 border border-app-border rounded-lg p-2 text-xs text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"

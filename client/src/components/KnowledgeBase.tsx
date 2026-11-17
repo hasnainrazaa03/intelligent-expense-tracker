@@ -27,6 +27,7 @@ const KnowledgeBase: React.FC = () => {
         </div>
 
         <input
+          aria-label="Search guides"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

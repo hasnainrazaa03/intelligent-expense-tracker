@@ -7,7 +7,7 @@ type Size = 'sm' | 'md' | 'lg';
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-primary text-on-primary shadow-glow hover:brightness-110 active:scale-[0.99]',
   secondary: 'bg-surface-2 border border-app-border text-app-text hover:border-app-border-strong',
-  danger: 'bg-danger text-white hover:brightness-110 active:scale-[0.99]',
+  danger: 'bg-danger text-on-danger hover:brightness-110 active:scale-[0.99]',
   ghost: 'text-app-muted hover:text-app-text',
 };
 

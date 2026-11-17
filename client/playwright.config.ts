@@ -31,7 +31,7 @@ export default defineConfig({
     // App flows reuse the saved session (no repeated logins → no rate-limit trips).
     {
       name: 'authenticated',
-      testMatch: /app\.spec\.ts/,
+      testMatch: /(app|a11y)\.spec\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], storageState: 'tests/e2e/.auth/user.json' },
     },

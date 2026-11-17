@@ -174,7 +174,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 
 **Phase 4 — quality gates**
 - [x] 4a CI on every PR (`.github/workflows/ci.yml`: lint, typecheck, unit tests, build, Playwright E2E against a real API and MongoDB). Linting uses oxlint, not ESLint: typescript-eslint doesn't support TypeScript 7 yet. React hooks rules are errors; the React Compiler readiness rules are off for now.
-- [ ] 4b Keyboard-usable date picker, labelled inputs, an accessible confirm dialog (focus trap and Escape), full keyboard audit (F19, F20). Replaces A5's accessibility item.
+- [x] 4b Keyboard-usable date picker, labelled inputs, an accessible confirm dialog (focus trap and Escape), keyboard support for the currency picker, search, quick actions menu and category dropdowns, and AA contrast fixes in the dark theme (F19, F20). axe now reports 0 issues on every screen and popup (was 158); `tests/e2e/a11y.spec.ts` keeps it that way in CI. Replaces A5's accessibility item.
 - [ ] 4c Server test suite; E2E for import, restore, AI chat and tuition. Replaces A5's E2E item.
 
 **Phase 5 — product**
@@ -194,3 +194,4 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [ ] A paid tuition installment's date can't be changed in the UI: `App` has the handler (`handleUpdateInstallmentDate`) but the tracker never calls it.
 - [ ] React Compiler readiness: about 30 lint findings (`react/purity`, `react/set-state-in-effect`, `react/refs`), switched off in `client/.oxlintrc.json`.
 - [ ] Lint the server too (it isn't linted yet).
+- [ ] Turning on two-factor sign-in is a single unconfirmed click on a header icon; ask first (turning it off already asks for the password).

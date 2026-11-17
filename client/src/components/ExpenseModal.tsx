@@ -12,6 +12,7 @@ import { listHouseholds, getReceipt, uploadReceipt, deleteReceipt, parseReceipt,
 import { downscaleImage } from '../utils/image';
 import toast from 'react-hot-toast';
 import useForeignToUsd from '../hooks/useForeignToUsd';
+import useDropdownKeyboard from '../hooks/useDropdownKeyboard';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label, Select, DatePicker } from './ui';
 
@@ -47,6 +48,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  useDropdownKeyboard(isCategoryDropdownOpen, () => setIsCategoryDropdownOpen(false), categoryDropdownRef, 'exp-category');
   
   // Entry currency: amounts are stored in USD, but the user can enter in a foreign
   // currency which is converted. `foreignCurrency` is any supported ISO code.
@@ -587,6 +589,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                   <div className="absolute z-50 mt-2 w-full modal-surface rounded-xl overflow-hidden flex flex-col max-h-64">
                       <div className="p-2.5 border-b border-app-border sticky top-0 z-10" style={{ background: 'var(--modal-surface)' }}>
                           <input
+                              aria-label="Search categories"
                               type="text" placeholder="Search categories…" value={categorySearchTerm}
                               onChange={(e) => setCategorySearchTerm(e.target.value)}
                               className="w-full bg-surface-2 border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -596,7 +599,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                       <div className="overflow-y-auto">
                           {(Object.entries(filteredCategories) as [string, string[]][]).map(([main, subs]) => (
                               <div key={main}>
-                                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-faint bg-surface-2">{main}</div>
+                                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-muted bg-surface-2">{main}</div>
                                   {subs.map(sub => (
                                       <button
                                           type="button"
@@ -623,6 +626,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                         type="button"
                         role="switch"
                         aria-checked={isRecurring}
+                        aria-label="Recurring transaction"
                         onClick={() => setIsRecurring(!isRecurring)}
                         className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-primary' : 'bg-surface border border-app-border'}`}
                     >
@@ -780,6 +784,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                 <p className="mt-1.5 text-[11px] text-app-muted">Save this expense, then reopen it to keep the receipt image.</p>
               )}
               <textarea
+                aria-label="Text read from the receipt"
                 value={receiptText}
                 onChange={(e) => setReceiptText(e.target.value)}
                 className="mt-2 w-full bg-surface border border-app-border rounded-lg p-2.5 h-24 text-xs text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
