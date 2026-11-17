@@ -118,7 +118,7 @@ const App: React.FC = () => {
   // cache entry, which is keyed per-query by React Query (fixes the cross-user
   // cache bug where a stale entry could survive a failed logout — APP-M6). ---
   const queryClient = useQueryClient();
-  const { isAuthenticated, twoFactorEnabled, loginSuccess, logout, toggleTwoFactor } = useAuth();
+  const { isAuthenticated, userEmail, twoFactorEnabled, loginSuccess, logout, toggleTwoFactor } = useAuth();
 
   const allDataQuery = useQuery({
     queryKey: queryKeys.allData,
@@ -348,11 +348,16 @@ const App: React.FC = () => {
   // Offline queue: replay each queued create, then refetch so temp local rows
   // are replaced by the authoritative server data.
   const offline = useOfflineQueue({
+    // Only the signed-in user's own queued items replay, and only while signed in.
+    ownerId: isAuthenticated ? userEmail : null,
     // Send the queue's clientId as an idempotency key so a replayed create
     // (e.g. after a crash between POST and dequeue) returns the existing row
     // instead of duplicating it.
     process: useCallback(async (item: PendingExpense) => { await createExpense({ ...item.payload, clientRequestId: item.clientId }); }, []),
     onSynced: useCallback(() => { void queryClient.invalidateQueries({ queryKey: queryKeys.allData }); }, [queryClient]),
+    onDropped: useCallback((item: PendingExpense, message: string) => {
+      notify.error(`Couldn't sync "${item.payload.title}" (${message}). Please add it again.`);
+    }, []),
   });
 
   // Save handlers resolve true/false so the entry modals close only on success
@@ -362,7 +367,7 @@ const App: React.FC = () => {
     // data is lost; it replays automatically on reconnect.
     if (!navigator.onLine) {
       try {
-        const item = await enqueueExpense(expense);
+        const item = await enqueueExpense(expense, userEmail);
         setExpenses(prev => {
           const updated = [...prev, { ...expense, id: item.clientId } as Expense];
           checkBudgetAlert(expense.category, updated);

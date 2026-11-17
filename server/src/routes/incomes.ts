@@ -7,6 +7,7 @@ import { SERVER_CONFIG } from '../config';
 import { sanitizeText } from '../utils/sanitize';
 import { normalizeTags, normalizeMetadata, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, incomeToClient } from '../utils/money';
+import { holdKeyLockUntilResponse } from '../utils/keyedLock';
 
 const router = Router();
 
@@ -41,8 +42,10 @@ router.post('/bulk', async (req: Request, res: Response) => {
     return res.status(400).json({ message: `Maximum bulk import size is ${MAX_BULK_SIZE} records` });
   }
 
-  // Idempotency (B5): a retried import must not insert the batch twice.
+  // Idempotency (B5): a retried import must not insert the batch twice. Locked
+  // per batch so a concurrent retry waits for this one (see utils/keyedLock).
   if (batchId) {
+    await holdKeyLockUntilResponse(`income-batch:${userId}:${batchId}`, res);
     const already = await prisma.income.count({
       where: { userId, clientRequestId: { startsWith: `${batchId}#` } },
     });
