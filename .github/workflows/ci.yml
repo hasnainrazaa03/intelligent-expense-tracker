@@ -125,6 +125,7 @@ jobs:
           npx prisma db push --skip-generate
           npx ts-node --transpile-only scripts/ensure-test-user.ts
           npx ts-node --transpile-only scripts/ensure-test-user.ts e2e-restore@test.com
+          npx ts-node --transpile-only scripts/ensure-test-user.ts e2e-delete@test.com
           npx ts-node --transpile-only scripts/seed-demo.ts test@test.com
 
       - name: Build and start the API (with the mock Gemini)

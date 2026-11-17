@@ -241,3 +241,95 @@ test.describe('backup restore (own account)', () => {
   });
 });
 
+test.describe('settings page (5b-2)', () => {
+  test('one page for preferences and security; turning on two-factor asks first', async ({ page }) => {
+    await openApp(page);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+
+    // Hide tuition: an account setting, mirrored by the header's tuition button.
+    const hide = page.getByRole('switch', { name: 'Hide tuition from overviews' });
+    await expect(hide).toHaveAttribute('aria-checked', 'false');
+    await hide.click();
+    await expect(hide).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByRole('button', { name: /Show tuition across summaries/ })).toHaveAttribute('aria-pressed', 'true');
+    const saved = async () => (await (await page.request.get(`${API}/settings`)).json()).settings.hideTuition;
+    await expect.poll(saved, { timeout: 10_000, intervals: [500, 1000] }).toBe(true);
+    await hide.click();
+    await expect.poll(saved, { timeout: 10_000, intervals: [500, 1000] }).toBe(false);
+
+    // Theme: per device, and the header follows.
+    await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'Light' }).click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await expect(page.getByRole('button', { name: /switch to dark theme/i })).toBeVisible();
+    await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'Dark' }).click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+
+    // Two-factor: the old gear turned it on in one click. Now it asks.
+    await expect(page.getByText('Two-factor sign-in: off')).toBeVisible();
+    await page.getByRole('button', { name: 'Turn on' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Turn on two-factor sign-in?' });
+    await expect(dialog).toContainText('test@test.com');
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('Two-factor sign-in: off')).toBeVisible();
+    expect((await (await page.request.get(`${API}/auth/session`)).json()).twoFactorEnabled).toBe(false);
+  });
+});
+
+test.describe('account actions (own accounts)', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('"sign out everywhere" ends the session in every browser', async ({ page, browser }) => {
+    await signIn(page, 'e2e-restore@test.com');
+    const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const laptop = await other.newPage();
+    await signIn(laptop, 'e2e-restore@test.com');
+    expect((await laptop.request.get(`${API}/settings`)).status()).toBe(200);
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Sign out everywhere' }).click();
+    await page.getByRole('alertdialog', { name: 'Sign out everywhere?' }).getByRole('button', { name: 'Sign out everywhere' }).click();
+    await expect(page).toHaveURL(/\/login/);
+
+    expect((await laptop.request.get(`${API}/settings`)).status()).toBe(401);
+    await other.close();
+  });
+
+  test('deleting the account removes it and signs out', async ({ page }) => {
+    // A throwaway account (CI creates it; locally run
+    // `server/scripts/ensure-test-user.ts e2e-delete@test.com` first).
+    const email = 'e2e-delete@test.com';
+    await page.goto('/login');
+    await page.getByPlaceholder('you@email.com').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill('Test1234!');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    const signedIn = await page.getByRole('tablist', { name: 'Primary navigation' }).waitFor({ timeout: 15_000 }).then(() => true, () => false);
+    test.skip(!signedIn, `No ${email} account: run server/scripts/ensure-test-user.ts ${email} first.`);
+    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+
+    const headers = await csrfHeaders(page.request);
+    await page.request.post(`${API}/expenses`, { headers, data: { title: 'Goes with the account', amount: 5, category: 'Groceries', date: '2026-11-01' } });
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const form = page.getByRole('region', { name: 'Delete account' });
+    const remove = form.getByRole('button', { name: 'Delete my account' });
+    await form.getByLabel('Password').fill('not-my-password');
+    await expect(remove).toBeDisabled(); // not before typing DELETE
+    await form.getByLabel('Type DELETE to confirm').fill('DELETE');
+    await remove.click();
+    await expect(form.getByRole('alert')).toHaveText("That password isn't right.");
+
+    await form.getByLabel('Password').fill('Test1234!');
+    await remove.click();
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByText('Your account and all its data have been deleted.')).toBeVisible();
+
+    // Nothing of it stays in this browser (settings cache, unsent changes, …).
+    expect(await page.evaluate((who) => Object.keys(localStorage).filter((k) => k.endsWith(`::${who}`)), email)).toEqual([]);
+
+    // Gone: the address can't sign in any more.
+    const csrf = (await (await page.request.get(`${API}/auth/csrf`)).json()).csrfToken;
+    const login = await page.request.post(`${API}/auth/login`, { headers: { 'x-csrf-token': csrf }, data: { email, password: 'Test1234!' } });
+    expect(login.status()).not.toBe(200);
+  });
+});

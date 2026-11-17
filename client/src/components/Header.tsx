@@ -32,8 +32,9 @@ interface HeaderProps {
   onManageBudgets: () => void;
   onManageCategories: () => void;
   onDataAction: () => void;
-  onToggleTwoFactor: () => void;
-  twoFactorEnabled: boolean;
+  /** Opens the Settings page (currency, 2FA, sessions, data, account). */
+  onOpenSettings: () => void;
+  settingsActive: boolean;
   /** Hide tuition + tuition-loan from the Financial hub & Income summary. */
   hideTuition: boolean;
   onToggleHideTuition: () => void;
@@ -61,7 +62,7 @@ const ActionTip: React.FC<{ label: string; children: React.ReactNode }> = ({ lab
 );
 
 const Header: React.FC<HeaderProps> = ({
-  onLogout, onManageBudgets, onManageCategories, onDataAction, onToggleTwoFactor, twoFactorEnabled, onSearch,
+  onLogout, onManageBudgets, onManageCategories, onDataAction, onOpenSettings, settingsActive, onSearch,
   hideTuition, onToggleHideTuition, offlineStatus, expenses, incomes, onSelectTransaction
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
@@ -343,11 +344,14 @@ const Header: React.FC<HeaderProps> = ({
                     <TableCellsIcon className="h-4 w-4 md:h-5 md:w-5" />
                   </IconButton>
                 </ActionTip>
-                <ActionTip label={twoFactorEnabled ? 'Two-factor: on' : 'Two-factor: off'}>
+                {/* The gear used to switch two-factor sign-in on in one click; it
+                    opens Settings now, where 2FA asks first. */}
+                <ActionTip label="Settings">
                   <button
-                    onClick={onToggleTwoFactor}
-                    aria-label="Toggle optional two factor authentication"
-                    className={`grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl border transition-colors ${twoFactorEnabled ? 'bg-primary-soft border-primary/40 text-primary' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
+                    onClick={onOpenSettings}
+                    aria-label="Settings"
+                    aria-current={settingsActive ? 'page' : undefined}
+                    className={`grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-xl border transition-colors ${settingsActive ? 'bg-primary-soft border-primary/40 text-primary' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
                   >
                     <Cog6ToothIcon className="h-4 w-4 md:h-5 md:w-5" />
                   </button>

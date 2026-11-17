@@ -167,6 +167,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| 5b-2 Settings page | One Settings page (account, preferences, security, data, delete account) opened from the header gear and the sidebar. "Sign out everywhere" (the server had it; nothing called it). Account deletion with the password, or a recent sign-in for Google-only accounts. Turning on two-factor asks first; the gear used to switch it on in one click | #187 |
 | 5b-1 Settings on the server | Savings goals, investment accounts, custom categories, the merchant map, paused recurring charges, display currency and "hide tuition" move from localStorage to a per-account `UserSettings` document: they sync across devices, are in backups, and are removed by "Delete all my data" (goals and balances; preferences stay). Each browser's old values are merged in and uploaded once (C5) | #186 |
 
 Found already done when re-checked in 3e: C17 (canonical link and JSON-LD point at the
@@ -182,7 +183,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 **Phase 5 — product**
 - [ ] 5a Own domain, with the API on the same site. **Deferred (2026-11-17):** staying on the vercel.app address for now. The `/api` half already shipped in 2c (#158).
 - [x] 5b-1 Settings and planning data on the server (#186): `GET`/`PATCH /api/settings`, per key, validated, money in cents; part of `/data/all`, backups (format 1.1.0) and restore. Theme and the statement importer's panel width stay per device.
-- [ ] 5b-2 One Settings page: currency, 2FA, "sign out everywhere", export, delete account.
+- [x] 5b-2 One Settings page (#187): account (sign out, sign out everywhere), preferences (currency, theme, hide tuition), security (two-factor, with a confirmation to turn on and a password form to turn off), data (export and backup, categories, budgets), and account deletion. Deleting removes every record, deletes households the user owns (members keep their expenses, untagged), removes memberships and invitations, and clears this browser's cached data and offline queue for the account. Five wrong passwords per 15 minutes per account lock both deletion and turning two-factor off.
 - [ ] 5c Privacy policy and terms.
 - [ ] 5d Move tuition reconciliation to the server; split `App.tsx` into feature hooks.
 - [ ] 5e Alerts, scheduled summaries, a reports period selector, round-trip export (B3, B6).
@@ -200,5 +201,6 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [ ] The weekly Dependency Audit workflow isn't a required check (it only runs when a PR touches a `package*.json`). Watch its Monday runs; it had been failing unnoticed since at least May.
 - [ ] Remove the `deepmerge-ts` override in `server/package.json` if a Prisma 6.x release picks up deepmerge-ts 8.
 - [ ] Check `EMAIL_FROM` on Render. `onboarding@resend.dev` is Resend's test sender and only delivers to the Resend account's own address, so other people's sign-up codes may never arrive. Sending from a verified domain fixes it (see 5a).
+- [ ] Group `tailwindcss` and `@tailwindcss/*` in Dependabot, like React: #181 bumped `tailwindcss` to 4.3.5 alone, and the build still compiles with the 4.3.3 inside `@tailwindcss/postcss`.
+- [ ] Change password while signed in (only the forgot-password flow exists).
 - [ ] picomatch ReDoS (GHSA-fc5q-39xc-vjpf, no fixed release yet) fails the Dependency Audit on every dependency PR. It's only in dev tooling (Vite, Vitest, the dev server's file watcher), matching our own patterns; production dependencies audit clean. Decide whether the audit gates on production dependencies only.
-- [ ] Turning on two-factor sign-in is a single unconfirmed click on a header icon; ask first (turning it off already asks for the password).

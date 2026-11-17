@@ -10,6 +10,10 @@ interface ConfirmationDialogProps {
   title: string;
   children: React.ReactNode;
   loading?: boolean;
+  /** Defaults to "Confirm". */
+  confirmLabel?: string;
+  /** 'primary' for a confirmation that isn't destructive. Defaults to 'danger'. */
+  tone?: 'danger' | 'primary';
 }
 
 /**
@@ -25,6 +29,8 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   title,
   children,
   loading,
+  confirmLabel = 'Confirm',
+  tone = 'danger',
 }) => {
   const ref = useModalFocusTrap<HTMLDivElement>(isOpen, loading ? undefined : onClose);
   const titleId = React.useId();
@@ -46,7 +52,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         className="modal-surface rounded-2xl w-full max-w-sm overflow-hidden"
       >
         <div className="p-5 md:p-6 flex items-center gap-3">
-          <div className="grid place-items-center w-10 h-10 rounded-xl bg-danger/15 text-danger flex-shrink-0" aria-hidden="true">
+          <div className={`grid place-items-center w-10 h-10 rounded-xl flex-shrink-0 ${tone === 'danger' ? 'bg-danger/15 text-danger' : 'bg-primary-soft text-primary'}`} aria-hidden="true">
             <ExclamationTriangleIcon className="h-5 w-5" />
           </div>
           <h3 id={titleId} className="font-display text-lg md:text-xl font-bold text-app-text leading-tight">{title}</h3>
@@ -56,8 +62,8 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           <Button variant="secondary" fullWidth className="flex-1" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button variant="danger" fullWidth className="flex-1" onClick={onConfirm} disabled={loading}>
-            {loading ? 'Processing…' : 'Confirm'}
+          <Button variant={tone} fullWidth className="flex-1" onClick={onConfirm} disabled={loading}>
+            {loading ? 'Processing…' : confirmLabel}
           </Button>
         </div>
       </div>

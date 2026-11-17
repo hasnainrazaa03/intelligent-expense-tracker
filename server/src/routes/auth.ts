@@ -6,7 +6,8 @@ import passport from 'passport';
 import otpGenerator from 'otp-generator';
 import crypto from 'crypto';
 import { sendVerificationEmail, sendPasswordResetEmail, sendTwoFactorEmail } from '../utils/mailer';
-import { authLimiter, loginLimiter, otpLimiter, passwordResetLimiter, recipientEmailLimiter } from '../middleware/rateLimiter';
+import { authLimiter, loginLimiter, otpLimiter, passwordResetLimiter, recipientEmailLimiter, passwordCheckLimiter } from '../middleware/rateLimiter';
+import { deleteAccountData } from '../utils/deleteAccount';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
 import { sendError } from '../utils/http';
@@ -556,7 +557,7 @@ router.get('/session', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/2fa/toggle', csrfProtection, authMiddleware, async (req: Request, res: Response) => {
+router.post('/2fa/toggle', csrfProtection, authMiddleware, passwordCheckLimiter, async (req: Request, res: Response) => {
   try {
     const { enabled, password } = req.body || {};
 
@@ -621,6 +622,48 @@ router.post('/logout', csrfProtection, async (req: Request, res: Response) => {
   }
   clearSessionCookies(res);
   return res.status(200).json({ message: 'Logged out' });
+});
+
+// --- Delete the account (Settings → Danger zone) ---
+// POST /api/auth/delete-account  { confirm: "DELETE", password }
+// Needs the password, or, for accounts that only ever sign in with Google (their
+// password is random and unknown), a session signed in within the last 10
+// minutes: the user signs in with Google again, then deletes.
+const RECENT_SIGN_IN_SECONDS = 10 * 60;
+router.post('/delete-account', csrfProtection, authMiddleware, passwordCheckLimiter, async (req: Request, res: Response) => {
+  const { confirm, password } = req.body || {};
+  if (confirm !== 'DELETE') {
+    return sendError(res, 400, 'CONFIRMATION_REQUIRED', 'Type DELETE to confirm.');
+  }
+  const userId = req.user!.id;
+  const audit = (success: boolean, metadata?: Record<string, unknown>) =>
+    writeAuditLog({ action: 'account_delete', userId, success, route: '/api/auth/delete-account', ip: req.ip, userAgent: req.get('user-agent') || undefined, metadata });
+
+  try {
+    const account = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, password: true } });
+    if (!account) return sendError(res, 401, 'UNAUTHORIZED', 'Account not found.');
+
+    if (typeof password === 'string' && password) {
+      if (!(await bcrypt.compare(password, account.password))) {
+        await audit(false, { reason: 'wrong_password' });
+        return sendError(res, 401, 'INCORRECT_PASSWORD', 'Incorrect password.');
+      }
+    } else {
+      const issuedAt = req.user!.issuedAt ?? 0;
+      if (Date.now() / 1000 - issuedAt > RECENT_SIGN_IN_SECONDS) {
+        return sendError(res, 401, 'REAUTH_REQUIRED', 'Enter your password, or sign in again (with Google, if that is how you sign in) and delete within 10 minutes.');
+      }
+    }
+
+    const removed = await deleteAccountData(userId, account.email);
+    clearSessionCookies(res);
+    await audit(true, removed);
+    return res.status(200).json({ message: 'Your account has been deleted.' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    await audit(false, { error: error instanceof Error ? error.message : 'unknown' });
+    return sendError(res, 500, 'DELETE_FAILED', 'Could not delete the account. Nothing was removed.');
+  }
 });
 
 // "Sign out everywhere": bumping tokenVersion invalidates every session token

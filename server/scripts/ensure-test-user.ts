@@ -7,8 +7,15 @@
  * Defaults to test@test.com / Test1234!. It sets a known password, so it refuses
  * to run in production or against a hosted (mongodb+srv, e.g. Atlas) database.
  */
+import * as dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+
+// Load server/.env NOW, so the check below sees the URL Prisma will use.
+// Prisma reads .env itself when the client starts, which used to be after the
+// check: with no DATABASE_URL exported and an Atlas URL in .env, the check
+// passed and the script reset test accounts on the hosted database.
+dotenv.config();
 
 const url = process.env.DATABASE_URL || '';
 if (process.env.NODE_ENV === 'production' || url.startsWith('mongodb+srv://')) {

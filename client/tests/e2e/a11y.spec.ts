@@ -154,9 +154,15 @@ test('popups and modals have no WCAG A/AA violations', async ({ page }) => {
   await expect(page.getByRole('listbox', { name: 'Matching transactions' })).toBeVisible();
   expect(await axe(page), 'search results').toEqual([]);
 
-  for (const tab of ['Income', 'AI Analyst', 'Pivot', 'Reports', 'Tuition']) {
+  for (const tab of ['Income', 'AI Analyst', 'Pivot', 'Reports', 'Tuition', 'Settings']) {
     await page.getByRole('tab', { name: tab, exact: true }).first().click();
     await page.waitForTimeout(600);
     expect(await axe(page), `${tab} screen`).toEqual([]);
   }
+
+  // Settings' confirmation for turning on two-factor (cancelled, not confirmed).
+  await page.getByRole('button', { name: 'Turn on' }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  expect(await axe(page, '[role="alertdialog"]'), 'two-factor confirmation').toEqual([]);
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
 });

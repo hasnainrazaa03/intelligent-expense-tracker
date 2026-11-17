@@ -85,6 +85,19 @@ export const aiLimiter = rateLimit({
   message: { message: 'AI analysis rate limit reached. Please try again later.' },
 });
 
+// Actions that re-check the password on a signed-in session (turning two-factor
+// off, deleting the account): 5 WRONG passwords per 15 minutes per account, so a
+// stolen session can't be used to guess the password. Successes don't count.
+export const passwordCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: perUserOrIpKey,
+  message: { message: 'Too many wrong passwords. Try again in 15 minutes.' },
+});
+
 // "Email me a summary": 3 per day per account. It was limited only by the
 // general 180/min limiter, so one account could drain the shared Resend quota
 // and break every other user's verification and reset emails (S4).

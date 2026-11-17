@@ -24,4 +24,6 @@ npm run typecheck              # app + tests
   (`TRUST_PROXY=1` in tests), so it gets its own bucket.
 
 The end-to-end suite (`client/tests/e2e`) uses `scripts/ensure-test-user.ts` for its
-accounts (`test@test.com`, `e2e-restore@test.com`) and `scripts/mock-gemini.mjs` for AI.
+accounts (`test@test.com`, `e2e-restore@test.com`, and `e2e-delete@test.com`, which the
+account-deletion test deletes: re-run the script for it before each local run, or that
+test skips) and `scripts/mock-gemini.mjs` for AI.

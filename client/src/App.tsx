@@ -4,7 +4,7 @@ import { Expense, Budget, Semester, Income, SettingsPatch } from './types';
 import Header from './components/Header';
 import { DateRangeFilter, type DateRange } from './components/DateRangeFilter';
 import IncomeSummary from './components/IncomeSummary';
-import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon, ChatBubbleBottomCenterTextIcon } from './components/Icons';
+import { PlusCircleIcon, ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon, ChatBubbleBottomCenterTextIcon, Cog6ToothIcon } from './components/Icons';
 import { USC_SEMESTERS } from './constants';
 import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
@@ -85,8 +85,9 @@ const MobileInstallPrompt = lazyWithReload(() => import('./components/MobileInst
 const USCPaymentTracker = lazyWithReload(() => import('./components/USCPaymentTracker'));
 const PivotAnalysis = lazyWithReload(() => import('./components/PivotAnalysis'));
 const Reports = lazyWithReload(() => import('./components/Reports'));
+const SettingsPage = lazyWithReload(() => import('./components/SettingsPage'));
 
-const ACTIVE_VIEWS = ['expenses', 'income', 'ai', 'pivot', 'usc', 'reports'] as const;
+const ACTIVE_VIEWS = ['expenses', 'income', 'ai', 'pivot', 'usc', 'reports', 'settings'] as const;
 type ActiveView = typeof ACTIVE_VIEWS[number];
 const ACTIVE_VIEW_KEY = 'orbit:active-view';
 
@@ -135,7 +136,7 @@ const App: React.FC = () => {
   // cache entry, which is keyed per-query by React Query (fixes the cross-user
   // cache bug where a stale entry could survive a failed logout — APP-M6). ---
   const queryClient = useQueryClient();
-  const { isAuthenticated, userEmail, twoFactorEnabled, loginSuccess, logout, toggleTwoFactor } = useAuth();
+  const { isAuthenticated, userEmail, loginSuccess, logout } = useAuth();
 
   // True once /data/all has actually loaded this session. Until then the cache
   // can hold only optimistic patches on an empty base (an offline add after a
@@ -324,7 +325,7 @@ const App: React.FC = () => {
       const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
       if (!navigator.onLine || saveData) return;
       [ExpenseList, IncomeList, ExpenseModal, IncomeModal, BudgetManagerModal, CategoryManagerModal,
-        AiAnalyst, USCPaymentTracker, PivotAnalysis].forEach((screen) => screen.preload());
+        AiAnalyst, USCPaymentTracker, PivotAnalysis, SettingsPage].forEach((screen) => screen.preload());
     };
     // Safari has no requestIdleCallback; fall back to a short delay there.
     if (typeof window.requestIdleCallback === 'function') {
@@ -489,7 +490,8 @@ const App: React.FC = () => {
     notify.info('Recurring reminder snoozed for 24 hours.');
   };
 
-  const showOnboarding = isAuthenticated && hasServerSnapshot && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0;
+  // Not on Settings: "add your first expense" has no place there.
+  const showOnboarding = isAuthenticated && hasServerSnapshot && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0 && activeView !== 'settings';
 
   // Offline queue: replay each queued create, then refetch so temp local rows
   // are replaced by the authoritative server data.
@@ -1145,6 +1147,14 @@ const handleDeleteIncome = async (id: string) => {
             return <USCPaymentTracker semesters={semesters} onUpdateTuition={handleUpdateSemesterTuition} onUpdateInstallmentCount={handleUpdateInstallmentCount} onMarkAsPaid={handleMarkInstallmentAsPaid} onUpdateDate={handleUpdateInstallmentDate} />;
         case 'reports':
           return <Reports allExpenses={hubAllExpenses} budgets={budgets} isLoading={isLoadingData} />;
+        case 'settings':
+          return (
+            <SettingsPage
+              onOpenData={() => setIsDataModalOpen(true)}
+              onManageCategories={() => setIsCategoryModalOpen(true)}
+              onManageBudgets={() => setIsBudgetModalOpen(true)}
+            />
+          );
         default: return null;
     }
   };
@@ -1167,8 +1177,8 @@ const handleDeleteIncome = async (id: string) => {
               onManageBudgets={() => setIsBudgetModalOpen(true)}
               onManageCategories={() => setIsCategoryModalOpen(true)}
               onDataAction={() => setIsDataModalOpen(true)}
-              onToggleTwoFactor={toggleTwoFactor}
-              twoFactorEnabled={twoFactorEnabled}
+              onOpenSettings={() => setActiveView('settings')}
+              settingsActive={activeView === 'settings'}
               hideTuition={hideTuition}
               onToggleHideTuition={() => updateSettings({ hideTuition: !hideTuition })}
               onSearch={setDebouncedSearchQuery}
@@ -1227,6 +1237,7 @@ const handleDeleteIncome = async (id: string) => {
                 <VerticalTab icon={<TableCellsIcon className="h-5 w-5" />} label="Pivot" isActive={activeView === 'pivot'} onClick={() => setActiveView('pivot')} />
                 <VerticalTab icon={<ChartPieIcon className="h-5 w-5" />} label="Reports" isActive={activeView === 'reports'} onClick={() => setActiveView('reports')} />
                 <VerticalTab icon={<AcademicCapIcon className="h-5 w-5" />} label="Tuition" isActive={activeView === 'usc'} onClick={() => setActiveView('usc')} />
+                <VerticalTab icon={<Cog6ToothIcon className="h-5 w-5" />} label="Settings" isActive={activeView === 'settings'} onClick={() => setActiveView('settings')} />
               </nav>
               </div>
 
