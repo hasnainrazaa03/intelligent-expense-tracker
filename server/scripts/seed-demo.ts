@@ -15,7 +15,8 @@ const EMAIL = process.argv[2] || 'test@test.com';
 const MONTHS_BACK = 7; // current month + 7 prior = 8 months of history
 
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
-const money = (n: number) => Math.round(n * 100) / 100;
+// The DB stores integer cents (see utils/money.ts); plans below are in dollars.
+const cents = (dollars: number) => Math.round(dollars * 100);
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 // Date at a given month offset (0 = current) and day-of-month.
 const dateAt = (monthsAgo: number, day: number) => {
@@ -82,7 +83,7 @@ async function main() {
         expenses.push({
           userId,
           title: pick(plan.titles),
-          amount: money(rand(plan.amount[0], plan.amount[1])),
+          amount: cents(rand(plan.amount[0], plan.amount[1])),
           category: plan.category,
           date: dateAt(m, Math.round(rand(1, 28))),
           paymentMethod: pick(['Card', 'Card', 'Cash', 'Transfer']),
@@ -105,7 +106,7 @@ async function main() {
         incomes.push({
           userId,
           title: pick(plan.titles),
-          amount: money(rand(plan.amount[0], plan.amount[1])),
+          amount: cents(rand(plan.amount[0], plan.amount[1])),
           category: plan.category,
           date: dateAt(m, pick([1, 15, 28])),
           tags: [],
@@ -117,13 +118,13 @@ async function main() {
 
   // Budgets
   for (const [category, amount] of Object.entries(BUDGETS)) {
-    await prisma.budget.create({ data: { userId, category, amount } });
+    await prisma.budget.create({ data: { userId, category, amount: cents(amount) } });
   }
 
   // Tuition — one Bursar semester with a 4-installment plan (2 paid).
   const semesterId = 'fall-2026';
   await prisma.semester.create({
-    data: { id: semesterId, userId, name: 'Fall 2026', totalTuition: 24000 },
+    data: { id: semesterId, userId, name: 'Fall 2026', totalTuition: cents(24000) },
   });
   const per = 6000;
   for (let i = 0; i < 4; i++) {
@@ -132,7 +133,7 @@ async function main() {
       data: {
         semesterId,
         semesterUserId: userId,
-        amount: per,
+        amount: cents(per),
         status: paid ? 'paid' : 'unpaid',
         paidDate: paid ? dateAt(2 - i, 5) : null,
       },

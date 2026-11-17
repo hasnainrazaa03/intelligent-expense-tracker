@@ -15,3 +15,12 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # Prisma 7 requires a driver adapter and ships none for MongoDB, so
+      # `new PrismaClient()` throws at boot. Stay on 6.x (see README).
+      - dependency-name: "prisma"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@prisma/client"
+        update-types:
+          - "version-update:semver-major"

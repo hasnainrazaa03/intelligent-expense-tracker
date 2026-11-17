@@ -90,10 +90,11 @@ test('bank statement CSV maps columns and reaches the review step', async ({ pag
     buffer: Buffer.from(csv),
   });
 
-  // Auto-detected mapping + credit-skipping: advance to review (3 debits ready).
-  await imp.getByRole('button', { name: /Review 3 transactions/ }).click();
-  await expect(imp.getByText(/3 detected · 3 expenses · 0 income selected/)).toBeVisible();
-  await expect(imp.getByRole('button', { name: /Import 3 \(3 exp · 0 inc\)/ })).toBeEnabled();
+  // Auto-detected mapping: the importer detects income as well as expenses
+  // (#81), so the credit (PAYROLL) is reviewed as income alongside 3 debits.
+  await imp.getByRole('button', { name: /Review 4 transactions/ }).click();
+  await expect(imp.getByText(/4 detected · 3 expenses · 1 income selected/)).toBeVisible();
+  await expect(imp.getByRole('button', { name: /Import 4 \(3 exp · 1 inc\)/ })).toBeEnabled();
 });
 
 test('offline: an expense is queued and syncs on reconnect', async ({ page, context }) => {
