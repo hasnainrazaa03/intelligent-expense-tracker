@@ -3,6 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 60_000,
+  // One worker: the specs share the demo account, so parallel files changed each
+  // other's data and together tripped the API's per-user rate limit (180/min).
+  workers: 1,
+  fullyParallel: false,
   // In CI: one retry (so a failure leaves a trace to inspect), failures shown
   // inline on the PR, and an HTML report uploaded as an artifact.
   retries: process.env.CI ? 1 : 0,
@@ -31,7 +35,7 @@ export default defineConfig({
     // App flows reuse the saved session (no repeated logins → no rate-limit trips).
     {
       name: 'authenticated',
-      testMatch: /(app|a11y)\.spec\.ts/,
+      testMatch: /(app|a11y|flows)\.spec\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], storageState: 'tests/e2e/.auth/user.json' },
     },

@@ -54,8 +54,36 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - run: npm ci
       - run: npx prisma generate
-      - name: Typecheck
-        run: npx tsc --noEmit
+      - name: Typecheck (app and tests)
+        run: npm run typecheck
+
+  server-tests:
+    name: Server · unit and API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    env:
+      # Dropped and recreated by the test run; CI-only.
+      TEST_DATABASE_URL: mongodb://localhost:27017/orbit_test?replicaSet=rs0&directConnection=true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Start MongoDB (single-node replica set, which Prisma requires)
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval "db.adminCommand('ping').ok" && break; sleep 1; done
+          docker exec mongo mongosh --quiet --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"
+          for i in $(seq 1 30); do [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ] && break; sleep 1; done
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Unit and API tests (vitest + supertest)
+        run: npm test
 
   e2e:
     name: End-to-end · Playwright
@@ -68,6 +96,10 @@ jobs:
       RESEND_API_KEY: re_ci_dummy_key
       FRONTEND_URL: http://localhost:4173
       PORT: "3001"
+      # AI calls go to scripts/mock-gemini.mjs, never the real API.
+      GEMINI_API_KEY: ci-mock-key
+      GEMINI_BASE_URL: http://127.0.0.1:3999
+      E2E_MOCK_AI: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -92,11 +124,13 @@ jobs:
           npx prisma generate
           npx prisma db push --skip-generate
           npx ts-node --transpile-only scripts/ensure-test-user.ts
+          npx ts-node --transpile-only scripts/ensure-test-user.ts e2e-restore@test.com
           npx ts-node --transpile-only scripts/seed-demo.ts test@test.com
 
-      - name: Build and start the API
+      - name: Build and start the API (with the mock Gemini)
         working-directory: server
         run: |
+          nohup node scripts/mock-gemini.mjs 3999 > "$RUNNER_TEMP/mock-gemini.log" 2>&1 &
           npm run build
           nohup node dist/src/index.js > "$RUNNER_TEMP/api.log" 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3001/health > /dev/null && exit 0; sleep 1; done

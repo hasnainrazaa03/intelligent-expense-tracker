@@ -175,7 +175,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 **Phase 4 — quality gates**
 - [x] 4a CI on every PR (`.github/workflows/ci.yml`: lint, typecheck, unit tests, build, Playwright E2E against a real API and MongoDB). Linting uses oxlint, not ESLint: typescript-eslint doesn't support TypeScript 7 yet. React hooks rules are errors; the React Compiler readiness rules are off for now.
 - [x] 4b Keyboard-usable date picker, labelled inputs, an accessible confirm dialog (focus trap and Escape), keyboard support for the currency picker, search, quick actions menu and category dropdowns, and AA contrast fixes in the dark theme (F19, F20). axe now reports 0 issues on every screen and popup (was 158); `tests/e2e/a11y.spec.ts` keeps it that way in CI. Replaces A5's accessibility item.
-- [ ] 4c Server test suite; E2E for import, restore, AI chat and tuition. Replaces A5's E2E item.
+- [x] 4c Server test suite (`server/tests`: 12 unit + 19 API tests with supertest against a real MongoDB, run in CI) and E2E flows for CSV and statement import, backup restore, AI chat (mock Gemini) and tuition (`client/tests/e2e/flows.spec.ts`). The tuition test found that tuition expenses were titled with a database id ("Inst #6afbf9f7…"); they're now numbered #1, #2… Replaces A5's E2E item.
 
 **Phase 5 — product**
 - [ ] 5a Own domain, with the API on the same site.
