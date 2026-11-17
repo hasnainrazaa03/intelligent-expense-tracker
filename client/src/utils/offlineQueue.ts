@@ -9,17 +9,34 @@ export interface PendingExpense {
   clientId: string;
   payload: Omit<Expense, 'id'>;
   createdAt: number;
+  /** Who queued it (session email). Items only replay for their owner, so a
+   *  second person signing in on the same device never receives them. Absent on
+   *  items queued before this field existed — those replay for whoever is
+   *  signed in, as before. */
+  ownerId?: string;
 }
 
-const openDb = (): Promise<IDBDatabase> =>
-  new Promise((resolve, reject) => {
+// One connection for the page's lifetime (opening one per operation leaked
+// connections and re-ran the open handshake on every call).
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+const openDb = (): Promise<IDBDatabase> => {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = () => {
       if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: 'clientId' });
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      // Another tab upgrading the schema closes us; reopen on next use.
+      db.onversionchange = () => { db.close(); dbPromise = null; };
+      resolve(db);
+    };
+    req.onerror = () => { dbPromise = null; reject(req.error); };
   });
+  return dbPromise;
+};
 
 const reqP = <T>(req: IDBRequest<T>): Promise<T> =>
   new Promise((resolve, reject) => {
@@ -32,21 +49,25 @@ const store = async (mode: IDBTransactionMode): Promise<IDBObjectStore> => {
   return db.transaction(STORE, mode).objectStore(STORE);
 };
 
-export const enqueueExpense = async (payload: Omit<Expense, 'id'>): Promise<PendingExpense> => {
+const belongsTo = (item: PendingExpense, ownerId: string) => !item.ownerId || item.ownerId === ownerId;
+
+export const enqueueExpense = async (payload: Omit<Expense, 'id'>, ownerId: string | null): Promise<PendingExpense> => {
   const item: PendingExpense = {
     clientId: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     payload,
     createdAt: Date.now(),
+    ...(ownerId ? { ownerId } : {}),
   };
   const s = await store('readwrite');
   await reqP(s.add(item));
   return item;
 };
 
-export const allPendingExpenses = async (): Promise<PendingExpense[]> => {
+/** Queued items belonging to `ownerId`, oldest first. */
+export const allPendingExpenses = async (ownerId: string): Promise<PendingExpense[]> => {
   const s = await store('readonly');
   const items = await reqP(s.getAll() as IDBRequest<PendingExpense[]>);
-  return items.sort((a, b) => a.createdAt - b.createdAt);
+  return items.filter((item) => belongsTo(item, ownerId)).sort((a, b) => a.createdAt - b.createdAt);
 };
 
 export const removePendingExpense = async (clientId: string): Promise<void> => {
@@ -54,7 +75,5 @@ export const removePendingExpense = async (clientId: string): Promise<void> => {
   await reqP(s.delete(clientId));
 };
 
-export const countPendingExpenses = async (): Promise<number> => {
-  const s = await store('readonly');
-  return reqP(s.count());
-};
+export const countPendingExpenses = async (ownerId: string): Promise<number> =>
+  (await allPendingExpenses(ownerId)).length;

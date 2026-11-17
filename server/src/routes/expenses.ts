@@ -8,6 +8,7 @@ import { SERVER_CONFIG } from '../config';
 import { sanitizeText, sanitizeOptionalText } from '../utils/sanitize';
 import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, expenseToClient } from '../utils/money';
+import { holdKeyLockUntilResponse } from '../utils/keyedLock';
 
 const router = Router();
 
@@ -104,8 +105,11 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   // Idempotency (offline replay): if this client key already created an expense
-  // for this user, return that one instead of creating a duplicate.
+  // for this user, return that one instead of creating a duplicate. The lock
+  // makes the check + insert atomic per key, so two concurrent replays can't
+  // both pass the check.
   if (typeof clientRequestId === 'string' && clientRequestId) {
+    await holdKeyLockUntilResponse(`expense:${userId}:${clientRequestId}`, res);
     const existing = await prisma.expense.findFirst({ where: { userId, clientRequestId } });
     if (existing) {
       return res.status(200).json({ ...expenseToClient(existing), date: existing.date.toISOString().split('T')[0] });
@@ -344,8 +348,9 @@ router.post('/bulk', async (req: Request, res: Response) => {
   // Idempotency (B5): a retried import — a flaky network, a double-click, the
   // offline queue replaying — must not insert the batch twice. Rows are stamped
   // with `${batchId}#${index}`, so seeing any row from this batch means it
-  // already landed.
+  // already landed. Locked per batch so a concurrent retry waits for this one.
   if (batchId) {
+    await holdKeyLockUntilResponse(`expense-batch:${userId}:${batchId}`, res);
     const already = await prisma.expense.count({
       where: { userId, clientRequestId: { startsWith: `${batchId}#` } },
     });

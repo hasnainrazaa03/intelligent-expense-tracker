@@ -6,9 +6,27 @@ import { notify } from '../utils/notifications';
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SESSION_WARNING_MS = 2 * 60 * 1000;
+// Last confirmed session email. Kept so the offline queue can tag (and later
+// replay) expenses for the right person even when the app starts offline and
+// the session check can't reach the server.
+const SESSION_EMAIL_KEY = 'sessionEmail';
+
+const readStoredEmail = (): string | null => {
+  try { return localStorage.getItem(SESSION_EMAIL_KEY); } catch { return null; }
+};
+const storeEmail = (email: string | null) => {
+  try {
+    if (email) localStorage.setItem(SESSION_EMAIL_KEY, email);
+    else localStorage.removeItem(SESSION_EMAIL_KEY);
+  } catch { /* storage unavailable */ }
+};
+const normalizeEmail = (email: unknown): string | null =>
+  typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : null;
 
 interface AuthContextValue {
   isAuthenticated: boolean;
+  /** Signed-in user's email (lowercased), or null when signed out/unknown. */
+  userEmail: string | null;
   twoFactorEnabled: boolean;
   /** Mark authenticated after a successful login and hydrate 2FA state. */
   loginSuccess: () => Promise<void>;
@@ -25,12 +43,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => localStorage.getItem('hasSession') === 'true'
   );
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [userEmail, setUserEmailState] = useState<string | null>(() =>
+    localStorage.getItem('hasSession') === 'true' ? readStoredEmail() : null
+  );
+  const setUserEmail = (email: string | null) => { setUserEmailState(email); storeEmail(email); };
 
   const logout = () => {
     logoutUser().catch(() => undefined);
     localStorage.removeItem('hasSession');
     setIsAuthenticated(false);
     setTwoFactorEnabled(false);
+    setUserEmail(null);
     // Drop the cached dataset so the next user can't read the previous user's
     // data from cache (the data query is disabled while logged out).
     queryClient.removeQueries({ queryKey: queryKeys.allData });
@@ -42,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const session = await getSession();
       setTwoFactorEnabled(Boolean(session.twoFactorEnabled));
+      setUserEmail(normalizeEmail(session.email));
     } catch {
       setTwoFactorEnabled(false);
     }
@@ -85,6 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session.authenticated) {
           setIsAuthenticated(true);
           setTwoFactorEnabled(Boolean(session.twoFactorEnabled));
+          setUserEmail(normalizeEmail(session.email));
           localStorage.setItem('hasSession', 'true');
         }
       })
@@ -123,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAuthenticated]);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, twoFactorEnabled, loginSuccess, logout, toggleTwoFactor }}>
+    <AuthContext.Provider value={{ isAuthenticated, userEmail, twoFactorEnabled, loginSuccess, logout, toggleTwoFactor }}>
       {children}
     </AuthContext.Provider>
   );
