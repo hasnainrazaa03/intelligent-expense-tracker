@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { GoogleIcon, ExclamationTriangleIcon } from './Icons';
 import { ExpenseTrackerLogo } from './Branding';
 import { registerUser, loginUser, forgotPassword, resetPassword, verifyLoginOtp } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button, Input, Label } from './ui';
 import { stashVerificationPassword } from '../utils/pendingVerification';
 
@@ -325,6 +325,14 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             <span>Continue with Google</span>
           </a>
 
+          {!isLoginView && (
+            <p className="text-center mt-5 text-xs text-app-muted leading-relaxed">
+              By creating an account or continuing with Google, you agree to the{' '}
+              <Link to="/terms" className="font-semibold text-primary hover:brightness-125">Terms of Use</Link> and{' '}
+              <Link to="/privacy" className="font-semibold text-primary hover:brightness-125">Privacy Policy</Link>.
+            </p>
+          )}
+
           {/* VIEW TOGGLE */}
           <p className="text-center mt-7 text-sm text-app-muted">
             {isLoginView ? "Don't have an account? " : 'Already have an account? '}
@@ -340,7 +348,10 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
         {/* FOOTER */}
         <div className="px-7 py-4 border-t border-app-border text-app-faint text-[10px] flex justify-between uppercase select-none tracking-[0.16em]">
-          <span>Bank-level security</span>
+          <span className="flex gap-4">
+            <Link to="/privacy" className="hover:text-app-text">Privacy</Link>
+            <Link to="/terms" className="hover:text-app-text">Terms</Link>
+          </span>
           <span>© Orbit {'2026'}</span>
         </div>
       </div>
