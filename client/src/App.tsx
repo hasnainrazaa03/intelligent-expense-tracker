@@ -10,7 +10,7 @@ import { fuzzyMatch } from './utils/fuzzySearch';
 import { distributeAmount } from './utils/currencyUtils';
 import { startOfMonth, endOfMonth, isWithinRange, todayCalendar } from './utils/dateUtils';
 import { computeDueRecurring, getRecurrenceFrequency } from './utils/recurrence';
-import { expenseMatchesBudget } from './utils/budgetUtils';
+import { budgetForExpense, computeBudgetSpend, budgetLabel } from './utils/budgetUtils';
 import { stripTuition } from './utils/tuition';
 import { getAllData, isAuthError } from './services/api';
 import { useAuth } from './contexts/AuthContext';
@@ -367,22 +367,27 @@ const App: React.FC = () => {
   
   // Budget alert: check if a category is near or over its monthly budget
   const checkBudgetAlert = useCallback((category: string, allExpenses: Expense[]) => {
-    const budget = budgets.find(b => b.category === category);
+    // The budget this expense counts toward: its own subcategory budget, else
+    // its main category's. It used to look only for an exact match, so a "Food"
+    // budget never warned when a "Groceries" expense pushed it over (C8).
+    const budgetCategories = budgets.map(b => b.category);
+    const target = budgetForExpense(category, budgetCategories);
+    const budget = budgets.find(b => b.category === target);
     if (!budget || budget.amount <= 0) return;
 
     // Local calendar month window (no toISOString UTC shift).
     const monthStart = startOfMonth();
     const monthEnd = endOfMonth();
-
-    const monthlySpent = allExpenses
-      .filter(e => expenseMatchesBudget(e.category, category) && isWithinRange(e.date, monthStart, monthEnd))
-      .reduce((sum, e) => sum + e.amount, 0);
+    const monthExpenses = allExpenses.filter(e => isWithinRange(e.date, monthStart, monthEnd));
+    const monthlySpent = computeBudgetSpend(budget.category, monthExpenses, budgetCategories);
 
     const pct = (monthlySpent / budget.amount) * 100;
+    const name = budgetLabel(budget.category, budgetCategories);
+    const amounts = `$${monthlySpent.toFixed(0)} of $${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`;
     if (pct >= 100) {
-      notify.error(`Budget exceeded: ${category} ${monthlySpent.toFixed(0)} / ${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`);
+      notify.error(`Budget exceeded: ${name} ${amounts}`);
     } else if (pct >= 80) {
-      notify.warning(`Budget warning: ${category} ${monthlySpent.toFixed(0)} / ${budget.amount.toFixed(0)} (${pct.toFixed(0)}%)`);
+      notify.warning(`Budget warning: ${name} ${amounts}`);
     }
   }, [budgets]);
 

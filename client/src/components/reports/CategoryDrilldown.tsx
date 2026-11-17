@@ -1,8 +1,9 @@
+import { getMainCategory } from '../../utils/colorUtils';
 import React, { useState, useMemo } from 'react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../../constants';
+import { CATEGORIES } from '../../constants';
 import { getCategoryColor } from '../../utils/colorUtils';
 import { formatCurrency } from '../../utils/currencyUtils';
 import ChartEmpty from '../ChartEmpty';
@@ -29,7 +30,7 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
 
   const mainCategoryData = useMemo(() => {
     const mainCategoryTotals = expenses.reduce((acc, exp) => {
-      const mainCategory = SUBCATEGORY_TO_CATEGORY_MAP[exp.category] || 'Miscellaneous';
+      const mainCategory = getMainCategory(exp.category);
       // FIX: Ensure exp.amount is treated as a number for the arithmetic operation.
       acc[mainCategory] = (acc[mainCategory] || 0) + Number(exp.amount);
       return acc;
@@ -48,7 +49,7 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
     if (!selectedCategory) return [];
 
     const subCategoryTotals = expenses
-      .filter(exp => (SUBCATEGORY_TO_CATEGORY_MAP[exp.category] || 'Miscellaneous') === selectedCategory)
+      .filter(exp => getMainCategory(exp.category) === selectedCategory)
       .reduce((acc, exp) => {
         // FIX: Ensure exp.amount is treated as a number for the arithmetic operation.
         acc[exp.category] = (acc[exp.category] || 0) + Number(exp.amount);

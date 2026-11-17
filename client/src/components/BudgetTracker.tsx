@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Expense, Budget } from '../types';
 import { ExclamationTriangleIcon, ChartPieIcon } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
-import { computeBudgetSpend, computeTotalBudgetedSpend } from '../utils/budgetUtils';
+import { computeBudgetSpend, computeTotalBudgetedSpend, budgetLabel } from '../utils/budgetUtils';
 import { monthKey } from '../utils/dateUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
 import ChartEmpty from './ChartEmpty';
@@ -13,7 +13,7 @@ interface BudgetTrackerProps {
   budgets: Budget[];
 }
 
-const BudgetProgressItem: React.FC<{ category: string; spent: number; budget: number; }> = ({ category, spent, budget }) => {
+const BudgetProgressItem: React.FC<{ category: string; label?: string; spent: number; budget: number; }> = ({ category, label, spent, budget }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const percentage = budget > 0 ? (spent / budget) * 100 : 0;
   const isOverBudget = percentage > 100;
@@ -33,7 +33,7 @@ const BudgetProgressItem: React.FC<{ category: string; spent: number; budget: nu
       <div className="flex justify-between items-end gap-2">
         <div className="flex flex-col min-w-0">
           <span className="text-[10px] text-app-faint uppercase tracking-[0.16em] leading-none mb-1.5">Category</span>
-          <span className={`font-display text-sm md:text-base font-semibold leading-none truncate ${textColor}`}>{category}</span>
+          <span className={`font-display text-sm md:text-base font-semibold leading-none truncate ${textColor}`}>{label ?? category}</span>
         </div>
         <div className="text-right flex-shrink-0">
           <div className="flex items-center justify-end gap-1">
@@ -100,7 +100,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
     // its subcategories (CMP-H4). The total counts each expense once.
     const spending: { [key: string]: number } = {};
     budgets.forEach((b) => {
-      spending[b.category] = computeBudgetSpend(b.category, monthExpenses);
+      spending[b.category] = computeBudgetSpend(b.category, monthExpenses, budgets.map((x) => x.category));
     });
 
     const totalSpent = computeTotalBudgetedSpend(budgets.map((b) => b.category), monthExpenses);
@@ -180,6 +180,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
           <BudgetProgressItem
             key={budget.category}
             category={budget.category}
+            label={budgetLabel(budget.category, budgets.map((b) => b.category))}
             budget={budget.amount}
             spent={categorySpending[budget.category] || 0}
           />

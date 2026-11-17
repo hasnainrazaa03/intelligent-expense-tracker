@@ -13,7 +13,7 @@ import { getCategoryColor, getMainCategory } from '../utils/colorUtils';
 import { CalendarDaysIcon, TagIcon, TrendingUpIcon, BanknotesIcon } from './Icons';
 import { startOfMonth, endOfMonth, isWithinRange, addMonths, parseCalendarDate, monthKey } from '../utils/dateUtils';
 import { formatCurrency } from '../utils/currencyUtils';
-import { computeBudgetSpend, computeTotalBudgetedSpend } from '../utils/budgetUtils';
+import { computeBudgetSpend, computeTotalBudgetedSpend, budgetLabel } from '../utils/budgetUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
 import SectionSkeleton from './SectionSkeleton';
 
@@ -51,7 +51,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     return budgets
       .map((budget) => {
         // Shared matcher (CMP-H4): a main-category budget aggregates its subcategories.
-        const spent = computeBudgetSpend(budget.category, monthExpenses);
+        const spent = computeBudgetSpend(budget.category, monthExpenses, budgets.map((b) => b.category));
         const pct = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
         if (pct < 80) return null;
         return {
@@ -222,7 +222,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 key={alert.category}
                 className={`flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-xs md:text-sm border ${alert.severity === 'danger' ? 'bg-danger/10 border-danger/30 text-danger' : 'bg-warn/10 border-warn/30 text-warn'}`}
               >
-                <span className="font-medium truncate">{alert.category}</span>
+                <span className="font-medium truncate">{budgetLabel(alert.category, budgets.map((b) => b.category))}</span>
                 <span className="font-semibold tabular-nums whitespace-nowrap">
                   {formatCurrency(alert.spent, displayCurrency, conversionRate, true)} / {formatCurrency(alert.budget, displayCurrency, conversionRate, true)} · {alert.pct.toFixed(0)}%
                 </span>
