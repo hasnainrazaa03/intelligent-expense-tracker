@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GoogleIcon, ExclamationTriangleIcon } from './Icons';
 import { ExpenseTrackerLogo } from './Branding';
 import { registerUser, loginUser, forgotPassword, resetPassword, verifyLoginOtp } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Label } from './ui';
+import { stashVerificationPassword } from '../utils/pendingVerification';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -35,6 +36,22 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [pendingLoginEmail, setPendingLoginEmail] = useState('');
   const navigate = useNavigate();
 
+  // Redirects back from Google sign-in: a 2FA account gets an emailed code
+  // instead of a session, and a callback whose OAuth state didn't match is refused.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('twofactor') === '1' && params.get('email')) {
+      setRequiresTwoFactor(true);
+      setPendingLoginEmail(params.get('email') || '');
+      setSuccessMsg('Verification code sent to your email.');
+    } else if (params.get('error') === 'oauth_state') {
+      setError('Google sign-in was interrupted. Please try again.');
+    }
+    if (params.has('twofactor') || params.has('error')) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Forgot password state
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -62,7 +79,19 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
     try {
       if (isLoginView) {
-        const data = await loginUser(email, password);
+        let data;
+        try {
+          data = await loginUser(email, password);
+        } catch (err: any) {
+          // The right password for an account that was never verified: go verify
+          // it (the password rides along in memory; the server requires it).
+          if (err?.status === 401 && /verify your email/i.test(err?.message || '')) {
+            stashVerificationPassword(email, password);
+            navigate('/verify', { state: { email } });
+            return;
+          }
+          throw err;
+        }
         if (data.requiresTwoFactor) {
           setRequiresTwoFactor(true);
           setPendingLoginEmail(data.email || email);
@@ -76,6 +105,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           return;
         }
         await registerUser(email, password);
+        stashVerificationPassword(email, password);
         navigate('/verify', { state: { email: email } });
       }
     } catch (err: any) {

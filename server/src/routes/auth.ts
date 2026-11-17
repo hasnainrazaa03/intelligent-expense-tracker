@@ -13,6 +13,7 @@ import { sendError } from '../utils/http';
 import { sanitizeEmail } from '../utils/sanitize';
 import { authMiddleware } from '../middleware/auth';
 import { csrfProtection } from '../middleware/csrf';
+import { lockedForMs, recordLoginFailure, clearLoginFailures } from '../utils/loginLockout';
 
 const router = Router();
 
@@ -49,14 +50,54 @@ const isStrongPassword = (password: string): boolean => {
   );
 };
 
-// S5: Account lockout constants
-const MAX_LOGIN_ATTEMPTS = SERVER_CONFIG.auth.maxLoginAttempts;
-const LOCKOUT_DURATION_MS = SERVER_CONFIG.auth.lockoutDurationMs;
 
 // SRV-M4: per-account failed-OTP ceiling. After this many wrong codes the active
 // OTP is invalidated (forcing a resend), bounding brute-force of 6-digit codes
 // beyond the per-IP limiter.
 const MAX_OTP_ATTEMPTS = 5;
+
+// Every outstanding one-time code. Issuing any new code clears ALL of them along
+// with the shared attempt counter. Before, forgot-password (or a login that sends
+// a 2FA code) reset the counter while an older code stayed valid, buying fresh
+// guesses against it.
+const CLEAR_ALL_CODES = {
+  verificationOtp: null,
+  otpExpires: null,
+  twoFactorOtp: null,
+  twoFactorOtpExpires: null,
+  resetToken: null,
+  resetTokenExpires: null,
+};
+
+// Count one guess against the active code BEFORE checking it, and return the
+// codes as they stand after that atomic update. Parallel guesses each get their
+// own number (the old read-modify-write let them all read the same count), and
+// each compares against the CURRENT code, not a copy read before another request
+// burned or replaced it.
+const countOtpGuess = (userId: string) =>
+  prisma.user.update({
+    where: { id: userId },
+    data: { otpAttempts: { increment: 1 } },
+    select: {
+      otpAttempts: true,
+      verificationOtp: true, otpExpires: true,
+      twoFactorOtp: true, twoFactorOtpExpires: true,
+      resetToken: true, resetTokenExpires: true,
+    },
+  });
+// Burning clears the codes but NOT the counter: resetting it here let requests
+// already in flight start counting from zero again. Only issuing a new code
+// (which clears every old one) resets the counter.
+const burnCodes = (userId: string) =>
+  prisma.user.update({ where: { id: userId }, data: { ...CLEAR_ALL_CODES } });
+const isLive = (hash: string | null, expires: Date | null): hash is string =>
+  Boolean(hash) && (!expires || new Date() <= expires);
+
+const newOtp = () => otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false, lowerCaseAlphabets: false });
+
+// The SPA's origin for redirects. FRONTEND_URL may be a comma-separated CORS
+// allowlist; redirecting to the raw value produced "https://a,https://b?auth=1".
+const frontendBase = (): string => (process.env.FRONTEND_URL || '').split(',')[0].trim().replace(/\/+$/, '');
 
 // SRV-L3: a fixed bcrypt hash used to equalize login timing for unknown emails.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('unused-timing-equalizer-password', 10);
@@ -73,7 +114,8 @@ const signSessionToken = (user: { id: string; email: string; tokenVersion?: numb
   jwt.sign(
     { id: user.id, email: user.email, tokenVersion: user.tokenVersion ?? 0 },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    // jti: a per-session id, so logout can revoke just this session (S18).
+    { expiresIn: '7d', jwtid: crypto.randomBytes(16).toString('hex') }
   );
 
 const issueSessionCookies = (res: Response, token: string): string => {
@@ -153,6 +195,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
       await prisma.user.update({
         where: { email },
         data: {
+          ...CLEAR_ALL_CODES,
           password: hashedPassword,
           verificationOtp: hashedOtp,
           otpExpires: expires,
@@ -193,8 +236,8 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 // --- 2. Verify OTP ---
 router.post('/verify-otp', otpLimiter, async (req: Request, res: Response) => {
   try {
-    const { email: rawEmail, otp } = req.body;
-    
+    const { email: rawEmail, otp, password } = req.body || {};
+
     if (!rawEmail || !otp) {
       return res.status(400).json({ message: 'Email and OTP are required' });
     }
@@ -206,20 +249,39 @@ router.post('/verify-otp', otpLimiter, async (req: Request, res: Response) => {
       return res.status(400).json({ message: "INVALID_OR_EXPIRED_CODE" });
     }
 
+    const fresh = await countOtpGuess(user.id);
+    if (fresh.otpAttempts > MAX_OTP_ATTEMPTS) {
+      await burnCodes(user.id);
+      return res.status(429).json({ message: 'TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE' });
+    }
+    if (!isLive(fresh.verificationOtp, fresh.otpExpires)) {
+      return res.status(400).json({ message: "INVALID_OR_EXPIRED_CODE" });
+    }
+
     // S3: Compare against hashed OTP
-    const otpValid = await bcrypt.compare(otp, user.verificationOtp);
+    const otpValid = await bcrypt.compare(String(otp), fresh.verificationOtp);
     if (!otpValid) {
-      const attempts = (user.otpAttempts || 0) + 1;
-      if (attempts >= MAX_OTP_ATTEMPTS) {
+      if (fresh.otpAttempts >= MAX_OTP_ATTEMPTS) {
         // Invalidate the code so it can no longer be brute-forced.
-        await prisma.user.update({
-          where: { email },
-          data: { verificationOtp: null, otpExpires: null, otpAttempts: 0 },
-        });
+        await burnCodes(user.id);
         return res.status(429).json({ message: 'TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE' });
       }
-      await prisma.user.update({ where: { email }, data: { otpAttempts: attempts } });
       return res.status(400).json({ message: 'INVALID_OR_EXPIRED_CODE' });
+    }
+
+    // Verification activates the password stored at registration, so it must
+    // come from whoever set it. Otherwise someone could register YOUR email with
+    // THEIR password; when you later verified (code from your inbox) the account
+    // went live with their password. Code (your inbox) + password (theirs) now
+    // can't both be supplied by one person.
+    const passwordOk =
+      typeof password === 'string' &&
+      password.length <= MAX_PASSWORD_LENGTH &&
+      (await bcrypt.compare(password, user.password));
+    if (!passwordOk) {
+      return res.status(400).json({
+        message: "That password doesn't match this registration. If you didn't set it, register again with your own password.",
+      });
     }
 
     await prisma.user.update({
@@ -264,7 +326,7 @@ router.post('/resend-otp', otpLimiter, async (req: Request, res: Response) => {
 
     await prisma.user.update({
       where: { email },
-      data: { verificationOtp: hashedOtp, otpExpires: expires, otpAttempts: 0 },
+      data: { ...CLEAR_ALL_CODES, verificationOtp: hashedOtp, otpExpires: expires, otpAttempts: 0 },
     });
 
     await sendVerificationEmail(email, otp);
@@ -291,11 +353,29 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
     const email = sanitizeEmail(rawEmail);
 
+    // Lockout is per (account, IP) with a higher account-wide ceiling (see
+    // utils/loginLockout); an attacker's failures no longer lock the owner out.
+    const lockMs = lockedForMs(email, req.ip);
+    if (lockMs > 0) {
+      const remainingMin = Math.ceil(lockMs / 60000);
+      await writeAuditLog({
+        action: 'login',
+        userId: 'unknown',
+        success: false,
+        route: '/api/auth/login',
+        ip: req.ip,
+        userAgent: req.get('user-agent') || undefined,
+        metadata: { email, reason: 'locked_out', remainingMin },
+      });
+      return res.status(429).json({ message: `Too many failed attempts. Try again in ${remainingMin} minute${remainingMin > 1 ? 's' : ''}.` });
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       // SRV-L3: run a dummy hash comparison so an unknown email takes about the
       // same time as a known one, removing the user-enumeration timing oracle.
       await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+      recordLoginFailure(email, req.ip);
       await writeAuditLog({
         action: 'login',
         userId: 'unknown',
@@ -308,45 +388,11 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // S5: Check account lockout
-    if (user.lockUntil && new Date() < user.lockUntil) {
-      const remainingMs = user.lockUntil.getTime() - Date.now();
-      const remainingMin = Math.ceil(remainingMs / 60000);
-      await writeAuditLog({
-        action: 'login',
-        userId: user.id,
-        success: false,
-        route: '/api/auth/login',
-        ip: req.ip,
-        userAgent: req.get('user-agent') || undefined,
-        metadata: { email, reason: 'account_locked', remainingMin },
-      });
-      return res.status(429).json({ message: `Account locked. Try again in ${remainingMin} minute${remainingMin > 1 ? 's' : ''}.` });
-    }
-
-    if (!user.isVerified) {
-      return res.status(401).json({ message: 'Please verify your email before logging in' });
-    }
-
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      // SRV-L4: increment atomically so concurrent failed logins can't race and
-      // undercount attempts; read the new value back from the returned record.
-      const bumped = await prisma.user.update({
-        where: { email },
-        data: { loginAttempts: { increment: 1 } },
-        select: { loginAttempts: true },
-      });
-      const attempts = bumped.loginAttempts;
+      const justLocked = recordLoginFailure(email, req.ip);
 
-      if (attempts >= MAX_LOGIN_ATTEMPTS) {
-        await prisma.user.update({
-          where: { email },
-          data: { lockUntil: new Date(Date.now() + LOCKOUT_DURATION_MS), loginAttempts: 0 },
-        });
-      }
-
-      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+      if (justLocked) {
         await writeAuditLog({
           action: 'login',
           userId: user.id,
@@ -372,9 +418,16 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    // S5: Reset login attempts on successful login
+    clearLoginFailures(email, req.ip);
+    // Clear the retired account-wide lock fields if an old lock is still recorded.
     if (user.loginAttempts > 0 || user.lockUntil) {
       await prisma.user.update({ where: { email }, data: { loginAttempts: 0, lockUntil: null } });
+    }
+
+    // Checked after the password, so "verify your email" is only told to whoever
+    // holds this registration's password.
+    if (!user.isVerified) {
+      return res.status(401).json({ message: 'Please verify your email before logging in' });
     }
 
     if (user.twoFactorEnabled) {
@@ -388,7 +441,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
       await prisma.user.update({
         where: { id: user.id },
-        data: { twoFactorOtp: hashedLoginOtp, twoFactorOtpExpires, otpAttempts: 0 },
+        data: { ...CLEAR_ALL_CODES, twoFactorOtp: hashedLoginOtp, twoFactorOtpExpires, otpAttempts: 0 },
       });
 
       await sendTwoFactorEmail(email, loginOtp);
@@ -455,17 +508,20 @@ router.post('/verify-login-otp', otpLimiter, async (req: Request, res: Response)
       return res.status(400).json({ message: 'Verification code expired' });
     }
 
-    const valid = await bcrypt.compare(otp, user.twoFactorOtp);
+    const fresh = await countOtpGuess(user.id);
+    if (fresh.otpAttempts > MAX_OTP_ATTEMPTS) {
+      await burnCodes(user.id);
+      return res.status(429).json({ message: 'Too many attempts. Please log in again to receive a new code.' });
+    }
+    if (!isLive(fresh.twoFactorOtp, fresh.twoFactorOtpExpires)) {
+      return res.status(400).json({ message: 'Invalid verification attempt' });
+    }
+    const valid = await bcrypt.compare(String(otp), fresh.twoFactorOtp);
     if (!valid) {
-      const attempts = (user.otpAttempts || 0) + 1;
-      if (attempts >= MAX_OTP_ATTEMPTS) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { twoFactorOtp: null, twoFactorOtpExpires: null, otpAttempts: 0 },
-        });
+      if (fresh.otpAttempts >= MAX_OTP_ATTEMPTS) {
+        await burnCodes(user.id);
         return res.status(429).json({ message: 'Too many attempts. Please log in again to receive a new code.' });
       }
-      await prisma.user.update({ where: { id: user.id }, data: { otpAttempts: attempts } });
       return res.status(400).json({ message: 'Invalid verification code' });
     }
 
@@ -543,9 +599,49 @@ router.post('/2fa/toggle', csrfProtection, authMiddleware, async (req: Request, 
   }
 });
 
-router.post('/logout', csrfProtection, (_req: Request, res: Response) => {
+// Logout revokes this session's token server-side. Clearing the cookie alone left
+// the token valid for up to 7 days, so a copied cookie kept working (S18).
+router.post('/logout', csrfProtection, async (req: Request, res: Response) => {
+  const token = (req as Request & { cookies?: Record<string, string> }).cookies?.[SERVER_CONFIG.auth.cookieName];
+  if (token) {
+    try {
+      const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'], ignoreExpiration: true }) as any;
+      if (payload?.jti && payload?.id && payload?.exp) {
+        await prisma.revokedToken.upsert({
+          where: { jti: String(payload.jti) },
+          update: {},
+          create: { jti: String(payload.jti), userId: String(payload.id), expiresAt: new Date(payload.exp * 1000) },
+        });
+        // Prune rows whose token would have expired anyway.
+        await prisma.revokedToken.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+      }
+    } catch {
+      // Not our token, or the DB is unreachable: still clear the cookies below.
+    }
+  }
   clearSessionCookies(res);
   return res.status(200).json({ message: 'Logged out' });
+});
+
+// "Sign out everywhere": bumping tokenVersion invalidates every session token
+// this account has been issued, on every device.
+router.post('/logout-all', csrfProtection, authMiddleware, async (req: Request, res: Response) => {
+  try {
+    await prisma.user.update({ where: { id: req.user!.id }, data: { tokenVersion: { increment: 1 } } });
+    clearSessionCookies(res);
+    await writeAuditLog({
+      action: 'logout_all',
+      userId: req.user!.id,
+      success: true,
+      route: '/api/auth/logout-all',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+    });
+    return res.status(200).json({ message: 'Signed out on every device' });
+  } catch (error) {
+    console.error('Logout-all error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 // --- 5. Forgot Password ---
@@ -576,7 +672,7 @@ router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: 
 
     await prisma.user.update({
       where: { email },
-      data: { resetToken: hashedCode, resetTokenExpires: expires, otpAttempts: 0 },
+      data: { ...CLEAR_ALL_CODES, resetToken: hashedCode, resetTokenExpires: expires, otpAttempts: 0 },
     });
 
     await sendPasswordResetEmail(email, resetCode);
@@ -610,18 +706,21 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
       return res.status(400).json({ message: 'Invalid or expired reset code' });
     }
 
-    const codeValid = await bcrypt.compare(code, user.resetToken);
+    const fresh = await countOtpGuess(user.id);
+    if (fresh.otpAttempts > MAX_OTP_ATTEMPTS) {
+      await burnCodes(user.id);
+      return res.status(429).json({ message: 'Too many attempts. Please request a new reset code.' });
+    }
+    if (!isLive(fresh.resetToken, fresh.resetTokenExpires)) {
+      return res.status(400).json({ message: 'Invalid or expired reset code' });
+    }
+    const codeValid = await bcrypt.compare(String(code), fresh.resetToken);
     if (!codeValid) {
-      const attempts = (user.otpAttempts || 0) + 1;
-      if (attempts >= MAX_OTP_ATTEMPTS) {
+      if (fresh.otpAttempts >= MAX_OTP_ATTEMPTS) {
         // Invalidate the reset code after too many wrong guesses (guards account takeover).
-        await prisma.user.update({
-          where: { email },
-          data: { resetToken: null, resetTokenExpires: null, otpAttempts: 0 },
-        });
+        await burnCodes(user.id);
         return res.status(429).json({ message: 'Too many attempts. Please request a new reset code.' });
       }
-      await prisma.user.update({ where: { email }, data: { otpAttempts: attempts } });
       return res.status(400).json({ message: 'Invalid or expired reset code' });
     }
 
@@ -630,8 +729,8 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
       where: { email },
       data: {
         password: hashedPassword,
-        resetToken: null,
-        resetTokenExpires: null,
+        ...CLEAR_ALL_CODES,
+        otpAttempts: 0,
         loginAttempts: 0,
         lockUntil: null,
         // Invalidate every previously issued session token (SRV-M2), so anyone
@@ -648,28 +747,65 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
 });
 
 // --- 7. Google Auth ---
-router.get('/google', 
-  passport.authenticate('google', { 
-    scope: ['profile', 'email'],
-    session: false 
-  })
-);
+// OAuth `state` (S17): a random value in a short-lived cookie, echoed by Google
+// and checked on the callback, so a callback this browser didn't start (login
+// CSRF: signing the victim into the attacker's account) is rejected.
+const OAUTH_STATE_COOKIE = 'oauth_state';
+const OAUTH_STATE_PATH = '/api/auth/google';
 
-router.get('/google/callback', 
-  passport.authenticate('google', { 
-    failureRedirect: `${process.env.FRONTEND_URL}/login`,
-    session: false 
+router.get('/google', (req: Request, res: Response, next) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie(OAUTH_STATE_COOKIE, state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    // Lax is sent on Google's top-level redirect back to the callback.
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+    path: OAUTH_STATE_PATH,
+  });
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false, state })(req, res, next);
+});
+
+router.get('/google/callback',
+  (req: Request, res: Response, next) => {
+    const expected = (req as Request & { cookies?: Record<string, string> }).cookies?.[OAUTH_STATE_COOKIE] || '';
+    const got = typeof req.query.state === 'string' ? req.query.state : '';
+    res.clearCookie(OAUTH_STATE_COOKIE, { path: OAUTH_STATE_PATH });
+    const ok = expected.length > 0 && expected.length === got.length &&
+      crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(got));
+    if (!ok) return res.redirect(`${frontendBase()}/login?error=oauth_state`);
+    next();
+  },
+  passport.authenticate('google', {
+    failureRedirect: `${frontendBase()}/login`,
+    session: false
   }),
-  (req: Request, res: Response) => {
-    const user = req.user as any; 
-    const token = signSessionToken(user);
-    issueSessionCookies(res, token);
-    
-    const frontendUrl = process.env.FRONTEND_URL;
+  async (req: Request, res: Response) => {
+    const user = req.user as any;
+    const frontendUrl = frontendBase();
     if (!frontendUrl) {
       return res.status(500).json({ message: 'Server misconfiguration: FRONTEND_URL not set' });
     }
-    
+
+    // Google proves the email address, not the second factor. Accounts with 2FA
+    // get the same emailed code a password login gets, instead of a session.
+    if (user.twoFactorEnabled) {
+      const loginOtp = newOtp();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...CLEAR_ALL_CODES,
+          twoFactorOtp: await bcrypt.hash(loginOtp, 10),
+          twoFactorOtpExpires: new Date(Date.now() + 10 * 60 * 1000),
+          otpAttempts: 0,
+        },
+      });
+      await sendTwoFactorEmail(user.email, loginOtp);
+      return res.redirect(`${frontendUrl}/login?twofactor=1&email=${encodeURIComponent(user.email)}`);
+    }
+
+    const token = signSessionToken(user);
+    issueSessionCookies(res, token);
     res.redirect(`${frontendUrl}?auth=1`);
   }
 );

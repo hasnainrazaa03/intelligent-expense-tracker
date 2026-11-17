@@ -43,10 +43,13 @@ export const authLimiter = rateLimit({
   message: { message: 'Too many attempts. Please try again after 15 minutes.' },
 });
 
-// Login-specific: stricter - 5 per 15 minutes
+// Login-specific: stricter - 5 failed attempts per 15 minutes per IP. Successful
+// logins don't count, so signing in a few times (several devices, re-logins
+// after an idle timeout) can't lock an IP out.
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many login attempts. Please try again after 15 minutes.' },
