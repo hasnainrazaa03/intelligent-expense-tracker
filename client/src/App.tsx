@@ -979,8 +979,8 @@ const handleDeleteIncome = async (id: string) => {
 };
 
   // Financial hub uses `dateRange`; the Income hub uses its own `incomeDateRange`.
-  const { filteredExpenses, filteredIncomes: dashboardIncomes, previousPeriodExpenses } = useDateRangeFilter(expenses, incomes, dateRange);
-  const { filteredIncomes: incomeHubIncomes, previousPeriodIncomes: incomeHubPrevIncomes } = useDateRangeFilter(expenses, incomes, incomeDateRange);
+  const { filteredExpenses, filteredIncomes: dashboardIncomes, previousPeriodExpenses, comparisonCutoff } = useDateRangeFilter(expenses, incomes, dateRange);
+  const { filteredIncomes: incomeHubIncomes, previousPeriodIncomes: incomeHubPrevIncomes, comparisonCutoff: incomeComparisonCutoff } = useDateRangeFilter(expenses, incomes, incomeDateRange);
 
   // Tuition-aware inputs for the analytical overviews only. When `hideTuition` is
   // on, tuition + tuition-loan are stripped from the Financial hub and Income
@@ -1302,6 +1302,7 @@ const handleDeleteIncome = async (id: string) => {
                         allIncomes={hubAllIncomes}
                         allExpenses={hubAllExpenses}
                         previousPeriodExpenses={hubPrevExpenses}
+                        comparisonCutoff={comparisonCutoff}
                         selectedRange={dateRange}
                         onDateRangeChange={setDateRange}
                         budgets={budgets}
@@ -1315,6 +1316,7 @@ const handleDeleteIncome = async (id: string) => {
                       : <IncomeSummary
                           incomes={incomeHubIncomesView}
                           previousPeriodIncomes={incomeHubPrevView}
+                          comparisonCutoff={incomeComparisonCutoff}
                           allIncomes={hubAllIncomes}
                           allExpenses={hubAllExpenses}
                           selectedRange={incomeDateRange}

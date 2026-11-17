@@ -4,11 +4,13 @@ import { addDays, formatCalendarDate, parseCalendarDate } from './dateUtils';
 // Same day-of-month `months` later, clamped to the target month's length so
 // Jan 31 + 1mo -> Feb 28 (dateUtils.addMonths snaps to the 1st, so it can't be
 // reused here — recurrence must preserve the original day).
-const addMonthsSameDay = (d: Date, months: number): Date => {
+const addMonthsSameDay = (d: Date, months: number, anchorDay = d.getDate()): Date => {
   const firstOfTarget = new Date(d.getFullYear(), d.getMonth() + months, 1);
   const daysInTarget = new Date(firstOfTarget.getFullYear(), firstOfTarget.getMonth() + 1, 0).getDate();
-  return new Date(firstOfTarget.getFullYear(), firstOfTarget.getMonth(), Math.min(d.getDate(), daysInTarget));
+  return new Date(firstOfTarget.getFullYear(), firstOfTarget.getMonth(), Math.min(anchorDay, daysInTarget));
 };
+
+const daysInMonthOf = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 
 export type RecurrenceFrequency = 'weekly' | 'monthly' | 'yearly';
 
@@ -30,11 +32,25 @@ export const getRecurrenceFrequency = (e: { metadata?: Record<string, string> })
 
 /** The next calendar day (YYYY-MM-DD) one period after `dateStr`. addMonths is
  *  overflow-safe (clamps 29–31st), so month/year steps never skip or duplicate. */
-export const nextOccurrence = (dateStr: string, freq: RecurrenceFrequency): string => {
+export const nextOccurrence = (dateStr: string, freq: RecurrenceFrequency, anchorDay?: number): string => {
   const d = parseCalendarDate(dateStr);
   if (freq === 'weekly') return formatCalendarDate(addDays(d, 7));
-  if (freq === 'yearly') return formatCalendarDate(addMonthsSameDay(d, 12));
-  return formatCalendarDate(addMonthsSameDay(d, 1));
+  if (freq === 'yearly') return formatCalendarDate(addMonthsSameDay(d, 12, anchorDay));
+  return formatCalendarDate(addMonthsSameDay(d, 1, anchorDay));
+};
+
+/**
+ * The day of the month a monthly/yearly series is really on. Stepping from the
+ * latest entry alone drifted: Jan 31 → Feb 28 → Mar 28 → the 28th forever. If
+ * the latest entry sits on its month's last day it may have been clamped, so
+ * the series' largest day wins (31 → 28 → back to 31). A series that moved to
+ * an earlier day mid-month keeps the new day.
+ */
+export const seriesAnchorDay = (dates: string[]): number => {
+  const sorted = [...dates].sort();
+  const latest = parseCalendarDate(sorted[sorted.length - 1]);
+  if (latest.getDate() < daysInMonthOf(latest)) return latest.getDate();
+  return Math.max(...sorted.map((s) => parseCalendarDate(s).getDate()));
 };
 
 /**
@@ -45,18 +61,20 @@ export const nextOccurrence = (dateStr: string, freq: RecurrenceFrequency): stri
  */
 export const computeDueRecurring = (expenses: Expense[], todayStr: string): Omit<Expense, 'id'>[] => {
   const latestByIdentity = new Map<string, Expense>();
+  const datesByIdentity = new Map<string, string[]>();
   expenses
     .filter((e) => e.isRecurring)
     .forEach((e) => {
       const key = `${e.title.toLowerCase()}|${e.category.toLowerCase()}`;
       const current = latestByIdentity.get(key);
       if (!current || current.date < e.date) latestByIdentity.set(key, e);
+      datesByIdentity.set(key, [...(datesByIdentity.get(key) || []), e.date]);
     });
 
   const due: Omit<Expense, 'id'>[] = [];
   for (const [key, e] of latestByIdentity) {
     const freq = getRecurrenceFrequency(e);
-    const nextDate = nextOccurrence(e.date, freq);
+    const nextDate = nextOccurrence(e.date, freq, seriesAnchorDay(datesByIdentity.get(key) || [e.date]));
     if (nextDate > todayStr) continue; // not due yet
 
     // Skip if an entry for this identity already exists on/after the due date

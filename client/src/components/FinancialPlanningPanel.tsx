@@ -4,7 +4,7 @@ import useEntryCurrency from '../hooks/useEntryCurrency';
 import { userStorage } from '../utils/userStorage';
 import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
-import { todayCalendar } from '../utils/dateUtils';
+import { todayCalendar, formatCalendarDate } from '../utils/dateUtils';
 import { Button, Card, DatePicker } from './ui';
 import SpendingBarChart from './SpendingBarChart';
 import HouseholdsManager from './HouseholdsManager';
@@ -607,7 +607,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
               {upcomingBills.map((bill) => (
                 <li key={`${templateKey(bill)}-${bill.dueDate.toISOString()}`} className={rowCls}>
                   <span className="text-app-text font-medium truncate">{bill.title}</span>
-                  <span className="text-app-muted">{bill.dueDate.toISOString().slice(0, 10)}</span>
+                  <span className="text-app-muted">{formatCalendarDate(bill.dueDate)}</span>
                 </li>
               ))}
             </ul>

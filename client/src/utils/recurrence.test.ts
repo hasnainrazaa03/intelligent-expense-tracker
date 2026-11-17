@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeDueRecurring, getRecurrenceFrequency, nextOccurrence } from './recurrence';
+import { computeDueRecurring, getRecurrenceFrequency, nextOccurrence, seriesAnchorDay } from './recurrence';
 import { Expense } from '../types';
 
 const mk = (over: Partial<Expense>): Expense => ({
@@ -65,5 +65,28 @@ describe('computeDueRecurring', () => {
 
   it('ignores non-recurring expenses', () => {
     expect(computeDueRecurring([mk({ isRecurring: false, date: '2026-01-01' })], '2026-07-20')).toHaveLength(0);
+  });
+});
+
+describe('recurrence keeps its anchor day (C13)', () => {
+  const rent = (date: string) => ({ id: date, title: 'Rent', amount: 1400, category: 'Rent', date, isRecurring: true, tags: [] } as any);
+
+  it('returns to the 31st after a short month instead of sticking on the 28th', () => {
+    expect(seriesAnchorDay(['2026-01-31', '2026-02-28'])).toBe(31);
+    expect(nextOccurrence('2026-02-28', 'monthly', 31)).toBe('2026-03-31');
+    expect(nextOccurrence('2026-03-31', 'monthly', 31)).toBe('2026-04-30');
+  });
+
+  it('keeps a series that is genuinely on the 28th on the 28th', () => {
+    expect(seriesAnchorDay(['2026-01-28', '2026-02-28'])).toBe(28);
+  });
+
+  it('follows a series that moved to an earlier day', () => {
+    expect(seriesAnchorDay(['2026-01-31', '2026-03-01'])).toBe(1);
+  });
+
+  it('suggests the anchored date for the next instance', () => {
+    const due = computeDueRecurring([rent('2026-01-31'), rent('2026-02-28')], '2026-03-31');
+    expect(due.map((d) => d.date)).toEqual(['2026-03-31']);
   });
 });

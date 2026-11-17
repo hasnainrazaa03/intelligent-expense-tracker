@@ -1,3 +1,4 @@
+import { upToCutoff } from '../hooks/useDateRangeFilter';
 import React, { useMemo } from 'react';
 import { Income, Expense } from '../types';
 import SummaryCard from './SummaryCard';
@@ -16,6 +17,8 @@ interface IncomeSummaryProps {
   incomes: Income[];
   /** Incomes for the equivalent previous period, for the change indicator. */
   previousPeriodIncomes?: Income[];
+  /** Compare only incomes dated up to this day with the previous period. */
+  comparisonCutoff?: string | null;
   /** All incomes, used for the 6-month trend + comparisons. */
   allIncomes: Income[];
   /** All expenses, for the income-vs-expense comparison. */
@@ -29,15 +32,15 @@ const SOURCE_COLORS = ['#16a34a', '#0d9488', '#0284c7', '#6d5cf0', '#9333ea', '#
 
 /** The Income hub — the income counterpart to the expense Financial hub, with its
  *  own date filter, summary cards, and income-focused charts. */
-const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIncomes = [], allIncomes, allExpenses, selectedRange, onDateRangeChange }) => {
+const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIncomes = [], comparisonCutoff, allIncomes, allExpenses, selectedRange, onDateRangeChange }) => {
   const { displayCurrency, conversionRate } = useCurrency();
 
   const incomeChange = useMemo(() => {
     const prev = previousPeriodIncomes.reduce((s, i) => s + Number(i.amount), 0);
-    const curr = incomes.reduce((s, i) => s + Number(i.amount), 0);
+    const curr = upToCutoff(incomes, comparisonCutoff).reduce((s, i) => s + Number(i.amount), 0);
     if (prev > 0) return ((curr - prev) / prev) * 100;
     return curr > 0 ? Infinity : undefined;
-  }, [incomes, previousPeriodIncomes]);
+  }, [incomes, previousPeriodIncomes, comparisonCutoff]);
 
   const { total, topSource, sourceCount, avgEntry, bySource } = useMemo(() => {
     const total = incomes.reduce((sum, i) => sum + Number(i.amount), 0);

@@ -1,3 +1,4 @@
+import { upToCutoff } from '../hooks/useDateRangeFilter';
 import React, { useMemo } from 'react';
 import { Expense, Budget, Income } from '../types';
 import { DateRangeFilter, type DateRange } from './DateRangeFilter';
@@ -23,6 +24,8 @@ interface DashboardProps {
   allIncomes: Income[];
   allExpenses: Expense[];
   previousPeriodExpenses: Expense[];
+  /** Compare only expenses dated up to this day with the previous period. */
+  comparisonCutoff?: string | null;
   selectedRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   budgets: Budget[];
@@ -30,7 +33,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
-  expenses, incomes, allIncomes, allExpenses, previousPeriodExpenses,
+  expenses, incomes, allIncomes, allExpenses, previousPeriodExpenses, comparisonCutoff,
   selectedRange, onDateRangeChange, budgets, isLoading = false
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
@@ -72,11 +75,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     const netFlow = periodTotalIncome - periodTotalExpense;
     
     const previousPeriodTotal = previousPeriodExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+    // Like-for-like: "This month" lists the whole month, but compares only
+    // what's dated up to today against the same span last month.
+    const comparableTotal = upToCutoff(expenses, comparisonCutoff).reduce((sum, exp) => sum + Number(exp.amount), 0);
 
     let periodChange: number | undefined = undefined;
     if (previousPeriodTotal > 0) {
-        periodChange = ((periodTotalExpense - previousPeriodTotal) / previousPeriodTotal) * 100;
-    } else if (periodTotalExpense > 0) {
+        periodChange = ((comparableTotal - previousPeriodTotal) / previousPeriodTotal) * 100;
+    } else if (comparableTotal > 0) {
         periodChange = Infinity;
     }
 
@@ -88,7 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const topCategory = (Object.entries(categoryTotals) as [string, number][]).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A';
     
     return { periodTotalExpense, periodTotalIncome, topCategory, periodChange, netFlow };
-  }, [expenses, incomes, previousPeriodExpenses]);
+  }, [expenses, incomes, previousPeriodExpenses, comparisonCutoff]);
 
   const categoryData = useMemo(() => {
     const mainCategoryTotals = expenses.reduce((acc, exp) => {
