@@ -8,6 +8,10 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Privacy policy and terms (#188):** `/privacy` and `/terms` in plain language, including
+  exactly what each AI feature sends to Google Gemini. Linked from the landing page,
+  sign-up, sign-in and Settings; receipt scanning, statement import and the AI Analyst now
+  say that Gemini reads what they send (the AI Analyst used to say "Private & secure").
 - **Settings page and account deletion (#187):** one Settings page, from the header gear or
   the sidebar, for the account, preferences, security and data. New: "Sign out everywhere"
   and permanent account deletion (password, or a recent Google sign-in). Turning on

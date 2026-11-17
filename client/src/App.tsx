@@ -86,6 +86,8 @@ const USCPaymentTracker = lazyWithReload(() => import('./components/USCPaymentTr
 const PivotAnalysis = lazyWithReload(() => import('./components/PivotAnalysis'));
 const Reports = lazyWithReload(() => import('./components/Reports'));
 const SettingsPage = lazyWithReload(() => import('./components/SettingsPage'));
+const PrivacyPolicy = lazyWithReload(() => import('./components/legal/PrivacyPolicy'));
+const TermsOfUse = lazyWithReload(() => import('./components/legal/TermsOfUse'));
 
 const ACTIVE_VIEWS = ['expenses', 'income', 'ai', 'pivot', 'usc', 'reports', 'settings'] as const;
 type ActiveView = typeof ACTIVE_VIEWS[number];
@@ -1622,6 +1624,10 @@ const handleDeleteIncome = async (id: string) => {
                 }
               />
               
+              {/* Public for everyone, signed in or not. */}
+              <Route path="/privacy" element={<Suspense fallback={<SectionSkeleton title="Loading privacy policy" rows={3} />}><PrivacyPolicy /></Suspense>} />
+              <Route path="/terms" element={<Suspense fallback={<SectionSkeleton title="Loading terms" rows={3} />}><TermsOfUse /></Suspense>} />
+
               {/* 2. Verification Page */}
               <Route path="/verify" element={<Suspense fallback={<SectionSkeleton title="Loading verification" rows={2} />}><VerifyOTP /></Suspense>} />
 

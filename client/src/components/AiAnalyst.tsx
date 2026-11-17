@@ -8,6 +8,7 @@ import {
 import { sanitizeAiHtml } from '../utils/sanitizeAiHtml';
 import { marked } from 'marked';
 import cosmicRobot from '../assets/cosmic-robot.svg';
+import AiNotice from './legal/AiNotice';
 
 interface AiAnalystProps {
   expenses: Expense[];
@@ -240,9 +241,10 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
           </div>
         )}
 
-        <p className="mt-2 text-center text-[11px] text-app-faint flex items-center justify-center gap-1.5 flex-shrink-0">
-          <span aria-hidden="true">🔒</span> Private &amp; secure · AI insights are informational only.
-        </p>
+        {/* It said "Private & secure", though a summary of the account goes to Gemini. */}
+        <AiNotice className="mt-2 text-center flex-shrink-0">
+          Answers come from Google Gemini, using a summary of your figures and recent expenses. They're informational, not financial advice.
+        </AiNotice>
       </div>
     </div>
   );

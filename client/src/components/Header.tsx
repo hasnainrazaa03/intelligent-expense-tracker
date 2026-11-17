@@ -161,7 +161,7 @@ const Header: React.FC<HeaderProps> = ({
       <div className="hidden sm:flex text-app-faint py-1.5 px-5 justify-between items-center border-b border-app-border">
         <div className="flex gap-4 font-mono text-[9px] tracking-[0.25em] uppercase">
           <span>Orbit</span>
-          <span className="hidden md:inline text-app-faint/70">Encrypted · Bank-level security</span>
+          <span className="hidden md:inline text-app-faint/70">Encrypted connection</span>
         </div>
         <div className="font-mono text-[9px] tracking-[0.25em] text-primary">{currentTime}</div>
       </div>

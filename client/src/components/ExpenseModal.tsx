@@ -15,6 +15,7 @@ import useForeignToUsd from '../hooks/useForeignToUsd';
 import useDropdownKeyboard from '../hooks/useDropdownKeyboard';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label, Select, DatePicker } from './ui';
+import AiNotice from './legal/AiNotice';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -757,7 +758,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
             <div className="rounded-xl border border-app-border bg-surface-2 p-4">
               <Label htmlFor="exp-receipt">Receipt upload · AI auto-fill</Label>
-              <p className="text-[11px] text-app-muted -mt-1 mb-2">Upload a receipt and we'll read the total, date, merchant and category for you to review.</p>
+              <AiNotice className="-mt-1 mb-2">Upload a receipt and Google Gemini reads the total, date, merchant and category for you to review.</AiNotice>
               <input id="exp-receipt" type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
               {isAiParsing && (
                 <p className="text-[11px] text-primary mt-2 flex items-center gap-1.5">

@@ -16,3 +16,11 @@ export const APP_CONFIG = {
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 'all'] as const;
 
 export type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
+
+/** Who runs Orbit and how to reach them: shown in the Privacy Policy and Terms. */
+export const LEGAL = {
+  operator: 'Hasnain Raza',
+  contactEmail: 'hasnainrazaa03@gmail.com',
+  /** Change whenever either document changes. */
+  lastUpdated: 'November 17, 2026',
+} as const;

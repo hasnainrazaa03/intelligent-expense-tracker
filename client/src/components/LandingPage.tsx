@@ -63,6 +63,12 @@ const LandingPage: React.FC = () => {
             </article>
           ))}
         </section>
+
+        <footer className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-app-muted">
+          <Link to="/privacy" className="hover:text-app-text">Privacy Policy</Link>
+          <Link to="/terms" className="hover:text-app-text">Terms of Use</Link>
+          <Link to="/knowledge" className="hover:text-app-text">Knowledge base</Link>
+        </footer>
       </div>
     </main>
   );

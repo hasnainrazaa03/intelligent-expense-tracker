@@ -217,6 +217,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategor
         <Row title="Export, import and back up" hint="Download a full backup or a report, import a CSV or bank statement, or delete all your transactions.">
           <Button variant="secondary" size="sm" onClick={onOpenData}>Open</Button>
         </Row>
+        <Row title="Privacy and terms" hint="What Orbit stores, who else handles it (including Google Gemini for AI features), and the terms of use.">
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:brightness-125">Privacy Policy</a>
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:brightness-125">Terms of Use</a>
+        </Row>
         <Row title="Categories and budgets">
           <Button variant="secondary" size="sm" onClick={onManageCategories}>Categories</Button>
           <Button variant="secondary" size="sm" onClick={onManageBudgets}>Budgets</Button>

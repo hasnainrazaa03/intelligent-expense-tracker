@@ -18,6 +18,7 @@ import {
   type BankDateFormat,
   type BankParseOptions,
 } from '../utils/bankImport';
+import AiNotice from './legal/AiNotice';
 
 export interface StatementImportPayload {
   expenses: Omit<Expense, 'id'>[];
@@ -605,11 +606,14 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
           )}
 
           {!headers && !parsing && (
-            <p className="text-xs text-app-muted">
-              PDF statements are read by AI (with a side-by-side preview to verify). CSV exports can be read by AI too,
-              or mapped column-by-column. Both detect expenses <em>and</em> income, and skip credit-card payments so a
-              bank statement and a card statement can be imported one after the other without double-counting.
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-xs text-app-muted">
+                PDF statements are read by AI (with a side-by-side preview to verify). CSV exports can be read by AI too,
+                or mapped column-by-column. Both detect expenses <em>and</em> income, and skip credit-card payments so a
+                bank statement and a card statement can be imported one after the other without double-counting.
+              </p>
+              <AiNotice>Reading with AI sends the statement to Google Gemini. Mapping CSV columns yourself sends nothing, unless you then ask for AI details.</AiNotice>
+            </div>
           )}
         </div>
       )}
