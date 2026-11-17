@@ -30,6 +30,7 @@ model User {
   incomes   Income[]
   budgets   Budget[]
   semesters Semester[]
+  settings  UserSettings?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -180,4 +181,26 @@ model RevokedToken {
   userId    String   @db.ObjectId
   expiresAt DateTime
   @@index([expiresAt])
+}
+
+// Per-account preferences and planning data that used to live only in the
+// browser's localStorage, so they now follow the account across devices and are
+// part of backups. One document per user; each field is replaced as a whole by
+// PATCH /api/settings. Money inside the JSON fields is integer cents, like
+// every other amount, converted at the API boundary (utils/settings.ts).
+model UserSettings {
+  id                   String    @id @default(auto()) @map("_id") @db.ObjectId
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               String    @unique @db.ObjectId
+  displayCurrency      String?
+  hideTuition          Boolean?
+  onboardingDismissed  Boolean?
+  recurringSnoozeUntil DateTime?
+  customCategories     Json?     // { main: [subcategory, …] } added to the built-ins
+  deletedSubcategories Json?     // { main: [subcategory, …] } built-ins the user removed
+  merchantMap          Json?     // { merchant key: category } learned from the user's choices
+  pausedRecurring      Json?     // { recurring template key: true }
+  savingsGoals         Json?     // [{ id, name, target, saved, deadline? }] (cents)
+  investmentAccounts   Json?     // [{ id, name, type, value, asOf }] (cents)
+  updatedAt            DateTime  @updatedAt
 }

@@ -1,5 +1,5 @@
 // Define the base URL for our server
-import { Expense, Income, Budget, Semester } from '../types';
+import { Expense, Income, Budget, Semester, UserSettings, SettingsPatch } from '../types';
 import {
   AllDataResponse,
   ApiErrorResponse,
@@ -237,8 +237,8 @@ export const resetPassword = (email: string, code: string, newPassword: string) 
  */
 /** Permanently deletes ALL of the user's financial data. Requires the exact
  *  confirmation phrase "DELETE" (also enforced server-side). */
-export const wipeAllData = (confirm: string): Promise<{ message: string; deleted: Record<string, number> }> => {
-  return fetchApi<{ message: string; deleted: Record<string, number> }>('/data/wipe', {
+export const wipeAllData = (confirm: string): Promise<{ message: string; deleted: Record<string, number>; settings?: UserSettings }> => {
+  return fetchApi<{ message: string; deleted: Record<string, number>; settings?: UserSettings }>('/data/wipe', {
     method: 'POST',
     body: JSON.stringify({ confirm }),
   });
@@ -258,10 +258,24 @@ export const restoreAllData = (payload: {
   incomes: Omit<Income, 'id'>[];
   budgets: Budget[];
   semesters: Semester[];
+  /** Backups from before settings moved to the server have none. */
+  settings?: SettingsPatch;
 }): Promise<RestoreDataResponse> => {
   return fetchApi<RestoreDataResponse>('/data/restore', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+};
+
+/** Change some settings; returns all of them as stored. See utils/settingsStore. */
+export const patchSettings = (patch: SettingsPatch): Promise<{ settings: UserSettings }> => {
+  const body = JSON.stringify(patch);
+  return fetchApi<{ settings: UserSettings }>('/settings', {
+    method: 'PATCH',
+    body,
+    // Lets a change made just before the tab closes still reach the server.
+    // Browsers cap keepalive bodies at 64 KB; a bigger one is sent normally.
+    keepalive: body.length < 60_000,
   });
 };
 

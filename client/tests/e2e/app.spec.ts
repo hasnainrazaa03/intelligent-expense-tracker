@@ -28,6 +28,14 @@ test('currency picker switches display to INR', async ({ page }) => {
   await page.getByRole('option').first().click();
   // INR always has a fallback rate, so amounts render even without live FX.
   await expect(page.getByText(/₹\s?[\d,]/).first()).toBeVisible();
+  // An account setting now: saved on the server, so other devices get it.
+  const saved = async () => (await (await page.request.get('http://localhost:3001/api/settings')).json()).settings.displayCurrency;
+  await expect.poll(saved, { timeout: 10_000, intervals: [500, 1000] }).toBe('INR');
+  // Put it back: the demo account is shared by the other specs.
+  await page.getByRole('button', { name: /Display currency/i }).click();
+  await page.getByLabel('Search currency').fill('USD');
+  await page.getByRole('option').first().click();
+  await expect.poll(saved, { timeout: 10_000, intervals: [500, 1000] }).toBe('USD');
 });
 
 test('theme toggle switches to light mode', async ({ page }) => {

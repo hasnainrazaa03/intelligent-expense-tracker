@@ -47,8 +47,9 @@ From a shell with the production `DATABASE_URL` (Render Shell, or locally with t
 
 ```bash
 # 2a. Create the new collections + indexes (Household, HouseholdMember, Receipt,
-#     RevokedToken (logout revocation), the expense householdId index, and any
-#     additive User fields). Idempotent — re-run it after any schema change.
+#     RevokedToken (logout revocation), UserSettings (one per user, unique
+#     userId), the expense householdId index, and any additive User fields).
+#     Idempotent — re-run it after any schema change.
 npm run db:push
 
 # 2b. Back up first (writes server/backups/<timestamp>.json — contains hashes,

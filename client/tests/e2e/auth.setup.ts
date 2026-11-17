@@ -11,5 +11,14 @@ setup('authenticate', async ({ page }) => {
   await page.getByLabel('Password', { exact: true }).fill('Test1234!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
+  // Preferences are account settings on the server; start every run from the
+  // defaults, whatever an earlier (perhaps interrupted) run left behind.
+  const api = 'http://localhost:3001/api';
+  const { csrfToken } = await (await page.request.get(`${api}/auth/csrf`)).json();
+  const reset = await page.request.patch(`${api}/settings`, {
+    headers: { 'x-csrf-token': csrfToken },
+    data: { displayCurrency: null, hideTuition: null, onboardingDismissed: null, recurringSnoozeUntil: null },
+  });
+  expect(reset.ok()).toBe(true);
   await page.context().storageState({ path: authFile });
 });

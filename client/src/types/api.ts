@@ -1,4 +1,4 @@
-import { Budget, Expense, Income, Semester } from '../types';
+import { Budget, Expense, Income, Semester, UserSettings } from '../types';
 
 export interface ApiErrorResponse {
   message?: string;
@@ -20,6 +20,8 @@ export interface AllDataResponse {
   incomes: Income[];
   budgets: Budget[];
   semesters: Semester[];
+  /** Absent only from an older server. */
+  settings?: UserSettings;
 }
 
 export interface RestoreDataResponse extends AllDataResponse {
