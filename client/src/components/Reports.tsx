@@ -7,7 +7,7 @@ import { computeTotalBudgetedSpend } from '../utils/budgetUtils';
 import { startOfMonth, endOfMonth, isWithinRange, todayCalendar } from '../utils/dateUtils';
 import { ClipboardDocumentListIcon, ChartPieIcon, BanknotesIcon, ExclamationTriangleIcon } from './Icons';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { autoTable } from 'jspdf-autotable'; // 4+: function API, no prototype patch
 import BudgetActualChart from './reports/BudgetActualChart';
 import CategoryDrilldown from './reports/CategoryDrilldown';
 import MonthlyCategoryChart from './reports/MonthlyCategoryChart';
@@ -80,7 +80,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
     
     // Summary table
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 38,
       head: [['Metric', 'Value']],
       body: [
@@ -96,7 +96,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
       .sort((a, b) => b[1] - a[1])
       .map(([name, amount]) => [name, formatCurrency(amount, displayCurrency, conversionRate), `${((amount / stats.totalSpent) * 100).toFixed(1)}%`]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 10,
       head: [['Category', 'Amount', '% of Total']],
       body: catRows,
