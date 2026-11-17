@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { verifyOtp, resendOtp } from '../services/api';
+import { takeVerificationPassword } from '../utils/pendingVerification';
 
 const VerifyOTP: React.FC = () => {
   const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
@@ -15,6 +16,10 @@ const VerifyOTP: React.FC = () => {
   const [email] = useState(() => {
     return location.state?.email || sessionStorage.getItem('pending_verification_email') || "";
   });
+  // Verification needs the password set at registration. It's handed over in
+  // memory right after registering; otherwise (reload, came back later) ask.
+  const [password, setPassword] = useState(() => takeVerificationPassword(email));
+  const [askPassword, setAskPassword] = useState(() => password === '');
 
   useEffect(() => {
     if (location.state?.email) {
@@ -70,12 +75,14 @@ const VerifyOTP: React.FC = () => {
 
     try {
       const otpString = otp.join("");
-      await verifyOtp(email, otpString);
+      await verifyOtp(email, otpString, password);
       
       // Success: Redirect to login
       sessionStorage.removeItem('pending_verification_email');
       navigate('/login', { state: { message: "ACCOUNT_VERIFIED_ACCESS_GRANTED" } });
     } catch (err: any) {
+      // A password mismatch: show the field so it can be re-entered.
+      if (/password/i.test(err?.message || '')) setAskPassword(true);
       setError(err.message || "INVALID_VERIFICATION_CODE");
     } finally {
       setLoading(false);
@@ -128,6 +135,21 @@ const VerifyOTP: React.FC = () => {
             ))}
           </div>
 
+          {askPassword && (
+            <div>
+              <label htmlFor="verify-password" className="block text-[11px] text-app-muted mb-1.5">Password you registered with</label>
+              <input
+                id="verify-password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full bg-surface-2 border border-app-border rounded-xl px-4 py-3 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+          )}
+
           {error && (
             <div role="alert" aria-live="assertive" className="bg-danger/10 border border-danger/30 text-danger rounded-xl p-3 text-xs font-medium">
               Error: {error}
@@ -136,7 +158,7 @@ const VerifyOTP: React.FC = () => {
 
           <button
             type="submit"
-            disabled={loading || otp.join("").length < 6}
+            disabled={loading || otp.join("").length < 6 || !password}
             className="w-full bg-primary text-on-primary font-semibold text-sm py-4 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Verifying…" : "Verify identity"}

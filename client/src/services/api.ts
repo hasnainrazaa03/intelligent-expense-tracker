@@ -143,10 +143,11 @@ export const registerUser = (email: string, password: string) => {
 /**
  * Verifies OTP for a registered user.
  */
-export const verifyOtp = (email: string, otp: string) => {
+export const verifyOtp = (email: string, otp: string, password: string) => {
   return fetchApi<{ message: string }>('/auth/verify-otp', {
     method: 'POST',
-    body: JSON.stringify({ email, otp }),
+    // The password set at registration: verification must come from whoever set it.
+    body: JSON.stringify({ email, otp, password }),
   });
 };
 

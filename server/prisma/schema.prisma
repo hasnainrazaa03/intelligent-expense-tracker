@@ -170,3 +170,14 @@ model Receipt {
   createdAt DateTime @default(now())
   @@index([userId])
 }
+
+// Sessions ended by logout. Session JWTs carry a random `jti`; logout records it
+// here so that token stops working at once instead of staying valid for up to
+// 7 days. Rows are pruned once the token would have expired anyway.
+model RevokedToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  jti       String   @unique
+  userId    String   @db.ObjectId
+  expiresAt DateTime
+  @@index([expiresAt])
+}
