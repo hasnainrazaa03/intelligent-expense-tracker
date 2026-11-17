@@ -34,6 +34,9 @@ export const isAuthError = (error: unknown): boolean =>
 // just has to carry the same value (double-submit).
 let cachedCsrfToken: string | null = null;
 
+/** Forget the cached CSRF token (on logout, so the next session fetches its own). */
+export const resetCsrfToken = (): void => { cachedCsrfToken = null; };
+
 const readCsrfCookie = (): string | null => {
   const raw = document.cookie
     .split('; ')

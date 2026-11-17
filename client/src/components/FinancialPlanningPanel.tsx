@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import useEntryCurrency from '../hooks/useEntryCurrency';
+import { userStorage } from '../utils/userStorage';
 import { Expense, Income, InvestmentAccount } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar } from '../utils/dateUtils';
@@ -37,7 +38,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const entry = useEntryCurrency();
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(SAVINGS_GOALS_KEY) || '[]');
+      const parsed = JSON.parse(userStorage.getItem(SAVINGS_GOALS_KEY) || '[]');
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -49,14 +50,14 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const [fundInputs, setFundInputs] = useState<Record<string, string>>({});
   const [pausedRecurring, setPausedRecurring] = useState<Record<string, boolean>>(() => {
     try {
-      return JSON.parse(localStorage.getItem(PAUSED_RECURRING_KEY) || '{}') as Record<string, boolean>;
+      return JSON.parse(userStorage.getItem(PAUSED_RECURRING_KEY) || '{}') as Record<string, boolean>;
     } catch {
       return {};
     }
   });
   const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccount[]>(() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(INVESTMENT_ACCOUNTS_KEY) || '[]');
+      const parsed = JSON.parse(userStorage.getItem(INVESTMENT_ACCOUNTS_KEY) || '[]');
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -104,7 +105,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
         },
       ];
       setInvestmentAccounts(next);
-      localStorage.setItem(INVESTMENT_ACCOUNTS_KEY, JSON.stringify(next));
+      userStorage.setItem(INVESTMENT_ACCOUNTS_KEY, JSON.stringify(next));
       setNewAccountName('');
       setNewAccountValue('');
     };
@@ -112,7 +113,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
 
   const persistSavingsGoals = (next: SavingsGoal[]) => {
     setSavingsGoals(next);
-    localStorage.setItem(SAVINGS_GOALS_KEY, JSON.stringify(next));
+    userStorage.setItem(SAVINGS_GOALS_KEY, JSON.stringify(next));
   };
   const addSavingsGoal = () => {
     const target = Number.parseFloat(newGoalTarget);
@@ -166,7 +167,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
     const key = templateKey(expense);
     const next = { ...pausedRecurring, [key]: !pausedRecurring[key] };
     setPausedRecurring(next);
-    localStorage.setItem(PAUSED_RECURRING_KEY, JSON.stringify(next));
+    userStorage.setItem(PAUSED_RECURRING_KEY, JSON.stringify(next));
   };
 
   const upcomingBills = useMemo(() => {

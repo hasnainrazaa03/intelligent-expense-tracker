@@ -23,6 +23,7 @@ import useDateRangeFilter from './hooks/useDateRangeFilter';
 import useOfflineQueue from './hooks/useOfflineQueue';
 import { enqueueExpense, type PendingExpense } from './utils/offlineQueue';
 import { notify } from './utils/notifications';
+import { userStorage } from './utils/userStorage';
 import SectionSkeleton from './components/SectionSkeleton';
 import { APP_CONFIG } from './config';
 
@@ -242,8 +243,12 @@ const App: React.FC = () => {
   const [pendingRecurring, setPendingRecurring] = useState<Omit<Expense, 'id'>[]>([]);
   const [selectedRecurring, setSelectedRecurring] = useState<Set<number>>(new Set());
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
-    return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true';
+    return userStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true';
   });
+  // Per-account flag: re-read when the signed-in account changes.
+  useEffect(() => {
+    setOnboardingDismissed(userStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true');
+  }, [userEmail]);
 
   // Log out on a data-load auth failure (401/403) — keyed off HTTP status, not
   // brittle message matching (APP-H2).
@@ -277,7 +282,7 @@ const App: React.FC = () => {
     // next due instance (weekly / monthly / yearly) for per-item review.
     const due = computeDueRecurring(data.expenses, todayCalendar());
     if (due.length > 0) {
-      const snoozeUntil = Number(localStorage.getItem(RECURRING_SNOOZE_KEY) || '0');
+      const snoozeUntil = Number(userStorage.getItem(RECURRING_SNOOZE_KEY) || '0');
       if (Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil) {
         setPendingRecurring([]);
         return;
@@ -399,7 +404,7 @@ const App: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.allData });
       setPendingRecurring([]);
       setSelectedRecurring(new Set());
-      localStorage.removeItem(RECURRING_SNOOZE_KEY);
+      userStorage.removeItem(RECURRING_SNOOZE_KEY);
       notify.success(`${toAdd.length} recurring expense(s) added.`);
     } catch (error) {
       console.error("Failed to create recurring expenses:", error);
@@ -414,7 +419,7 @@ const App: React.FC = () => {
 
   const handleSnoozeRecurring = () => {
     const until = Date.now() + 24 * 60 * 60 * 1000;
-    localStorage.setItem(RECURRING_SNOOZE_KEY, String(until));
+    userStorage.setItem(RECURRING_SNOOZE_KEY, String(until));
     setPendingRecurring([]);
     setSelectedRecurring(new Set());
     notify.info('Recurring reminder snoozed for 24 hours.');
@@ -1198,7 +1203,7 @@ const handleDeleteIncome = async (id: string) => {
                         </button>
                         <button
                           onClick={() => {
-                            localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true');
+                            userStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true');
                             setOnboardingDismissed(true);
                           }}
                           className="text-app-muted hover:text-app-text font-semibold text-sm py-2 px-4 rounded-xl transition-all"
@@ -1528,7 +1533,12 @@ const handleDeleteIncome = async (id: string) => {
               {/* 3. The Main App (Protected) */}
               <Route 
                 path="/app" 
-                element={isAuthenticated ? DashboardLayout : <Navigate to="/login" />}
+                element={isAuthenticated
+                  // Per-account storage (goals, categories, …) is keyed by the
+                  // signed-in email, so wait for it; rendering earlier would read
+                  // an empty store and a first save could overwrite real data.
+                  ? (userEmail ? DashboardLayout : <SectionSkeleton title="Loading your account" rows={3} />)
+                  : <Navigate to="/login" />}
               />
 
               {/* Catch-all: Redirect unknown paths to home */}

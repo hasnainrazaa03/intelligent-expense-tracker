@@ -6,6 +6,7 @@ import {
   invalidateCategoriesCache,
 } from './categories';
 import { getMainCategory } from './colorUtils';
+import { setStorageUser } from './userStorage';
 
 const store: Record<string, string> = {};
 
@@ -19,6 +20,9 @@ beforeEach(() => {
     key: () => null,
     length: 0,
   };
+  // Custom categories are per-account storage: sign a user in for these tests.
+  setStorageUser(null);
+  setStorageUser('owner@test.com');
   invalidateCategoriesCache();
 });
 
