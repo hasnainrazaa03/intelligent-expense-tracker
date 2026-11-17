@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://intelligent-expense-tracker.vercel.app/sitemap.xml
+Sitemap: https://orbit-expense-tracker.vercel.app/sitemap.xml
