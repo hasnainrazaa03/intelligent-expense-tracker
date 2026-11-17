@@ -20,29 +20,33 @@ router.post('/email-summary', emailSummaryLimiter, async (req: Request, res: Res
   const email = req.user!.email;
 
   try {
+    // The month the USER is in, sent by the client. The server's clock is UTC,
+    // so a Pacific user asking on the evening of the 31st used to get next
+    // month's (empty) summary. Falls back to the server's month.
     const now = new Date();
-    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const monthLabel = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const requested = typeof req.body?.month === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(req.body.month) ? req.body.month : null;
+    const monthPrefix = requested ?? `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const [labelYear, labelMonth] = monthPrefix.split('-').map(Number);
+    const monthLabel = new Date(Date.UTC(labelYear, labelMonth - 1, 1)).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
     const [rawExpenses, rawIncomes] = await Promise.all([
       prisma.expense.findMany({ where: { userId }, select: { amount: true, category: true, date: true } }),
       prisma.income.findMany({ where: { userId }, select: { amount: true, date: true } }),
     ]);
-    // DB stores integer cents; convert to dollars for the summary math.
-    const expenses = rawExpenses.map((e) => ({ ...e, amount: toDollars(e.amount) }));
-    const incomes = rawIncomes.map((i) => ({ ...i, amount: toDollars(i.amount) }));
-
+    // Dates are stored as calendar days (UTC midnight), so the UTC slice is the
+    // day the user picked. Sums stay in integer cents and convert once (adding
+    // float dollars drifted by fractions of a cent).
     const inMonth = (d: Date) => d.toISOString().slice(0, 7) === monthPrefix;
-    const monthExpenses = expenses.filter((e) => inMonth(e.date));
-    const monthIncomes = incomes.filter((i) => inMonth(i.date));
+    const monthExpenses = rawExpenses.filter((e) => inMonth(e.date));
+    const monthIncomes = rawIncomes.filter((i) => inMonth(i.date));
 
-    const totalExpense = monthExpenses.reduce((s, e) => s + e.amount, 0);
-    const totalIncome = monthIncomes.reduce((s, i) => s + i.amount, 0);
+    const totalExpense = toDollars(monthExpenses.reduce((s, e) => s + e.amount, 0));
+    const totalIncome = toDollars(monthIncomes.reduce((s, i) => s + i.amount, 0));
     const net = totalIncome - totalExpense;
 
-    const byCategory: Record<string, number> = {};
-    monthExpenses.forEach((e) => { byCategory[e.category] = (byCategory[e.category] || 0) + e.amount; });
-    const top = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const byCategoryCents: Record<string, number> = {};
+    monthExpenses.forEach((e) => { byCategoryCents[e.category] = (byCategoryCents[e.category] || 0) + e.amount; });
+    const top = Object.entries(byCategoryCents).map(([c, cents]) => [c, toDollars(cents)] as [string, number]).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
     const rows = top.map(([cat, amt]) => `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${esc(cat)}</td><td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${money(amt)}</td></tr>`).join('');
 

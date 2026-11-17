@@ -277,7 +277,10 @@ export const logAuditEvent = (action: string, metadata?: Record<string, unknown>
 
 /** Email the signed-in user a summary of their current-month finances. */
 export const emailSummary = (): Promise<{ message: string }> => {
-  return fetchApi<{ message: string }>('/reports/email-summary', { method: 'POST' });
+  // The user's own calendar month (the server's clock is UTC).
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return fetchApi<{ message: string }>('/reports/email-summary', { method: 'POST', body: JSON.stringify({ month }) });
 };
 
 // --- Households (shared/household accounts) ---
