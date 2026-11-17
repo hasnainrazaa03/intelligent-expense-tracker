@@ -7,6 +7,31 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### November 2026 review fixes (2026-11-17, PRs #150–#175)
+A second full review (client, server, deploy) found new bugs; each batch was checked
+against the original code before merging. Details and what's still open:
+[post-launch plan, Section D](./docs/03-post-launch-plan.md#section-d--november-2026-review-2026-11-17).
+- **Data integrity (#150–#153):** tuition installments and their expenses stay in sync;
+  backup restore and statement import can no longer lose data; money is taken in the
+  currency it was entered in and never saved at a fallback FX rate; a pending delete
+  survives the list unmounting.
+- **Security (#154–#158):** sign-in hardening (code guess limits, verification, lockout,
+  logout, Google); sessions and per-account local data kept per account; large bodies
+  parsed only after auth, with caps on amounts and fields; per-user AI and email budgets;
+  the API is served through the site with security headers; AI output hardened.
+- **Correctness (#159, #160, #168, #170):** one rule for parent and subcategory budgets;
+  whole-month views, local due dates and recurring anchor days; loans subtract from net
+  worth; the installment box no longer carries over between semesters; leaving or deleting
+  a household untags its expenses; the AI compares monthly budgets with monthly spending;
+  CSV import reads "1,234.56", multi-line notes, refunds and Excel files; notes keep their
+  line breaks; PDFs print rupees as "Rs"; Escape asks before discarding budget edits;
+  "Wipe all data" resets the recurring banner and Tuition; no "CASH" default; rising
+  spending shows red; deleting or leaving a household asks first.
+- **Offline (#175):** switching tabs offline no longer reloads the app; the main screens are
+  prefetched so they open offline, and a reload returns to the same screen.
+- **Dependencies (#161–#166, #169):** routine bumps; react and react-dom now update together
+  (a react-only bump would have rendered a blank page).
+
 Work planned in the [roadmap](./docs/02-roadmap.md), tracked against the
 [codebase review](./docs/01-codebase-review.md). Items under **Fixed** have landed on the
 `fixes/phases-1-4` branch; items under **Planned** are still queued.

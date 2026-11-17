@@ -1,5 +1,10 @@
 # Roadmap — Bug Fixes, Hardening & Modern Redesign
 
+> **Closed — kept for history.** This was the Phase 0–7 plan from the July 2026 review,
+> and it took the app to launch. Unticked boxes below are not a to-do list: they were
+> done another way, dropped, or carried over. Everything still open is tracked in the
+> [post-launch plan, Section D](./03-post-launch-plan.md#section-d--november-2026-review-2026-11-17).
+
 This is the execution plan derived from the [Codebase Review](./01-codebase-review.md). It is organized into phases, each with a checklist and a "Definition of Done" gate. Work top-to-bottom: later phases assume earlier ones landed. Finding IDs (e.g. `APP-C1`) reference the review catalog.
 
 **Guiding rules**
@@ -31,7 +36,7 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 - [ ] Confirm both packages build & typecheck from a clean checkout (`server: tsc --noEmit`, `client: tsc --noEmit && npm run build`).
 - [ ] Capture baseline screenshots of every major surface (auth, dashboard, lists, each modal, reports, AI, tuition) for later visual diffing.
 - [ ] Stand up a local `.env` for server (`DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `FRONTEND_URL`, mailer keys) and confirm the app runs end-to-end locally.
-- [ ] Remove obvious repo cruft: `server/prisma.config.ts.bak`, verify `backups/` and `logs/` are gitignored.
+- [x] Remove obvious repo cruft: `server/prisma.config.ts.bak` (gone), `backups/` and `logs/` are gitignored.
 
 **Done when:** repo is under git, a clean checkout runs locally, baseline screenshots exist.
 
@@ -86,7 +91,7 @@ This is the execution plan derived from the [Codebase Review](./01-codebase-revi
 
 **Conventions (X-2, X-3):**
 - [x] **X-2** Date convention chosen and implemented: `client/src/utils/dateUtils.ts` — dates are timezone-agnostic `YYYY-MM-DD` calendar days compared as strings, boundaries from LOCAL time, never `toISOString()`. Tested. *(commit `df96672`)*
-- [ ] **X-3 / SRV-M8** Money-as-integer-cents end-to-end. ⚠️ *Deferred:* large, risky change (DB schema + migration + all math). The tuition penny-leak is already mitigated by the tested `distributeAmount()` cents helper (Phase 1) and `formatCurrency` rounds display. Recommend scheduling as its own mini-project after Phase 4, not inside this pass.
+- [x] **X-3 / SRV-M8** Money-as-integer-cents end-to-end. Done in PR #64 (post-launch plan A4).
 
 **Applied:**
 - [x] **APP-H3 / APP-H4 / CMP-M13** `useDateRangeFilter`, budget-alert window, Dashboard, modals, tuition tracker, ExportModal range + filenames, Reports/Pivot filenames, FinancialPlanningPanel all use the shared calendar helpers. *(commits `df96672`, `1691a70`, `899cc52`)*
