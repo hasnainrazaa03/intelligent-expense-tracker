@@ -3,18 +3,14 @@
 // leading to the "module 'jspdf' cannot be found" error. The default import is
 // the standard for jsPDF and resolves this module augmentation issue.
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+// jspdf-autotable 4+ no longer patches jsPDF's prototype, so `doc.autoTable`
+// is undefined; call the exported function with the document instead.
+import { autoTable } from 'jspdf-autotable';
 import { Expense, Budget } from '../types';
 import { todayCalendar } from './dateUtils';
 
 export type ExportFormat = 'csv' | 'pdf' | 'quickbooks' | 'xero' | 'tax_csv';
 
-// Augment jsPDF with the autoTable method
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 // RFC 4180 cell encoding: arrays become "a; b", objects become JSON, and any
 // value containing a comma, quote, or newline is wrapped in double quotes with
@@ -67,7 +63,7 @@ const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, 
     if (expenses.length > 0) {
         doc.setFontSize(14);
         doc.text('Expenses', 14, 45);
-        doc.autoTable({
+        autoTable(doc, {
             startY: 50,
             head: [['Date', 'Title', 'Category', 'Amount (USD)']],
             body: expenses.map(e => [
@@ -85,7 +81,7 @@ const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, 
         const lastTableY = (doc as any).lastAutoTable.finalY || 45;
         doc.setFontSize(14);
         doc.text('Budgets', 14, lastTableY + 15);
-        doc.autoTable({
+        autoTable(doc, {
             startY: lastTableY + 20,
             head: [['Category', 'Budgeted Amount (USD)']],
             body: budgets.map(b => [b.category, `$${b.amount.toFixed(2)}`]),
