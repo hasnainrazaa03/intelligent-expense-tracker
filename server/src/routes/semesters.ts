@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { Semester } from '../types';
-import { toFinPrecision, parseFiniteFloat } from '../utils/math';
+import { toFinPrecision, parseFiniteFloat, parseAmount, MAX_AMOUNT } from '../utils/math';
 import { toCents, semesterToClient } from '../utils/money';
 import { holdKeyLockUntilResponse } from '../utils/keyedLock';
 
@@ -56,6 +56,11 @@ router.post('/', async (req: Request, res: Response) => {
     }
     if (sem.installments.length > MAX_INSTALLMENTS_PER_SEMESTER) {
       return res.status(400).json({ message: `Maximum ${MAX_INSTALLMENTS_PER_SEMESTER} installments per semester` });
+    }
+    // Out-of-range amounts used to be written as 0 (or crash the Int32 column).
+    const amounts = [sem.totalTuition, ...sem.installments.map((i) => i.amount)];
+    if (amounts.some((a) => a != null && (parseAmount(a as any) === null || Number(a) < 0))) {
+      return res.status(400).json({ message: `Tuition amounts must be between 0 and ${MAX_AMOUNT.toLocaleString('en-US')}` });
     }
   }
 

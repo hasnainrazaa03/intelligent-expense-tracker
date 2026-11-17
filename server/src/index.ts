@@ -23,6 +23,7 @@ import { sendError } from './utils/http';
 import { SERVER_CONFIG, validateServerEnv } from './config';
 import { swaggerSpec } from './swagger';
 import { prisma } from './db';
+import { authMiddleware } from './middleware/auth';
 
 validateServerEnv();
 
@@ -87,13 +88,32 @@ app.use(cors({
   credentials: true
 }));
 
-// --- Body parsing with size limit ---
-// Bank-statement PDFs are read by Gemini natively, so this one route needs a
-// larger body than the global cap. It's auth-, CSRF- and AI-rate-limited, so
-// the wider limit is scoped to that path only; every other route keeps 1mb.
-app.use('/api/ai/parse-statement', express.json({ limit: '15mb' }));
-app.use(express.json({ limit: SERVER_CONFIG.bodyLimit }));
 app.use(cookieParser());
+
+// --- Body parsing with size limit ---
+// Every route gets the 1mb parser except two that need more: statement PDFs
+// (read by Gemini natively) and full-backup restores (a backup of a few
+// thousand transactions is over 1mb, so restoring it failed with a 413 that
+// surfaced as a 500). Their larger parsers run only AFTER authentication, so an
+// anonymous client can't make the server buffer 15mb bodies (S13, S3).
+const LARGE_BODY_LIMITS: Record<string, string> = {
+  '/api/ai/parse-statement': '15mb',
+  '/api/data/restore': '12mb',
+};
+const defaultJson = express.json({ limit: SERVER_CONFIG.bodyLimit });
+// Express 5 leaves req.body undefined when there's no JSON body, and handlers
+// that destructure it crashed with a 500.
+const ensureBody = (req: Request, _res: Response, next: NextFunction) => {
+  if (req.body === undefined) req.body = {};
+  next();
+};
+app.use((req: Request, res: Response, next: NextFunction) =>
+  LARGE_BODY_LIMITS[req.path] ? next() : defaultJson(req, res, next)
+);
+for (const [path, limit] of Object.entries(LARGE_BODY_LIMITS)) {
+  app.use(path, authMiddleware, express.json({ limit }));
+}
+app.use(ensureBody);
 
 // --- Structured request logging with request id ---
 app.use(requestLogger);
@@ -142,7 +162,24 @@ app.use('/api/reports', userApiLimiter, csrfProtection, reportRoutes);
 app.use('/api/households', userApiLimiter, csrfProtection, householdRoutes);
 
 // --- Global Error Handler ---
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+// Client errors keep their status: malformed JSON (400), an oversized body (413)
+// and a rejected origin (403) all used to come back as 500 "Internal server
+// error" and were logged as crashes (S16).
+app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) return next(err);
+  if (err?.type === 'entity.too.large') {
+    return sendError(res, 413, 'PAYLOAD_TOO_LARGE', 'That request is too large.');
+  }
+  if (err?.type === 'entity.parse.failed') {
+    return sendError(res, 400, 'INVALID_JSON', 'The request body is not valid JSON.');
+  }
+  if (typeof err?.message === 'string' && err.message.startsWith('The CORS policy')) {
+    return sendError(res, 403, 'CORS_REJECTED', 'This origin is not allowed.');
+  }
+  const status = Number(err?.status ?? err?.statusCode);
+  if (status >= 400 && status < 500) {
+    return sendError(res, status, 'BAD_REQUEST', err?.expose ? String(err.message) : 'Bad request');
+  }
   console.error('Unhandled error:', err);
   sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error');
 });

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { toFinPrecision, parseFiniteFloat } from '../utils/math';
+import { toFinPrecision, parseFiniteFloat, parseAmount, MAX_AMOUNT } from '../utils/math';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText } from '../utils/sanitize';
 import { toCents, budgetToClient } from '../utils/money';
@@ -33,7 +33,7 @@ router.post('/', async (req: Request, res: Response) => {
   const formattedBudgets: { category: string; amount: number }[] = [];
   for (const b of budgets) {
     const category = sanitizeText(b?.category);
-    const parsedAmount = parseFiniteFloat(b?.amount as any);
+    const parsedAmount = parseAmount(b?.amount as any);
     if (!category) {
       return res.status(400).json({ message: 'Budget category is required' });
     }
@@ -41,7 +41,7 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ message: `Budget category must be ${MAX_TEXT_LENGTH} characters or less` });
     }
     if (parsedAmount === null || parsedAmount < 0) {
-      return res.status(400).json({ message: 'Budget amount must be zero or greater' });
+      return res.status(400).json({ message: `Budget amount must be between 0 and ${MAX_AMOUNT.toLocaleString('en-US')}` });
     }
     formattedBudgets.push({ category, amount: toCents(toFinPrecision(parsedAmount)) });
   }
