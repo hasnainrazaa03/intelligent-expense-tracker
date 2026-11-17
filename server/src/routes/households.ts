@@ -122,6 +122,9 @@ router.delete('/:id/leave', async (req: Request, res: Response) => {
   if (!membership) return sendError(res, 404, 'NOT_FOUND', 'You are not a member of this household.');
   if (membership.role === 'owner') return sendError(res, 400, 'OWNER_CANNOT_LEAVE', 'Owners must delete the household instead of leaving.');
   await prisma.householdMember.delete({ where: { id: membership.id } });
+  // Untag the leaver's expenses: still tagged to a household they're no longer
+  // in, every later edit of them failed with 403 (S10).
+  await prisma.expense.updateMany({ where: { userId, householdId }, data: { householdId: null } });
   res.json({ message: 'You left the household.' });
 });
 
@@ -135,6 +138,9 @@ router.delete('/:id/members/:memberId', async (req: Request, res: Response) => {
   if (!target) return sendError(res, 404, 'NOT_FOUND', 'Member not found.');
   if (target.role === 'owner') return sendError(res, 400, 'CANNOT_REMOVE_OWNER', 'You cannot remove the owner.');
   await prisma.householdMember.delete({ where: { id: target.id } });
+  if (target.userId) {
+    await prisma.expense.updateMany({ where: { userId: target.userId, householdId }, data: { householdId: null } });
+  }
   res.json({ message: 'Member removed.' });
 });
 
@@ -146,6 +152,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   if (!household) return sendError(res, 404, 'NOT_FOUND', 'Household not found.');
   if (household.ownerId !== userId) return sendError(res, 403, 'FORBIDDEN', 'Only the owner can delete this household.');
   await prisma.household.delete({ where: { id: householdId } }); // cascades members
+  await prisma.expense.updateMany({ where: { householdId }, data: { householdId: null } });
   await writeAuditLog({ action: 'household.delete', userId, success: true, route: '/api/households/:id', metadata: { householdId } });
   res.json({ message: 'Household deleted.' });
 });

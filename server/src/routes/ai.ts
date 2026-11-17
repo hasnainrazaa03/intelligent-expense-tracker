@@ -187,6 +187,20 @@ const buildFinancialManifest = async (userId: string, includeTuition = false) =>
 
   const round2t = (arr: { amount: number }[]) => Math.round((arr.reduce((s, x) => s + x.amount, 0) + Number.EPSILON) * 100) / 100;
 
+  // Month-by-month category totals (YYYY-MM → category → amount), so budgets
+  // (monthly) and trends compare like with like.
+  const formatDay = (d: Date) => d.toISOString().split('T')[0];
+  const currentMonthKey = formatDay(new Date()).slice(0, 7);
+  const monthlyByCategory: Record<string, Record<string, number>> = {};
+  for (const e of expenses) {
+    const month = formatDay(e.date).slice(0, 7);
+    const bucket = (monthlyByCategory[month] ||= {});
+    bucket[e.category] = (bucket[e.category] || 0) + e.amount;
+  }
+  for (const bucket of Object.values(monthlyByCategory)) {
+    for (const cat of Object.keys(bucket)) bucket[cat] = round2(bucket[cat]);
+  }
+
   return {
     expenses,
     incomes,
@@ -207,7 +221,7 @@ const buildFinancialManifest = async (userId: string, includeTuition = false) =>
         totalExpenses: round2(totalExpenses),
         netCashFlow: round2(totalIncome - totalExpenses),
       },
-      budgets: budgets.map((b) => ({ category: b.category, limit: round2(b.amount) })),
+      budgets: budgets.map((b) => ({ category: b.category, monthlyLimit: round2(b.amount) })),
       categoryBreakdown: Object.fromEntries(
         Object.entries(
           expenses.reduce((acc: Record<string, number>, e) => {
@@ -216,6 +230,20 @@ const buildFinancialManifest = async (userId: string, includeTuition = false) =>
           }, {})
         ).map(([cat, sum]) => [cat, round2(sum)])
       ),
+      // Budgets are MONTHLY limits, so give the model monthly figures. It used
+      // to get only 6-month category totals next to monthly budgets, and
+      // reported "$1,500 vs $300 — over budget" for $250/month (S9).
+      period: {
+        from: formatDay(sixMonthsAgo),
+        to: formatDay(new Date()),
+        note: 'categoryBreakdown covers the whole period; budgets are per MONTH — compare them with currentMonth.byCategory.',
+      },
+      currentMonth: {
+        month: currentMonthKey,
+        byCategory: monthlyByCategory[currentMonthKey] || {},
+        totalExpenses: round2(Object.values(monthlyByCategory[currentMonthKey] || {}).reduce((s, v) => s + v, 0)),
+      },
+      monthlyByCategory,
       recurringFixedCosts: expenses
         .filter((e) => e.isRecurring)
         .map((e) => ({ title: e.title, amount: round2(e.amount), category: e.category })),
@@ -264,11 +292,12 @@ router.post('/analyze', async (req: Request, res: Response) => {
       - Briefly comment on their overall cash flow situation.
 
       ### Spending vs. Budget Analysis
-      - Compare 'categoryBreakdown' against the 'budgets' limits provided.
-      - Identify any category where they have exceeded their budget.
+      - Budgets are MONTHLY limits. Compare each budget's monthlyLimit with currentMonth.byCategory (this month so far) and, for context, with typical months in monthlyByCategory. Never compare a budget with the 6-month categoryBreakdown.
+      - A budget on a main category (e.g. Food) covers its subcategories (Groceries, Dining Out…) unless they have their own budget.
+      - Identify any category over its monthly budget this month.
       
       ### Income vs. Expense Trends
-      - Analyze the historical data to identify trends.
+      - Analyze monthlyByCategory to identify trends month by month (don't invent months that aren't there).
       - Point out months or patterns with significant deficits or savings.
       - Comment on the overall financial trajectory.
 
@@ -290,7 +319,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
 
       Keep the tone encouraging and not judgmental.
       Format your entire response in Markdown with clear headings and bullet points.
-      Write like a human advisor: NEVER mention internal field names or the data structure — do not say "FINANCIAL_MANIFEST", "categoryBreakdown", "recentHistory", "recurringFixedCosts", "manifest", or "according to the data". State facts naturally. Show money as whole dollars or two decimals (e.g. $291.35), never long decimals.
+      Write like a human advisor: NEVER mention internal field names or the data structure — do not say "FINANCIAL_MANIFEST", "categoryBreakdown", "currentMonth", "monthlyByCategory", "monthlyLimit", "recentHistory", "recurringFixedCosts", "manifest", or "according to the data". State facts naturally. Show money as whole dollars or two decimals (e.g. $291.35), never long decimals.
     `;
 
     // --- ROBUST MODEL CALL WITH FALLBACK ---
@@ -368,12 +397,13 @@ USER_QUESTION:
 ${message}
 
 Rules:
+- Budgets are MONTHLY limits: compare them with currentMonth.byCategory, never with the 6-month categoryBreakdown.
 - Keep answer brief by default (max 120 words) unless user explicitly asks for detail.
 - Use markdown headings with exactly these sections:
   1) ### Quick read
   2) ### What to do next
 - Under each section use short bullet points only.
-- Write like a human advisor. NEVER mention internal field names or the data structure — do NOT say "FINANCIAL_MANIFEST", "categoryBreakdown", "recentHistory", "recurringFixedCosts", "manifest", "according to the data/context", or reference JSON. Just state the fact naturally (e.g. "You spent $291 on Dining Out vs a $50 budget").
+- Write like a human advisor. NEVER mention internal field names or the data structure — do NOT say "FINANCIAL_MANIFEST", "categoryBreakdown", "currentMonth", "monthlyByCategory", "monthlyLimit", "recentHistory", "recurringFixedCosts", "manifest", "according to the data/context", or reference JSON. Just state the fact naturally (e.g. "You spent $291 on Dining Out vs a $50 budget").
 - Money must read cleanly: whole dollars or two decimals (e.g. $291.35), never long decimals.
 - If data is missing, say what is missing in one bullet and ask one short follow-up question.
 `;

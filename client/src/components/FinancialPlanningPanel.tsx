@@ -12,6 +12,10 @@ import HouseholdsManager from './HouseholdsManager';
 const SAVINGS_GOALS_KEY = 'savingsGoalsV2';
 const PAUSED_RECURRING_KEY = 'pausedRecurringTemplates';
 const INVESTMENT_ACCOUNTS_KEY = 'investmentAccounts';
+// Assets count up, loans count down. A loan used to be ADDED like any account,
+// so a $40k student loan raised "net worth" by $40k (F16). Its balance is a
+// liability whether it was entered as a positive or a negative number.
+const accountValue = (account: InvestmentAccount) => (account.type === 'loan' ? -Math.abs(account.value) : account.value);
 
 interface SavingsGoal {
   id: string;
@@ -82,7 +86,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   );
   const monthlyNet = monthlyIncome - monthlyExpense;
     const totalInvestments = useMemo(
-      () => investmentAccounts.reduce((sum, account) => sum + account.value, 0),
+      () => investmentAccounts.reduce((sum, account) => sum + accountValue(account), 0),
       [investmentAccounts]
     );
 
@@ -558,21 +562,23 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
         <div className={cardCls}>
           <div className="flex items-center justify-between mb-3">
             <p className={`${subLabelCls} mb-0`}>Net-worth trend · 6-month</p>
-            <span className="text-xs font-semibold text-app-text tabular-nums">{formatCurrency(netWorth, displayCurrency, conversionRate)}</span>
+            {/* The chart's latest point. It showed this month's net + accounts while
+                the chart beside it is cumulative, so the two disagreed. */}
+            <span className="text-xs font-semibold text-app-text tabular-nums">{formatCurrency(netWorthTrend.at(-1)?.amount ?? totalInvestments, displayCurrency, conversionRate)}</span>
           </div>
           <div className="h-32 md:h-36">
             <SpendingBarChart data={netWorthTrend} />
           </div>
-          <p className="text-[11px] text-app-muted mt-2">Cumulative cash flow plus current portfolio value — an estimate, not audited net worth.</p>
+          <p className="text-[11px] text-app-muted mt-2">Cumulative cash flow plus your accounts (assets − loans) — an estimate, not audited net worth.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={cardCls}>
           <p className={subLabelCls}>Investments & position</p>
-          <p className="text-xs text-app-muted mb-1 tabular-nums">Portfolio value: <span className="text-app-text font-medium">{formatCurrency(totalInvestments, displayCurrency, conversionRate)}</span></p>
+          <p className="text-xs text-app-muted mb-1 tabular-nums">Accounts (assets − loans): <span className="text-app-text font-medium">{formatCurrency(totalInvestments, displayCurrency, conversionRate)}</span></p>
           <p className="font-display text-lg font-bold text-app-text tabular-nums">Est. position: {formatCurrency(netWorth, displayCurrency, conversionRate)}</p>
-          <p className="text-[11px] text-app-muted mt-1">This month's net cash flow + portfolio value (not full net worth).</p>
+          <p className="text-[11px] text-app-muted mt-1">This month's net cash flow + accounts (assets − loans), not full net worth.</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
             <input value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} className={fieldCls} placeholder="Account" aria-label="Account name" />
             <select value={newAccountType} onChange={(e) => setNewAccountType(e.target.value as InvestmentAccount['type'])} className={fieldCls} aria-label="Account type">
@@ -590,7 +596,7 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             {investmentAccounts.slice(-6).map((account) => (
               <div key={account.id} className={rowCls}>
                 <span className="text-app-muted truncate">{account.name} <span className="text-app-faint">({account.type})</span></span>
-                <span className="text-app-text font-medium">{formatCurrency(account.value, displayCurrency, conversionRate)}</span>
+                <span className={`font-medium ${account.type === 'loan' ? 'text-danger' : 'text-app-text'}`}>{formatCurrency(accountValue(account), displayCurrency, conversionRate)}</span>
               </div>
             ))}
           </div>
