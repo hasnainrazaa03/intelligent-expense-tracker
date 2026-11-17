@@ -22,6 +22,9 @@ import {
 export interface StatementImportPayload {
   expenses: Omit<Expense, 'id'>[];
   incomes: Omit<Income, 'id'>[];
+  /** One idempotency key per import session: retrying after a failure (or a
+   *  lost response) reuses it, so the server skips batches that already landed. */
+  batchId: string;
 }
 
 interface Props {
@@ -29,8 +32,23 @@ interface Props {
   onClose: () => void;
   existingExpenses: Expense[];
   existingIncomes: Income[];
-  onImport: (payload: StatementImportPayload) => void;
+  /** Resolves `false` if the import didn't fully land; the review stays open. */
+  onImport: (payload: StatementImportPayload) => Promise<boolean | void> | boolean | void;
 }
+
+// The server accepts [A-Za-z0-9_-]{1,100} as a batch key.
+const makeBatchId = (): string =>
+  (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+
+// Mirrors the server's checks, so one bad row can't fail the whole batch there.
+const MAX_TEXT_LENGTH = 500;
+const rowProblem = (r: { amount: number; description: string; date: string; notes: string }): string | undefined => {
+  if (!r.description.trim()) return 'Add a description.';
+  if (!(Number.isFinite(r.amount) && r.amount > 0)) return 'Amount must be more than 0.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return 'This row has no valid date.';
+  if (r.notes.length > MAX_TEXT_LENGTH) return `Notes must be ${MAX_TEXT_LENGTH} characters or fewer.`;
+  return undefined;
+};
 
 type TxnType = 'income' | 'expense';
 type MappingKey = 'date' | 'description' | 'amount' | 'debit' | 'credit' | 'category';
@@ -63,6 +81,8 @@ interface Row {
   duplicate: boolean;
   enriching: boolean;
   expanded: boolean;
+  /** Why this row can't be imported yet (set when Import is pressed). */
+  problem?: string;
 }
 
 const dupeKey = (date: string, amount: number, description: string) =>
@@ -93,9 +113,15 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   const [fileName, setFileName] = useState('');
   // Which real-world account this statement belongs to. Stamped onto every row
   // from this file, so two cards that are both "Credit Card" stay apart.
-  const [account, setAccount] = useState(() => {
-    try { return localStorage.getItem('stmtLastAccount') || ''; } catch { return ''; }
-  });
+  // Starts empty for every statement. It used to start as the previous import's
+  // account, and the account detected from the new statement only filled an
+  // empty field, so a Chase statement imported after a Discover one was stamped
+  // "Discover". Now the detected account wins unless the user typed one.
+  const [account, setAccount] = useState('');
+  const [accountTouched, setAccountTouched] = useState(false);
+  const onAccountInput = (value: string) => { setAccount(value); setAccountTouched(true); };
+  const [batchId, setBatchId] = useState(makeBatchId);
+  const [importing, setImporting] = useState(false);
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [pdfMinimized, setPdfMinimized] = useState(false);
   const [pdfPct, setPdfPct] = useState(() => {
@@ -169,6 +195,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   const resetAll = () => {
     setFileName(''); setPdfUri(null); setPdfMinimized(false); setParsing(false);
     setError(null); setRows(null); setHeaders(null); setDataRows([]); setCsvText(''); setMapping({});
+    setAccount(''); setAccountTouched(false); setBatchId(makeBatchId());
   };
   const close = () => { resetAll(); onClose(); };
 
@@ -240,7 +267,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
       if (!transactions.length) { setError('No transactions were found in that PDF.'); return; }
       // Prefill from the statement header, but never clobber a label the user
       // already typed for this import.
-      if (detected && !account.trim()) setAccount(detected);
+      if (detected && !accountTouched) setAccount(detected);
       setRows(buildRows(transactions));
     } catch (err: any) {
       setError(
@@ -276,7 +303,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
     try {
       const { account: detected, transactions } = await parseStatement({ csvText });
       if (!transactions.length) { setError('No transactions were found in that CSV.'); return; }
-      if (detected && !account.trim()) setAccount(detected);
+      if (detected && !accountTouched) setAccount(detected);
       setRows(buildRows(transactions));
     } catch (err: any) {
       setError(
@@ -301,14 +328,23 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   }, [csvPreview]);
 
   // --- Row mutations ---
-  const patch = (id: string, p: Partial<Row>) => setRows((rs) => rs!.map((r) => (r.id === id ? { ...r, ...p } : r)));
+  // Editing a field that can fix the row clears its flag; Import re-checks it.
+  const FIXING_FIELDS: Array<keyof Row> = ['amount', 'description', 'notes', 'include', 'type'];
+  const patch = (id: string, p: Partial<Row>) => setRows((rs) => rs!.map((r) => {
+    if (r.id !== id) return r;
+    const clears = FIXING_FIELDS.some((k) => k in p);
+    return { ...r, ...(clears ? { problem: undefined } : {}), ...p };
+  }));
   const setType = (id: string, type: TxnType) => setRows((rs) => rs!.map((r) => {
     if (r.id !== id) return r;
     const validCats = type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
     const category = validCats.includes(r.category) ? r.category : defaultCategoryFor(type, r.description);
     return { ...r, type, category, paymentMethod: type === 'income' ? '' : r.paymentMethod };
   }));
-  const setAll = (include: boolean) => setRows((rs) => rs!.map((r) => ({ ...r, include })));
+  // Visible rows only: with "Hide dups" on, Select all used to re-include the
+  // hidden duplicates too, importing them a second time.
+  const setAll = (include: boolean) => setRows((rs) => rs!.map((r) => (isVisible(r) ? { ...r, include } : r)));
+  const isVisible = (r: Row) => !hideDuplicates || !r.duplicate;
 
   const enrichRow = async (row: Row) => {
     patch(row.id, { enriching: true });
@@ -369,11 +405,27 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
     }
   };
 
-  const doImport = () => {
-    if (!rows) return;
-    const sel = rows.filter((r) => r.include);
+  const doImport = async () => {
+    if (!rows || importing) return;
+    // What you see is what imports: hidden duplicates never do.
+    const sel = rows.filter((r) => r.include && isVisible(r));
+    if (sel.length === 0) return;
+
+    // Check every row first: the server rejects the WHOLE batch on one bad row
+    // (amount 0, blank description), which used to throw away all the review work.
+    const problems = new Map(sel.map((r) => [r.id, rowProblem(r)] as const).filter(([, p]) => p));
+    if (problems.size > 0) {
+      setRows((rs) => rs!.map((r) => {
+        const problem = problems.get(r.id);
+        return problem ? { ...r, problem, expanded: r.expanded || problem.startsWith('Amount') || problem.startsWith('Notes') } : r;
+      }));
+      toast.error(`${problems.size} row${problems.size === 1 ? ' needs' : 's need'} fixing before importing — they're marked in red.`);
+      requestAnimationFrame(() => document.querySelector('[data-row-problem="true"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+      return;
+    }
+
     const expenses: Omit<Expense, 'id'>[] = sel.filter((r) => r.type === 'expense').map((r) => ({
-      title: r.description.slice(0, 120),
+      title: r.description.trim().slice(0, 120),
       amount: r.amount,
       category: r.category,
       date: r.date,
@@ -384,7 +436,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
       account: account.trim() || undefined,
     }));
     const incomes: Omit<Income, 'id'>[] = sel.filter((r) => r.type === 'income').map((r) => ({
-      title: r.description.slice(0, 120),
+      title: r.description.trim().slice(0, 120),
       amount: r.amount,
       category: r.category,
       date: r.date,
@@ -392,15 +444,21 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
       tags: parseTags(r.tagsInput),
       account: account.trim() || undefined,
     }));
-    if (expenses.length === 0 && incomes.length === 0) return;
-    try { localStorage.setItem('stmtLastAccount', account.trim()); } catch { /* ignore */ }
-    onImport({ expenses, incomes });
-    close();
+
+    // Close only once the import has landed; on failure the review stays put
+    // (App shows the error) and Import can be pressed again with the same key.
+    setImporting(true);
+    try {
+      const ok = await onImport({ expenses, incomes, batchId });
+      if (ok !== false) close();
+    } finally {
+      setImporting(false);
+    }
   };
 
   if (!isOpen) return null;
 
-  const selected = rows?.filter((r) => r.include) ?? [];
+  const selected = rows?.filter((r) => r.include && isVisible(r)) ?? [];
   const dupCount = rows?.filter((r) => r.duplicate).length ?? 0;
   const selExpRows = selected.filter((r) => r.type === 'expense');
   const selIncRows = selected.filter((r) => r.type === 'income');
@@ -426,7 +484,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                   <span className="whitespace-nowrap">Account</span>
                   <input
                     value={account}
-                    onChange={(e) => setAccount(e.target.value)}
+                    onChange={(e) => onAccountInput(e.target.value)}
                     list="stmt-account-suggestions"
                     placeholder="e.g. Discover"
                     aria-label="Account or card this statement belongs to"
@@ -439,8 +497,8 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
               )}
               <Button variant="secondary" onClick={close}>Cancel</Button>
               {rows && (
-                <Button onClick={doImport} disabled={selected.length === 0}>
-                  Import {selected.length}{selected.length ? ` (${selExp} exp · ${selInc} inc)` : ''}
+                <Button onClick={doImport} disabled={selected.length === 0 || importing}>
+                  {importing ? 'Importing…' : <>Import {selected.length}{selected.length ? ` (${selExp} exp · ${selInc} inc)` : ''}</>}
                 </Button>
               )}
             </div>
@@ -561,6 +619,18 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
         <div ref={paneRef} className="flex">
           {/* Review list */}
           <div className="flex-1 min-w-0 space-y-3">
+            {/* The header's account field is hidden on small screens; this one isn't. */}
+            <label className="flex sm:hidden items-center gap-2 text-[11px] text-app-muted">
+              <span className="whitespace-nowrap">Account / card</span>
+              <input
+                value={account}
+                onChange={(e) => onAccountInput(e.target.value)}
+                list="stmt-account-suggestions"
+                placeholder="e.g. Discover"
+                aria-label="Account or card this statement belongs to (mobile)"
+                className={fieldSm}
+              />
+            </label>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <p className="text-xs text-app-muted tabular-nums">
                 {rows.length} detected · {selExp} expense{selExp === 1 ? '' : 's'} · {selInc} income selected
@@ -606,7 +676,8 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
               {rows.filter((r) => !hideDuplicates || !r.duplicate).map((r) => {
                 const catOptions = r.type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
                 return (
-                  <div key={r.id} className={`rounded-lg border border-app-border bg-surface-2 p-2.5 ${r.include ? '' : 'opacity-50'}`}>
+                  <div key={r.id} data-row-problem={r.problem ? 'true' : undefined} className={`rounded-lg border bg-surface-2 p-2.5 ${r.problem ? 'border-danger ring-1 ring-danger/40' : 'border-app-border'} ${r.include ? '' : 'opacity-50'}`}>
+                    {r.problem && <p role="alert" className="text-[11px] font-semibold text-danger mb-1.5">{r.problem}</p>}
                     <div className="flex items-center gap-2">
                       <input type="checkbox" checked={r.include} onChange={() => patch(r.id, { include: !r.include })} aria-label={`Include ${r.description}`} className="accent-[color:var(--primary)] flex-shrink-0" />
                       <select

@@ -704,10 +704,12 @@ const handleDeleteIncome = async (id: string) => {
 
   // Bank-statement import: a statement can contain both debits and credits, so it
   // creates expenses AND incomes in one pass, then refetches once.
-  const handleImportStatement = async (payload: { expenses: Omit<Expense, 'id'>[]; incomes: Omit<Income, 'id'>[] }) => {
+  // Resolves true only when everything landed; the importer stays open otherwise
+  // so the user can press Import again (same batch key → no duplicates).
+  const handleImportStatement = async (payload: { expenses: Omit<Expense, 'id'>[]; incomes: Omit<Income, 'id'>[]; batchId?: string }): Promise<boolean> => {
     const { expenses, incomes } = payload;
-    if (expenses.length === 0 && incomes.length === 0) return;
-    if (refuseUntilLoaded('the import')) return;
+    if (expenses.length === 0 && incomes.length === 0) return false;
+    if (refuseUntilLoaded('the import')) return false;
 
     // The two batches are separate requests, so the second can fail after the
     // first has already been written. Track what actually landed and ALWAYS
@@ -717,9 +719,10 @@ const handleDeleteIncome = async (id: string) => {
     let incomesSaved = 0;
     let failure: unknown = null;
 
-    // One key per batch, so a retry of this exact import is rejected server-side
-    // as a duplicate rather than inserting everything a second time (B5).
-    const batchId = newBatchId();
+    // One key per import session (from the importer), so a retry after a
+    // failure or a lost response skips whatever already landed instead of
+    // inserting it again (B5). It used to be regenerated on every attempt.
+    const batchId = payload.batchId || newBatchId();
 
     try {
       if (expenses.length > 0) { await createBulkExpenses(expenses, `${batchId}-exp`); expensesSaved = expenses.length; }
@@ -739,12 +742,15 @@ const handleDeleteIncome = async (id: string) => {
 
     if (!failure) {
       notify.success(`Imported ${parts.join(' and ')}.`);
-    } else if (parts.length > 0) {
-      // Partial write: say exactly what saved so the user re-imports only the rest.
-      notify.error(`Imported ${parts.join(' and ')}, but the rest failed. Those are already saved — don't re-import them.`);
-    } else {
-      notify.error('Could not import the statement. Nothing was saved.');
+      return true;
     }
+    if (parts.length > 0) {
+      // Partial write. Pressing Import again is safe: the saved batch is skipped.
+      notify.error(`Imported ${parts.join(' and ')}, but the rest failed. Press Import again to finish — nothing will be duplicated.`);
+    } else {
+      notify.error('Could not import the statement. Nothing was saved — your review is still here, try Import again.');
+    }
+    return false;
   };
 
   const handleRestoreBackup = async (payload: {
@@ -1467,8 +1473,11 @@ const handleDeleteIncome = async (id: string) => {
         // --- THE NEW MAIN ROUTER RETURN ---
         return (
           <Router>
+            {/* Top-center, not top-right: the right corner holds primary actions
+                (the importer's Import button, the header's icon buttons), and a
+                toast there covered them — hovering it even paused its dismissal. */}
             <Toaster 
-              position="top-right"
+              position="top-center"
               toastOptions={{
                 duration: 4000,
                 style: {

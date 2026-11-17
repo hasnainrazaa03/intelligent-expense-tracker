@@ -58,6 +58,14 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   const [backupFile, setBackupFile] = useState<File | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+  // A validated backup waiting for confirmation. Restore REPLACES everything on
+  // the account (the server deletes first), so it never runs on one click.
+  const [pendingRestore, setPendingRestore] = useState<null | {
+    data: { expenses: any[]; incomes: any[]; budgets: Budget[]; semesters: Semester[] };
+    preferences: any;
+    exportedAt: string | null;
+  }>(null);
+  const [restoreConfirm, setRestoreConfirm] = useState('');
 
   const filteredExpenses = useMemo(() => {
     if (dateRange === 'all_time') return allExpenses;
@@ -149,6 +157,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   };
 
   const handleBackupFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPendingRestore(null);
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
       const lowerName = file.name.toLowerCase();
@@ -294,58 +303,68 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     reader.readAsText(importFile);
   };
 
+  // Step 1: read and validate the file, then ask for confirmation.
   const handleRestoreBackup = () => {
     if (!backupFile) {
       setBackupError('BACKUP_FILE_REQUIRED');
       return;
     }
-
-    setIsRestoringBackup(true);
     setBackupError(null);
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       try {
-        const jsonText = event.target?.result as string;
-        const parsed = JSON.parse(jsonText);
-
+        const parsed = JSON.parse(event.target?.result as string);
         const backupData = parsed?.data || parsed;
         if (!backupData || !Array.isArray(backupData.expenses) || !Array.isArray(backupData.incomes) || !Array.isArray(backupData.budgets) || !Array.isArray(backupData.semesters)) {
           throw new Error('INVALID_BACKUP_STRUCTURE');
         }
-
-        await onRestoreBackup({
-          expenses: backupData.expenses,
-          incomes: backupData.incomes,
-          budgets: backupData.budgets,
-          semesters: backupData.semesters,
+        setRestoreConfirm('');
+        setPendingRestore({
+          data: { expenses: backupData.expenses, incomes: backupData.incomes, budgets: backupData.budgets, semesters: backupData.semesters },
+          preferences: parsed?.preferences,
+          exportedAt: typeof parsed?.exportedAt === 'string' ? parsed.exportedAt : null,
         });
-        logAuditEvent('backup_restore', {
-          expenses: backupData.expenses.length,
-          incomes: backupData.incomes.length,
-          budgets: backupData.budgets.length,
-          semesters: backupData.semesters.length,
-        }).catch(() => undefined);
-
-        const prefs = parsed?.preferences;
-        if (prefs?.displayCurrency === 'USD' || prefs?.displayCurrency === 'INR') {
-          localStorage.setItem('displayCurrency', prefs.displayCurrency);
-        }
-        if (typeof prefs?.customCategories === 'string') {
-          localStorage.setItem('customCategories', prefs.customCategories);
-        }
-        if (typeof prefs?.deletedSubcategories === 'string') {
-          localStorage.setItem('deletedSubcategories', prefs.deletedSubcategories);
-        }
-
-        onClose();
       } catch (error: any) {
-        setBackupError(error.message || 'BACKUP_RESTORE_FAILED');
-      } finally {
-        setIsRestoringBackup(false);
+        setBackupError(error instanceof SyntaxError ? 'That file is not valid JSON.' : (error.message || 'BACKUP_RESTORE_FAILED'));
       }
     };
+    reader.onerror = () => setBackupError('FILE_READ_FAILED');
     reader.readAsText(backupFile);
+  };
+
+  // Step 2: the user confirmed — replace the account's data with the backup.
+  const confirmRestoreBackup = async () => {
+    if (!pendingRestore || restoreConfirm !== 'REPLACE') return;
+    const { data: backupData, preferences: prefs } = pendingRestore;
+    setIsRestoringBackup(true);
+    setBackupError(null);
+    try {
+      await onRestoreBackup(backupData);
+      logAuditEvent('backup_restore', {
+        expenses: backupData.expenses.length,
+        incomes: backupData.incomes.length,
+        budgets: backupData.budgets.length,
+        semesters: backupData.semesters.length,
+      }).catch(() => undefined);
+
+      if (prefs?.displayCurrency === 'USD' || prefs?.displayCurrency === 'INR') {
+        localStorage.setItem('displayCurrency', prefs.displayCurrency);
+      }
+      if (typeof prefs?.customCategories === 'string') {
+        localStorage.setItem('customCategories', prefs.customCategories);
+      }
+      if (typeof prefs?.deletedSubcategories === 'string') {
+        localStorage.setItem('deletedSubcategories', prefs.deletedSubcategories);
+      }
+
+      setPendingRestore(null);
+      onClose();
+    } catch (error: any) {
+      setBackupError(error.message || 'BACKUP_RESTORE_FAILED');
+    } finally {
+      setIsRestoringBackup(false);
+    }
   };
 
   return (
@@ -489,15 +508,67 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               </div>
             )}
 
-            <Button
-              variant="secondary"
-              fullWidth
-              onClick={handleRestoreBackup}
-              disabled={isRestoringBackup || !backupFile}
-              className="py-3"
-            >
-              {isRestoringBackup ? 'Restoring backup…' : 'Restore full backup'}
-            </Button>
+            {!pendingRestore ? (
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={handleRestoreBackup}
+                disabled={!backupFile}
+                className="py-3"
+              >
+                Restore full backup…
+              </Button>
+            ) : (
+              <div role="group" aria-labelledby="restore-confirm-title" className="rounded-xl border border-danger/40 bg-danger/5 p-4 space-y-3">
+                <div>
+                  <p id="restore-confirm-title" className="text-sm font-semibold text-app-text">Replace all your data with this backup?</p>
+                  <p className="text-[11px] text-app-muted mt-0.5">
+                    Everything on your account is deleted first, then the backup is loaded. Anything added since
+                    {pendingRestore.exportedAt ? ` ${new Date(pendingRestore.exportedAt).toLocaleDateString()}` : ' the backup was made'} will be lost.
+                  </p>
+                </div>
+                <table className="w-full text-[11px] tabular-nums">
+                  <thead>
+                    <tr className="text-app-faint text-left"><th className="font-medium py-0.5"></th><th className="font-medium">Now</th><th className="font-medium">After restore</th></tr>
+                  </thead>
+                  <tbody className="text-app-text">
+                    <tr><td className="text-app-muted py-0.5">Expenses</td><td>{allExpenses.length}</td><td>{pendingRestore.data.expenses.length}</td></tr>
+                    <tr><td className="text-app-muted py-0.5">Income</td><td>{allIncomes.length}</td><td>{pendingRestore.data.incomes.length}</td></tr>
+                    <tr><td className="text-app-muted py-0.5">Budgets</td><td>{budgets.length}</td><td>{pendingRestore.data.budgets.length}</td></tr>
+                    <tr><td className="text-app-muted py-0.5">Semesters</td><td>{semesters.length}</td><td>{pendingRestore.data.semesters.length}</td></tr>
+                  </tbody>
+                </table>
+                <button type="button" onClick={handleExportFullBackup} className="text-[11px] font-semibold text-primary hover:underline">
+                  Download a backup of my current data first
+                </button>
+                <div>
+                  <label htmlFor="restore-confirm" className="block text-[11px] text-app-muted mb-1">
+                    Type <span className="font-semibold text-danger">REPLACE</span> to confirm
+                  </label>
+                  <input
+                    id="restore-confirm"
+                    type="text"
+                    value={restoreConfirm}
+                    onChange={(e) => setRestoreConfirm(e.target.value)}
+                    placeholder="REPLACE"
+                    autoComplete="off"
+                    className="w-full bg-surface border border-app-border rounded-lg px-3 py-2 text-sm text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-danger/50"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="secondary" fullWidth onClick={() => setPendingRestore(null)} disabled={isRestoringBackup}>Cancel</Button>
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    onClick={confirmRestoreBackup}
+                    disabled={restoreConfirm !== 'REPLACE' || isRestoringBackup}
+                    className="!bg-danger/15 !text-danger !border-danger/40 hover:!bg-danger/25 disabled:opacity-50"
+                  >
+                    {isRestoringBackup ? 'Restoring…' : 'Replace my data'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* --- DANGER ZONE --- */}
