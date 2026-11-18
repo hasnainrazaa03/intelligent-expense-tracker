@@ -40,12 +40,14 @@ const BudgetProgressItem: React.FC<{ category: string; label?: string; spent: nu
           <div className="flex items-center justify-end gap-1">
             {isOverBudget && <ExclamationTriangleIcon className="h-3.5 w-3.5 md:h-4 md:w-4 text-danger" />}
             <span className="font-display text-sm md:text-base font-semibold leading-none text-app-text tabular-nums">
-                {formatCurrency(spent, displayCurrency, conversionRate, true)}
+                {formatCurrency(spent, displayCurrency, conversionRate)}
             </span>
-            <span className="text-[10px] md:text-xs text-app-faint tabular-nums">/ {formatCurrency(budget, displayCurrency, conversionRate, true)}</span>
+            <span className="text-[10px] md:text-xs text-app-faint tabular-nums">/ {formatCurrency(budget, displayCurrency, conversionRate)}</span>
           </div>
           <p className={`text-[10px] md:text-[11px] font-medium mt-1 ${isOverBudget ? 'text-danger' : 'text-app-muted'}`}>
-            {percentage.toFixed(1)}% used
+            {/* The dollars say what the percentage means: "387% used" alone
+                doesn't tell you how much you're over. */}
+            {percentage.toFixed(1)}% used · {formatCurrency(Math.abs(budget - spent), displayCurrency, conversionRate)} {isOverBudget ? 'over' : 'left'}
           </p>
         </div>
       </div>
@@ -133,7 +135,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
         <div className="relative z-10">
             <div className="flex justify-between items-start gap-3 mb-4 md:mb-5">
                 <div className="min-w-0">
-                    <h3 className="font-display text-lg md:text-xl font-bold leading-none text-app-text">Total load capacity</h3>
+                    <h3 className="font-display text-lg md:text-xl font-bold leading-none text-app-text">{isCurrentMonth ? 'Budget used this month' : `Budget used in ${monthLabel}`}</h3>
                     <p className="text-[11px] text-app-muted mt-1.5">Usage in {monthLabel}{isCurrentMonth ? ' · this month' : ''}</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">

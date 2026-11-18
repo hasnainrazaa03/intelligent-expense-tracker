@@ -101,7 +101,7 @@ test.describe('as the demo account', () => {
     const now = new Date();
     const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() === 1 ? 2 : 1);
     const ymd = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
-    await page.getByRole('button', { name: `Change the paid date of installment ${n}` }).click();
+    await page.getByRole('button', { name: `Change date paid for installment ${n}` }).click();
     await page.getByRole('button', { name: new RegExp(`^Paid date for installment ${n},`) }).click();
     await page.getByRole('button', { name: target.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), exact: true }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();

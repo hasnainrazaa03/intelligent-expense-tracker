@@ -247,7 +247,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                             <button
                               type="button"
                               onClick={() => setEditingDate({ key: dateKey(activeSemester.id, inst.id), value: inst.paidDate || todayCalendar() })}
-                              aria-label={`Change the paid date of installment ${index + 1}`}
+                              aria-label={`Change date paid for installment ${index + 1}`}
                               className="text-app-muted hover:text-app-text underline underline-offset-2"
                             >
                               Change date

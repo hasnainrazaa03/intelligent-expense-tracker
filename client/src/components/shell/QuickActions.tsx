@@ -5,6 +5,10 @@ import { PlusCircleIcon } from '../Icons';
  * The floating + button and its menu (4b): opening moves focus to the first
  * item; arrows, Home and End move through it; Escape closes it and returns
  * focus to the button; Tab closes it.
+ *
+ * It steps out of the way while the page scrolls down (it used to sit on top of
+ * whatever was under it, like a budget amount or the date filter) and comes
+ * back on the way up, near the top, or while it has focus or its menu is open.
  */
 const QuickActions: React.FC<{ onAddExpense: () => void; onAddIncome: () => void; onScanStatement: () => void }> = ({
   onAddExpense,
@@ -12,8 +16,30 @@ const QuickActions: React.FC<{ onAddExpense: () => void; onAddIncome: () => void
   onScanStatement,
 }) => {
   const [open, setOpen] = useState(false);
+  const [tucked, setTucked] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Scroll events don't bubble, so listen in the capture phase: the app
+    // scrolls inside <main>, not the window.
+    let last = 0;
+    const onScroll = (e: Event) => {
+      const el = e.target instanceof HTMLElement ? e.target : document.scrollingElement;
+      if (!el || (el instanceof HTMLElement && el.id !== 'main-content' && el !== document.scrollingElement)) return;
+      const y = el.scrollTop;
+      const delta = y - last;
+      last = y;
+      if (wrapRef.current?.contains(document.activeElement)) return setTucked(false);
+      if (y < 40) setTucked(false);
+      else if (delta > 8) setTucked(true);
+      else if (delta < -8) setTucked(false);
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
+  }, []);
+  const hidden = tucked && !open;
   useEffect(() => {
     if (open) menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [open]);
@@ -33,7 +59,11 @@ const QuickActions: React.FC<{ onAddExpense: () => void; onAddIncome: () => void
   const item = 'w-full text-left rounded-xl px-3.5 py-2.5 text-sm font-medium text-app-text hover:bg-surface-2 transition-colors';
 
   return (
-    <div className="fixed bottom-24 right-5 md:bottom-8 md:right-8 z-50">
+    <div
+      ref={wrapRef}
+      className={`fixed bottom-24 right-5 md:bottom-8 md:right-8 z-50 transition-all duration-200 ${hidden ? 'translate-y-28 opacity-0 pointer-events-none' : ''}`}
+      onFocus={() => setTucked(false)}
+    >
       {open && (
         // Click-away backdrop
         <button aria-hidden="true" tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 -z-10 cursor-default" />

@@ -102,12 +102,11 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
       {/* Header + own date filter (independent of the Financial hub). */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4">
         <div className="flex flex-col min-w-0">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-medium tracking-[0.18em] uppercase text-app-muted mb-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-ok shadow-glow" />
-            Income overview
+          <span className="text-[10px] font-medium tracking-[0.18em] uppercase text-app-muted mb-1.5">
+            Income
           </span>
           <h2 className="font-display text-2xl md:text-3xl font-bold text-app-text leading-tight tracking-tight break-words">
-            Income hub
+            Overview
           </h2>
         </div>
         <div className="w-full lg:w-auto flex justify-center lg:justify-end overflow-x-auto no-scrollbar py-1">
@@ -152,10 +151,10 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
         <div className="h-64 md:h-72">
           {incomeVsExpense.some((d) => d.income > 0 || d.expense > 0) ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={incomeVsExpense} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
+              <BarChart data={incomeVsExpense} margin={{ top: 10, right: 5, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.25)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={{ stroke: 'rgba(100,116,139,0.3)' }} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={(v) => formatCurrency(v, displayCurrency, conversionRate, true)} axisLine={false} tickLine={false} width={50} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} tickFormatter={(v) => formatCurrency(v, displayCurrency, conversionRate, true)} axisLine={false} tickLine={false} width="auto" />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'var(--modal-surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
                   itemStyle={{ color: 'var(--app-text)' }}

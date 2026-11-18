@@ -54,10 +54,13 @@ const MAX_SEARCH_RESULTS = 8;
 
 // Wraps a header action so its purpose shows as a labelled tooltip on hover —
 // the icon-only buttons were hard to identify at a glance.
+/** The words for an icon button: on hover, and on keyboard focus so people who
+ *  Tab through the header get them too. Hidden from screen readers, which read
+ *  the button's own aria-label instead. */
 const ActionTip: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="relative group/tip flex">
     {children}
-    <span className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg modal-surface px-2.5 py-1 text-[11px] font-medium text-app-text opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50 shadow-soft">
+    <span aria-hidden="true" className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg modal-surface px-2.5 py-1 text-[11px] font-medium text-app-text opacity-0 group-hover/tip:opacity-100 group-has-[:focus-visible]/tip:opacity-100 transition-opacity duration-150 z-50 shadow-soft">
       {label}
     </span>
   </div>
@@ -70,7 +73,6 @@ const Header: React.FC<HeaderProps> = ({
   const { displayCurrency, conversionRate } = useCurrency();
   const { theme, toggleTheme } = useTheme();
   const { canInstall, promptInstall } = usePwaInstall();
-  const [currentTime, setCurrentTime] = useState(() => new Date().toLocaleTimeString());
 
   // Raw search input is owned here and debounced locally, so keystrokes re-render
   // only the Header — not the whole app (APP-H5).
@@ -79,11 +81,6 @@ const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     onSearch(debouncedSearch);
   }, [debouncedSearch, onSearch]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // --- Global search dropdown ---------------------------------------------
   // Match the live input (not the debounced value) so the dropdown feels
@@ -174,15 +171,6 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="glass glass-blur rounded-2xl sticky top-2 md:top-3 z-40 overflow-visible mb-4 md:mb-6">
-      {/* 1. STATUS BAR (subtle) */}
-      <div className="hidden sm:flex text-app-faint py-1.5 px-5 justify-between items-center border-b border-app-border">
-        <div className="flex gap-4 font-mono text-[9px] tracking-[0.25em] uppercase">
-          <span>Orbit</span>
-          <span className="hidden md:inline text-app-faint/70">Encrypted connection</span>
-        </div>
-        <div className="font-mono text-[9px] tracking-[0.25em] text-primary">{currentTime}</div>
-      </div>
-
       <div className="p-3 md:p-5">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4 md:gap-6">
 
@@ -293,10 +281,10 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full lg:w-auto">
             <div className="flex items-center gap-3">
               {/* Theme toggle (light / cosmic dark) */}
+              <ActionTip label={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
               <button
                 onClick={toggleTheme}
                 aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
                 className="grid place-items-center w-9 h-9 md:w-10 md:h-10 rounded-full bg-surface-2 border border-app-border text-app-muted hover:text-app-text transition-colors"
               >
                 {theme === 'dark' ? (
@@ -305,6 +293,7 @@ const Header: React.FC<HeaderProps> = ({
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-4 w-4"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
                 )}
               </button>
+              </ActionTip>
               {/* Offline / pending-sync indicator */}
               {offlineStatus && (!offlineStatus.isOnline || offlineStatus.pendingCount > 0) && (
                 <span
@@ -346,12 +335,12 @@ const Header: React.FC<HeaderProps> = ({
                     <AcademicCapIcon className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
                 </ActionTip>
-                <ActionTip label="Budgets">
+                <ActionTip label="Manage budgets">
                   <IconButton onClick={onManageBudgets} aria-label="Manage budgets" className="md:w-10 md:h-10">
                     <PencilIcon className="h-4 w-4 md:h-5 md:w-5" />
                   </IconButton>
                 </ActionTip>
-                <ActionTip label="Categories">
+                <ActionTip label="Manage categories">
                   <IconButton onClick={onManageCategories} aria-label="Manage categories" className="md:w-10 md:h-10">
                     <TagIcon className="h-4 w-4 md:h-5 md:w-5" />
                   </IconButton>

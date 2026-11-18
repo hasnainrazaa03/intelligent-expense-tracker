@@ -204,7 +204,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes: allIncomes, onEdit, on
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-app-border pb-3 gap-2">
-        <h2 className="font-display text-xl md:text-2xl font-bold text-app-text truncate">Income stream</h2>
+        <h2 className="font-display text-xl md:text-2xl font-bold text-app-text truncate">Income entries</h2>
         <div className="flex items-center gap-2 flex-wrap">
           {dateFilter}
           {(

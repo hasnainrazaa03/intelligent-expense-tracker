@@ -7,6 +7,23 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Easier to read and use, part 1 (2026-11-18)
+- **Recurring charges due are one line now:** "4 recurring charges due · $1,550.24 · Review",
+  on the Expenses home only, instead of a long box on top of every screen. Review opens the
+  list with nothing ticked, so a single tap can no longer add every charge.
+- **Amounts in full:** budgets, alerts and the category total show cents (`$478.50`, not
+  `$478.5` or `$1.7K`); the short form is kept for chart axes. Each budget also says how
+  much is left or over in dollars, not only as a percentage.
+- **Charts:** axis labels are no longer cut off, and month-to-month lines are straight, so
+  they no longer suggest spending between months that didn't happen.
+- **Plain words:** "Budget used this month" (was "Total load capacity"), "Spending by
+  category", "Last 6 months", and Pivot's Total, Transactions and Average columns. The
+  decorative "Encrypted connection" strip and clock above the header are gone.
+- **Labels for icons:** header and sidebar icons show their names on keyboard focus as well
+  as on hover. The + button steps aside while you scroll down and comes back on the way up.
+- **Fixed:** the tuition "Change date" button's spoken name now includes its visible words
+  (WCAG 2.5.3), and recurring amounts follow the display currency.
+
 ### Account and dates (2026-11-17)
 - **Orbit has its own address (#209):** www.orbitexpense.me. Links and previews point there;
   the old vercel.app address keeps working while everyone moves over. Once email is sent

@@ -55,7 +55,7 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
       <BarChart
         data={data}
         // Reclaiming horizontal space for mobile
-        margin={{ top: 10, right: 5, left: -20, bottom: 0 }}
+        margin={{ top: 10, right: 5, left: 0, bottom: 0 }}
       >
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
 
@@ -71,7 +71,7 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
           tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)}
           axisLine={false}
           tickLine={false}
-          width={45}
+          width="auto"
         />
 
         <Tooltip

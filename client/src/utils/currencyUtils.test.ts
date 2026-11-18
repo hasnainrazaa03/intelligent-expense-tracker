@@ -25,6 +25,25 @@ describe('formatCurrency', () => {
   it('returns placeholder for any non-USD currency without a rate', () => {
     expect(formatCurrency(10, 'EUR', null)).toBe('...');
   });
+
+  it('always shows cents in the full form', () => {
+    expect(formatCurrency(478.5, 'USD', null)).toBe('$478.50');
+    expect(formatCurrency(1401.34, 'USD', null)).toBe('$1,401.34');
+    expect(formatCurrency(0, 'USD', null)).toBe('$0.00');
+  });
+
+  it('keeps the short form whole under 1,000 and one decimal above', () => {
+    expect(formatCurrency(478.5, 'USD', null, true)).toBe('$479');
+    expect(formatCurrency(0, 'USD', null, true)).toBe('$0');
+    expect(formatCurrency(1500, 'USD', null, true)).toBe('$1.5K');
+    expect(formatCurrency(12000, 'USD', null, true)).toBe('$12K');
+    expect(formatCurrency(-2500, 'USD', null, true)).toBe('-$2.5K');
+  });
+
+  it('decides the short form on the converted amount', () => {
+    // 20 USD at 83 INR/USD = 1,660 INR, so it is past 1,000 and compact.
+    expect(formatCurrency(20, 'INR', 83, true)).toMatch(/1\.7K/);
+  });
 });
 
 describe('distributeAmount', () => {

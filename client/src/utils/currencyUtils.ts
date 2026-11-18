@@ -1,3 +1,9 @@
+/**
+ * Money as people read it: full amounts with cents (`$478.50`, `$1,401.34`).
+ * `isCompact` is the short form for chart axes and other chart-like labels
+ * only (`$0`, `$480`, `$1.5K`, `$12K`): whole numbers under 1,000, one decimal
+ * above. Everything a person reads as an amount uses the full form.
+ */
 export const formatCurrency = (
   amountInUSD: number,
   displayCurrency: string,
@@ -8,24 +14,24 @@ export const formatCurrency = (
   // This prevents 10.099999999 from appearing as $10.09
   const cleanUSD = Math.round((amountInUSD + Number.EPSILON) * 100) / 100;
 
-  const options: Intl.NumberFormatOptions = {
-    style: 'currency',
-    currency: displayCurrency,
-    minimumFractionDigits: isCompact ? 0 : 2,
-    maximumFractionDigits: isCompact ? 1 : 2,
-    notation: isCompact ? 'compact' : 'standard',
-  };
-
   // Amounts are stored in USD. USD is a pure passthrough (no conversion leak);
   // every other display currency multiplies by the USD→currency rate.
-  if (displayCurrency === 'USD') {
-    return new Intl.NumberFormat('en-US', options).format(cleanUSD);
-  }
-
-  if (conversionRate === null) return '...';
-  const converted = cleanUSD * conversionRate;
+  if (displayCurrency !== 'USD' && conversionRate === null) return '...';
+  const value = displayCurrency === 'USD' ? cleanUSD : cleanUSD * (conversionRate as number);
   const locale = displayCurrency === 'INR' ? 'en-IN' : 'en-US';
-  return new Intl.NumberFormat(locale, options).format(converted);
+
+  const options: Intl.NumberFormatOptions = isCompact
+    ? {
+        style: 'currency',
+        currency: displayCurrency,
+        notation: 'compact',
+        minimumFractionDigits: 0,
+        // "$478.5" reads like a typo; under 1,000 the short form is whole.
+        maximumFractionDigits: Math.abs(value) < 1000 ? 0 : 1,
+      }
+    : { style: 'currency', currency: displayCurrency, minimumFractionDigits: 2, maximumFractionDigits: 2 };
+
+  return new Intl.NumberFormat(locale, options).format(value);
 };
 
 /**

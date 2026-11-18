@@ -66,6 +66,7 @@ const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses })
         {/* Amounts are stored in USD; the axis has to follow the display currency
             like every other chart, or the numbers silently contradict the toggle. */}
         <YAxis
+          width="auto"
           tick={{ fill: '#64748b', fontSize: 12 }}
           tickFormatter={(value) => formatCurrency(Number(value), displayCurrency, conversionRate, true)}
         />
