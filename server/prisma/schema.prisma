@@ -206,5 +206,37 @@ model UserSettings {
   pausedRecurring      Json?     // { recurring template key: true }
   savingsGoals         Json?     // [{ id, name, target, saved, deadline? }] (cents)
   investmentAccounts   Json?     // [{ id, name, type, value, asOf }] (cents)
+  // Notifications (5e-2): which ones, and the user's IANA time zone, so they
+  // arrive in the daytime and "this month" is the user's month.
+  notifyBudgets        Boolean?
+  notifyBills          Boolean?
+  notifyMonthlySummary Boolean?
+  timeZone             String?
   updatedAt            DateTime  @updatedAt
+}
+
+// A browser that agreed to receive push notifications (Web Push). One per
+// browser (endpoint); a user can have several. Removed when the push service
+// says it's gone (404/410) or the user turns notifications off there.
+model PushSubscription {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Notifications already sent, so the hourly job sends each one once
+// (e.g. "budget:2026-11:Food:80", "bill:netflix|personal:2026-11-22").
+model NotificationLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  key       String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, key])
 }

@@ -161,7 +161,7 @@ test('popups and modals have no WCAG A/AA violations', async ({ page }) => {
   }
 
   // Settings' confirmation for turning on two-factor (cancelled, not confirmed).
-  await page.getByRole('button', { name: 'Turn on' }).click();
+  await page.getByRole('region', { name: 'Security' }).getByRole('button', { name: 'Turn on' }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   expect(await axe(page, '[role="alertdialog"]'), 'two-factor confirmation').toEqual([]);
   await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();

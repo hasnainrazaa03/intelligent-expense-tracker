@@ -102,6 +102,30 @@ strict privacy modes.
 - The inline theme script in `client/index.html` is allowed by its sha256 in the
   CSP; `securityHeaders.test.ts` fails if they drift.
 
+### Push notifications (budget alerts, bill reminders, monthly summary)
+
+Off until these are set. Do it once:
+
+1. Make a VAPID key pair (in `server/`): `npx web-push generate-vapid-keys`.
+2. On **Render**, add:
+
+   | Var | Value |
+   |---|---|
+   | `VAPID_PUBLIC_KEY` | the public key from step 1 |
+   | `VAPID_PRIVATE_KEY` | the private key from step 1 (keep it secret) |
+   | `VAPID_SUBJECT` | optional: `mailto:` contact for push services (default: the contact in the privacy policy) |
+   | `CRON_SECRET` | a random string of 24+ characters: `openssl rand -hex 32` |
+
+3. On **GitHub** → the repository → Settings → Secrets and variables → Actions, add the
+   **secret** `CRON_SECRET` with the same value. The hourly **Notifications** workflow
+   calls `POST /api/jobs/notify` with it (and wakes Render). If the API isn't at
+   `https://orbit-api-elbw.onrender.com`, also add the **variable** `API_URL`.
+4. Run the workflow once by hand (Actions → Notifications → Run workflow). The log
+   should show `{"users":…,"configured":true}`.
+
+Changing the VAPID keys later invalidates every browser's subscription: users turn
+notifications on again in Settings.
+
 ## 4. Post-deploy verification
 
 ```bash

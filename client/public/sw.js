@@ -83,3 +83,34 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Push notifications (5e-2): budget alerts, bill reminders and the monthly
+// summary, sent by the server's hourly job. The payload is
+// { title, body, url, tag }; a newer one with the same tag replaces the older.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data && event.data.text() }; }
+  const title = data.title || 'Orbit';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || '',
+      tag: data.tag || undefined,
+      icon: '/orbit-icon.svg',
+      badge: '/orbit-icon.svg',
+      data: { url: data.url || '/app' },
+    })
+  );
+});
+
+// Tapping a notification focuses an open Orbit tab, or opens one.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || '/app', self.location.origin);
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => new URL(w.url).origin === url.origin);
+      if (open) return open.focus().then((w) => (w && 'navigate' in w ? w.navigate(url.href) : w)).catch(() => open);
+      return self.clients.openWindow(url.href);
+    })
+  );
+});

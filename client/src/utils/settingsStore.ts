@@ -53,6 +53,15 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
+const isTimeZone = (tz: string): boolean => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // oxlint-disable-next-line no-control-regex -- stripping control characters is the point
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
 
@@ -160,7 +169,13 @@ export const normalizePatch = (patch: SettingsPatch): SettingsPatch => {
         break;
       case 'hideTuition':
       case 'onboardingDismissed':
+      case 'notifyBudgets':
+      case 'notifyBills':
+      case 'notifyMonthlySummary':
         if (typeof v === 'boolean') out[k] = v;
+        break;
+      case 'timeZone':
+        if (typeof v === 'string' && v.length <= 64 && isTimeZone(v)) out.timeZone = v;
         break;
       case 'recurringSnoozeUntil':
         if (typeof v === 'number' && Number.isFinite(v) && v >= 0) out.recurringSnoozeUntil = Math.min(v, Date.now() + 365 * 86_400_000);
@@ -505,6 +520,7 @@ export const hydrateSettings = (fromServer: UserSettings | undefined, { authorit
 const SETTINGS_KEYS: Key[] = [
   'displayCurrency', 'hideTuition', 'onboardingDismissed', 'recurringSnoozeUntil', 'customCategories',
   'deletedSubcategories', 'merchantMap', 'pausedRecurring', 'savingsGoals', 'investmentAccounts',
+  'notifyBudgets', 'notifyBills', 'notifyMonthlySummary', 'timeZone',
 ];
 
 /**

@@ -17,7 +17,10 @@ setup('authenticate', async ({ page }) => {
   const { csrfToken } = await (await page.request.get(`${api}/auth/csrf`)).json();
   const reset = await page.request.patch(`${api}/settings`, {
     headers: { 'x-csrf-token': csrfToken },
-    data: { displayCurrency: null, hideTuition: null, onboardingDismissed: null, recurringSnoozeUntil: null },
+    data: {
+      displayCurrency: null, hideTuition: null, onboardingDismissed: null, recurringSnoozeUntil: null,
+      notifyBudgets: null, notifyBills: null, notifyMonthlySummary: null, timeZone: null,
+    },
   });
   expect(reset.ok()).toBe(true);
   await page.context().storageState({ path: authFile });

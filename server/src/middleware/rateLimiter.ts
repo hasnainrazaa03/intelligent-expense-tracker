@@ -98,6 +98,16 @@ export const passwordCheckLimiter = rateLimit({
   message: { message: 'Too many wrong passwords. Try again in 15 minutes.' },
 });
 
+// "Send a test notification": 5 per hour per account.
+export const pushTestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: perUserOrIpKey,
+  message: { message: 'You can send 5 test notifications an hour.' },
+});
+
 // "Email me a summary": 3 per day per account. It was limited only by the
 // general 180/min limiter, so one account could drain the shared Resend quota
 // and break every other user's verification and reset emails (S4).

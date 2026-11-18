@@ -1,10 +1,11 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { useSetting } from '../hooks/useSetting';
 import { updateSettings } from '../utils/settingsStore';
-import { ApiError } from '../services/api';
+import { ApiError, getPushKey, sendTestPush } from '../services/api';
+import { currentPushState, enablePush, disablePush, needsHomeScreenInstall, type PushState } from '../utils/push';
 import { notify } from '../utils/notifications';
 import CurrencyPicker from './CurrencyPicker';
 import ConfirmationDialog from './ConfirmationDialog';
@@ -41,6 +42,108 @@ const Row: React.FC<{ title: string; hint?: React.ReactNode; children: React.Rea
     <div className="flex flex-wrap items-center gap-2 sm:justify-end">{children}</div>
   </div>
 );
+
+const Switch: React.FC<{ checked: boolean; label: string; onChange: (next: boolean) => void; disabled?: boolean }> = ({ checked, label, onChange, disabled }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    disabled={disabled}
+    onClick={() => onChange(!checked)}
+    className={cn('relative inline-flex h-7 w-12 items-center rounded-full border transition-colors disabled:opacity-50', checked ? 'bg-primary border-primary' : 'bg-surface-2 border-app-border')}
+  >
+    <span className={cn('inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-6' : 'translate-x-1')} />
+  </button>
+);
+
+const deviceTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/** Push notifications (5e-2): this browser on or off, and which kinds (account-wide). */
+const NotificationsSection: React.FC = () => {
+  const [device, setDevice] = useState<PushState | 'loading'>('loading');
+  // Push needs keys on the server; until they're set, say so instead of failing later.
+  const [serverReady, setServerReady] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const budgetsOn = useSetting('notifyBudgets') === true;
+  const billsOn = useSetting('notifyBills') === true;
+  const summaryOn = useSetting('notifyMonthlySummary') === true;
+
+  useEffect(() => {
+    let alive = true;
+    currentPushState().then((s) => { if (alive) setDevice(s); }).catch(() => { if (alive) setDevice('off'); });
+    getPushKey().then(() => { if (alive) setServerReady(true); }).catch((e) => { if (alive) setServerReady(!(e instanceof ApiError && e.status === 503)); });
+    return () => { alive = false; };
+  }, []);
+
+  const turnOn = async () => {
+    setBusy(true);
+    try {
+      const state = await enablePush();
+      setDevice(state);
+      if (state === 'on') {
+        // First time: every kind on. Always: this device's time zone.
+        updateSettings({
+          timeZone: deviceTimeZone(),
+          ...(budgetsOn || billsOn || summaryOn ? {} : { notifyBudgets: true, notifyBills: true, notifyMonthlySummary: true }),
+        });
+        notify.success('Notifications are on for this device.');
+      } else if (state === 'denied') {
+        notify.error("Notifications are blocked for Orbit. Allow them in this browser's site settings, then try again.");
+      }
+    } catch (error) {
+      notify.error(errorText(error, "Couldn't turn notifications on."));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const turnOff = async () => {
+    setBusy(true);
+    try { setDevice(await disablePush()); notify.success('Notifications are off for this device.'); }
+    catch (error) { notify.error(errorText(error, "Couldn't turn notifications off.")); }
+    finally { setBusy(false); }
+  };
+  const test = async () => {
+    try {
+      const { sent } = await sendTestPush();
+      notify.success(sent > 0 ? 'Test sent. It should appear in a moment.' : 'No device has notifications on.');
+    } catch (error) { notify.error(errorText(error, "Couldn't send a test.")); }
+  };
+
+  const deviceHint =
+    serverReady === false ? "Notifications aren't set up on the server yet."
+    : device === 'unsupported' ? (needsHomeScreenInstall()
+        ? 'On iPhone and iPad, add Orbit to your Home Screen first (Share → Add to Home Screen), then turn notifications on from there.'
+        : "This browser doesn't support notifications.")
+    : device === 'denied' ? "Notifications are blocked for Orbit. Allow them in this browser's site settings."
+    : device === 'on' ? 'On. The alerts you choose below arrive here, between 9 am and 9 pm your time.'
+    : 'Off on this device.';
+  const canUse = serverReady !== false && device !== 'unsupported' && device !== 'loading';
+
+  return (
+    <Section title="Notifications" description="Email alerts will come once Orbit sends from its own domain.">
+      <Row title="This device" hint={deviceHint}>
+        {device === 'on' ? (
+          <>
+            <Button variant="secondary" size="sm" onClick={test} disabled={busy} aria-label="Send a test notification">Send a test</Button>
+            <Button variant="secondary" size="sm" onClick={turnOff} disabled={busy} aria-label="Turn off notifications on this device">Turn off</Button>
+          </>
+        ) : (
+          <Button size="sm" onClick={turnOn} disabled={busy || !canUse || device === 'denied'} aria-label="Turn on notifications on this device">{busy ? 'Turning on…' : 'Turn on'}</Button>
+        )}
+      </Row>
+      <Row title="Budget alerts" hint="When a monthly budget reaches 80%, and again at 100%.">
+        <Switch checked={budgetsOn} label="Budget alerts" onChange={(v) => updateSettings({ notifyBudgets: v, timeZone: deviceTimeZone() })} />
+      </Row>
+      <Row title="Bill reminders" hint="Two days before a recurring charge is due (paused ones are skipped).">
+        <Switch checked={billsOn} label="Bill reminders" onChange={(v) => updateSettings({ notifyBills: v, timeZone: deviceTimeZone() })} />
+      </Row>
+      <Row title="Monthly summary" hint="Last month in one line, on the 1st.">
+        <Switch checked={summaryOn} label="Monthly summary" onChange={(v) => updateSettings({ notifyMonthlySummary: v, timeZone: deviceTimeZone() })} />
+      </Row>
+    </Section>
+  );
+};
 
 const errorText = (error: unknown, fallback: string): string => {
   if (error instanceof ApiError) {
@@ -161,18 +264,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategor
           </div>
         </Row>
         <Row title="Hide tuition from overviews" hint="Leaves tuition out of the overview charts, summaries and reports. The Tuition tab still shows it.">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={hideTuition}
-            aria-label="Hide tuition from overviews"
-            onClick={() => updateSettings({ hideTuition: !hideTuition })}
-            className={cn('relative inline-flex h-7 w-12 items-center rounded-full border transition-colors', hideTuition ? 'bg-primary border-primary' : 'bg-surface-2 border-app-border')}
-          >
-            <span className={cn('inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', hideTuition ? 'translate-x-6' : 'translate-x-1')} />
-          </button>
+          <Switch checked={hideTuition} label="Hide tuition from overviews" onChange={(v) => updateSettings({ hideTuition: v })} />
         </Row>
       </Section>
+
+      <NotificationsSection />
 
       <Section title="Security">
         <Row
