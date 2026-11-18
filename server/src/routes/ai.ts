@@ -407,13 +407,13 @@ router.post('/parse-receipt', async (req: Request, res: Response) => {
   if (!match) {
     return res.status(400).json({ message: 'image must be a base64 image data URI (png/jpg/webp/gif).' });
   }
-  const expenseCategories = await expenseCategoriesForUser(req.user!.id);
   const mimeType = match[1];
   const base64 = match[2].replace(/\s+/g, '');
   // ~6MB of base64 — the client downscales first, so anything larger is suspect.
   if (base64.length > 8_000_000) {
     return res.status(413).json({ message: 'Image is too large.' });
   }
+  const expenseCategories = await expenseCategoriesForUser(req.user!.id);
 
   const today = new Date().toISOString().split('T')[0];
   const prompt = `You are a receipt-parsing assistant. Read the attached receipt image and extract the purchase.
@@ -487,6 +487,14 @@ router.post('/parse-statement', async (req: Request, res: Response) => {
   }
 
   const { pdf, csvText } = req.body || {};
+  // Cheap checks before the database lookup the prompt needs.
+  const hasPdf = typeof pdf === 'string' && pdf;
+  if (!hasPdf && !(typeof csvText === 'string' && csvText.trim())) {
+    return res.status(400).json({ message: 'Provide a base64 pdf data URI or csvText.' });
+  }
+  if ((hasPdf && pdf.length > 15_000_000) || (!hasPdf && csvText.length > 1_000_000)) {
+    return res.status(413).json({ message: hasPdf ? 'PDF is too large (max ~10MB).' : 'CSV text is too large.' });
+  }
   const expenseCategories = await expenseCategoriesForUser(req.user!.id);
 
   let parts: any[] | null = null;
@@ -520,7 +528,7 @@ Each real transaction must appear EXACTLY ONCE even if it is echoed in a per-acc
     "ACH KAMRAN BADR TYPE: P2P ... BANK OF AMERICA" -> "Payment from Kamran Badr"
 - "paymentMethod": expenses only, chosen from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. Decide debit-vs-credit by the ACCOUNT SECTION the transaction sits under: a checking / debit / savings section means a card or POS purchase is "Debit Card"; a CREDIT-CARD section (e.g. a "MASTERCARD"/"VISA" statement or a "Credit Purchases" list) means "Credit Card". Also map by wording: "ACH"/electronic/bill-pay -> "Bank Transfer"; ATM cash withdrawal -> "Cash"; "CHECK"/"draft" -> "Check"; "WIRE" -> "Wire Transfer". Recognizable P2P/wallets: Venmo -> "Venmo", Zelle -> "Zelle", PayPal -> "PayPal", Cash App -> "Cash App", Apple Cash/Apple Pay -> "Apple Pay", Google Pay -> "Google Pay". If genuinely unclear, "". Income: always "".
 - "category": the SINGLE BEST fit, chosen DECISIVELY. Use "Other" only as a genuine last resort.
-  * EXPENSE — choose from EXACTLY: ${JSON.stringify(expenseCategories)}. Apply this reasoning:
+  * EXPENSE — choose from EXACTLY: ${JSON.stringify(expenseCategories)}. Apply this reasoning (the list is this user's own: where a hint below names a category that isn't in it, use the closest category that is):
     - GROCERIES: supermarkets and food/grocery stores of EVERY kind, INCLUDING international / ethnic / halal / South-Asian / Hispanic / Asian grocers and markets. Treat a merchant whose name contains "bazaar", "market", "supermarket", "mart", "foods", "grocery", "grocers", "produce", "meat", or "halal" as Groceries UNLESS it is clearly a restaurant. Known grocers include: Trader Joe's, Ralphs, Vons, Whole Foods, Safeway, Kroger, Aldi, Costco, Sprouts, Sam's Club, Smart & Final, H Mart, 99 Ranch, Patel Brothers, India Bazaar, JH Bazaar, Al-Noor, Superior Grocers, El Super, Northgate.
     - DINING OUT: restaurants, cafes, coffee shops, fast food, bars, food delivery (Starbucks, McDonald's, Chipotle, DoorDash, Uber Eats, Grubhub).
     - RIDESHARE: Lyft, Uber (rides). PUBLIC TRANSIT: metro/bus/train passes. FUEL: gas stations (Chevron, Shell, Arco, 76). PARKING: parking/garages.
@@ -674,7 +682,7 @@ router.post('/enrich-transaction', async (req: Request, res: Response) => {
 Return ONLY JSON with:
 - "notes": one concise, human sentence adding useful context about what this likely is (max 100 chars).
 - "tags": array of 1-3 short lowercase tags (single words or short phrases, no "#").
-- "category": the single best fit from EXACTLY: ${JSON.stringify(categories)}. Categorize decisively.${isIncome ? '' : ' Any grocery / supermarket / market / "bazaar" / "mart" / ethnic or international grocer (e.g. JH Bazaar, H Mart, Patel Brothers) is "Groceries", not "Household Items". Restaurants/cafes are "Dining Out".'}
+- "category": the single best fit from EXACTLY: ${JSON.stringify(categories)} (where a hint here names a category not in that list, use the closest one that is). Categorize decisively.${isIncome ? '' : ' Any grocery / supermarket / market / "bazaar" / "mart" / ethnic or international grocer (e.g. JH Bazaar, H Mart, Patel Brothers) is "Groceries", not "Household Items". Restaurants/cafes are "Dining Out".'}
 ${isIncome ? '' : `- "paymentMethod": from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. From a bank/checking statement a normal card purchase is "Debit Card" (not Credit Card); P2P/wallet names map to themselves; else "".`}
 Respond with JSON only, no markdown.`;
 

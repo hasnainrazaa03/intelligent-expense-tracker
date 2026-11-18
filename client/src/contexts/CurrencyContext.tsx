@@ -118,8 +118,15 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return Date.now() - fetchedAt > MAX_ENTRY_RATE_AGE_MS ? fetchedAt : null;
   });
   useEffect(() => {
-    const timer = setTimeout(() => setExpiredFetch(ratesFetchedAt), Math.max(0, ratesFetchedAt + MAX_ENTRY_RATE_AGE_MS - Date.now()));
-    return () => clearTimeout(timer);
+    const expireIfStale = () => { if (Date.now() - ratesFetchedAt > MAX_ENTRY_RATE_AGE_MS) setExpiredFetch(ratesFetchedAt); };
+    const timer = setTimeout(expireIfStale, Math.max(0, ratesFetchedAt + MAX_ENTRY_RATE_AGE_MS - Date.now()));
+    // Timers don't count time asleep: check again when the page comes back.
+    const events = ['visibilitychange', 'focus', 'pageshow'] as const;
+    events.forEach((e) => window.addEventListener(e, expireIfStale));
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, expireIfStale));
+    };
   }, [ratesFetchedAt]);
   const ratesFreshForEntry = expiredFetch !== ratesFetchedAt;
 

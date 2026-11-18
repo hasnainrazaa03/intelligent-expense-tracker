@@ -27,11 +27,11 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { categories } = useCategories();
+  const { categories, subToMain } = useCategories();
 
   const mainCategoryData = useMemo(() => {
     const mainCategoryTotals = expenses.reduce((acc, exp) => {
-      const mainCategory = getMainCategory(exp.category);
+      const mainCategory = getMainCategory(exp.category, subToMain);
       // FIX: Ensure exp.amount is treated as a number for the arithmetic operation.
       acc[mainCategory] = (acc[mainCategory] || 0) + Number(exp.amount);
       return acc;
@@ -41,16 +41,16 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
       .map(([name, amount]) => ({
         name,
         amount,
-        fill: getCategoryColor(name),
+        fill: getCategoryColor(name, subToMain),
       }))
       .sort((a, b) => b.amount - a.amount);
-  }, [expenses]);
+  }, [expenses, subToMain]);
 
   const subCategoryData = useMemo(() => {
     if (!selectedCategory) return [];
 
     const subCategoryTotals = expenses
-      .filter(exp => getMainCategory(exp.category) === selectedCategory)
+      .filter(exp => getMainCategory(exp.category, subToMain) === selectedCategory)
       .reduce((acc, exp) => {
         // FIX: Ensure exp.amount is treated as a number for the arithmetic operation.
         acc[exp.category] = (acc[exp.category] || 0) + Number(exp.amount);
@@ -61,10 +61,10 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
       .map(([name, amount]) => ({
         name,
         amount,
-        fill: getCategoryColor(name),
+        fill: getCategoryColor(name, subToMain),
       }))
       .sort((a, b) => b.amount - a.amount);
-  }, [expenses, selectedCategory]);
+  }, [expenses, selectedCategory, subToMain]);
 
   // Recharts passes the clicked bar's own data entry here (not a chart-level
   // event with activePayload — that only exists on <BarChart onClick>), so read

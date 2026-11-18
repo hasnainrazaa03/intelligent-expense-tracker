@@ -43,7 +43,13 @@ export default function useOfflineQueue({ ownerId, process, onSynced, onDropped 
   // Set before the first await, or both calls pass the check and replay twice.
   const flushing = useRef(false);
 
-  // Signed out, nothing is pending: derived below rather than set from an effect.
+  // A different account (or none): start its count at 0, during render, so the
+  // previous account's number never shows while the new count loads.
+  const [countOwner, setCountOwner] = useState(ownerId);
+  if (countOwner !== ownerId) {
+    setCountOwner(ownerId);
+    setPendingCount(0);
+  }
   const refreshCount = useCallback(async () => {
     if (!ownerId) return;
     try {

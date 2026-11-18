@@ -44,7 +44,9 @@ describe('math: amount and date parsing', () => {
     expect(iso('2026-10-05T00:30:00+05:30')).toBe('2026-10-05T00:00:00.000Z');
     expect(iso(' 2026-10-05 ')).toBe('2026-10-05T00:00:00.000Z');
     expect(iso(new Date('2026-10-05T18:00:00Z'))).toBe('2026-10-05T00:00:00.000Z');
-    expect(iso('Oct 5, 2026')).toBe('2026-10-05T00:00:00.000Z');
+    // Other spellings are refused: the day they name depended on the server's time zone.
+    expect(parseValidDate('Oct 5, 2026')).toBeNull();
+    expect(parseValidDate('Mon, 05 Oct 2026 23:30:00 -0700')).toBeNull();
   });
   it('refuses days that do not exist instead of rolling them into the next month', () => {
     expect(parseValidDate('2026-02-30')).toBeNull();
@@ -52,7 +54,10 @@ describe('math: amount and date parsing', () => {
     expect(parseValidDate('2028-02-29')).toBeInstanceOf(Date);
     expect(parseValidDate('2026-13-01')).toBeNull();
     expect(parseValidDate('2026-10-05Tnonsense')).toBeNull();
-    expect(parseValidDate('1850-01-01')).toBeNull();
+    // Odd years the old parser stored (a half-typed 0026) still load, so a
+    // backup holding one restores; Date.UTC would have made it 1926.
+    expect(parseValidDate('0026-10-05')?.toISOString()).toBe('0026-10-05T00:00:00.000Z');
+    expect(parseValidDate('0000-01-01')).toBeNull();
   });
 });
 

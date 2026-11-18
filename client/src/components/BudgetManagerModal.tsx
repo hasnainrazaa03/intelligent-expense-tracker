@@ -75,8 +75,9 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
 
   // 1. Subcategories under their main categories: the user's own included and
   // deleted ones left out (the built-in list missed both, A3). A budget still
-  // set on a subcategory that was deleted stays listed, under its old main
-  // category, so it can be seen and cleared.
+  // set on a subcategory that was deleted stays listed so it can be seen and
+  // cleared: a built-in one under its usual main category, a custom one
+  // (whose main category is gone with it) under Miscellaneous.
   const { categories } = useCategories();
   const groupedCategories = useMemo(() => {
     const listed = new Set([...Object.keys(categories), ...Object.values(categories).flat()]);

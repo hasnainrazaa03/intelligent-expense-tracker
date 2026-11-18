@@ -1,4 +1,4 @@
-import { getSetting, updateSettings, subscribeSettings } from './settingsStore';
+import { getSetting, updateSettings } from './settingsStore';
 import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 
 // Single source of truth for the EFFECTIVE category map: the built-in defaults
@@ -54,7 +54,8 @@ const build = (): CategoriesSnapshot => {
     for (const sub of categories[main]) subToMain[sub] = main;
   }
 
-  return { categories, subToMain, allSubcategories: Object.values(categories).flat() };
+  // A name under two main categories (possible before the manager refused it) is listed once.
+  return { categories, subToMain, allSubcategories: [...new Set(Object.values(categories).flat())] };
 };
 
 const getCache = (): CategoriesSnapshot => {
@@ -83,7 +84,8 @@ export const getCategoriesSnapshot = (): Readonly<CategoriesSnapshot> => getCach
 export const invalidateCategoriesCache = (): void => {
   cache = null;
 };
-subscribeSettings(invalidateCategoriesCache);
+// No settings subscription: getCache compares the two category settings it was
+// built from, so other settings changing keep the same snapshot.
 
 /** Persist the full effective map by diffing it against the built-in defaults,
  *  storing only additions/deletions, then invalidating the cache. */
@@ -103,5 +105,4 @@ export const saveCategories = (categories: CategoryMap): void => {
   }
 
   updateSettings({ customCategories: additions, deletedSubcategories: deletions });
-  invalidateCategoriesCache();
 };

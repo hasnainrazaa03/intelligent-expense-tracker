@@ -37,7 +37,8 @@ export const useTransactions = ({
     const target = budgetForExpense(category, budgetCategories);
     const budget = budgets.find((b) => b.category === target);
     if (!budget || budget.amount <= 0) return;
-    const monthExpenses = allExpenses.filter((e) => isWithinRange(e.date, startOfMonth(), endOfMonth()));
+    const now = new Date(); // an event handler: reading the clock is fine here
+    const monthExpenses = allExpenses.filter((e) => isWithinRange(e.date, startOfMonth(now), endOfMonth(now)));
     const monthlySpent = computeBudgetSpend(budget.category, monthExpenses, budgetCategories);
     const pct = (monthlySpent / budget.amount) * 100;
     const name = budgetLabel(budget.category, budgetCategories);

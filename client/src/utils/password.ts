@@ -1,6 +1,8 @@
-// The password rules the server enforces (server/src/routes/auth.ts): at least
-// 8 characters with a lowercase and an uppercase letter, a number and a symbol.
-export const PASSWORD_RULES_TEXT = 'At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol.';
+// The password rules the server enforces (server/src/routes/auth.ts and
+// SERVER_CONFIG.limits): 8 to 128 characters with a lowercase and an uppercase
+// letter, a number and a symbol.
+export const MAX_PASSWORD_LENGTH = 128;
+export const PASSWORD_RULES_TEXT = '8 to 128 characters, with an uppercase letter, a lowercase letter, a number and a symbol.';
 
 export const scorePassword = (value: string): number => {
   let score = 0;
@@ -12,4 +14,4 @@ export const scorePassword = (value: string): number => {
   return score;
 };
 
-export const isStrongPassword = (value: string): boolean => scorePassword(value) >= 5;
+export const isStrongPassword = (value: string): boolean => scorePassword(value) >= 5 && value.length <= MAX_PASSWORD_LENGTH;
