@@ -45,6 +45,8 @@ interface TransactionsListProps {
   onDeleteIncome: (id: string) => Promise<void> | void;
   /** After a bulk change: reload the data. */
   onBulkChanged: () => Promise<unknown> | void;
+  /** Opens the bank-statement importer (it used to sit at the top of the add form). */
+  onImportStatement: () => void;
   onCreate: () => void;
 }
 
@@ -61,7 +63,7 @@ const PERIOD: Record<DateRange, string | null> = { this_month: 'this month', las
  */
 const TransactionsList: React.FC<TransactionsListProps> = ({
   type, expenses, incomes, hasAnyExpenses, hasAnyIncomes, isLoading, dateRange, onDateRangeChange, search, onClearSearch,
-  onEditExpense, onEditIncome, onQuickSaveExpense, onQuickSaveIncome, onDeleteExpense, onDeleteIncome, onBulkChanged, onCreate,
+  onEditExpense, onEditIncome, onQuickSaveExpense, onQuickSaveIncome, onDeleteExpense, onDeleteIncome, onBulkChanged, onImportStatement, onCreate,
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const money = (n: number) => formatCurrency(n, displayCurrency, conversionRate);
@@ -237,6 +239,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({
           <Button variant="secondary" size="sm" aria-expanded={showFilters} aria-controls="tx-filters" onClick={() => setShowFilters((s) => !s)}>
             Filters{activeChips.length ? ` (${activeChips.length})` : ''}
           </Button>
+          <Button variant="secondary" size="sm" onClick={onImportStatement}>Import statement</Button>
           <Button variant={selectMode ? 'primary' : 'secondary'} size="sm" onClick={() => (selectMode ? endSelect() : setSelectMode(true))}>
             {selectMode ? 'Done' : 'Select'}
           </Button>

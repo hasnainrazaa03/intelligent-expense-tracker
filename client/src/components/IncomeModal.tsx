@@ -1,35 +1,59 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Income } from '../types';
 import { INCOME_CATEGORIES } from '../constants';
-import { todayCalendar } from '../utils/dateUtils';
+import { formatCalendarDate, parseCalendarDate, todayCalendar } from '../utils/dateUtils';
 import useForeignToUsd from '../hooks/useForeignToUsd';
 import useDropdownKeyboard from '../hooks/useDropdownKeyboard';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label, DatePicker } from './ui';
 import toast from 'react-hot-toast';
+import type { EntryDraft, SaveOptions } from './entryDraft';
 
 interface IncomeModalProps {
   isOpen: boolean;
   onClose: () => void;
   /** Resolves `false` when the save failed, so the form stays open. */
-  onSave: (income: any) => Promise<boolean | void> | boolean | void;
+  onSave: (income: any, options?: SaveOptions) => Promise<boolean | void> | boolean | void;
   income: Income | null;
-  /** Opens the bank-statement importer (bulk add many at once). */
-  onImportStatement?: () => void;
+  /** Past income: sources are suggested, and picking one fills its category and account (U4). */
+  pastIncomes?: Income[];
+  /** New entries: switch to the expense form, carrying title, amount and date. */
+  onSwitchKind?: (draft: EntryDraft) => void;
+  /** Starting values when the form was switched from an expense. */
+  draft?: EntryDraft;
   /** Accounts already in use, offered as suggestions (mirrors ExpenseModal). */
   knownAccounts?: string[];
 }
 
-const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, onImportStatement, knownAccounts = [] }) => {
+const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, pastIncomes = [], onSwitchKind, draft, knownAccounts = [] }) => {
   const { displayCurrency, rateForEntry, availableCurrencies } = useCurrency();
   // The form starts from the income being edited (or blank). The dialog is
   // mounted for each opening, so these initial values are all it needs; an
   // effect used to refill the form, and reset it if the display currency changed.
   const storedForeign = Boolean(income?.originalCurrency && income.originalCurrency !== 'USD' && income.originalAmount);
-  const [title, setTitle] = useState(income?.title ?? '');
-  const [amount, setAmount] = useState(income ? income.amount.toString() : '');
+  const [title, setTitle] = useState(income?.title ?? draft?.title ?? '');
+  const [amount, setAmount] = useState(income ? income.amount.toString() : draft?.amount ?? '');
   const [category, setCategory] = useState<string>(income?.category ?? INCOME_CATEGORIES[0]);
-  const [date, setDate] = useState(() => income?.date ?? todayCalendar());
+  const [date, setDate] = useState(() => income?.date ?? draft?.date ?? todayCalendar());
+  // Account, notes, tags and metadata sit under "More details" (U4).
+  const [moreOpen, setMoreOpen] = useState(() => Boolean(income && (income.account || income.notes || income.tags?.length || Object.keys(income.metadata ?? {}).length)));
+  const amountRef = useRef<HTMLInputElement>(null);
+  const pastBySource = useMemo(() => {
+    const map = new Map<string, Income>();
+    for (const i of [...pastIncomes].sort((a, b) => b.date.localeCompare(a.date))) {
+      const k = i.title.trim().toLowerCase();
+      if (k && !map.has(k)) map.set(k, i);
+    }
+    return map;
+  }, [pastIncomes]);
+  const changeTitle = (value: string) => {
+    setTitle(value);
+    const past = income ? undefined : pastBySource.get(value.trim().toLowerCase());
+    if (past) {
+      setCategory(past.category);
+      if (past.account) setAccount((a) => a || past.account!);
+    }
+  };
   const [notes, setNotes] = useState(income?.notes ?? '');
   const [account, setAccount] = useState(income?.account ?? '');
   const [isSaving, setIsSaving] = useState(false);
@@ -99,8 +123,12 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
   // previous conversion, so saving would store a mismatched USD value.
   const isConversionPending = enterInForeign && originalAmountDirty && conversionLoading;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    void save(false);
+  };
+
+  const save = async (keepOpen: boolean) => {
     if (isSaving) return;
     if (isConversionPending) {
       toast.error('Still converting the amount — try again in a moment.');
@@ -145,8 +173,16 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
     // Wait for the save; on failure keep the form open so nothing is lost.
     setIsSaving(true);
     try {
-      const ok = await onSave(income ? { ...incomeData, id: income.id } : incomeData);
-      if (ok !== false) onClose();
+      const ok = await onSave(income ? { ...incomeData, id: income.id } : incomeData, { keepOpen });
+      if (ok !== false) {
+        if (keepOpen) {
+          // The date and account stay for the next one.
+          toast.success(`Added “${incomeData.title}”. Next one?`);
+          setTitle(''); setAmount(''); setOriginalAmount(''); setOriginalAmountDirty(false);
+          setNotes(''); setTagsInput(''); setMetadataInput('');
+          amountRef.current?.focus();
+        } else onClose();
+      }
     } finally {
       setIsSaving(false);
     }
@@ -165,6 +201,11 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       footer={
         <>
           <Button variant="secondary" fullWidth onClick={onClose}>Cancel</Button>
+          {!income && (
+            <Button variant="secondary" fullWidth disabled={isSaving || isConversionPending} onClick={() => { void save(true); }}>
+              Save &amp; add another
+            </Button>
+          )}
           <Button type="submit" form="income-form" fullWidth disabled={isSaving || isConversionPending}>
             {isSaving ? 'Saving…' : income ? 'Save changes' : 'Add income'}
           </Button>
@@ -174,20 +215,28 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       <form id="income-form" onSubmit={handleSubmit}>
           <div className="flex flex-col space-y-5">
 
-            {/* Bulk import shortcut — only when adding (not editing). */}
-            {!income && onImportStatement && (
-              <button
-                type="button"
-                onClick={onImportStatement}
-                className="flex items-center justify-center gap-2 w-full rounded-xl border border-dashed border-app-border bg-surface-2 px-4 py-2.5 text-xs font-semibold text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
-              >
-                📄 Import many from a bank statement (CSV / PDF)
-              </button>
+            {/* One form for both (U4): a new entry can switch to an expense. */}
+            {!income && onSwitchKind && (
+              <div role="group" aria-label="Kind of entry" className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
+                <button type="button" aria-pressed="false" onClick={() => onSwitchKind({ title, amount: usdAmount, date })} className="py-2 rounded-lg text-sm font-semibold text-app-muted hover:text-app-text">Expense</button>
+                <button type="button" aria-pressed="true" className="py-2 rounded-lg text-sm font-semibold bg-primary text-on-primary shadow-glow">Income</button>
+              </div>
             )}
 
             <div>
-              <Label htmlFor="income-title">Source</Label>
-              <Input id="income-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Stipend, freelance" required />
+              <Label htmlFor="income-amount-usd">Amount (USD)</Label>
+              <div className="relative">
+                  <Input
+                    ref={amountRef}
+                    id="income-amount-usd"
+                    type="number" inputMode="decimal" value={usdAmount} onChange={e => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    className={`!text-2xl !font-display !font-bold !py-3.5 tabular-nums ${isAmountUSDReadOnly ? 'opacity-70' : ''}`}
+                    required readOnly={isAmountUSDReadOnly} step="0.01"
+                  />
+                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
+              </div>
+              {conversionError && <p role="alert" aria-live="assertive" className="text-xs text-danger font-medium mt-1.5">{conversionError}</p>}
             </div>
 
             <div>
@@ -231,22 +280,30 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             )}
 
             <div>
-              <Label htmlFor="income-amount-usd">Amount (USD)</Label>
-              <div className="relative">
-                  <Input
-                    id="income-amount-usd"
-                    type="number" value={usdAmount} onChange={e => setAmount(e.target.value)}
-                    placeholder="0.00"
-                    className={isAmountUSDReadOnly ? 'opacity-70' : ''}
-                    required readOnly={isAmountUSDReadOnly} step="0.01"
-                  />
-                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
-              </div>
-              {conversionError && <p role="alert" aria-live="assertive" className="text-xs text-danger font-medium mt-1.5">{conversionError}</p>}
+              <Label htmlFor="income-title">Source</Label>
+              <Input id="income-title" type="text" value={title} onChange={e => changeTitle(e.target.value)} placeholder="e.g. Stipend, freelance" list={income ? undefined : 'income-title-suggestions'} autoComplete="off" required />
+              {!income && (
+                <datalist id="income-title-suggestions">
+                  {[...pastBySource.values()].slice(0, 60).map((i) => <option key={i.title} value={i.title} />)}
+                </datalist>
+              )}
             </div>
 
             <div>
               <Label htmlFor="income-date">Date</Label>
+              <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Quick dates">
+                {[{ label: 'Today', value: todayCalendar() }, { label: 'Yesterday', value: (() => { const d = parseCalendarDate(todayCalendar()); d.setDate(d.getDate() - 1); return formatCalendarDate(d); })() }].map((q) => (
+                  <button
+                    key={q.label}
+                    type="button"
+                    aria-pressed={date === q.value}
+                    onClick={() => setDate(q.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${date === q.value ? 'bg-primary-soft border-primary/40 text-primary' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
               <DatePicker id="income-date" value={date} onChange={setDate} required aria-label="Date" />
             </div>
 
@@ -288,6 +345,17 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
           )}
         </div>
 
+            <button
+              type="button"
+              aria-expanded={moreOpen}
+              aria-controls="income-more"
+              onClick={() => setMoreOpen((o) => !o)}
+              className="self-start inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-2"
+            >
+              <span aria-hidden="true" className={`inline-block transition-transform ${moreOpen ? 'rotate-90' : ''}`}>›</span>
+              More details
+            </button>
+            <div id="income-more" hidden={!moreOpen} className="space-y-5">
             <div>
               <Label htmlFor="income-account">Account (optional)</Label>
               <Input
@@ -328,6 +396,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
                 className="h-24 resize-none"
                 placeholder={'client: Acme\ninvoice: INV-204'}
               />
+            </div>
             </div>
           </div>
       </form>

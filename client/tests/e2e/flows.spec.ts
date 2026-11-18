@@ -228,6 +228,37 @@ test.describe('as the demo account', () => {
     await expect.poll(async () => (await categories()).length, { timeout: 10_000, intervals: [500, 1000] }).toBe(0);
   });
 
+  test('quick add: a past title fills its details, Save & add another stays open, and it switches to income (U4)', async ({ page }) => {
+    const title = `E2E usual ${Date.now()}`;
+    const headers = await csrfHeaders(page.request);
+    expect((await page.request.post(`${API}/expenses`, { headers, data: { title, amount: 4, category: 'Groceries', date: '2026-11-02', paymentMethod: 'Credit Card', account: 'E2E card', tags: [] } })).ok()).toBe(true);
+    await page.reload(); // made through the API: load it
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
+
+    await page.keyboard.press('Control+n');
+    const dialog = page.getByRole('dialog', { name: 'New expense' });
+    await dialog.getByLabel('Amount (USD)').fill('3.5');
+    await dialog.getByLabel('Title').fill(title);
+    await expect(dialog.locator('#exp-category')).toContainText('Groceries');
+    await dialog.getByRole('button', { name: 'More details' }).click();
+    await expect(dialog.getByLabel('Account / card (optional)')).toHaveValue('E2E card');
+
+    await dialog.getByRole('button', { name: 'Save & add another' }).click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Title')).toHaveValue('');
+    await expect(dialog.getByLabel('Amount (USD)')).toHaveValue('');
+    await expect.poll(async () => (await titles(page.request)).filter((t) => t === title).length, { timeout: 10_000, intervals: [500, 1000] }).toBe(2);
+
+    // One form for both: switching carries what was typed.
+    await dialog.getByLabel('Title').fill('E2E switched');
+    await dialog.getByLabel('Amount (USD)').fill('9');
+    await dialog.getByRole('group', { name: 'Kind of entry' }).getByRole('button', { name: 'Income' }).click();
+    const income = page.getByRole('dialog', { name: 'New income' });
+    await expect(income.getByLabel('Source')).toHaveValue('E2E switched');
+    await expect(income.getByLabel('Amount (USD)')).toHaveValue('9');
+    await income.getByRole('button', { name: 'Cancel' }).click();
+  });
+
   test('deleting one entry can be undone (U4)', async ({ page }) => {
     const title = `E2E undo ${Date.now()}`;
     const headers = await csrfHeaders(page.request);

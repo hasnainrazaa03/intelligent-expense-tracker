@@ -5,7 +5,7 @@ import { PAYMENT_METHODS } from '../constants';
 import { useCategories } from '../hooks/useCategories';
 import { ChevronUpDownIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
-import { todayCalendar } from '../utils/dateUtils';
+import { formatCalendarDate, parseCalendarDate, todayCalendar } from '../utils/dateUtils';
 import { distributeAmount } from '../utils/currencyUtils';
 import { RECURRENCE_META_KEY, RECURRENCE_OPTIONS, getRecurrenceFrequency, type RecurrenceFrequency } from '../utils/recurrence';
 import { listHouseholds, getReceipt, uploadReceipt, deleteReceipt, parseReceipt, type Household, type ParsedReceipt } from '../services/api';
@@ -16,22 +16,28 @@ import useDropdownKeyboard from '../hooks/useDropdownKeyboard';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Modal, Button, Input, Textarea, Label, Select, DatePicker } from './ui';
 import AiNotice from './legal/AiNotice';
+import type { EntryDraft, SaveOptions } from './entryDraft';
 
 interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   /** Resolves `false` when the save failed, so the form stays open with the
    *  user's input instead of discarding it. */
-  onSave: (expense: any) => Promise<boolean | void> | boolean | void;
+  onSave: (expense: any, options?: SaveOptions) => Promise<boolean | void> | boolean | void;
   expense: Expense | null;
-  /** Opens the bank-statement importer (bulk add many at once). */
-  onImportStatement?: () => void;
+  /** Past expenses: their titles are suggested, and picking one fills its category,
+   *  payment method and account from the last time (U4). */
+  pastExpenses?: Expense[];
+  /** New entries: switch to the income form, carrying title, amount and date. */
+  onSwitchKind?: (draft: EntryDraft) => void;
+  /** Starting values when the form was switched from income. */
+  draft?: EntryDraft;
   /** Accounts already in use, offered as suggestions so one card doesn't end up
    *  under two slightly different labels. */
   knownAccounts?: string[];
 }
 
-const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, onImportStatement, knownAccounts = [] }) => {
+const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, pastExpenses = [], onSwitchKind, draft, knownAccounts = [] }) => {
   const { displayCurrency, rateForEntry, availableCurrencies } = useCurrency();
   // --- CORE STATE ---
   // The form starts from the expense being edited (or blank). The dialog is
@@ -39,10 +45,10 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   // effect used to refill the form a render later (and again if the display
   // currency changed while it was open).
   const storedForeign = Boolean(expense?.originalCurrency && expense.originalCurrency !== 'USD' && expense.originalAmount);
-  const [title, setTitle] = useState(expense?.title ?? '');
-  const [amount, setAmount] = useState(expense ? expense.amount.toString() : '');
+  const [title, setTitle] = useState(expense?.title ?? draft?.title ?? '');
+  const [amount, setAmount] = useState(expense ? expense.amount.toString() : draft?.amount ?? '');
   const [category, setCategory] = useState<Category>(expense?.category ?? 'Other');
-  const [date, setDate] = useState(() => expense?.date ?? todayCalendar());
+  const [date, setDate] = useState(() => expense?.date ?? draft?.date ?? todayCalendar());
   const [paymentMethod, setPaymentMethod] = useState(expense?.paymentMethod ?? '');
   const [account, setAccount] = useState(expense?.account ?? '');
   const [notes, setNotes] = useState(expense?.notes ?? '');
@@ -88,6 +94,27 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const [isAiParsing, setIsAiParsing] = useState(false);
   const [receiptImage, setReceiptImage] = useState('');
   const [receiptBusy, setReceiptBusy] = useState(false);
+  // Optional fields sit under "More details" (U4), open by themselves when the
+  // expense being edited uses any of them.
+  const [moreOpen, setMoreOpen] = useState(() => Boolean(expense && (
+    expense.isRecurring || expense.paymentMethod || expense.account || expense.householdId || expense.notes ||
+    expense.taxCategory || expense.isTaxDeductible || expense.tags?.length || expense.splitParticipants?.length ||
+    expense.receiptText || expense.receiptFileName ||
+    Object.keys(expense.metadata ?? {}).some((k) => k !== RECURRENCE_META_KEY)
+  )));
+  const amountRef = useRef<HTMLInputElement>(null);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
+
+  // Past titles, newest first: each remembers the last expense that used it.
+  const pastByTitle = useMemo(() => {
+    const map = new Map<string, Expense>();
+    for (const e of [...pastExpenses].sort((a, b) => b.date.localeCompare(a.date))) {
+      const k = e.title.trim().toLowerCase();
+      if (k && !map.has(k)) map.set(k, e);
+    }
+    return map;
+  }, [pastExpenses]);
+  const titleSuggestions = useMemo(() => [...pastByTitle.values()].slice(0, 60).map((e) => e.title), [pastByTitle]);
 
   // Reuse the cached display rate only when the entry currency matches it;
   // otherwise the hook fetches the correct foreign→USD rate itself.
@@ -151,6 +178,15 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   const changeTitle = (value: string) => {
     setTitle(value);
     if (expense) return;
+    const past = pastByTitle.get(value.trim().toLowerCase());
+    if (past) {
+      // A title picked from the suggestions: fill in what was used last time.
+      setCategory(past.category);
+      setHasManuallySelectedCategory(true);
+      if (past.paymentMethod) setPaymentMethod((m) => m || past.paymentMethod!);
+      if (past.account) setAccount((a) => a || past.account!);
+      return;
+    }
     if (!value.trim()) {
       setCategory('Other');
       setHasManuallySelectedCategory(false);
@@ -187,8 +223,34 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   // store a mismatched USD value.
   const isConversionPending = enterInForeign && originalAmountDirty && conversionLoading;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    void save(false);
+  };
+
+  // Clears what's particular to one expense; the date, account and payment
+  // method stay for the next ("Save & add another").
+  const resetForNext = () => {
+    setTitle('');
+    setAmount('');
+    setOriginalAmount('');
+    setOriginalAmountDirty(false);
+    setCategory('Other');
+    setHasManuallySelectedCategory(false);
+    setNotes('');
+    setTagsInput('');
+    setMetadataInput('');
+    setTaxCategory('');
+    setIsTaxDeductible(false);
+    setSplitParticipantsInput('');
+    setReceiptText('');
+    setReceiptFileName('');
+    setReceiptImage('');
+    setIsRecurring(false);
+    amountRef.current?.focus();
+  };
+
+  const save = async (keepOpen: boolean) => {
     if (isSaving) return;
     if (isConversionPending) {
       toast.error('Still converting the amount — try again in a moment.');
@@ -265,8 +327,11 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     // the form stays open so nothing the user typed is lost.
     setIsSaving(true);
     try {
-      const ok = await onSave(expense ? { ...expenseData, id: expense.id } : expenseData);
-      if (ok !== false) onClose();
+      const ok = await onSave(expense ? { ...expenseData, id: expense.id } : expenseData, { keepOpen });
+      if (ok !== false) {
+        if (keepOpen) { toast.success(`Added “${expenseData.title}”. Next one?`); resetForNext(); }
+        else onClose();
+      }
     } finally {
       setIsSaving(false);
     }
@@ -427,6 +492,11 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       footer={
         <>
           <Button variant="secondary" fullWidth onClick={onClose}>Cancel</Button>
+          {!expense && (
+            <Button variant="secondary" fullWidth disabled={isSaving || isConversionPending} onClick={() => { void save(true); }}>
+              Save &amp; add another
+            </Button>
+          )}
           <Button type="submit" form="expense-form" fullWidth disabled={isSaving || isConversionPending}>
             {isSaving ? 'Saving…' : expense ? 'Save changes' : 'Add expense'}
           </Button>
@@ -436,26 +506,33 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       <form id="expense-form" onSubmit={handleSubmit}>
           <div className="flex flex-col space-y-5">
 
-            {/* Bulk import shortcut — only when adding (not editing). */}
-            {!expense && onImportStatement && (
-              <button
-                type="button"
-                onClick={onImportStatement}
-                className="flex items-center justify-center gap-2 w-full rounded-xl border border-dashed border-app-border bg-surface-2 px-4 py-2.5 text-xs font-semibold text-app-muted hover:text-app-text hover:border-app-border-strong transition-colors"
-              >
-                📄 Import many from a bank statement (CSV / PDF)
-              </button>
+            {/* One form for both (U4): a new entry can switch to income. */}
+            {!expense && onSwitchKind && (
+              <div role="group" aria-label="Kind of entry" className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
+                <button type="button" aria-pressed="true" className="py-2 rounded-lg text-sm font-semibold bg-primary text-on-primary shadow-glow">Expense</button>
+                <button type="button" aria-pressed="false" onClick={() => onSwitchKind({ title, amount: usdAmount, date })} className="py-2 rounded-lg text-sm font-semibold text-app-muted hover:text-app-text">Income</button>
+              </div>
             )}
 
-            {/* Title */}
+            {/* Amount first, with the currency beside it */}
+            {/* USD Amount */}
             <div>
-              <Label htmlFor="exp-title">Title</Label>
-              <Input
-                id="exp-title"
-                type="text" value={title} onChange={e => changeTitle(e.target.value)}
-                placeholder="e.g. Groceries"
-                required
-              />
+              <Label htmlFor="exp-amount">Amount (USD)</Label>
+              <div className="relative">
+                  <Input
+                    ref={amountRef}
+                    id="exp-amount"
+                    type="number" inputMode="decimal" value={usdAmount} onChange={e => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    className={`!text-2xl !font-display !font-bold !py-3.5 tabular-nums ${isAmountUSDReadOnly ? 'opacity-70' : ''}`}
+                    required readOnly={isAmountUSDReadOnly} min="0.01" step="0.01"
+                  />
+                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
+              </div>
+                {conversionError && <p role="alert" aria-live="assertive" className="text-xs text-danger font-medium mt-1.5">{conversionError}</p>}
+              {conversionRate && enterInForeign && (
+                  <p aria-live="polite" className="text-[11px] text-app-muted mt-1.5 tabular-nums">FX: 1 {foreignCurrency} = {conversionRate.toFixed(4)} USD</p>
+              )}
             </div>
 
             {/* Entry currency: USD or a foreign currency (converted to USD) */}
@@ -499,28 +576,41 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               </div>
             )}
 
-            {/* USD Amount */}
+            {/* Title */}
             <div>
-              <Label htmlFor="exp-amount">Amount (USD)</Label>
-              <div className="relative">
-                  <Input
-                    id="exp-amount"
-                    type="number" value={usdAmount} onChange={e => setAmount(e.target.value)}
-                    placeholder="0.00"
-                    className={isAmountUSDReadOnly ? 'opacity-70' : ''}
-                    required readOnly={isAmountUSDReadOnly} min="0.01" step="0.01"
-                  />
-                  {conversionLoading && <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />}
-              </div>
-                {conversionError && <p role="alert" aria-live="assertive" className="text-xs text-danger font-medium mt-1.5">{conversionError}</p>}
-              {conversionRate && enterInForeign && (
-                  <p aria-live="polite" className="text-[11px] text-app-muted mt-1.5 tabular-nums">FX: 1 {foreignCurrency} = {conversionRate.toFixed(4)} USD</p>
+              <Label htmlFor="exp-title">Title</Label>
+              <Input
+                id="exp-title"
+                type="text" value={title} onChange={e => changeTitle(e.target.value)}
+                placeholder="e.g. Groceries"
+                list={expense ? undefined : 'exp-title-suggestions'}
+                autoComplete="off"
+                required
+              />
+              {!expense && (
+                <datalist id="exp-title-suggestions">
+                  {titleSuggestions.map((t) => <option key={t} value={t} />)}
+                </datalist>
               )}
+              {!expense && <p className="mt-1.5 text-[11px] text-app-muted">Pick a past title to fill in its category, payment method and account.</p>}
             </div>
 
-            {/* Date */}
+            {/* Date: the common ones a tap away */}
             <div>
               <Label htmlFor="exp-date">Date</Label>
+              <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Quick dates">
+                {[{ label: 'Today', value: todayCalendar() }, { label: 'Yesterday', value: (() => { const d = parseCalendarDate(todayCalendar()); d.setDate(d.getDate() - 1); return formatCalendarDate(d); })() }].map((q) => (
+                  <button
+                    key={q.label}
+                    type="button"
+                    aria-pressed={date === q.value}
+                    onClick={() => setDate(q.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${date === q.value ? 'bg-primary-soft border-primary/40 text-primary' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
               <DatePicker id="exp-date" value={date} onChange={setDate} required aria-label="Date" />
             </div>
 
@@ -576,6 +666,27 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               </div>
             </div>
 
+            {/* Everything else, kept, under "More details" */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                aria-expanded={moreOpen}
+                aria-controls="exp-more"
+                onClick={() => setMoreOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-2"
+              >
+                <span aria-hidden="true" className={`inline-block transition-transform ${moreOpen ? 'rotate-90' : ''}`}>›</span>
+                More details
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMoreOpen(true); receiptInputRef.current?.click(); }}
+                className="text-xs font-semibold text-app-muted hover:text-app-text"
+              >
+                Scan a receipt
+              </button>
+            </div>
+            <div id="exp-more" hidden={!moreOpen} className="space-y-5">
             {/* Recurring toggle + frequency */}
             <div className="rounded-xl border border-app-border bg-surface-2 px-4 py-3">
                 <div className="flex items-center justify-between">
@@ -716,7 +827,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
             <div className="rounded-xl border border-app-border bg-surface-2 p-4">
               <Label htmlFor="exp-receipt">Receipt upload · AI auto-fill</Label>
               <AiNotice className="-mt-1 mb-2">Upload a receipt and Google Gemini reads the total, date, merchant and category for you to review.</AiNotice>
-              <input id="exp-receipt" type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
+              <input ref={receiptInputRef} id="exp-receipt" type="file" accept="image/*" onChange={handleReceiptUpload} className="w-full text-xs text-app-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-on-primary file:text-xs file:font-semibold" />
               {isAiParsing && (
                 <p className="text-[11px] text-primary mt-2 flex items-center gap-1.5">
                   <span className="inline-block w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -748,6 +859,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
                 className="mt-2 w-full bg-surface border border-app-border rounded-lg p-2.5 h-24 text-xs text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="OCR text appears here"
               />
+            </div>
             </div>
           </div>
       </form>

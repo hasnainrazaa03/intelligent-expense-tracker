@@ -7,6 +7,19 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Quicker to add an entry (2026-11-18)
+- **Amount first,** large, with the number keypad on phones; the title suggests your past entries,
+  and picking one fills in the category, payment method and account you used last time.
+- **Today and Yesterday** buttons above the date. **Expense / Income** at the top switches the form
+  and keeps what you typed.
+- **"More details"** holds every optional field (recurring, payment method, account, household,
+  notes, tax, tags, split, metadata, receipt); it opens by itself when an entry uses any of them.
+  "Scan a receipt" is one tap from the top.
+- **Save & add another** keeps the date and account and clears the rest. The statement-import link
+  moved from the top of the form to the Transactions toolbar (and the + menu).
+- **Phones:** dialogs rise from the bottom edge. **Fixed:** the date picker no longer closes as it
+  opens when the dialog scrolls to show the field; it follows the field instead.
+
 ### Transactions in one list (2026-11-18)
 - **Expenses and income together:** All / Expenses / Income, newest first, grouped by day with
   each day's totals; income in green with a +. About 12 entries fit on a laptop screen instead of
