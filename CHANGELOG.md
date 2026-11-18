@@ -8,6 +8,10 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Faster edits, safer failures (#190):** editing or deleting a transaction now shows
+  immediately; if the server refuses, that item goes back as it was and a message says so.
+  A failed add or edit keeps the form open with what you typed. (Internally, `App.tsx`
+  went from about 1,600 lines to 63, split into hooks and shell components.)
 - **Tuition on the server (#189):** marking an installment paid is one request that creates
   the tuition expense and marks it paid together, so a double-click, a closed tab or a
   failed save can no longer leave the two out of step. Editing or deleting the expense
