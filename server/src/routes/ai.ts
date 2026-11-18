@@ -4,11 +4,8 @@ import { authMiddleware } from '../middleware/auth';
 import { aiCaller, chargeAiCall, AiBudgetExceeded, isQuotaError } from '../utils/aiBudget';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { expenseToClient, incomeToClient, budgetToClient } from '../utils/money';
-// pdf-parse v2 is a rewrite: it exports a PDFParse class instead of a default
-// function, and its package `exports` no longer expose the internal lib path the
-// v1 workaround relied on. v2's entry point has no debug-mode block, so the
-// public import is now the correct one.
-import { PDFParse } from 'pdf-parse';
+// Statement PDFs are read in a worker thread with a timeout (utils/pdfText).
+import { extractPdfText, MAX_PDF_TEXT_CHARS } from '../utils/pdfText';
 
 const router = Router();
 
@@ -17,28 +14,6 @@ const router = Router();
 // been retired/shut down by Google, so they make useless safety nets.)
 const PRIMARY_MODEL = process.env.GEMINI_PRIMARY_MODEL || 'gemini-2.5-flash';
 const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash-lite';
-
-/**
- * Pull the text layer out of a PDF so we can send Gemini plain text instead of
- * the rasterised document. Text is ~20-50x fewer tokens than the page images,
- * which is dramatically faster and far less likely to trip the free-tier
- * per-minute token quota (the main cause of intermittent 500/429s). Returns ''
- * for scanned / image-only PDFs that have no extractable text.
- */
-const extractPdfText = async (buffer: Buffer): Promise<string> => {
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
-  try {
-    const { text } = await parser.getText();
-    return (text || '').trim();
-  } catch (e) {
-    console.warn('PDF text extraction failed; will fall back to image path.', e);
-    return '';
-  } finally {
-    // v2 spins up a pdfjs worker per instance — always release it, or the
-    // process accumulates workers across statement uploads.
-    await parser.destroy().catch(() => { /* already torn down */ });
-  }
-};
 
 let genAI: GoogleGenerativeAI;
 try {
@@ -592,7 +567,7 @@ Return ONLY a JSON object {"account": "...", "transactions":[...]}, at most ${MA
     // flaky) image path for scanned / image-only PDFs with no extractable text.
     const extractedText = await extractPdfText(Buffer.from(base64, 'base64'));
     if (extractedText.length >= 200) {
-      parts = [{ text: `${instruction}\n\nSTATEMENT (text extracted from the PDF):\n${extractedText.slice(0, 200_000)}` }];
+      parts = [{ text: `${instruction}\n\nSTATEMENT (text extracted from the PDF):\n${extractedText.slice(0, MAX_PDF_TEXT_CHARS)}` }];
     } else {
       parts = [{ text: instruction }, { inlineData: { mimeType: 'application/pdf', data: base64 } }];
     }
