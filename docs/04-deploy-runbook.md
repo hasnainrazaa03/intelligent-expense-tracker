@@ -181,20 +181,24 @@ DNS stays at Namecheap (Advanced DNS):
 |---|---|---|---|
 | A | `@` | `76.76.21.21` | Vercel (the site) |
 | CNAME | `www` | `cname.vercel-dns.com` | Vercel |
-| MX, TXT | `send`, `resend._domainkey` (as Resend lists them) | from Resend → Domains | sending email |
+| TXT | `resend._domainkey` | from Resend → Domains (DKIM) | sending email |
+| CNAME | `rsend`, `send` | `rsend.forge.rmta.net`, `send.forge.rmta.net` (as Resend lists them) | sending email (SPF, bounces) |
 | TXT | `_dmarc` | `v=DMARC1; p=none;` | spam filters |
 
 Namecheap's student setup starts with GitHub Pages records (four `185.199.x.153` A
-records and `www → orbitexpense.me`); they must be deleted. The MX record goes in
-**Mail Settings → Custom MX**.
+records and `www → orbitexpense.me`); they must be deleted. Resend's current setup
+("Forge") uses the two CNAMEs instead of the older MX + TXT records on `send`, so add
+no MX record: a CNAME can't share its name with any other record, and an MX left on
+`send` keeps Resend at "Action needed". Mail Settings stays on **No Email Service**.
 
 On Vercel, `orbitexpense.me` redirects to `www.orbitexpense.me`, the main address. Then:
 - **Render:** `FRONTEND_URL=https://www.orbitexpense.me,https://orbit-expense-tracker.vercel.app`
   (the first entry is where sign-in redirects go), `GOOGLE_CALLBACK_URL=https://www.orbitexpense.me/api/auth/google/callback`,
   `EMAIL_FROM=Orbit <no-reply@orbitexpense.me>` (once Resend shows the domain Verified).
-- **Google Cloud** (the OAuth client): authorized JavaScript origin `https://www.orbitexpense.me`,
-  redirect URI `https://www.orbitexpense.me/api/auth/google/callback`, and `orbitexpense.me`
-  under the consent screen's authorized domains.
+- **Google Cloud** (Google Auth Platform): on the web client under **Clients**, authorized
+  JavaScript origin `https://www.orbitexpense.me` and redirect URI
+  `https://www.orbitexpense.me/api/auth/google/callback`; under **Branding → Authorized
+  domains**, `orbitexpense.me`.
 - **Vercel:** redirect `orbit-expense-tracker.vercel.app` to `www.orbitexpense.me`
   (Domains → Edit). Google sign-in started on the old address would otherwise fail
   its state check, since the callback now comes back to the new one.
