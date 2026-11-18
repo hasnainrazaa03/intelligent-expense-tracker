@@ -3,7 +3,7 @@ import { prisma } from '../db';
 import { toDollars } from '../utils/money';
 import { isTimeZone } from '../utils/settings';
 import { localParts, addDays, previousMonth } from './calendar';
-import { subToMainFor } from './categories';
+import { subToMainFor } from '../utils/categories';
 import { budgetNotice, billNotice, summaryNotice, type Notice } from './compose';
 import { sendToUser, pushConfigured } from './push';
 

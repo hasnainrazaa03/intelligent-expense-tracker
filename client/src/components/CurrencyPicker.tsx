@@ -40,9 +40,8 @@ const CurrencyPicker: React.FC = () => {
   useEffect(() => {
     if (!isOpen) return;
     const code = filtered[active]?.code;
-    if (code) document.getElementById(optionId(code))?.scrollIntoView({ block: 'nearest' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, isOpen, filtered]);
+    if (code) document.getElementById(`${listId}-${code}`)?.scrollIntoView({ block: 'nearest' });
+  }, [active, isOpen, filtered, listId]);
 
   const open = () => {
     setQuery('');

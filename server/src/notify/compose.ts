@@ -1,6 +1,6 @@
 // What to tell a user, as plain data: the hourly job (job.ts) loads their data,
 // calls these, and sends whatever hasn't been sent yet (NotificationLog keys).
-import { budgetForExpense } from './categories';
+import { budgetForExpense } from '../utils/categories';
 import { upcomingBills, type RecurringExpense } from './recurrence';
 import { addDays, monthName, shortDay } from './calendar';
 

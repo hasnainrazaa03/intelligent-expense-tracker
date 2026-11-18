@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Expense, Category } from '../types';
 import { suggestCategory, recordCategorySelection } from '../services/categorySuggestionService';
 import { PAYMENT_METHODS } from '../constants';
-import { getEffectiveCategories } from '../utils/categories';
+import { useCategories } from '../hooks/useCategories';
 import { ChevronUpDownIcon } from './Icons';
 import { getCategoryColor } from '../utils/colorUtils';
 import { todayCalendar } from '../utils/dateUtils';
@@ -33,17 +33,21 @@ interface ExpenseModalProps {
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, expense, onImportStatement, knownAccounts = [] }) => {
   const { displayCurrency, rateForEntry, availableCurrencies } = useCurrency();
-  // --- CORE STATE (PRESERVED) ---
-  const [title, setTitle] = useState(expense?.title || '');
-  const [amount, setAmount] = useState(''); 
-  const [category, setCategory] = useState<Category>(expense?.category || 'Miscellaneous');
-  const [date, setDate] = useState(todayCalendar());
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [account, setAccount] = useState('');
-  const [notes, setNotes] = useState('');
-  // Seeded from `expense` so the auto-suggestion can't run on the very first
-  // effect pass of an edit (before the init effect's `true` lands) and replace
-  // the stored category with a guess.
+  // --- CORE STATE ---
+  // The form starts from the expense being edited (or blank). The dialog is
+  // mounted for each opening, so these initial values are all it needs; an
+  // effect used to refill the form a render later (and again if the display
+  // currency changed while it was open).
+  const storedForeign = Boolean(expense?.originalCurrency && expense.originalCurrency !== 'USD' && expense.originalAmount);
+  const [title, setTitle] = useState(expense?.title ?? '');
+  const [amount, setAmount] = useState(expense ? expense.amount.toString() : '');
+  const [category, setCategory] = useState<Category>(expense?.category ?? 'Other');
+  const [date, setDate] = useState(() => expense?.date ?? todayCalendar());
+  const [paymentMethod, setPaymentMethod] = useState(expense?.paymentMethod ?? '');
+  const [account, setAccount] = useState(expense?.account ?? '');
+  const [notes, setNotes] = useState(expense?.notes ?? '');
+  // An existing expense's category is the user's (or the import review's)
+  // choice: the title never re-suggests it.
   const [hasManuallySelectedCategory, setHasManuallySelectedCategory] = useState(Boolean(expense));
   const [isSaving, setIsSaving] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -53,23 +57,32 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   
   // Entry currency: amounts are stored in USD, but the user can enter in a foreign
   // currency which is converted. `foreignCurrency` is any supported ISO code.
-  const [enterInForeign, setEnterInForeign] = useState(false);
-  const [foreignCurrency, setForeignCurrency] = useState<string>('INR');
-  const [originalAmount, setOriginalAmount] = useState('');
+  const [enterInForeign, setEnterInForeign] = useState(storedForeign);
+  const [foreignCurrency, setForeignCurrency] = useState<string>(() =>
+    storedForeign ? expense!.originalCurrency! : displayCurrency !== 'USD' ? displayCurrency : 'INR');
+  const [originalAmount, setOriginalAmount] = useState(storedForeign ? String(expense!.originalAmount) : '');
   // Tracks whether the user actually edited the foreign field this session.
   // Editing an existing foreign record must NOT silently re-convert its stored
   // USD at today's rate (H1) — recompute only once the foreign amount changes.
   const [originalAmountDirty, setOriginalAmountDirty] = useState(false);
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly');
-  const [tagsInput, setTagsInput] = useState('');
-  const [metadataInput, setMetadataInput] = useState('');
-  const [taxCategory, setTaxCategory] = useState('');
-  const [isTaxDeductible, setIsTaxDeductible] = useState(false);
-  const [splitParticipantsInput, setSplitParticipantsInput] = useState('');
-  const [receiptText, setReceiptText] = useState('');
-  const [receiptFileName, setReceiptFileName] = useState('');
-  const [householdId, setHouseholdId] = useState('');
+  const [isRecurring, setIsRecurring] = useState(expense?.isRecurring ?? false);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>(() => (expense ? getRecurrenceFrequency(expense) : 'monthly'));
+  const [tagsInput, setTagsInput] = useState((expense?.tags ?? []).join(', '));
+  const [metadataInput, setMetadataInput] = useState(() =>
+    expense?.metadata
+      ? Object.entries(expense.metadata)
+          // Hide the reserved recurrence key — it's edited via the Frequency
+          // control, not the raw metadata textarea.
+          .filter(([k]) => k !== RECURRENCE_META_KEY)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join('\n')
+      : '');
+  const [taxCategory, setTaxCategory] = useState(expense?.taxCategory ?? '');
+  const [isTaxDeductible, setIsTaxDeductible] = useState(Boolean(expense?.isTaxDeductible));
+  const [splitParticipantsInput, setSplitParticipantsInput] = useState((expense?.splitParticipants ?? []).join(', '));
+  const [receiptText, setReceiptText] = useState(expense?.receiptText ?? '');
+  const [receiptFileName, setReceiptFileName] = useState(expense?.receiptFileName ?? '');
+  const [householdId, setHouseholdId] = useState(expense?.householdId ?? '');
   const [households, setHouseholds] = useState<Household[]>([]);
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
   const [isAiParsing, setIsAiParsing] = useState(false);
@@ -91,75 +104,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
 
   const isAmountUSDReadOnly = enterInForeign;
 
-  // In foreign mode the USD amount is derived (read-only); mirror the hook's value
-  // (which is '' when the field is cleared or a conversion fails — CMP-H5), but
+  // In foreign mode the USD amount is derived (read-only): the hook's value,
+  // which is '' when the field is cleared or a conversion fails (CMP-H5), but
   // only after the user edits the foreign amount, so opening an existing foreign
   // record to edit an unrelated field keeps its original stored USD (H1).
-  useEffect(() => {
-    if (enterInForeign && originalAmountDirty) {
-      setAmount(convertedAmount);
-    }
-  }, [convertedAmount, enterInForeign, originalAmountDirty]);
+  // Derived during render; an effect used to copy it into `amount`.
+  const usdAmount = enterInForeign && originalAmountDirty ? convertedAmount : amount;
 
-  // --- LOGIC: INITIALIZATION ---
-  useEffect(() => {
-    if (expense) {
-      setTitle(expense.title);
-      setAmount(expense.amount.toString());
-      setCategory(expense.category);
-      setDate(expense.date);
-      setPaymentMethod(expense.paymentMethod || '');
-      setAccount(expense.account || '');
-      setNotes(expense.notes || '');
-      setHasManuallySelectedCategory(true);
-      setIsRecurring(expense.isRecurring || false);
-      setFrequency(getRecurrenceFrequency(expense));
-      setTagsInput((expense.tags || []).join(', '));
-      setMetadataInput(
-        expense.metadata
-          ? Object.entries(expense.metadata)
-              // Hide the reserved recurrence key — it's edited via the Frequency
-              // control, not the raw metadata textarea.
-              .filter(([k]) => k !== RECURRENCE_META_KEY)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join('\n')
-          : ''
-      );
-      setTaxCategory(expense.taxCategory || '');
-      setIsTaxDeductible(Boolean(expense.isTaxDeductible));
-      setSplitParticipantsInput((expense.splitParticipants || []).join(', '));
-      setReceiptText(expense.receiptText || '');
-      setReceiptFileName(expense.receiptFileName || '');
-      setHouseholdId(expense.householdId || '');
-
-      setOriginalAmountDirty(false);
-      if (expense.originalCurrency && expense.originalCurrency !== 'USD' && expense.originalAmount) {
-        setEnterInForeign(true);
-        setForeignCurrency(expense.originalCurrency);
-        setOriginalAmount(expense.originalAmount.toString());
-      } else {
-        setEnterInForeign(false);
-        setForeignCurrency(displayCurrency !== 'USD' ? displayCurrency : 'INR');
-        setOriginalAmount('');
-      }
-    } else {
-      setTitle(''); setAmount(''); setCategory('Other');
-      setDate(todayCalendar());
-      setPaymentMethod(''); setNotes('');
-      setHasManuallySelectedCategory(false);
-      setEnterInForeign(false);
-      setForeignCurrency(displayCurrency !== 'USD' ? displayCurrency : 'INR');
-      setOriginalAmount(''); setOriginalAmountDirty(false); setIsRecurring(false); setFrequency('monthly');
-      setTagsInput('');
-      setMetadataInput('');
-      setTaxCategory('');
-      setIsTaxDeductible(false);
-      setSplitParticipantsInput('');
-      setReceiptText('');
-      setReceiptFileName('');
-      setHouseholdId('');
-    }
-  }, [expense, isOpen, displayCurrency]);
 
   // Load the user's households when the modal opens so an expense can be tagged
   // to one (shared/pooled). Silent on failure — the picker just stays hidden.
@@ -172,9 +123,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   // Guard against a race when the modal switches expenses mid-fetch (e.g. via the
   // header search) so a slow response can't paint onto the wrong expense.
   useEffect(() => {
-    if (!isOpen || !expense) { setReceiptImage(''); return; }
+    if (!isOpen || !expense) return;
     let ignore = false;
-    setReceiptImage('');
     getReceipt(expense.id)
       .then((r) => { if (!ignore) setReceiptImage(r.image); })
       .catch(() => { if (!ignore) setReceiptImage(''); });
@@ -185,29 +135,30 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   // Done in the button handler, not an effect on `enterInForeign`: that effect
   // also ran on open with the initial `false` and wiped the foreign amount of
   // the record being edited, after the init effect had just loaded it.
+  // The converted amount stays as the USD starting point.
   const switchToUsdEntry = () => {
+    setAmount(usdAmount);
     setEnterInForeign(false);
     setOriginalAmount('');
     setOriginalAmountDirty(false);
   };
 
   // --- LOGIC: AUTO-CATEGORY SUGGESTION ---
-  // New expenses only: an existing expense already has a category the user (or
-  // the import review) chose, and editing its notes must not change it.
-  useEffect(() => {
-    if (expense || hasManuallySelectedCategory || !title.trim()) return;
-    const suggested = suggestCategory(title);
-    if (suggested) {
-      setCategory(suggested);
-    }
-  }, [title, hasManuallySelectedCategory, expense]);
-
-  useEffect(() => {
-    if (!expense && !title.trim()) {
+  // New expenses only: the title suggests a category until the user picks one,
+  // and clearing the title starts over at "Other". An existing expense already
+  // has a category the user (or the import review) chose. Done where the title
+  // changes; two effects used to watch it.
+  const changeTitle = (value: string) => {
+    setTitle(value);
+    if (expense) return;
+    if (!value.trim()) {
       setCategory('Other');
-      setHasManuallySelectedCategory(false); 
+      setHasManuallySelectedCategory(false);
+    } else if (!hasManuallySelectedCategory) {
+      const suggested = suggestCategory(value);
+      if (suggested) setCategory(suggested);
     }
-  }, [title, expense]);
+  };
 
   // --- LOGIC: CLICK OUTSIDE ---
   useEffect(() => {
@@ -232,7 +183,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   };
 
   // A foreign amount the user just typed is converted after a 500ms debounce;
-  // until then `amount` still holds the previous conversion, so saving would
+  // until then `usdAmount` still holds the previous conversion, so saving would
   // store a mismatched USD value.
   const isConversionPending = enterInForeign && originalAmountDirty && conversionLoading;
 
@@ -245,7 +196,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     }
 
     // Validation: Ensure we have the necessary numeric data
-    const finalAmount = parseFloat(amount);
+    const finalAmount = parseFloat(usdAmount);
     if (!title.trim()) {
       toast.error('Add a title for this expense.');
       return;
@@ -321,10 +272,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
     }
   };
 
-  // Effective categories (defaults + the user's custom ones). Re-read when the
-  // modal opens so categories added in the manager show up here (CMP-M24).
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- isOpen is the re-read trigger
-  const effectiveCategories = useMemo(() => getEffectiveCategories(), [isOpen]);
+  // Effective categories (defaults + the user's custom ones, minus deletions),
+  // kept current while the dialog is open (A3).
+  const { categories: effectiveCategories } = useCategories();
 
   const filteredCategories = useMemo<Record<string, string[]>>(() => {
     const categoriesObj = effectiveCategories;
@@ -349,7 +299,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
   // user hasn't already set. Returns true if it set an amount, so the OCR pass
   // below can skip its cruder regex guess.
   const applyParsedReceipt = (r: ParsedReceipt): boolean => {
-    if (r.title && !title.trim()) setTitle(r.title.slice(0, 60));
+    if (r.title && !title.trim()) changeTitle(r.title.slice(0, 60));
     if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) setDate(r.date);
     if (r.category && !hasManuallySelectedCategory) {
       setCategory(r.category as Category);
@@ -369,7 +319,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
         setOriginalAmount(String(r.amount));
         setOriginalAmountDirty(true);
         setAmt = true;
-      } else if (!amount) {
+      } else if (!usdAmount) {
         setAmount(r.amount.toFixed(2));
         setAmt = true;
       }
@@ -426,7 +376,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
       const extracted = result.data.text?.trim() || '';
       setReceiptText(extracted);
 
-      if (!aiFilledAmount && !amount) {
+      if (!aiFilledAmount && !usdAmount) {
         const amountMatch = extracted.match(/(?:total|amount|sum)\s*[:$]?\s*(\d+[\d,.]*\.?\d*)/i);
         if (amountMatch) {
           const parsed = Number.parseFloat(amountMatch[1].replace(/,/g, ''));
@@ -495,7 +445,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               <Label htmlFor="exp-title">Title</Label>
               <Input
                 id="exp-title"
-                type="text" value={title} onChange={e => setTitle(e.target.value)}
+                type="text" value={title} onChange={e => changeTitle(e.target.value)}
                 placeholder="e.g. Groceries"
                 required
               />
@@ -548,7 +498,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
               <div className="relative">
                   <Input
                     id="exp-amount"
-                    type="number" value={amount} onChange={e => setAmount(e.target.value)}
+                    type="number" value={usdAmount} onChange={e => setAmount(e.target.value)}
                     placeholder="0.00"
                     className={isAmountUSDReadOnly ? 'opacity-70' : ''}
                     required readOnly={isAmountUSDReadOnly} min="0.01" step="0.01"

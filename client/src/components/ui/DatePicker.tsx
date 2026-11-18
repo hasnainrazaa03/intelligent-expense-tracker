@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from './cn';
 import { fieldClass } from './Field';
@@ -91,15 +91,16 @@ const DatePicker: React.FC<DatePickerProps> = ({
     });
   };
 
-  useLayoutEffect(() => {
-    if (!open) return;
+  // Opening shows the value's month, focuses its day and places the popover.
+  // Done in the click that opens it; it used to be a layout effect on `open`.
+  const openPicker = () => {
     const start = clampMin(value || today);
     setFocusKey(start);
     setView(monthStart(parseCalendarDate(start)));
     focusDayRef.current = true;
     place();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    setOpen(true);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -200,7 +201,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
         ref={triggerRef}
         type="button"
         id={id}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? setOpen(false) : openPicker())}
         aria-haspopup="dialog"
         aria-expanded={open}
         // The name includes the date shown, so it matches what's on screen

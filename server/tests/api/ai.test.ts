@@ -79,3 +79,16 @@ describeApi('AI analyst', () => {
     expect(sent).toContain('2026-10-05 CORNER CAFE 5.25');
   });
 });
+
+describeApi('AI categories follow the user (A3)', () => {
+  it("offers the AI the user's own subcategories and leaves out the ones they removed", async () => {
+    const { client } = await signedInClient();
+    await client.patch('/api/settings', { customCategories: { Food: ['Boba Tea Run'] }, deletedSubcategories: { Food: ['Meal Plan'] } });
+    const before = prompts.length;
+    await client.post('/api/ai/parse-statement', { csvText: 'Date,Description,Amount\n2026-10-03,BOBA PLACE,-6.50\n' });
+    const sent = prompts.slice(before).join('\n');
+    expect(sent).toContain('"Boba Tea Run"');
+    expect(sent).not.toContain('"Meal Plan"');
+    expect(sent).toContain('"Groceries"');
+  });
+});
