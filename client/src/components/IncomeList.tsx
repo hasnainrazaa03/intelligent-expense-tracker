@@ -8,6 +8,7 @@ import {
 import { formatCurrency } from '../utils/currencyUtils';
 import Pagination from './Pagination';
 import EmptyState from './EmptyState';
+import { filteredEmptyCopy, type ListFilters } from './listFilters';
 import SectionSkeleton from './SectionSkeleton';
 import { List, RowComponentProps, useDynamicRowHeight } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
@@ -24,6 +25,8 @@ interface IncomeListProps {
   isLoading?: boolean;
   /** Optional date-range control rendered in the list header. */
   dateFilter?: React.ReactNode;
+  /** When the account has entries but the search or period hides them all. */
+  filters?: ListFilters;
 }
 
 interface IncomeItemProps {
@@ -89,7 +92,8 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
           <div className="text-left md:text-right">
             {isInlineEditing ? (
               <input
-                aria-label={`Amount for ${income.title}`}
+                aria-label={`Amount in USD for ${income.title}`}
+                          placeholder="USD"
                 type="number"
                 value={draftAmount}
                 onChange={(e) => setDraftAmount(e.target.value)}
@@ -150,7 +154,7 @@ const VirtualIncomeRow = ({ index, style, incomes, onEdit, onQuickSave, onDelete
   );
 };
 
-const IncomeList: React.FC<IncomeListProps> = ({ incomes: allIncomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter }) => {
+const IncomeList: React.FC<IncomeListProps> = ({ incomes: allIncomes, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter, filters }) => {
   const [incomeToDeleteId, setIncomeToDeleteId] = useState<string | null>(null);
   const scheduleDelete = useUndoableDelete(onDelete);
   // Rows with a delete pending disappear at once; UNDO brings them back.
@@ -267,12 +271,17 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes: allIncomes, onEdit, on
         )}
         </>
       ) : (
-        <EmptyState
-          title="No income yet"
-          subtitle="Add your first income entry to start tracking inflow."
-          ctaLabel="Add first income"
-          onCta={onCreate}
-        />
+        filters?.hasAny ? (
+          // The account has income; the search or period hides them all.
+          <EmptyState {...filteredEmptyCopy(filters, 'income')} />
+        ) : (
+          <EmptyState
+            title="No income yet"
+            subtitle="Add your first income entry to start tracking inflow."
+            ctaLabel="Add first income"
+            onCta={onCreate}
+          />
+        )
       )}
 
       <ConfirmationDialog

@@ -2,10 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const articles = [
-  { id: 'budget-basics', title: 'Budget Setup Basics', body: 'Create category budgets first, then use template presets for faster monthly planning.' },
-  { id: 'tax-mode', title: 'Tax Report Mode', body: 'Mark deductible expenses, assign tax categories, and export TAX_CSV from Data Transfer Hub.' },
-  { id: 'split-payments', title: 'Split Payments', body: 'Add split participants in Expense modal to track shared costs and equal-share estimates.' },
-  { id: 'security', title: 'Session Security', body: 'Orbit now uses secure cookie sessions, CSRF headers, and optional login 2FA.' },
+  { id: 'budget-basics', title: 'Setting budgets', body: 'Open Budgets (the pencil icon) and set a monthly amount per category. A budget on a main category, like Food, covers its subcategories that have no budget of their own.' },
+  { id: 'tax-mode', title: 'Tax-deductible expenses', body: 'Mark an expense as tax-deductible and give it a tax category, then choose Import / export → Tax CSV for a file of just those expenses.' },
+  { id: 'split-payments', title: 'Splitting a cost', body: 'In an expense, add who you split it with to see each person’s share. Households let roommates see shared expenses and who owes what.' },
+  { id: 'import-export', title: 'Importing and exporting', body: 'Import a bank statement (CSV or PDF) or a CSV of transactions. Export a PDF report, a CSV of expenses and income that you can import back, or a full backup.' },
+  { id: 'security', title: 'Keeping your account safe', body: 'Turn on two-factor sign-in in Settings for a code by email at each password sign-in. Settings → Sign out everywhere ends every session if you lose a device.' },
 ];
 
 const KnowledgeBase: React.FC = () => {

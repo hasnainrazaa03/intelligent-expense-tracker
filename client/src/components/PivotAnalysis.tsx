@@ -45,10 +45,7 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 border-b border-app-border pb-6 overflow-hidden">
         <div className="min-w-0">
           <div className="flex items-center space-x-2 mb-2">
-            <span className="rounded-full bg-surface-2 border border-app-border text-app-muted px-2.5 py-0.5 text-[8px] md:text-[10px] uppercase tracking-wide">
-              Engine v4.0
-            </span>
-            <span className="text-[8px] md:text-[10px] uppercase tracking-widest text-app-faint truncate">Data pivot processing</span>
+            <span className="text-[8px] md:text-[10px] uppercase tracking-widest text-app-faint truncate">Group and total your spending</span>
           </div>
           <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight break-words">
             Pivot analysis

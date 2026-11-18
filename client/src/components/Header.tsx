@@ -46,6 +46,8 @@ interface HeaderProps {
   incomes: Income[];
   /** Open a transaction's detail (edit) modal when picked from the dropdown. */
   onSelectTransaction: (hit: SearchHit) => void;
+  /** Bump to clear the search box (e.g. "Clear search" on an empty result). */
+  clearSearchSignal?: number;
 }
 
 const MAX_SEARCH_RESULTS = 8;
@@ -63,7 +65,7 @@ const ActionTip: React.FC<{ label: string; children: React.ReactNode }> = ({ lab
 
 const Header: React.FC<HeaderProps> = ({
   onLogout, onManageBudgets, onManageCategories, onDataAction, onOpenSettings, settingsActive, onSearch,
-  hideTuition, onToggleHideTuition, offlineStatus, expenses, incomes, onSelectTransaction
+  hideTuition, onToggleHideTuition, offlineStatus, expenses, incomes, onSelectTransaction, clearSearchSignal = 0
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const { theme, toggleTheme } = useTheme();
@@ -77,6 +79,11 @@ const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     onSearch(debouncedSearch);
   }, [debouncedSearch, onSearch]);
+  useEffect(() => {
+    if (clearSearchSignal === 0) return;
+    setSearchInput('');
+    onSearch(''); // now, not after the debounce
+  }, [clearSearchSignal, onSearch]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);

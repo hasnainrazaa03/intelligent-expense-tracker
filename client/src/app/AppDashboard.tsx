@@ -66,6 +66,7 @@ const AppDashboard: React.FC = () => {
   const [incomeDateRange, setIncomeDateRange] = useState<DateRange>('this_month');
   // Header debounces the search input; only the settled term lands here (APP-H5).
   const [search, setSearch] = useState('');
+  const [clearSearchSignal, setClearSearchSignal] = useState(0);
 
   const [expenseForm, setExpenseForm] = useState<{ open: boolean; editing: Expense | null }>({ open: false, editing: null });
   const [incomeForm, setIncomeForm] = useState<{ open: boolean; editing: Income | null }>({ open: false, editing: null });
@@ -96,6 +97,14 @@ const AppDashboard: React.FC = () => {
     Screens.CategoryManagerModal, Screens.AiAnalyst, Screens.USCPaymentTracker, Screens.PivotAnalysis, Screens.SettingsPage,
   ]);
   useNewEntryShortcut(isAuthenticated, openNewEntry);
+
+  // A list emptied by the search or the period says so, with a way out,
+  // instead of "No expenses yet" for an account full of them (improvement 14).
+  const periodLabel = (range: DateRange) =>
+    range === 'all_time' ? null : range === 'this_month' ? 'This month' : range === 'last_month' ? 'Last month' : 'The last 90 days';
+  const clearSearch = () => setClearSearchSignal((n) => n + 1);
+  const expenseFilters = { hasAny: expenses.length > 0, search, onClearSearch: clearSearch, periodLabel: periodLabel(dateRange), onShowAllTime: () => setDateRange('all_time') };
+  const incomeFilters = { hasAny: incomes.length > 0, search, onClearSearch: clearSearch, periodLabel: periodLabel(incomeDateRange), onShowAllTime: () => setIncomeDateRange('all_time') };
 
   // Not on Settings: "add your first expense" has no place there.
   const showOnboarding = hasServerSnapshot && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0 && activeView !== 'settings';
@@ -131,6 +140,7 @@ const AppDashboard: React.FC = () => {
             onCreate={openNewEntry}
             isLoading={isLoadingData}
             dateFilter={<DateRangeFilter selectedRange={dateRange} onChange={setDateRange} />}
+            filters={expenseFilters}
           />
         );
       case 'income':
@@ -143,6 +153,7 @@ const AppDashboard: React.FC = () => {
             onCreate={openNewEntry}
             isLoading={isLoadingData}
             dateFilter={<DateRangeFilter selectedRange={incomeDateRange} onChange={setIncomeDateRange} />}
+            filters={incomeFilters}
           />
         );
       case 'ai':
@@ -199,6 +210,7 @@ const AppDashboard: React.FC = () => {
         hideTuition={hideTuition}
         onToggleHideTuition={() => updateSettings({ hideTuition: !hideTuition })}
         onSearch={setSearch}
+        clearSearchSignal={clearSearchSignal}
         activeView={activeView}
         offlineStatus={{ isOnline: offline.isOnline, pendingCount: offline.pendingCount, syncing: offline.syncing }}
         expenses={expenses}

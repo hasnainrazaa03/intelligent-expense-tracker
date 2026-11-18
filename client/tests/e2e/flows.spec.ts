@@ -179,6 +179,34 @@ test.describe('as the demo account', () => {
     await expect(page.getByText(name)).toHaveCount(0);
   });
 
+  test('a list emptied by a search or period says so, with a way back (5f-1)', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Transactions' }).click();
+    const search = page.getByPlaceholder('Search transactions…');
+    await search.fill('zzqx-nothing-like-this');
+    await expect(page.getByText('Nothing matches')).toBeVisible();
+    await expect(page.getByText('No expenses match “zzqx-nothing-like-this” in this month.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add first expense' })).toHaveCount(0);
+
+    await page.locator('#main-content').getByRole('button', { name: 'Show all time' }).click();
+    await expect(page.getByText('No expenses match “zzqx-nothing-like-this”.')).toBeVisible();
+    // The empty state's button (the search box has its own clear button too).
+    await page.locator('#main-content').getByRole('button', { name: 'Clear search' }).click();
+    await expect(search).toHaveValue('');
+    await expect(page.getByText('Nothing matches')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Edit expense / }).first()).toBeVisible();
+  });
+
+  test('import errors are in plain language (5f-1)', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    const dialog = page.getByRole('dialog');
+    // The file input only accepts .csv in the picker; a drag or a rename can still hand it something else.
+    await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+    await expect(dialog.getByRole('alert')).toHaveText('Choose a .csv file.');
+    await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'empty.csv', mimeType: 'text/csv', buffer: Buffer.from('title,amount,category,date\n') });
+    await dialog.getByRole('button', { name: 'Import CSV' }).click();
+    await expect(dialog.getByRole('alert')).toHaveText('This CSV has no rows.');
+  });
+
   test('AI chat answers a question', async ({ page }) => {
     test.skip(!process.env.E2E_MOCK_AI, 'Needs the API pointed at the mock Gemini (CI sets E2E_MOCK_AI).');
     await page.getByRole('tab', { name: 'AI Analyst', exact: true }).first().click();

@@ -53,7 +53,7 @@ describe('parseTransactionsCsv: a file without a type column is expenses', () =>
 
   it('throws on missing headers and on too many rows', () => {
     expect(() => parseTransactionsCsv('name,amount\nx,1', 100)).toThrow(TransactionsCsvError);
-    expect(() => parseTransactionsCsv(`${HEAD}\na,1,c,2026-11-01\nb,1,c,2026-11-01`, 1)).toThrow(/ROW_LIMIT/);
+    expect(() => parseTransactionsCsv(`${HEAD}\na,1,c,2026-11-01\nb,1,c,2026-11-01`, 1)).toThrow(/more than 1 rows/);
   });
 });
 
