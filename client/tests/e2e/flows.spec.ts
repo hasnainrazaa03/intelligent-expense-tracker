@@ -470,6 +470,25 @@ test.describe('settings page (5b-2)', () => {
     await budgets.click();
     await expect.poll(async () => (await saved()).notifyBudgets, { timeout: 10_000, intervals: [500, 1000] }).toBe(false);
   });
+
+  test('anonymous visit counts can be turned off per device, and nothing loads off the production site (5f-3)', async ({ page }) => {
+    const analyticsRequests: string[] = [];
+    page.on('request', (r) => { if (r.url().includes('/_vercel/')) analyticsRequests.push(r.url()); });
+    await openApp(page);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const visits = page.getByRole('switch', { name: 'Anonymous visit counts' });
+    await expect(visits).toHaveAttribute('aria-checked', 'true');
+    await visits.click();
+    await expect(visits).toHaveAttribute('aria-checked', 'false');
+    expect(await page.evaluate(() => localStorage.getItem('analyticsOptOut'))).toBe('1');
+    await page.reload();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(visits).toHaveAttribute('aria-checked', 'false');
+    await visits.click();
+    expect(await page.evaluate(() => localStorage.getItem('analyticsOptOut'))).toBeNull();
+    // This is localhost, not the production site: Vercel's script never loads.
+    expect(analyticsRequests).toEqual([]);
+  });
 });
 
 test.describe('account actions (own accounts)', () => {

@@ -7,6 +7,7 @@ import { updateSettings } from '../utils/settingsStore';
 import { ApiError, getPushKey, sendTestPush } from '../services/api';
 import { currentPushState, enablePush, disablePush, needsHomeScreenInstall, type PushState } from '../utils/push';
 import { notify } from '../utils/notifications';
+import { analyticsOptedOut, browserAsksNotToTrack, setAnalyticsOptOut } from '../utils/analytics';
 import CurrencyPicker from './CurrencyPicker';
 import ConfirmationDialog from './ConfirmationDialog';
 import { Button, Card, Input, Label, cn } from './ui';
@@ -158,6 +159,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategor
   const { userEmail, twoFactorEnabled, setTwoFactor, logout, logoutEverywhere, deleteAccount } = useAuth();
   const { theme, setTheme } = useTheme();
   const hideTuition = useSetting('hideTuition') ?? false;
+  const notTracked = browserAsksNotToTrack();
+  const [countVisits, setCountVisits] = useState(() => !notTracked && !analyticsOptedOut());
 
   // Sign out everywhere
   const [confirmEverywhere, setConfirmEverywhere] = useState(false);
@@ -265,6 +268,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategor
         </Row>
         <Row title="Hide tuition from overviews" hint="Leaves tuition out of the overview charts, summaries and reports. The Tuition tab still shows it.">
           <Switch checked={hideTuition} label="Hide tuition from overviews" onChange={(v) => updateSettings({ hideTuition: v })} />
+        </Row>
+        <Row
+          title="Anonymous visit counts"
+          hint={notTracked
+            ? 'Off: your browser asks sites not to track it.'
+            : 'Counts page visits with Vercel Web Analytics: no cookies, nothing that identifies you, and only the page, never what you enter. This device only.'}
+        >
+          <Switch
+            checked={countVisits}
+            disabled={notTracked}
+            label="Anonymous visit counts"
+            onChange={(v) => { setAnalyticsOptOut(!v); setCountVisits(v); }}
+          />
         </Row>
       </Section>
 

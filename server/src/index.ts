@@ -2,17 +2,22 @@
 import app from './app';
 import { SERVER_CONFIG } from './config';
 import { prisma } from './db';
+import { connectSharedState, disconnectSharedState, sharedStateMode } from './utils/sharedState';
 
 const HOST = SERVER_CONFIG.host;
 const PORT = SERVER_CONFIG.port;
 
 // --- Start the server ---
 const isProd = process.env.NODE_ENV === 'production';
+// Rate limits, lockouts and AI budgets in Redis when REDIS_URL is set; connects
+// in the background and falls back to memory until (and whenever) it can't.
+connectSharedState();
 const server = app.listen(PORT, HOST, () => {
   console.log(`Server is running on http://${HOST}:${PORT}`);
   console.log(
     `[SECURITY] mode=${isProd ? 'production' : 'development'} · secure-cookies=${isProd} · cors=${isProd ? 'strict-allowlist' : 'any-localhost'} · trust-proxy=${String(SERVER_CONFIG.trustProxy)}`
   );
+  console.log(`[SECURITY] rate limits, lockouts and AI budgets: ${process.env.REDIS_URL ? 'Redis (connecting)' : sharedStateMode()}`);
   if (!isProd) {
     console.warn('[SECURITY] Non-production mode — cookies are NOT Secure and CORS is permissive. Do NOT expose this process publicly.');
   }
@@ -32,7 +37,7 @@ const shutdown = (signal: string) => {
   forceExit.unref();
   server.close(async () => {
     try {
-      await prisma.$disconnect();
+      await Promise.all([prisma.$disconnect(), disconnectSharedState()]);
     } catch (err) {
       console.error('Error during Prisma disconnect:', err);
     } finally {

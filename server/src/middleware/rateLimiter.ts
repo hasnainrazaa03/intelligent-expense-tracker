@@ -2,6 +2,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import type { Request } from 'express';
 import { SERVER_CONFIG } from '../config';
+import { SharedRateLimitStore } from './rateLimitStore';
 
 const JWT_SECRET = SERVER_CONFIG.jwtSecret;
 
@@ -27,6 +28,9 @@ const getUserRateLimitKey = (req: Request): string | null => {
   }
 };
 
+// Every limiter counts in its own SharedRateLimitStore: in Redis when REDIS_URL
+// is set and reachable (shared, survives restarts), otherwise in memory.
+
 // Prefer a per-user key so many users behind one NAT (e.g. a campus egress IP)
 // don't share a single bucket; fall back to IP for unauthenticated traffic.
 const perUserOrIpKey = (req: Request): string => {
@@ -36,6 +40,7 @@ const perUserOrIpKey = (req: Request): string => {
 
 // Auth endpoints: 10 requests per 15 minutes per IP
 export const authLimiter = rateLimit({
+  store: new SharedRateLimitStore('auth'),
   windowMs: 15 * 60 * 1000,
   max: 8,
   standardHeaders: true,
@@ -47,6 +52,7 @@ export const authLimiter = rateLimit({
 // logins don't count, so signing in a few times (several devices, re-logins
 // after an idle timeout) can't lock an IP out.
 export const loginLimiter = rateLimit({
+  store: new SharedRateLimitStore('login'),
   windowMs: 15 * 60 * 1000,
   max: 5,
   skipSuccessfulRequests: true,
@@ -57,6 +63,7 @@ export const loginLimiter = rateLimit({
 
 // OTP verification/resend endpoints: 6 requests per 15 minutes
 export const otpLimiter = rateLimit({
+  store: new SharedRateLimitStore('otp'),
   windowMs: 15 * 60 * 1000,
   max: 6,
   standardHeaders: true,
@@ -66,6 +73,7 @@ export const otpLimiter = rateLimit({
 
 // Forgot-password endpoint: 3 requests per 30 minutes
 export const passwordResetLimiter = rateLimit({
+  store: new SharedRateLimitStore('passwordReset'),
   windowMs: 30 * 60 * 1000,
   max: 3,
   standardHeaders: true,
@@ -77,6 +85,7 @@ export const passwordResetLimiter = rateLimit({
 // behind one campus NAT shared a single bucket of 20. The daily budget of model
 // calls (utils/aiBudget) bounds cost per user on top of this.
 export const aiLimiter = rateLimit({
+  store: new SharedRateLimitStore('ai'),
   windowMs: 60 * 60 * 1000,
   max: 20,
   standardHeaders: true,
@@ -89,6 +98,7 @@ export const aiLimiter = rateLimit({
 // off, deleting the account): 5 WRONG passwords per 15 minutes per account, so a
 // stolen session can't be used to guess the password. Successes don't count.
 export const passwordCheckLimiter = rateLimit({
+  store: new SharedRateLimitStore('passwordCheck'),
   windowMs: 15 * 60 * 1000,
   max: 5,
   skipSuccessfulRequests: true,
@@ -100,6 +110,7 @@ export const passwordCheckLimiter = rateLimit({
 
 // "Send a test notification": 5 per hour per account.
 export const pushTestLimiter = rateLimit({
+  store: new SharedRateLimitStore('pushTest'),
   windowMs: 60 * 60 * 1000,
   max: 5,
   standardHeaders: true,
@@ -112,6 +123,7 @@ export const pushTestLimiter = rateLimit({
 // general 180/min limiter, so one account could drain the shared Resend quota
 // and break every other user's verification and reset emails (S4).
 export const emailSummaryLimiter = rateLimit({
+  store: new SharedRateLimitStore('emailSummary'),
   windowMs: 24 * 60 * 60 * 1000,
   max: 3,
   standardHeaders: true,
@@ -125,6 +137,7 @@ export const emailSummaryLimiter = rateLimit({
 // rotating IPs can't flood one inbox or drain the quota. Counts requests, not
 // whether the account exists, so it doesn't reveal which emails are registered.
 export const recipientEmailLimiter = rateLimit({
+  store: new SharedRateLimitStore('recipientEmail'),
   windowMs: 60 * 60 * 1000,
   max: 5,
   standardHeaders: true,
@@ -140,6 +153,7 @@ export const recipientEmailLimiter = rateLimit({
 // shared campus/NAT IP isn't throttled collectively (unauthenticated traffic
 // still keys by IP). The stricter per-route userApiLimiter is the real per-user cap.
 export const apiLimiter = rateLimit({
+  store: new SharedRateLimitStore('api'),
   windowMs: 60 * 1000,
   max: 300,
   standardHeaders: true,
@@ -150,6 +164,7 @@ export const apiLimiter = rateLimit({
 
 // Authenticated API: 180 requests per minute per user (falls back to IP)
 export const userApiLimiter = rateLimit({
+  store: new SharedRateLimitStore('userApi'),
   windowMs: 60 * 1000,
   max: 180,
   standardHeaders: true,

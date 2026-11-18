@@ -130,7 +130,7 @@ router.use(authMiddleware);
 router.use((req: Request, _res: Response, next) => aiCaller.run(req.user!.id, next));
 
 // genAI.getGenerativeModel, but each generateContent call is charged to the
-// caller first (throws AiBudgetExceeded once the day's budget is spent).
+// caller first (rejects with AiBudgetExceeded once the day's budget is spent).
 const getModel = (options: Parameters<GoogleGenerativeAI['getGenerativeModel']>[0]) => {
   const model = genAI.getGenerativeModel(options, {
     // A hung model call used to hold the request open indefinitely.
@@ -139,8 +139,9 @@ const getModel = (options: Parameters<GoogleGenerativeAI['getGenerativeModel']>[
     ...(process.env.GEMINI_BASE_URL ? { baseUrl: process.env.GEMINI_BASE_URL } : {}),
   });
   const generate = model.generateContent.bind(model);
-  model.generateContent = ((...args: Parameters<typeof generate>) => {
-    chargeAiCall();
+  model.generateContent = (async (...args: Parameters<typeof generate>) => {
+    // Read the caller now: AsyncLocalStorage is still this request's here.
+    await chargeAiCall(aiCaller.getStore());
     return generate(...args);
   }) as typeof model.generateContent;
   return model;
