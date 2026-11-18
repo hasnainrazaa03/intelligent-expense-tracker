@@ -641,3 +641,14 @@ export const createBulkIncomes = (
     body: JSON.stringify(clientRequestId ? { incomes, clientRequestId } : incomes),
   });
 };
+// --- Bulk actions on ticked entries (U4) ---
+
+export type EntryKind = 'expenses' | 'incomes';
+
+/** Deletes the ticked entries of one kind (at most 500); the server says how many went. */
+export const bulkDelete = (kind: EntryKind, ids: string[]): Promise<{ deleted: number }> =>
+  fetchApi<{ deleted: number }>(`/${kind}/bulk-delete`, { method: 'POST', body: JSON.stringify({ ids }) });
+
+/** Moves the ticked entries of one kind to `category` (at most 500). */
+export const bulkRecategorise = (kind: EntryKind, ids: string[], category: string): Promise<{ updated: number }> =>
+  fetchApi<{ updated: number }>(`/${kind}/bulk-update`, { method: 'POST', body: JSON.stringify({ ids, category }) });

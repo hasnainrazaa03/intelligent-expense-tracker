@@ -118,7 +118,7 @@ test.describe('as the demo account', () => {
     const del = page.getByRole('button', { name: `Delete expense ${title}` });
     await del.click();
     await page.getByPlaceholder('Search transactions…').fill('');
-    await page.getByRole('alertdialog', { name: 'Delete transaction?' }).getByRole('button', { name: 'Confirm' }).click();
+    // No dialog any more (U4): the row goes at once and the delete is sent after the Undo window.
     await expect.poll(async () => (await titles(page.request)).includes(title), { timeout: 15_000, intervals: [500, 1000] }).toBe(false);
 
     await page.getByRole('link', { name: 'Tuition', exact: true }).click();
@@ -195,16 +195,66 @@ test.describe('as the demo account', () => {
     await expect(page.getByText(name)).toHaveCount(0);
   });
 
+  test('transactions: one list; ticked entries are recategorised and deleted together (U4)', async ({ page }) => {
+    const tag = `E2E bulk ${Date.now()}`;
+    const headers = await csrfHeaders(page.request);
+    const today = new Date();
+    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    for (const n of [1, 2]) {
+      expect((await page.request.post(`${API}/expenses`, { headers, data: { title: `${tag} #${n}`, amount: 5 * n, category: 'Shopping', date, tags: [] } })).ok()).toBe(true);
+    }
+    await page.reload(); // made through the API: load them
+    await page.getByRole('link', { name: 'Transactions', exact: true }).click();
+    await page.getByPlaceholder('Search transactions…').fill(tag);
+    await expect(page.getByRole('status').filter({ hasText: /^2 entries/ })).toBeVisible(); // the search has applied
+
+    // Filters live in the address.
+    await page.getByLabel('Sort').selectOption('largest');
+    await expect(page).toHaveURL(/sort=largest/);
+
+    // Tick both and move them to another category.
+    await page.getByRole('button', { name: 'Select', exact: true }).click();
+    await page.getByRole('region', { name: 'Selected entries' }).getByLabel('Select all shown').check();
+    await page.getByLabel('New category').selectOption('Groceries');
+    await page.getByRole('button', { name: 'Move', exact: true }).click();
+    const categories = async () => (await allData(page.request)).expenses.filter((e: { title: string }) => e.title.startsWith(tag)).map((e: { category: string }) => e.category);
+    await expect.poll(categories, { timeout: 10_000, intervals: [500, 1000] }).toEqual(['Groceries', 'Groceries']);
+
+    // Then delete them together, after a confirmation.
+    await page.getByRole('button', { name: 'Select', exact: true }).click();
+    await page.getByRole('region', { name: 'Selected entries' }).getByLabel('Select all shown').check();
+    await page.getByRole('region', { name: 'Selected entries' }).getByRole('button', { name: 'Delete' }).click();
+    await page.getByRole('alertdialog', { name: 'Delete 2 entries?' }).getByRole('button', { name: 'Delete' }).click();
+    await expect.poll(async () => (await categories()).length, { timeout: 10_000, intervals: [500, 1000] }).toBe(0);
+  });
+
+  test('deleting one entry can be undone (U4)', async ({ page }) => {
+    const title = `E2E undo ${Date.now()}`;
+    const headers = await csrfHeaders(page.request);
+    const today = new Date();
+    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    expect((await page.request.post(`${API}/expenses`, { headers, data: { title, amount: 7, category: 'Shopping', date, tags: [] } })).ok()).toBe(true);
+    await page.reload(); // made through the API: load it
+    await page.getByRole('link', { name: 'Transactions', exact: true }).click();
+    await page.getByPlaceholder('Search transactions…').fill(title);
+    await page.getByRole('button', { name: `Delete expense ${title}` }).click();
+    await expect(page.getByRole('button', { name: `Edit expense ${title}` })).toHaveCount(0);
+    await page.getByRole('button', { name: 'UNDO', exact: true }).click();
+    await expect(page.getByRole('button', { name: `Edit expense ${title}` })).toBeVisible();
+    await page.waitForTimeout(6_000); // past the window: nothing was sent
+    expect(await titles(page.request)).toContain(title);
+  });
+
   test('a list emptied by a search or period says so, with a way back (5f-1)', async ({ page }) => {
     await page.getByRole('link', { name: 'Transactions', exact: true }).click();
     const search = page.getByPlaceholder('Search transactions…');
     await search.fill('zzqx-nothing-like-this');
     await expect(page.getByText('Nothing matches')).toBeVisible();
-    await expect(page.getByText('No expenses match “zzqx-nothing-like-this” in this month.')).toBeVisible();
+    await expect(page.getByText('No entries match “zzqx-nothing-like-this” in this month.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add first expense' })).toHaveCount(0);
 
     await page.locator('#main-content').getByRole('button', { name: 'Show all time' }).click();
-    await expect(page.getByText('No expenses match “zzqx-nothing-like-this”.')).toBeVisible();
+    await expect(page.getByText('No entries match “zzqx-nothing-like-this”.')).toBeVisible();
     // The empty state's button (the search box has its own clear button too).
     await page.locator('#main-content').getByRole('button', { name: 'Clear search' }).click();
     await expect(search).toHaveValue('');
@@ -310,7 +360,6 @@ test.describe('when saving is slow or fails (5d-2)', () => {
     await addToday(page, title);
     await page.route('**/api/expenses/*', (route) => (route.request().method() === 'DELETE' ? route.fulfill(failWith500) : route.fallback()));
     await page.getByRole('button', { name: `Delete expense ${title}` }).click();
-    await page.getByRole('alertdialog', { name: 'Delete transaction?' }).getByRole('button', { name: 'Confirm' }).click();
     await expect(row(page, title)).toHaveCount(0);
     // After the undo window the delete is sent, refused, and the row returns.
     await expect(page.getByText("Couldn't delete the expense, so it's back in the list.")).toBeVisible({ timeout: 15_000 });

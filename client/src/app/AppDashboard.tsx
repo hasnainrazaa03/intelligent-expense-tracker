@@ -1,10 +1,10 @@
 import React, { Suspense, useCallback, useMemo, useState } from 'react';
-import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Expense, Income } from '../types';
 import Header from '../components/Header';
 import IncomeSummary from '../components/IncomeSummary';
 import SectionSkeleton from '../components/SectionSkeleton';
-import { DateRangeFilter, type DateRange } from '../components/DateRangeFilter';
+import type { DateRange } from '../components/DateRangeFilter';
 import SideNav from '../components/shell/SideNav';
 import MobileNav from '../components/shell/MobileNav';
 import SectionTabs from '../components/shell/SectionTabs';
@@ -18,8 +18,6 @@ import { useDataTransfer } from '../hooks/useDataTransfer';
 import { useHubData } from '../hooks/useHubData';
 import { useIdlePrefetch, useNewEntryShortcut } from '../hooks/useAppEffects';
 import { useSetting } from '../hooks/useSetting';
-import { useCategories } from '../hooks/useCategories';
-import { getMainCategory } from '../utils/colorUtils';
 import useOfflineQueue from '../hooks/useOfflineQueue';
 import { parseAppPath, pathFor, PATHS, routeLabel, type AppRoute } from './routes';
 import { createExpense } from '../services/api';
@@ -73,11 +71,6 @@ const AppDashboard: React.FC = () => {
   const canonicalPath = pathFor(route);
   const isIncomeList = route.place === 'transactions' && route.type === 'income';
   const isIncomeOverview = route.place === 'insights' && route.section === 'income';
-  // Home's "spending by category" opens the expense list filtered to one
-  // category (?category=Food); the full filter bar comes with U4.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const categoryFilter = route.place === 'transactions' && !isIncomeList ? searchParams.get('category') : null;
-  const { subToMain } = useCategories();
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [incomeDateRange, setIncomeDateRange] = useState<DateRange>('this_month');
   // Header debounces the search input; only the settled term lands here (APP-H5).
@@ -96,18 +89,17 @@ const AppDashboard: React.FC = () => {
 
   const hideTuition = useSetting('hideTuition') ?? false;
   const onboardingDismissed = useSetting('onboardingDismissed') === true;
-  const { hub, incomeHub, knownAccounts, listItems } = useHubData({
+  const { hub, incomeHub, knownAccounts, listExpenses, listIncomes } = useHubData({
     expenses,
     incomes,
     dateRange,
     incomeDateRange,
     hideTuition,
-    listView: isIncomeList ? 'income' : 'expenses',
     search,
   });
 
   useIdlePrefetch(isAuthenticated, [
-    Screens.ExpenseList, Screens.IncomeList, Screens.ExpenseModal, Screens.IncomeModal, Screens.BudgetManagerModal,
+    Screens.TransactionsList, Screens.ExpenseModal, Screens.IncomeModal, Screens.BudgetManagerModal,
     Screens.CategoryManagerModal, Screens.AiAnalyst, Screens.USCPaymentTracker, Screens.PivotAnalysis, Screens.SettingsPage,
     Screens.BudgetsPage, Screens.Reports,
   ]);
@@ -116,11 +108,7 @@ const AppDashboard: React.FC = () => {
 
   // A list emptied by the search or the period says so, with a way out,
   // instead of "No expenses yet" for an account full of them (improvement 14).
-  const periodLabel = (range: DateRange) =>
-    range === 'all_time' ? null : range === 'this_month' ? 'This month' : range === 'last_month' ? 'Last month' : 'The last 90 days';
   const clearSearch = () => setClearSearchSignal((n) => n + 1);
-  const expenseFilters = { hasAny: expenses.length > 0, search, onClearSearch: clearSearch, periodLabel: periodLabel(dateRange), onShowAllTime: () => setDateRange('all_time') };
-  const incomeFilters = { hasAny: incomes.length > 0, search, onClearSearch: clearSearch, periodLabel: periodLabel(incomeDateRange), onShowAllTime: () => setIncomeDateRange('all_time') };
 
   // Not on Settings: "add your first expense" has no place there.
   const showOnboarding = hasServerSnapshot && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0 && route.place !== 'settings';
@@ -144,31 +132,26 @@ const AppDashboard: React.FC = () => {
     return ok;
   };
 
-  const shownExpenses = categoryFilter
-    ? (listItems as Expense[]).filter((e) => e.category === categoryFilter || getMainCategory(e.category, subToMain) === categoryFilter)
-    : (listItems as Expense[]);
-  const expenseListScreen = (
-    <Screens.ExpenseList
-      expenses={shownExpenses}
-      onEdit={(e) => openExpenseForm(e)}
-      onQuickSave={async (e) => { await tx.updateExpense(e, { inForm: false }); }}
-      onDelete={async (id) => { await tx.deleteExpense(id); }}
-      onCreate={openNewEntry}
+  const transactionsScreen = (type: 'all' | 'expenses' | 'income') => (
+    <Screens.TransactionsList
+      type={type}
+      expenses={listExpenses}
+      incomes={listIncomes}
+      hasAnyExpenses={expenses.length > 0}
+      hasAnyIncomes={incomes.length > 0}
       isLoading={isLoadingData}
-      dateFilter={<DateRangeFilter selectedRange={dateRange} onChange={setDateRange} />}
-      filters={expenseFilters}
-    />
-  );
-  const incomeListScreen = (
-    <Screens.IncomeList
-      incomes={listItems as Income[]}
-      onEdit={(i) => openIncomeForm(i)}
-      onQuickSave={async (i) => { await tx.updateIncome(i, { inForm: false }); }}
-      onDelete={async (id) => { await tx.deleteIncome(id); }}
-      onCreate={openNewEntry}
-      isLoading={isLoadingData}
-      dateFilter={<DateRangeFilter selectedRange={incomeDateRange} onChange={setIncomeDateRange} />}
-      filters={incomeFilters}
+      dateRange={dateRange}
+      onDateRangeChange={setDateRange}
+      search={search}
+      onClearSearch={clearSearch}
+      onEditExpense={(e) => openExpenseForm(e)}
+      onEditIncome={(i) => openIncomeForm(i)}
+      onQuickSaveExpense={async (e) => { await tx.updateExpense(e, { inForm: false }); }}
+      onQuickSaveIncome={async (i) => { await tx.updateIncome(i, { inForm: false }); }}
+      onDeleteExpense={async (id) => { await tx.deleteExpense(id); }}
+      onDeleteIncome={async (id) => { await tx.deleteIncome(id); }}
+      onBulkChanged={data.invalidate}
+      onCreate={type === 'income' ? () => openIncomeForm() : () => openExpenseForm()}
     />
   );
 
@@ -221,25 +204,9 @@ const AppDashboard: React.FC = () => {
         );
       case 'transactions':
         return (
-          <>
-            <SectionTabs
-              label="Transaction type"
-              tabs={[
-                { label: 'Expenses', to: PATHS.transactions, active: !isIncomeList },
-                { label: 'Income', to: PATHS.transactionsIncome, active: isIncomeList },
-              ]}
-            />
-            {categoryFilter && (
-              <div className="flex flex-wrap items-center gap-2 text-sm" role="status">
-                <span className="text-app-muted">Showing</span>
-                <span className="rounded-full bg-primary-soft text-primary font-semibold px-3 py-1">{categoryFilter}</span>
-                <button type="button" onClick={() => setSearchParams({})} className="text-xs font-semibold text-primary hover:underline underline-offset-2">Show all categories</button>
-              </div>
-            )}
-            <Suspense fallback={<SectionSkeleton title="Loading transactions" rows={4} />}>
-              {isIncomeList ? incomeListScreen : expenseListScreen}
-            </Suspense>
-          </>
+          <Suspense fallback={<SectionSkeleton title="Loading transactions" rows={4} />}>
+            {transactionsScreen(route.type)}
+          </Suspense>
         );
       case 'budgets':
         return (

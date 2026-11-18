@@ -7,7 +7,7 @@ export const UNDO_WINDOW_MS = 5000;
 const TOAST_DURATION_MS = UNDO_WINDOW_MS + 600;
 
 // Pending deletes live at module level, not in the list component. They used to
-// be timers owned by ExpenseList/IncomeList and cleared on unmount, so switching
+// be timers owned by the old expense and income lists and cleared on unmount, so switching
 // tabs within the undo window silently cancelled a delete the toast had just
 // called "scheduled". The delete handler (App's) outlives the list, so firing
 // after the list is gone is fine.
@@ -59,7 +59,7 @@ export const usePendingDeleteIds = (): ReadonlySet<string> =>
 
 /**
  * Schedules a delete after a short undo window and shows an UNDO toast. Shared by
- * ExpenseList and IncomeList:
+ * the Transactions list (expenses and income):
  * - the delete survives the list unmounting (tab switches) and runs early if
  *   the page is hidden or closed;
  * - the row is hidden at once and comes back on UNDO (or if the delete fails);

@@ -4,7 +4,8 @@ import { parseAppPath, pathFor, PATHS, type AppRoute } from './routes';
 describe('parseAppPath', () => {
   it('reads every screen', () => {
     expect(parseAppPath('/app')).toEqual({ place: 'home' });
-    expect(parseAppPath('/app/transactions')).toEqual({ place: 'transactions', type: 'expenses' });
+    expect(parseAppPath('/app/transactions')).toEqual({ place: 'transactions', type: 'all' });
+    expect(parseAppPath('/app/transactions/expenses')).toEqual({ place: 'transactions', type: 'expenses' });
     expect(parseAppPath('/app/transactions/income')).toEqual({ place: 'transactions', type: 'income' });
     expect(parseAppPath('/app/budgets')).toEqual({ place: 'budgets' });
     expect(parseAppPath('/app/insights/breakdown')).toEqual({ place: 'insights', section: 'breakdown' });
@@ -30,7 +31,7 @@ describe('parseAppPath', () => {
 
   it('round-trips with pathFor', () => {
     const routes: AppRoute[] = [
-      { place: 'home' }, { place: 'transactions', type: 'expenses' }, { place: 'transactions', type: 'income' },
+      { place: 'home' }, { place: 'transactions', type: 'all' }, { place: 'transactions', type: 'expenses' }, { place: 'transactions', type: 'income' },
       { place: 'budgets' }, { place: 'insights', section: 'reports' }, { place: 'insights', section: 'income' },
       { place: 'tuition' }, { place: 'settings' },
       { place: 'budgets', editing: true }, { place: 'settings', section: 'categories' }, { place: 'settings', section: 'data' },

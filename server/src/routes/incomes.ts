@@ -9,6 +9,7 @@ import { sanitizeText, sanitizeNotes } from '../utils/sanitize';
 import { normalizeTags, normalizeMetadata, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, incomeToClient } from '../utils/money';
 import { holdKeyLockUntilResponse } from '../utils/keyedLock';
+import { parseSelection } from '../utils/bulkSelection';
 
 const router = Router();
 
@@ -228,6 +229,60 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
+
+// --- Bulk actions on ticked incomes (U4) ---
+// POST /api/incomes/bulk-delete { ids }: the same clean-up as deleting one.
+router.post('/bulk-delete', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const selection = parseSelection(req.body?.ids);
+  if ('error' in selection) return res.status(400).json({ message: selection.error });
+  try {
+    // Only the signed-in user's rows ever match; ids of anyone else's are ignored.
+    const owned = (await prisma.income.findMany({ where: { userId, id: { in: selection.ids } }, select: { id: true } })).map((r) => r.id);
+    if (owned.length > 0) {
+      await prisma.income.deleteMany({ where: { userId, id: { in: owned } } });
+    }
+    await writeAuditLog({
+      action: 'income_bulk_delete',
+      userId,
+      success: true,
+      route: '/api/incomes/bulk-delete',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { requested: selection.ids.length, deleted: owned.length },
+    });
+    res.json({ deleted: owned.length });
+  } catch (error: any) {
+    console.error('Failed to delete incomes:', error);
+    res.status(500).json({ message: 'Failed to delete incomes' });
+  }
+});
+
+// POST /api/incomes/bulk-update { ids, category }: recategorise several at once.
+router.post('/bulk-update', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const selection = parseSelection(req.body?.ids);
+  if ('error' in selection) return res.status(400).json({ message: selection.error });
+  const category = sanitizeText(req.body?.category);
+  if (!category) return res.status(400).json({ message: 'Choose a category' });
+  if (category.length > MAX_TEXT_LENGTH) return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
+  try {
+    const result = await prisma.income.updateMany({ where: { userId, id: { in: selection.ids } }, data: { category } });
+    await writeAuditLog({
+      action: 'income_bulk_update',
+      userId,
+      success: true,
+      route: '/api/incomes/bulk-update',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { requested: selection.ids.length, updated: result.count, category },
+    });
+    res.json({ updated: result.count });
+  } catch (error: any) {
+    console.error('Failed to update incomes:', error);
+    res.status(500).json({ message: 'Failed to update incomes' });
+  }
+});
 
 // --- 3. Delete an Income ---
 // DELETE /api/incomes/:id

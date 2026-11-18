@@ -7,6 +7,21 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Transactions in one list (2026-11-18)
+- **Expenses and income together:** All / Expenses / Income, newest first, grouped by day with
+  each day's totals; income in green with a +. About 12 entries fit on a laptop screen instead of
+  2, and "Load more" adds 50 at a time (it replaces 10-per-page buttons).
+- **Filters and sort** (category, account or card, payment method, tag, amount range; newest,
+  oldest or largest) live in the address, so Back and bookmarks keep them. Home's category links
+  open the list filtered to that category.
+- **Select** ticks entries to move them to another category or delete them together. Deleting
+  several asks first; tuition payments among them re-open their installments, as a single delete
+  does. New endpoints: `POST /api/expenses/bulk-delete`, `/bulk-update`, and the same for incomes
+  (your own entries only, at most 500 at a time).
+- **Delete one without a dialog:** the row goes at once with an Undo in the toast, as before after
+  the dialog. Quick edit (double-click the amount) and notes on the row are kept. On a phone,
+  swipe left to delete or right to edit.
+
 ### A Home that answers "how am I doing?" (2026-11-18)
 - **The month against its budget, first:** spent of budget with a bar, what's left, the days
   left and about how much a day keeps you on budget, or how much you're over. With no budgets:
