@@ -23,7 +23,9 @@
   --border-strong: rgba(20, 20, 45, 0.16);
   --text: #17162b;
   --muted: #63627e;
-  --faint: #9a99b3;
+  /* At least 4.5:1 on white, the page and the grey panels, for helper text
+     and small labels (#9a99b3 was 2.7:1; caught by the light-theme axe run, U7). */
+  --faint: #66657e;
   --primary: #6d5cf0;
   --primary-soft: rgba(109, 92, 240, 0.12);
   --on-primary: #ffffff;
@@ -31,8 +33,14 @@
   --danger: #e11d63;
   --on-danger: #ffffff;
   /* violet for small text; the brand violet already reaches 4.7:1 on white */
-  --primary-text: var(--primary);
+  --primary-text: #4f3fd0;
   --warning: #d97706;
+  /* Text in those colours, deeper: at least 4.5:1 on white, on the page and
+     on their own 10-15% tints (badges, chips). The brand shades above stay for
+     fills, bars and borders (U7, found by the light-theme axe run). */
+  --success-text: #166534;
+  --danger-text: #be123c;
+  --warning-text: #92400e;
   --glow: 0 8px 30px rgba(109, 92, 240, 0.22);
   --shadow-sm: 0 2px 8px rgba(20, 20, 45, 0.06);
   --shadow: 0 12px 34px rgba(20, 20, 45, 0.10);
@@ -337,3 +345,10 @@
 .dark .text-primary {
   color: var(--primary-text);
 }
+
+/* Light theme: green, red, amber and violet TEXT use the deeper --*-text
+   shades (U7), for the same reason and in the same way. */
+:root:not(.dark) .text-primary { color: var(--primary-text); }
+:root:not(.dark) .text-ok { color: var(--success-text); }
+:root:not(.dark) .text-danger { color: var(--danger-text); }
+:root:not(.dark) .text-warn { color: var(--warning-text); }

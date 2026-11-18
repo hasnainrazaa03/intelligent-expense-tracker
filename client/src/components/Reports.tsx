@@ -264,7 +264,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
 
       <h3 className="font-display text-lg md:text-xl font-bold text-app-text pt-2">Period summaries</h3>
       <div className="glass rounded-2xl p-4 md:p-6">
-        <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Time period summaries <span className="text-app-faint text-xs font-normal">· all history</span></h4>
+        <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Quarter and year totals <span className="text-app-faint text-xs font-normal">· all history</span></h4>
         <TimePeriodSummaries allExpenses={allExpenses} />
       </div>
 

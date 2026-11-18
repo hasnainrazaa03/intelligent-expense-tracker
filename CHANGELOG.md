@@ -7,6 +7,32 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Checks and final polish (2026-11-18)
+- **Screenshot tests on every PR:** Home, Transactions, Budgets, the four Insights sections,
+  Tuition, Settings, quick add and the landing page, on a laptop and a phone, in dark and
+  light (44 reference images). They run on fixture data with a frozen clock, in Playwright's
+  Linux image (new CI job "UI · screenshots and accessibility"); `npm run test:visual:update`
+  remakes the images in that same image with Docker.
+- **Accessibility on every screen:** axe (WCAG 2.1 A/AA) on all 21 screens and on every
+  dialog, menu and sheet, on a laptop and a phone, in both themes; Escape closes each one and
+  focus goes back; a keyboard walk checks the Tab order (skip link, header, navigation, page)
+  and that every stop shows focus.
+- **Light theme contrast:** the new checks found green, amber, red and violet text on light
+  backgrounds and badges, and the faint helper text, below 4.5:1. Text in those colours now
+  uses deeper shades in the light theme (fills and the dark theme are unchanged).
+- **Bundle-size check:** CI reports what a first visit downloads and what each screen adds,
+  and fails past 10% over `client/bundle-budget.json`. Against the code before U1, every
+  screen opens with less: the landing page 517 → 128 kB, Home 528 → 279 kB, Transactions
+  521 → 164 kB, Reports 526 → 419 kB (gzipped, cold).
+- **Home:** the month's card spans the full width with income, spent and net in a row
+  beneath it; beside it, the card stretched to the stacked totals and left a gap.
+- **Wording:** plain titles where jargon was left ("Check your email" instead of "Identity
+  check" and a "v2.0" badge; "Quarter and year totals"; "Income · last 6 months"), and a
+  plain error screen. An unused AI report dialog was removed.
+- **Docs:** README release notes for the overhaul, a client README (checks, screenshot tests,
+  bundle budget), and a knowledge base rewritten for the new navigation (finding your way,
+  quick add, Transactions, recurring charges, Orbit on your phone).
+
 ### Landing page and first steps (2026-11-18)
 - **A new landing page:** the real Home screen (sample data, in the visitor's theme, phone-sized on
   a phone), "Create free account" and "Sign in" up front, three reasons students use Orbit, a

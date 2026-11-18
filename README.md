@@ -12,8 +12,9 @@ Most budgeting apps treat *Tuition* as a one-off expense and *International FX* 
 > The UI has fully migrated from the neo-brutalist look to the **cosmic-glass "Orbit"**
 > design (both light & dark themes) — see [docs/design-direction.md](./docs/design-direction.md).
 > Data-integrity, security, and architecture phases are done. As of **2026-08-24** the app is
-> running against real multi-account statement data. Remaining work is quality hardening
-> (accessibility audit, broader E2E).
+> running against real multi-account statement data. On **2026-11-18** the UI overhaul
+> (U1–U7) finished: new navigation and Home, one Transactions list, quick add, a public
+> landing page, and screenshot, accessibility and bundle-size checks on every PR.
 >
 > ⚠️ **Do not upgrade Prisma past 6.x.** Prisma 7 requires a driver adapter for every
 > database and ships none for MongoDB, so `new PrismaClient()` throws at boot. Prisma's own
@@ -103,7 +104,33 @@ Powered by **Google Gemini**, the AI layer doesn’t just read numbers—it unde
 
 ## 🚀 Feature Overview
 
-### 🆕 Latest Release Notes (August 2026)
+### 🆕 Latest Release Notes (November 2026): the UI overhaul
+
+<img src="./client/public/screens/home-dark.webp" alt="Orbit's Home screen: the month's budget, income, spending and net, budgets at risk, charges coming up and recent entries" width="720" />
+
+No feature was removed; everything moved to where it's easier to find. Details per phase
+are in the [CHANGELOG](./CHANGELOG.md).
+
+- **Navigation:** Home, Transactions, Budgets, Insights and Tuition in a labelled sidebar
+  (a bottom bar with a + button and More on phones), every screen at its own address
+  (`/app/transactions`, `/app/insights/reports`, …), and a profile menu for theme,
+  currency, data and sign-out.
+- **Home** answers "how is this month going": budget used with what's left per day,
+  income / spent / net against the previous period, budgets at risk, charges coming up,
+  recent entries, top categories and an Ask AI box. New accounts get a first-steps checklist.
+- **Transactions:** expenses and income in one list grouped by day, filters kept in the
+  address, select several to recategorise or delete together, and Undo after a delete.
+- **Quick add:** amount first, past titles fill in their details, Today / Yesterday,
+  Save & add another, and the rest under "More details". A bottom sheet on phones.
+- **Insights:** Reports, Breakdown, Income and Ask AI share one period; every chart can be
+  shown as a table; Breakdown sorts and links to the matching transactions.
+- **Landing page** with the real app on show, and a much faster first load (Lighthouse on a
+  phone: 67 → 95+).
+- **Checks on every PR:** screenshots of every main screen (laptop and phone, dark and
+  light), axe and keyboard checks on every screen and dialog in both themes, and a
+  bundle-size budget. See [client/README.md](./client/README.md).
+
+### 🆕 Release Notes (August 2026)
 **Multi-account support**
 - New **`account`** field on expenses and incomes — `paymentMethod` says *how* you paid,
   `account` says *which card or account*, so two cards that are both "Credit Card" stay
@@ -179,12 +206,12 @@ existed. Dry-run by default; `--apply` to commit. It never overwrites an account
 - Instant USD ↔ INR toggle
 - Persistent currency preference
 
-### 📄 Modular Pagination
-- Reusable frontend component
-- Configurable page size (10 / 25 / 50 / 100 / All)
-- Available on every date range — including *All time*
-- Choosing **All** switches to a virtualized scroll for very large lists
-- Maintains UI performance even with thousands of transactions
+### 📋 Transactions list
+- Expenses and income in one list, grouped by day, with type, category and period filters
+  that live in the address (so Back and bookmarks keep them)
+- Shows 50 at a time with **Load more**, on every period including *All time*
+- Select mode: recategorise or delete up to 500 entries at once (`/api/*/bulk-update`,
+  `/api/*/bulk-delete`), with a confirmation; a single delete can be undone for 5 seconds
 
 ### ⚡ Performance and Loading
 - Route-level code splitting with lazy loading
@@ -195,6 +222,10 @@ existed. Dry-run by default; `--apply` to commit. It never overwrites an account
 - Additional memoization for frequently re-computed view props and summaries
 - Optimized asset delivery with local static assets and reduced external visual dependencies
 - Basic offline resilience with service worker app-shell caching
+- Chunking keeps the chart, PDF and OCR libraries off the first load: a first visit downloads
+  about 128 kB (gzipped), down from 516 kB, and every screen opens with less than before the
+  overhaul. `client/scripts/check-bundle-size.mjs` fails CI when a chunk grows more than 10%
+  past `client/bundle-budget.json`
 
 ### 🧱 Architecture and Reliability
 - Root-level React error boundary with graceful recovery UI
@@ -222,6 +253,10 @@ existed. Dry-run by default; `--apply` to commit. It never overwrites an account
 - Improved mobile-first navigation with dedicated bottom tab navigation
 - Expanded floating quick-action menu for faster add/manage workflows
 - Contrast refinements for helper/label text in auth and chart empty states
+- axe (WCAG 2.1 A/AA) on every screen, dialog, menu and sheet, on a laptop and a phone, in
+  both themes; light-theme text colours were deepened to reach 4.5:1
+- A keyboard walk-through test: skip link first, then header, navigation and the page, with
+  a visible focus style at every stop; Escape closes every dialog and returns focus
 
 ### 🌐 Discoverability
 - Robots and sitemap files for crawl strategy (`client/public/robots.txt`, `client/public/sitemap.xml`)
@@ -277,7 +312,9 @@ existed. Dry-run by default; `--apply` to commit. It never overwrites an account
 ### 🌍 Public Surface and Testing
 - Public landing page (`/`) with SEO-oriented content and focused conversion path
 - Public knowledge base (`/knowledge`) with searchable onboarding/security guidance
-- Playwright E2E suite scaffold for core flows (`client/tests/e2e/core-flows.spec.ts`)
+- Playwright end-to-end flows against a real API and database (`client/tests/e2e/`)
+- Screenshot and accessibility tests on fixture data with a frozen clock
+  (`client/tests/visual/`), run in Playwright's Linux image in CI
 - Mobile companion path via installable PWA manifest and install prompt
 
 ---
@@ -359,7 +396,9 @@ Run these checks after pulling updates:
 
 ```bash
 cd server && npx tsc --noEmit
-cd ../client && npx tsc --noEmit && npx vitest run && npm run build
+cd ../client && npm run lint && npm run typecheck && npm test && npm run build
+node scripts/check-bundle-size.mjs   # gzipped sizes against bundle-budget.json
+npm run test:visual                  # screenshots + accessibility (references are made in Linux: see client/README.md)
 ```
 
 All should complete without errors.

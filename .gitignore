@@ -30,6 +30,9 @@ server/logs/
 client/tests/e2e/.auth/
 client/test-results/
 client/playwright-report/
+client/test-results-visual/
+client/playwright-report-visual/
+client/dist-visual/
 
 # server runtime logs
 server/logs/

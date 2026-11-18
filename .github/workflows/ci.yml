@@ -38,6 +38,46 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      # What a first visit downloads and what each screen adds, gzipped; fails
+      # past 10% over bundle-budget.json (U7). The table is in the job summary.
+      - name: Bundle size
+        run: node scripts/check-bundle-size.mjs
+
+  # Screenshots of every main screen (laptop and phone, dark and light) and
+  # axe + keyboard checks on every screen, against fixture data with a frozen
+  # clock, so no API or database (U7). It runs in Playwright's Linux image
+  # because the reference images were made there (npm run test:visual:update);
+  # keep the tag equal to @playwright/test's version (the first step checks).
+  ui:
+    name: UI · screenshots and accessibility
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm ci
+      - name: The image matches @playwright/test
+        run: |
+          want=$(node -p "require('@playwright/test/package.json').version")
+          if [ "$want" != "1.62.1" ]; then
+            echo "::error::@playwright/test is $want: set the ui job's image to mcr.microsoft.com/playwright:v$want-noble, then run npm run test:visual:update"
+            exit 1
+          fi
+      - name: Screenshots and accessibility
+        run: npm run test:visual
+      - name: Upload the differences
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-report
+          path: |
+            client/playwright-report-visual
+            client/test-results-visual
+          retention-days: 7
 
   server:
     name: Server · typecheck

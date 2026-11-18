@@ -1,0 +1,7 @@
+/* Applied only while a reference screenshot is taken (stylePath in
+   playwright.visual.config.ts). The starfield and the dark theme's colour glows
+   are decoration that Chrome dithers into noise: PNGs of it don't compress
+   (about 560 kB a screen against about 140 kB without). Flat, every card,
+   text and chart is still compared. */
+.starfield { display: none !important; }
+body { background: var(--bg) !important; }

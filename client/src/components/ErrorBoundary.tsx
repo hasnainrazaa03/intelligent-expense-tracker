@@ -13,12 +13,11 @@ const ErrorFallback: React.FC<FallbackProps & { title?: string }> = ({ error, ti
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-2xl w-full glass rounded-2xl p-8 text-center">
-        <p className="text-xs uppercase tracking-wider text-app-faint">System recovery</p>
-        <h1 className="font-display font-bold text-3xl mt-2 text-app-text">
+        <h1 className="font-display font-bold text-3xl text-app-text">
           {title || 'Something went wrong'}
         </h1>
         <p className="mt-4 text-app-muted">
-          The interface hit an unexpected error. Your data is safe. Reload to continue.
+          Orbit hit an unexpected error. What you've saved is safe. Try again, or reload the page.
         </p>
         {message && (
           <p className="mt-4 text-xs text-app-muted bg-surface-2 border border-app-border rounded-xl p-3">

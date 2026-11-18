@@ -133,7 +133,7 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
           </div>
         </div>
         <div className="glass rounded-2xl p-4 md:p-5 min-w-0 flex flex-col">
-          <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Income trend · 6-month window</h3>
+          <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Income · last 6 months</h3>
           <div className="flex-1 min-h-[16rem]">
             <SpendingBarChart data={trend} />
           </div>
@@ -143,7 +143,7 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
       {/* Income vs Expenses (6-month) */}
       <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-5">
-          <h3 className="font-display text-base md:text-lg font-semibold text-app-text">Income vs expenses · 6-month window</h3>
+          <h3 className="font-display text-base md:text-lg font-semibold text-app-text">Income vs expenses · last 6 months</h3>
           {savings.rate !== null && (
             <span className={`text-xs font-semibold tabular-nums rounded-lg px-2.5 py-1 ${savings.rate >= 0 ? 'bg-ok/15 text-ok' : 'bg-danger/15 text-danger'}`}>
               {savings.rate >= 0 ? 'Saved' : 'Overspent'} {Math.abs(savings.rate).toFixed(0)}%

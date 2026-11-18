@@ -10,7 +10,9 @@
     "test": "vitest run",
     "lint": "oxlint -c .oxlintrc.json --deny-warnings src tests",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:visual": "playwright test -c playwright.visual.config.ts",
+    "test:visual:update": "bash scripts/update-screenshots.sh"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.5",
