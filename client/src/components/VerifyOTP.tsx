@@ -79,11 +79,11 @@ const VerifyOTP: React.FC = () => {
       
       // Success: Redirect to login
       sessionStorage.removeItem('pending_verification_email');
-      navigate('/login', { state: { message: "ACCOUNT_VERIFIED_ACCESS_GRANTED" } });
+      navigate('/login', { state: { message: 'Your email is verified. Sign in to continue.' } });
     } catch (err: any) {
       // A password mismatch: show the field so it can be re-entered.
       if (/password/i.test(err?.message || '')) setAskPassword(true);
-      setError(err.message || "INVALID_VERIFICATION_CODE");
+      setError(err.message || "That code didn't work. Check it, or send a new one.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ const VerifyOTP: React.FC = () => {
       await resendOtp(email);
       setResendCooldown(60); // the countdown effect handles ticking + cleanup
     } catch (err: any) {
-      setError(err.message || "RESEND_FAILED");
+      setError(err.message || "Couldn't send a new code. Try again in a minute.");
     }
   };
 

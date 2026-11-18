@@ -9,6 +9,7 @@ import {
 import { formatCurrency } from '../utils/currencyUtils';
 import Pagination from './Pagination';
 import EmptyState from './EmptyState';
+import { filteredEmptyCopy, type ListFilters } from './listFilters';
 import SectionSkeleton from './SectionSkeleton';
 import { List, RowComponentProps, useDynamicRowHeight } from 'react-window';
 import { APP_CONFIG, PAGE_SIZE_OPTIONS, PageSizeOption } from '../config';
@@ -25,6 +26,8 @@ interface ExpenseListProps {
   isLoading?: boolean;
   /** Optional date-range control rendered in the list header. */
   dateFilter?: React.ReactNode;
+  /** When the account has entries but the search or period hides them all. */
+  filters?: ListFilters;
 }
 
 // --- TYPES FOR SUB-COMPONENTS ---
@@ -88,7 +91,8 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave,
                   <div className="text-left md:text-right">
                       {isInlineEditing ? (
                         <input
-                          aria-label={`Amount for ${expense.title}`}
+                          aria-label={`Amount in USD for ${expense.title}`}
+                          placeholder="USD"
                           type="number"
                           value={draftAmount}
                           onChange={(e) => setDraftAmount(e.target.value)}
@@ -189,7 +193,7 @@ const VirtualExpenseRow = ({ index, style, expenses, onEdit, onQuickSave, onDele
   );
 };
 
-const ExpenseList: React.FC<ExpenseListProps> = ({ expenses: allExpenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter }) => {
+const ExpenseList: React.FC<ExpenseListProps> = ({ expenses: allExpenses, onEdit, onQuickSave, onDelete, onCreate, isLoading = false, dateFilter, filters }) => {
   const [expenseToDeleteId, setExpenseToDeleteId] = useState<string | null>(null);
   const scheduleDelete = useUndoableDelete(onDelete);
   // Rows with a delete pending disappear at once; UNDO brings them back.
@@ -308,12 +312,17 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses: allExpenses, onEdit
         )}
         </>
       ) : (
-        <EmptyState
-          title="No expenses yet"
-          subtitle="Start by logging your first expense to see it here."
-          ctaLabel="Add first expense"
-          onCta={onCreate}
-        />
+        filters?.hasAny ? (
+          // The account has expenses; the search or period hides them all.
+          <EmptyState {...filteredEmptyCopy(filters, 'expenses')} />
+        ) : (
+          <EmptyState
+            title="No expenses yet"
+            subtitle="Start by logging your first expense to see it here."
+            ctaLabel="Add first expense"
+            onCta={onCreate}
+          />
+        )
       )}
 
       <ConfirmationDialog

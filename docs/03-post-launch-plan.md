@@ -167,6 +167,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| 5f-1 Copy and empty states | Plain language instead of codes like `ONLY_CSV_FILES_ALLOWED`, `INVALID_BACKUP_STRUCTURE`, `TWO_FACTOR_VERIFICATION_FAILED`, "Engine v4.0", "Budget protocols"; a verified email now says so on the sign-in page; lists emptied by a search or period say "Nothing matches" with Clear search and Show all time; quick-edit amounts say USD; Knowledge base rewritten | #198 |
 | 5e-2 Push alerts | Web Push: budget alerts at 80% and 100%, bill reminders two days ahead, and last month's summary early in the month, between 9 am and 9 pm in the user's time zone, each sent once. An hourly GitHub Actions job calls `POST /api/jobs/notify` (shared secret), which also wakes Render. Settings → Notifications turns a device on and picks the kinds. Email follows once Orbit sends from its own domain | #193 |
 | 5e-1 Reports period, CSV round trip | Reports get a period selector (this month, last month, 90 days, all time); budget use compares monthly budgets with the period's average month; plain labels instead of "Status: audited" and the "Certified audit" seal. The CSV export puts expenses and income in one file that the CSV importer reads back (account, tags, tax fields, original currency included), skipping rows already in the account; imports over 500 rows no longer fail; a budgets-only PDF no longer throws; backup restore keeps each income's account | #191 |
 | 5d-2 App.tsx split | `App.tsx` 1,597 → 63 lines (routes and toasts). The signed-in app is `app/AppDashboard.tsx`, composing `useAllData` (the data and the "not loaded yet" guard, C2), `useTransactions` (React Query mutations: edits and deletes apply at once and roll back one item on failure; forms close only on success, C4), `useTuition`, `useRecurringSuggestions`, `useDataTransfer`, `useHubData`, and shell components | #190 |
@@ -195,7 +196,10 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [x] 5e-1 Reports period selector and round-trip CSV export (#191, improvement 17).
 - [x] 5e-2 Budget and bill alerts and a monthly summary, by Web Push (#193, improvement 16; B3, B6). To switch on: VAPID keys and `CRON_SECRET` on Render, `CRON_SECRET` as a GitHub Actions secret (runbook, "Push notifications").
 - [ ] The same alerts by email, once Orbit sends from a verified domain (5a).
-- [ ] 5f Copy, empty states, PWA icons, analytics, net-worth accounts saved to the server, Redis-backed limiter, encrypted backups (B9, A6).
+- [x] 5f-1 Copy and empty states (#198, improvements 14 and 15).
+- [x] Net-worth accounts saved to the server: done in 5b-1 (#186).
+- [ ] 5f-2 Real PWA icons (192 and 512 px PNG, apple-touch-icon) and an absolute OG image; encrypted backups (B9).
+- [ ] 5f-3 Privacy-friendly analytics and a Redis-backed rate limiter (A6): each needs a service chosen.
 
 **Also open**
 - [ ] PDF statement parsing still runs on the main thread: move it to a worker with a timeout (the rest of S13).

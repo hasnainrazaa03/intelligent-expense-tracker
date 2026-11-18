@@ -156,12 +156,12 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
         const lowerName = file.name.toLowerCase();
         if (!lowerName.endsWith('.csv')) {
           setImportFile(null);
-          setImportError('ONLY_CSV_FILES_ALLOWED');
+          setImportError('Choose a .csv file.');
           return;
         }
         if (file.size > APP_CONFIG.maxImportFileSizeBytes) {
           setImportFile(null);
-          setImportError(`CSV_FILE_TOO_LARGE_MAX_${Math.floor(APP_CONFIG.maxImportFileSizeBytes / (1024 * 1024))}MB`);
+          setImportError(`That file is over ${Math.floor(APP_CONFIG.maxImportFileSizeBytes / (1024 * 1024))} MB. Split it into smaller files.`);
           return;
         }
         setImportFile(file);
@@ -176,7 +176,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
       const lowerName = file.name.toLowerCase();
       if (!lowerName.endsWith('.json')) {
         setBackupFile(null);
-        setBackupError('ONLY_JSON_BACKUP_FILES_ALLOWED');
+        setBackupError('Choose an Orbit backup file (.json).');
         return;
       }
       if (file.size > APP_CONFIG.maxBackupFileSizeBytes) {
@@ -191,7 +191,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
 
   const handleImport = () => {
     if (!importFile) {
-        setImportError("FILE_SELECTION_REQUIRED");
+        setImportError('Choose a CSV file first.');
         return;
     }
     setIsImporting(true);
@@ -213,7 +213,9 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             if (rows === 0) {
                 throw new Error(
                     duplicates > 0 ? 'Everything in this file is already in your account.'
-                    : skippedRows > 0 ? `NO_VALID_ROWS (${skippedRows} skipped)` : 'CSV_EMPTY_OR_NO_DATA'
+                    : skippedRows > 0
+                      ? `None of the ${skippedRows} rows could be imported: each needs a title, a category, a date and an amount above zero.`
+                      : 'This CSV has no rows.'
                 );
             }
 
@@ -227,13 +229,13 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             // selected here to try again (nothing is duplicated, B5).
             if (await onImport({ expenses: expenses.fresh, incomes: incomes.fresh })) onClose();
         } catch (error: any) {
-            setImportError(error.message || "PARSING_FAILURE");
+            setImportError(error.message || "Couldn't read this CSV.");
         } finally {
             setIsImporting(false);
         }
     };
     reader.onerror = () => {
-        setImportError('FILE_READ_FAILED');
+        setImportError("Couldn't read the file.");
         setIsImporting(false);
     };
     reader.readAsText(importFile);
@@ -242,7 +244,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   // Step 1: read and validate the file, then ask for confirmation.
   const handleRestoreBackup = () => {
     if (!backupFile) {
-      setBackupError('BACKUP_FILE_REQUIRED');
+      setBackupError('Choose a backup file first.');
       return;
     }
     setBackupError(null);
@@ -253,7 +255,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
         const parsed = JSON.parse(event.target?.result as string);
         const backupData = parsed?.data || parsed;
         if (!backupData || !Array.isArray(backupData.expenses) || !Array.isArray(backupData.incomes) || !Array.isArray(backupData.budgets) || !Array.isArray(backupData.semesters)) {
-          throw new Error('INVALID_BACKUP_STRUCTURE');
+          throw new Error("This file isn't an Orbit backup.");
         }
         setRestoreConfirm('');
         setPendingRestore({
@@ -262,10 +264,10 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
           exportedAt: typeof parsed?.exportedAt === 'string' ? parsed.exportedAt : null,
         });
       } catch (error: any) {
-        setBackupError(error instanceof SyntaxError ? 'That file is not valid JSON.' : (error.message || 'BACKUP_RESTORE_FAILED'));
+        setBackupError(error instanceof SyntaxError ? "That file isn't an Orbit backup (it isn't valid JSON)." : (error.message || "Couldn't read this backup."));
       }
     };
-    reader.onerror = () => setBackupError('FILE_READ_FAILED');
+    reader.onerror = () => setBackupError("Couldn't read the file.");
     reader.readAsText(backupFile);
   };
 
@@ -404,7 +406,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             {importError && (
               <div role="alert" aria-live="assertive" className="rounded-xl border border-danger/40 bg-danger/10 p-3 flex items-center text-sm font-medium text-danger">
                 <ExclamationTriangleIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                Error: {importError}
+                {importError}
               </div>
             )}
 
@@ -441,7 +443,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             {backupError && (
               <div role="alert" aria-live="assertive" className="rounded-xl border border-danger/40 bg-danger/10 p-3 flex items-center text-sm font-medium text-danger">
                 <ExclamationTriangleIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                Restore error: {backupError}
+                {backupError}
               </div>
             )}
 

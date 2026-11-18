@@ -64,12 +64,12 @@ const flag = (v: string | undefined) => v?.trim().toLowerCase() === 'true';
  */
 export const parseTransactionsCsv = (text: string, maxRows: number): TransactionsCsvResult => {
   const rows = parseCsvRows(text);
-  if (rows.length < 2) throw new TransactionsCsvError('CSV_EMPTY_OR_NO_DATA');
-  if (rows.length - 1 > maxRows) throw new TransactionsCsvError(`CSV_ROW_LIMIT_EXCEEDED_MAX_${maxRows}`);
+  if (rows.length < 2) throw new TransactionsCsvError('This CSV has no rows.');
+  if (rows.length - 1 > maxRows) throw new TransactionsCsvError(`This file has more than ${maxRows} rows. Split it into smaller files.`);
 
   const header = rows[0].map((h) => h.trim());
   if (!REQUIRED_CSV_HEADERS.every((h) => header.includes(h))) {
-    throw new TransactionsCsvError(`MISSING_HEADERS: ${REQUIRED_CSV_HEADERS.join(', ')}`);
+    throw new TransactionsCsvError(`The first row must name the columns, including ${REQUIRED_CSV_HEADERS.join(', ')}.`);
   }
 
   let skipped = 0;

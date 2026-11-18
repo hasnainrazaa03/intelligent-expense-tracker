@@ -8,6 +8,10 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Clearer words (#198):** errors in import, backup, sign-in and verification are in plain
+  language instead of codes like ONLY_CSV_FILES_ALLOWED; verifying your email now says so;
+  a list your search or period empties says "Nothing matches" with a way back, instead of
+  "No expenses yet".
 - **Notifications (#193):** turn them on in Settings and Orbit sends budget alerts (at 80%
   and 100%), reminders two days before a recurring bill, and a summary of last month, in
   the daytime where you are. Browser push for now; email once Orbit has its own domain.

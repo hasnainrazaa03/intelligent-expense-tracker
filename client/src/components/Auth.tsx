@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { GoogleIcon, ExclamationTriangleIcon } from './Icons';
 import { ExpenseTrackerLogo } from './Branding';
 import { registerUser, loginUser, forgotPassword, resetPassword, verifyLoginOtp } from '../services/api';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Input, Label } from './ui';
 import { stashVerificationPassword } from '../utils/pendingVerification';
 
@@ -36,6 +36,14 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [loginOtp, setLoginOtp] = useState('');
   const [pendingLoginEmail, setPendingLoginEmail] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Arriving from email verification: say it worked. VerifyOTP passed a code
+  // here that nothing displayed, so a verified user got no confirmation.
+  useEffect(() => {
+    const message = (location.state as { message?: string } | null)?.message;
+    if (message) setSuccessMsg(message);
+  }, [location.state]);
 
   // Redirects back from Google sign-in: a 2FA account gets an emailed code
   // instead of a session, and a callback whose OAuth state didn't match is refused.
@@ -110,7 +118,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         navigate('/verify', { state: { email: email } });
       }
     } catch (err: any) {
-      setError(err.message || 'AUTHENTICATION_FAILURE');
+      setError(err.message || "Couldn't sign you in. Try again.");
     } finally {
       setLoading(false);
     }
@@ -124,7 +132,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       await verifyLoginOtp(pendingLoginEmail, loginOtp);
       onLoginSuccess(pendingLoginEmail);
     } catch (err: any) {
-      setError(err.message || 'TWO_FACTOR_VERIFICATION_FAILED');
+      setError(err.message || "That code didn't work. Check it and try again.");
     } finally {
       setLoading(false);
     }
