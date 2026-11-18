@@ -59,7 +59,7 @@ async function main() {
 
   // 5. Schema Stress Test: USC Semester & Installments
   // This tests your complex composite key relationship
-  const semester = await prisma.semester.create({
+  await prisma.semester.create({
     data: {
       id: 'fall-2025',
       name: 'Fall 2025',

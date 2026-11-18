@@ -292,6 +292,7 @@ router.post('/verify-otp', otpLimiter, async (req: Request, res: Response) => {
 
     res.json({ message: "ACCOUNT_VERIFIED_SUCCESSFULLY" });
   } catch (error) {
+    console.error('Verify OTP error:', error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
@@ -553,6 +554,7 @@ router.get('/session', authMiddleware, async (req: Request, res: Response) => {
     }
     return res.status(200).json({ authenticated: true, email: user.email, twoFactorEnabled: user.twoFactorEnabled });
   } catch (error) {
+    console.error('Session check error:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

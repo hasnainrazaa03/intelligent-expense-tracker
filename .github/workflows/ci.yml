@@ -54,8 +54,12 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - run: npm ci
       - run: npx prisma generate
-      - name: Typecheck (app and tests)
+      - name: Typecheck (app, tests and scripts)
         run: npm run typecheck
+      # Lint runs in this job (named for its first step) so the required
+      # check names stay the same.
+      - name: Lint (oxlint)
+        run: npm run lint
 
   server-tests:
     name: Server · unit and API tests

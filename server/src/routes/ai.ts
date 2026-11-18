@@ -304,7 +304,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
       const model = getModel({ model: PRIMARY_MODEL });
       const result = await model.generateContent(prompt);
       text = (await result.response).text();
-    } catch (modelError) {
+    } catch {
       console.warn(`Primary model (${PRIMARY_MODEL}) failed. Attempting fallback to ${FALLBACK_MODEL}...`);
       const fallbackModel = getModel({ model: FALLBACK_MODEL });
       const result = await fallbackModel.generateContent(prompt);

@@ -14,13 +14,13 @@ const assert = (c: boolean, m: string) => { if (!c) throw new Error('FAIL: ' + m
 
 async function main() {
   const hash = await bcrypt.hash(PW, 10);
-  const user = await prisma.user.upsert({ where: { email: A }, update: { password: hash, isVerified: true, twoFactorEnabled: false, loginAttempts: 0, lockUntil: null }, create: { email: A, password: hash, isVerified: true, twoFactorEnabled: false } });
+  await prisma.user.upsert({ where: { email: A }, update: { password: hash, isVerified: true, twoFactorEnabled: false, loginAttempts: 0, lockUntil: null }, create: { email: A, password: hash, isVerified: true, twoFactorEnabled: false } });
 
   const login = await fetch(`${BASE}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: A, password: PW }) });
   const cookies = (login.headers as any).getSetCookie?.() ?? [];
   const get = (n: string) => { const c = cookies.find((x: string) => x.startsWith(n + '=')); return c ? c.split('=')[1].split(';')[0] : ''; };
   const auth = { session: get('usc_session'), csrf: get('usc_csrf') };
-  const api = (path: string, method = 'GET', body?: any) => fetch(`${BASE}${path}`, { method, headers: { 'content-type': 'application/json', 'x-csrf-token': decodeURIComponent(auth.csrf), Cookie: `usc_session=${auth.session}; usc_csrf=${auth.csrf}` }, body: body ? JSON.stringify(body) : undefined });
+  const api = (path: string, method = 'GET', body?: any) => fetch(`${BASE}${path}`, { method, headers: { 'content-type': 'application/json', 'x-csrf-token': decodeURIComponent(auth.csrf), Cookie: `usc_session=${auth.session}; usc_csrf=${auth.csrf}` }, ...(body && method !== 'GET' ? { body: JSON.stringify(body) } : {}) });
 
   const today = new Date().toISOString().split('T')[0];
 

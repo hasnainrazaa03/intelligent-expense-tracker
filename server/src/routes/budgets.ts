@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { toFinPrecision, parseFiniteFloat, parseAmount, MAX_AMOUNT } from '../utils/math';
+import { toFinPrecision, parseAmount, MAX_AMOUNT } from '../utils/math';
 import { SERVER_CONFIG } from '../config';
 import { sanitizeText } from '../utils/sanitize';
 import { toCents, budgetToClient } from '../utils/money';

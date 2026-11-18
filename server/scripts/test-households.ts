@@ -35,7 +35,7 @@ function api(auth: { session: string; csrf: string }) {
   return (path: string, method = 'GET', body?: any) => fetch(`${BASE}${path}`, {
     method,
     headers: { 'content-type': 'application/json', 'x-csrf-token': decodeURIComponent(auth.csrf), Cookie: `usc_session=${auth.session}; usc_csrf=${auth.csrf}` },
-    body: body ? JSON.stringify(body) : undefined,
+    ...(body && method !== 'GET' ? { body: JSON.stringify(body) } : {}),
   });
 }
 

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { parseFiniteFloat, parseValidDate, toFinPrecision, parseAmount, MAX_AMOUNT, MAX_ORIGINAL_AMOUNT } from '../utils/math';
+import { parseValidDate, toFinPrecision, parseAmount, MAX_AMOUNT, MAX_ORIGINAL_AMOUNT } from '../utils/math';
 import { ValidationError } from '../utils/errors';
 
 // An amount that must be valid (a backup entry): throws a 400-mapped error.
