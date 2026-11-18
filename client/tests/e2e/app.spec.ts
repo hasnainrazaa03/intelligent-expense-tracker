@@ -284,7 +284,7 @@ test('offline: an expense is queued and syncs on reconnect', async ({ page, cont
 
 test('create and delete a household', async ({ page }) => {
   const name = `E2E Home ${Date.now()}`;
-  await page.getByRole('link', { name: 'Budgets', exact: true }).click(); // planning lives on Budgets (U3)
+  await page.goto('/app/settings/households'); // households live in Settings (U5)
   await page.getByText('Households · shared budgeting').scrollIntoViewIfNeeded();
   await page.getByLabel('New household name').fill(name);
   await page.getByRole('button', { name: 'Create', exact: true }).click();

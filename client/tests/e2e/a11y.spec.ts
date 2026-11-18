@@ -95,7 +95,7 @@ test('quick actions menu and confirm dialog work from the keyboard', async ({ pa
   // Confirm dialog: focus starts on Cancel, Tab stays inside, Escape cancels
   // and returns focus to the button that opened it.
   const name = `A11y Home ${Date.now()}`;
-  await page.getByRole('link', { name: 'Budgets', exact: true }).click(); // planning lives on Budgets (U3)
+  await page.goto('/app/settings/households'); // households live in Settings (U5)
   await page.getByText('Households · shared budgeting').scrollIntoViewIfNeeded();
   await page.getByLabel('New household name').fill(name);
   await page.getByRole('button', { name: 'Create', exact: true }).click();

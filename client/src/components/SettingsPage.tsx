@@ -18,6 +18,7 @@ interface SettingsPageProps {
   onOpenData: () => void;
   onManageCategories: () => void;
   onManageBudgets: () => void;
+  onOpenHouseholds: () => void;
 }
 
 // One place for the account's settings (improvement 7). They used to be spread
@@ -179,7 +180,7 @@ const errorText = (error: unknown, fallback: string): string => {
   return "Couldn't reach the server. Check your connection and try again.";
 };
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategories, onManageBudgets }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategories, onManageBudgets, onOpenHouseholds }) => {
   const navigate = useNavigate();
   const { userEmail, twoFactorEnabled, setTwoFactor, logout, logoutEverywhere, deleteAccount } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -425,6 +426,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategor
         <Row title="Categories and budgets">
           <Button variant="secondary" size="sm" onClick={onManageCategories}>Categories</Button>
           <Button variant="secondary" size="sm" onClick={onManageBudgets}>Budgets</Button>
+        </Row>
+        <Row title="Households" hint="Share expenses with people you live with and settle up.">
+          <Button variant="secondary" size="sm" onClick={onOpenHouseholds}>Open</Button>
         </Row>
       </Section>
 
