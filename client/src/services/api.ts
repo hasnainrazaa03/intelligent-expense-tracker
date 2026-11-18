@@ -304,6 +304,9 @@ export const restoreAllData = (payload: {
 /** The server's VAPID public key. 503 when push isn't set up on the server. */
 export const getPushKey = (): Promise<{ publicKey: string }> => fetchApi('/push/key', { method: 'GET' });
 
+/** Which channels the server can send notifications by. */
+export const getNotificationChannels = (): Promise<{ push: boolean; email: boolean }> => fetchApi('/push/status', { method: 'GET' });
+
 /** Register this browser's push subscription (its toJSON()). */
 export const subscribePush = (subscription: PushSubscriptionJSON): Promise<{ subscribed: boolean }> =>
   fetchApi('/push/subscribe', { method: 'POST', body: JSON.stringify(subscription) });

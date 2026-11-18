@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { useSetting } from '../hooks/useSetting';
 import { updateSettings } from '../utils/settingsStore';
-import { ApiError, getPushKey, sendTestPush, changePassword } from '../services/api';
+import { ApiError, getNotificationChannels, sendTestPush, changePassword } from '../services/api';
 import { isStrongPassword, PASSWORD_RULES_TEXT } from '../utils/password';
 import { currentPushState, enablePush, disablePush, needsHomeScreenInstall, type PushState } from '../utils/push';
 import { notify } from '../utils/notifications';
@@ -61,22 +61,34 @@ const Switch: React.FC<{ checked: boolean; label: string; onChange: (next: boole
 
 const deviceTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** Push notifications (5e-2): this browser on or off, and which kinds (account-wide). */
+/**
+ * Notifications: this browser on or off by push (5e-2), email on or off (6f),
+ * and which kinds, for both (account-wide).
+ */
 const NotificationsSection: React.FC = () => {
+  const { userEmail } = useAuth();
   const [device, setDevice] = useState<PushState | 'loading'>('loading');
-  // Push needs keys on the server; until they're set, say so instead of failing later.
+  // Push needs keys on the server, and email a sender; until they're set, say
+  // so instead of failing later. null: not known yet (or couldn't ask).
   const [serverReady, setServerReady] = useState<boolean | null>(null);
+  const [emailReady, setEmailReady] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const budgetsOn = useSetting('notifyBudgets') === true;
   const billsOn = useSetting('notifyBills') === true;
   const summaryOn = useSetting('notifyMonthlySummary') === true;
+  const emailOn = useSetting('notifyByEmail') === true;
 
   useEffect(() => {
     let alive = true;
     currentPushState().then((s) => { if (alive) setDevice(s); }).catch(() => { if (alive) setDevice('off'); });
-    getPushKey().then(() => { if (alive) setServerReady(true); }).catch((e) => { if (alive) setServerReady(!(e instanceof ApiError && e.status === 503)); });
+    getNotificationChannels()
+      .then(({ push, email }) => { if (alive) { setServerReady(push); setEmailReady(email); } })
+      .catch(() => { /* unknown: leave the controls usable */ });
     return () => { alive = false; };
   }, []);
+
+  // First time on (by any channel): every kind on. Always: this device's time zone.
+  const withKinds = () => (budgetsOn || billsOn || summaryOn ? {} : { notifyBudgets: true, notifyBills: true, notifyMonthlySummary: true });
 
   const turnOn = async () => {
     setBusy(true);
@@ -85,10 +97,7 @@ const NotificationsSection: React.FC = () => {
       setDevice(state);
       if (state === 'on') {
         // First time: every kind on. Always: this device's time zone.
-        updateSettings({
-          timeZone: deviceTimeZone(),
-          ...(budgetsOn || billsOn || summaryOn ? {} : { notifyBudgets: true, notifyBills: true, notifyMonthlySummary: true }),
-        });
+        updateSettings({ timeZone: deviceTimeZone(), ...withKinds() });
         notify.success('Notifications are on for this device.');
       } else if (state === 'denied') {
         notify.error("Notifications are blocked for Orbit. Allow them in this browser's site settings, then try again.");
@@ -123,7 +132,7 @@ const NotificationsSection: React.FC = () => {
   const canUse = serverReady !== false && device !== 'unsupported' && device !== 'loading';
 
   return (
-    <Section title="Notifications" description="Email alerts will come once Orbit sends from its own domain.">
+    <Section title="Notifications" description="Alerts arrive on the devices you turn on, by email if you choose, between 9 am and 9 pm your time, each once.">
       <Row title="This device" hint={deviceHint}>
         {device === 'on' ? (
           <>
@@ -133,6 +142,19 @@ const NotificationsSection: React.FC = () => {
         ) : (
           <Button size="sm" onClick={turnOn} disabled={busy || !canUse || device === 'denied'} aria-label="Turn on notifications on this device">{busy ? 'Turning on…' : 'Turn on'}</Button>
         )}
+      </Row>
+      <Row
+        title="By email"
+        hint={emailReady === false
+          ? "Email isn't set up on the server yet."
+          : <>The alerts you choose below, also sent to <span className="break-all">{userEmail}</span>.</>}
+      >
+        <Switch
+          checked={emailOn}
+          disabled={emailReady === false}
+          label="Notifications by email"
+          onChange={(v) => updateSettings({ notifyByEmail: v, timeZone: deviceTimeZone(), ...(v ? withKinds() : {}) })}
+        />
       </Row>
       <Row title="Budget alerts" hint="When a monthly budget reaches 80%, and again at 100%.">
         <Switch checked={budgetsOn} label="Budget alerts" onChange={(v) => updateSettings({ notifyBudgets: v, timeZone: deviceTimeZone() })} />

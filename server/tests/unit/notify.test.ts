@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { localParts, addDays, addMonthsSameDay, previousMonth } from '../../src/notify/calendar';
 import { subToMainFor, expenseCategoriesFor } from '../../src/utils/categories';
+import { noticeEmail } from '../../src/notify/email';
 import { upcomingBills } from '../../src/notify/recurrence';
 import { budgetNotice, billNotice, summaryNotice } from '../../src/notify/compose';
 
@@ -101,5 +102,17 @@ describe('monthly summary', () => {
 
   it('says nothing for a month with no spending', () => {
     expect(summaryNotice({ lastMonth: '2026-10', expenses: [], budgets: [], subToMain: map })).toBeNull();
+  });
+});
+
+describe('notification emails', () => {
+  it("escape the user's own names and link back to the app", () => {
+    const mail = noticeEmail({ keys: ['k'], title: 'Over budget: <b>Boba</b>', body: 'You\'ve used 120% of your "Boba & Co" budget.', url: '/app', tag: 't' }, 'https://orbit.example');
+    expect(mail.subject).toBe('Orbit: Over budget: <b>Boba</b>');
+    expect(mail.html).toContain('Over budget: &lt;b&gt;Boba&lt;/b&gt;');
+    expect(mail.html).toContain('&quot;Boba &amp; Co&quot;');
+    expect(mail.html).not.toContain('<b>Boba</b>');
+    expect(mail.html).toContain('href="https://orbit.example/app"');
+    expect(mail.text).toContain('Open Orbit: https://orbit.example/app');
   });
 });

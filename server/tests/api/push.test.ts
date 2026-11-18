@@ -12,6 +12,7 @@ vi.mock('web-push', () => ({ default: { setVapidDetails: vi.fn(), sendNotificati
 import { describeApi, signedInClient, newClient } from '../helpers';
 import { prisma } from '../../src/db';
 import { runNotificationJob } from '../../src/notify/job';
+import { mailbox } from '../mailbox';
 
 const subscription = (n: number) => ({
   endpoint: `https://push.example.test/send/${n}-${Date.now()}`,
@@ -111,6 +112,33 @@ describeApi('push notifications (5e-2)', () => {
     await client.post('/api/expenses', { title: 'Feast', amount: 50, category: 'Groceries', date: '2026-11-10' });
     await runNotificationJob(new Date('2026-11-17T12:00:00Z'));
     expect(payloads().some((p) => p.body.includes('Feast') || p.body.includes('500%'))).toBe(false);
+  });
+
+  it('email alerts (6f): sent to the account address, once, with or without a device', async () => {
+    const { client, user } = await signedInClient();
+    await client.patch('/api/settings', { notifyBudgets: true, notifyByEmail: true, timeZone: 'UTC' });
+    await client.post('/api/budgets', [{ category: 'Food', amount: 100 }]);
+    await client.post('/api/expenses', { title: 'Big shop', amount: 120, category: 'Groceries', date: '2026-11-10' });
+    const emailsTo = () => mailbox.filter((m) => m.to === user.email && m.kind === 'generic' && /Over budget: Food/.test(m.subject ?? ''));
+
+    const result = await runNotificationJob(new Date('2026-11-17T12:00:00Z'));
+    expect(result).toMatchObject({ configured: true, push: true, email: true });
+    expect(emailsTo()).toHaveLength(1);
+    await runNotificationJob(new Date('2026-11-17T13:00:00Z'));
+    expect(emailsTo()).toHaveLength(1); // not repeated
+
+    // Off again: nothing by email.
+    const other = await signedInClient();
+    await other.client.patch('/api/settings', { notifyBudgets: true, notifyByEmail: false, timeZone: 'UTC' });
+    await other.client.post('/api/budgets', [{ category: 'Food', amount: 10 }]);
+    await other.client.post('/api/expenses', { title: 'Feast', amount: 50, category: 'Groceries', date: '2026-11-10' });
+    await runNotificationJob(new Date('2026-11-17T12:00:00Z'));
+    expect(mailbox.some((m) => m.to === other.user.email && m.kind === 'generic')).toBe(false);
+  });
+
+  it('says which channels are set up', async () => {
+    const { client } = await signedInClient();
+    expect((await client.get('/api/push/status')).body).toEqual({ push: true, email: true });
   });
 
   it('settings accept the notification switches and a real time zone only', async () => {

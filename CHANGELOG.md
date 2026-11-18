@@ -8,6 +8,9 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Account and dates (2026-11-17)
+- **Alerts by email (#207):** Settings → Notifications → By email sends your budget alerts,
+  bill reminders and monthly summary to your email address too, each once, whether or not a
+  device has notifications on.
 - **Your categories everywhere (#205):** a subcategory you add can now be budgeted, chosen
   when importing a statement, and picked by the AI when it reads a receipt or a statement;
   one you delete stops being offered. Lists update as soon as categories change, and the

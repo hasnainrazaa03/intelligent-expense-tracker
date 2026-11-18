@@ -43,6 +43,7 @@ export interface SettingsData {
   notifyBudgets?: boolean | null;
   notifyBills?: boolean | null;
   notifyMonthlySummary?: boolean | null;
+  notifyByEmail?: boolean | null;
   timeZone?: string | null;
   customCategories?: CategoryMap;
   deletedSubcategories?: CategoryMap;
@@ -60,6 +61,7 @@ export const SETTINGS_KEYS = [
   'notifyBudgets',
   'notifyBills',
   'notifyMonthlySummary',
+  'notifyByEmail',
   'timeZone',
   'customCategories',
   'deletedSubcategories',
@@ -222,6 +224,7 @@ export const parseSettingsPatch = (input: unknown, now = Date.now()): SettingsDa
       case 'notifyBudgets':
       case 'notifyBills':
       case 'notifyMonthlySummary':
+      case 'notifyByEmail':
         data[k] = clear ? null : bool(value, k);
         break;
       case 'timeZone': {
@@ -272,6 +275,7 @@ export interface ClientSettings {
   notifyBudgets?: boolean;
   notifyBills?: boolean;
   notifyMonthlySummary?: boolean;
+  notifyByEmail?: boolean;
   timeZone?: string;
   customCategories?: CategoryMap;
   deletedSubcategories?: CategoryMap;
@@ -289,6 +293,7 @@ type SettingsRow = {
   notifyBudgets?: boolean | null;
   notifyBills?: boolean | null;
   notifyMonthlySummary?: boolean | null;
+  notifyByEmail?: boolean | null;
   timeZone?: string | null;
   customCategories?: unknown;
   deletedSubcategories?: unknown;
@@ -305,7 +310,7 @@ export const settingsToClient = (row: SettingsRow): ClientSettings => {
   if (typeof row.displayCurrency === 'string') out.displayCurrency = row.displayCurrency;
   if (typeof row.hideTuition === 'boolean') out.hideTuition = row.hideTuition;
   if (typeof row.onboardingDismissed === 'boolean') out.onboardingDismissed = row.onboardingDismissed;
-  for (const k of ['notifyBudgets', 'notifyBills', 'notifyMonthlySummary'] as const) {
+  for (const k of ['notifyBudgets', 'notifyBills', 'notifyMonthlySummary', 'notifyByEmail'] as const) {
     if (typeof row[k] === 'boolean') out[k] = row[k] as boolean;
   }
   if (typeof row.timeZone === 'string') out.timeZone = row.timeZone;

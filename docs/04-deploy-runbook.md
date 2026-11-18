@@ -128,6 +128,14 @@ Off until these are set. Do it once:
 Changing the VAPID keys later invalidates every browser's subscription: users turn
 notifications on again in Settings.
 
+**By email.** The same job also emails the notices to users who turn on Settings →
+Notifications → By email. It needs `RESEND_API_KEY` and `EMAIL_FROM`; without them the
+switch says email isn't set up. While `EMAIL_FROM` is Resend's test sender
+(`onboarding@resend.dev`), Resend only delivers to its account owner's address, so for
+everyone else this waits on a verified domain (5a). Each notice is claimed once and goes
+out by every channel the user has on. Push and email work independently: either one
+being set up is enough for the job to run (`{"configured":true,"push":…,"email":…}`).
+
 ### Shared rate limits (Render Key Value)
 
 Rate limits, failed-login lockouts and the daily AI budget are counted in Redis when

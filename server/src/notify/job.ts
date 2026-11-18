@@ -6,6 +6,7 @@ import { localParts, addDays, previousMonth } from './calendar';
 import { subToMainFor } from '../utils/categories';
 import { budgetNotice, billNotice, summaryNotice, type Notice } from './compose';
 import { sendToUser, pushConfigured } from './push';
+import { emailConfigured, emailNotice } from './email';
 
 /** For users who never sent theirs (most of Orbit's users are at USC). */
 export const DEFAULT_TIME_ZONE = 'America/Los_Angeles';
@@ -32,18 +33,25 @@ const claim = async (userId: string, keys: string[]): Promise<boolean> => {
 };
 
 /**
- * One pass over every user with notifications on: work out what's due for
- * them now (in their time zone) and send what hasn't been sent. Run hourly
- * (the GitHub Actions "Notifications" workflow calls POST /api/jobs/notify).
+ * One pass over every user with notifications on, by push or email: work out
+ * what's due for them now (in their time zone) and send what hasn't been sent,
+ * each notice once, by every channel they use. Run hourly (the GitHub Actions
+ * "Notifications" workflow calls POST /api/jobs/notify).
  */
 export const runNotificationJob = async (now = new Date()) => {
-  const summary = { users: 0, notices: 0, sent: 0, removed: 0 };
-  if (!pushConfigured()) return { ...summary, configured: false };
+  const summary = { users: 0, notices: 0, sent: 0, emailed: 0, removed: 0 };
+  const push = pushConfigured();
+  const email = emailConfigured();
+  if (!push && !email) return { ...summary, configured: false, push, email };
 
-  const userIds = (await prisma.pushSubscription.findMany({ select: { userId: true }, distinct: ['userId'] })).map((s) => s.userId);
+  const pushUsers = push ? (await prisma.pushSubscription.findMany({ select: { userId: true }, distinct: ['userId'] })).map((s) => s.userId) : [];
+  const emailUsers = email ? (await prisma.userSettings.findMany({ where: { notifyByEmail: true }, select: { userId: true } })).map((s) => s.userId) : [];
+  const userIds = [...new Set([...pushUsers, ...emailUsers])];
   for (const userId of userIds) {
     const settings = await prisma.userSettings.findUnique({ where: { userId } });
     if (!settings || !(settings.notifyBudgets || settings.notifyBills || settings.notifyMonthlySummary)) continue;
+    const byEmail = email && settings.notifyByEmail === true;
+    if (!byEmail && !pushUsers.includes(userId)) continue;
     const tz = settings.timeZone && isTimeZone(settings.timeZone) ? settings.timeZone : DEFAULT_TIME_ZONE;
     const { date: today, hour } = localParts(now, tz);
     if (hour < FIRST_HOUR || hour >= LAST_HOUR) continue;
@@ -83,13 +91,17 @@ export const runNotificationJob = async (now = new Date()) => {
       if (n) notices.push(n);
     }
 
+    const address = byEmail && notices.length ? (await prisma.user.findUnique({ where: { id: userId }, select: { email: true } }))?.email : undefined;
     for (const notice of notices) {
       if (!(await claim(userId, notice.keys))) continue; // all sent before
       summary.notices++;
-      const { sent, removed } = await sendToUser(userId, { title: notice.title, body: notice.body, url: notice.url, tag: notice.tag });
-      summary.sent += sent;
-      summary.removed += removed;
+      if (push) {
+        const { sent, removed } = await sendToUser(userId, { title: notice.title, body: notice.body, url: notice.url, tag: notice.tag });
+        summary.sent += sent;
+        summary.removed += removed;
+      }
+      if (address && (await emailNotice(address, notice))) summary.emailed++;
     }
   }
-  return { ...summary, configured: true };
+  return { ...summary, configured: true, push, email };
 };
