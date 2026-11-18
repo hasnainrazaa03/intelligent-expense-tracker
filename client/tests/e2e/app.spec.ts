@@ -38,6 +38,30 @@ test('Home: the month, budgets at risk, and links into the details (U3)', async 
   await expect(page.getByPlaceholder(/Ask anything about your spending/)).toHaveValue('Where did my money go?');
 });
 
+test('Insights: one period for every section, charts as tables, Breakdown sorts and links (U5)', async ({ page }) => {
+  await page.goto('/app/insights/reports');
+  const period = page.getByRole('group', { name: 'Period' });
+  await period.getByRole('button', { name: 'Last month' }).click();
+  await page.getByRole('navigation', { name: 'Insights sections' }).getByRole('link', { name: 'Breakdown' }).click();
+  await expect(page.getByRole('group', { name: 'Period' }).getByRole('button', { name: 'Last month' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('group', { name: 'Period' }).getByRole('button', { name: 'All time' }).click();
+
+  // Sort by a column, then open a category in Transactions.
+  await page.getByRole('button', { name: /^Transactions/ }).click();
+  await expect(page.getByRole('columnheader', { name: /Transactions/ })).toHaveAttribute('aria-sort', 'descending');
+  const first = page.locator('tbody tr').first().getByRole('link');
+  const name = (await first.innerText()).trim();
+  await first.click();
+  await expect(page).toHaveURL(new RegExp(`/app/transactions/expenses\\?category=${encodeURIComponent(name)}`));
+
+  // Every chart can show its numbers as a table.
+  await page.goto('/app/insights/reports');
+  await page.getByRole('button', { name: 'Show as table' }).first().click();
+  await expect(page.getByRole('region', { name: 'Budget vs actual' })).toBeVisible();
+  await page.getByRole('button', { name: 'Show as chart' }).click();
+  await expect(page.getByRole('region', { name: 'Budget vs actual' })).toHaveCount(0);
+});
+
 test('every screen has its own address, and Back walks through them (U2a)', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: 'Primary' });
   await nav.getByRole('link', { name: 'Insights', exact: true }).click();

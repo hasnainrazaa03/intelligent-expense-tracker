@@ -5,6 +5,7 @@ import { formatCurrency } from '../utils/currencyUtils';
 import { useTheme } from '../hooks/useTheme';
 import { getChartColors } from '../utils/chartTheme';
 import { seriesValue } from '../utils/chartPayload';
+import { ChartTable } from './reports/ChartTable';
 
 interface ChartData {
   name: string;
@@ -14,6 +15,8 @@ interface ChartData {
 
 interface BudgetPerformanceChartProps {
   data: ChartData[];
+  /** Show the numbers as a table instead of the chart (U5). */
+  asTable?: boolean;
 }
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
@@ -40,7 +43,7 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 };
 
 
-const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data }) => {
+const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data, asTable = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const { theme } = useTheme();
   const c = getChartColors(theme);
@@ -51,6 +54,8 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data })
       window.addEventListener('resize', handleResize);
       return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    if (asTable) return <ChartTable caption="Last 6 months: spent against budget" columns={[{ key: 'name', label: 'Month' }, { key: 'spent', label: 'Spent', money: true }, { key: 'budgeted', label: 'Budget', money: true }]} rows={data as unknown as Record<string, unknown>[]} />;
 
     if (data.length === 0) {
         return (

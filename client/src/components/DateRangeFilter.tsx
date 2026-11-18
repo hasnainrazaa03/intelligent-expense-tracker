@@ -18,10 +18,13 @@ const ranges: { id: DateRange; label: string }[] = [
 // the list headers without eager-loading the whole Dashboard chunk.
 export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ selectedRange, onChange }) => {
   return (
-    <div className="flex flex-wrap items-center gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
+    // The chosen period is announced, not shown by colour alone (U5).
+    <div role="group" aria-label="Period" className="flex flex-wrap items-center gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
       {ranges.map(range => (
         <button
           key={range.id}
+          type="button"
+          aria-pressed={selectedRange === range.id}
           onClick={() => onChange(range.id)}
           className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
             selectedRange === range.id

@@ -8,9 +8,12 @@ import { computeBudgetSpend, budgetLabel } from '../../utils/budgetUtils';
 import { startOfMonth, endOfMonth, isWithinRange, parseCalendarDate } from '../../utils/dateUtils';
 import { useToday } from '../../hooks/useToday';
 import ChartEmpty from '../ChartEmpty';
+import { ChartTable } from './ChartTable';
 
 interface BudgetActualChartProps {
   expenses: Expense[];
+  /** Show the numbers as a table instead of the chart (U5). */
+  asTable?: boolean;
   budgets: Budget[];
   /**
    * The report's period: `expenses` are already narrowed to it, and it spans
@@ -33,7 +36,7 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
   return null;
 };
 
-const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets, periodMonths }) => {
+const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets, periodMonths, asTable = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const today = useToday();
 
@@ -54,6 +57,7 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
       budget: budget.amount,
     }));
   }, [expenses, budgets, periodMonths, today]);
+  if (asTable) return <ChartTable caption="Budget vs actual" columns={[{ key: 'name', label: 'Budget' }, { key: 'actual', label: 'Spent', money: true }, { key: 'budget', label: 'Budget', money: true }]} rows={data} />;
 
   if (budgets.length === 0) {
     return <ChartEmpty />;

@@ -6,12 +6,15 @@ import { CATEGORIES, CATEGORY_COLORS } from '../../constants';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useCategories } from '../../hooks/useCategories';
+import { ChartTable } from './ChartTable';
 
 interface MonthlyCategoryChartProps {
   expenses: Expense[];
+  /** Show the numbers as a table instead of the chart (U5). */
+  asTable?: boolean;
 }
 
-const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses }) => {
+const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses, asTable = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const { subToMain } = useCategories();
   // Categories the user has clicked off in the legend. Hidden series are dropped
@@ -45,6 +48,10 @@ const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses })
 
     return Object.values(monthlyData).sort((a, b) => a.__sort - b.__sort);
   }, [expenses, subToMain]);
+  if (asTable) {
+    const cats = [...new Set(data.flatMap((row) => Object.keys(row).filter((k) => k !== 'name' && k !== '__sort')))];
+    return <ChartTable caption="Monthly category flow" columns={[{ key: 'name', label: 'Month' }, ...cats.map((c) => ({ key: c, label: c, money: true }))]} rows={data} />;
+  }
 
   if (data.length === 0) return <div className="flex items-center justify-center h-full text-app-muted">Not enough data to display.</div>;
 

@@ -4,7 +4,8 @@ import type { Expense, Income } from '../types';
 import Header from '../components/Header';
 import IncomeSummary from '../components/IncomeSummary';
 import SectionSkeleton from '../components/SectionSkeleton';
-import type { DateRange } from '../components/DateRangeFilter';
+import { DateRangeFilter, type DateRange } from '../components/DateRangeFilter';
+import useDateRangeFilter from '../hooks/useDateRangeFilter';
 import SideNav from '../components/shell/SideNav';
 import MobileNav from '../components/shell/MobileNav';
 import SectionTabs from '../components/shell/SectionTabs';
@@ -73,7 +74,8 @@ const AppDashboard: React.FC = () => {
   const isIncomeList = route.place === 'transactions' && route.type === 'income';
   const isIncomeOverview = route.place === 'insights' && route.section === 'income';
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
-  const [incomeDateRange, setIncomeDateRange] = useState<DateRange>('this_month');
+  // One period for every Insights section, switched in their bar (U5).
+  const [insightsRange, setInsightsRange] = useState<DateRange>('this_month');
   // Header debounces the search input; only the settled term lands here (APP-H5).
   const [search, setSearch] = useState('');
   const [clearSearchSignal, setClearSearchSignal] = useState(0);
@@ -91,14 +93,17 @@ const AppDashboard: React.FC = () => {
 
   const hideTuition = useSetting('hideTuition') ?? false;
   const onboardingDismissed = useSetting('onboardingDismissed') === true;
+  const NO_INCOMES = useMemo<Income[]>(() => [], []);
   const { hub, incomeHub, knownAccounts, listExpenses, listIncomes } = useHubData({
     expenses,
     incomes,
     dateRange,
-    incomeDateRange,
+    incomeDateRange: insightsRange,
     hideTuition,
     search,
   });
+  // Breakdown (Insights) totals the Insights period, tuition hidden when asked.
+  const { filteredExpenses: breakdownExpenses } = useDateRangeFilter(hub.allExpenses, NO_INCOMES, insightsRange);
 
   useIdlePrefetch(isAuthenticated, [
     Screens.TransactionsList, Screens.ExpenseModal, Screens.IncomeModal, Screens.BudgetManagerModal,
@@ -160,8 +165,8 @@ const AppDashboard: React.FC = () => {
 
   const renderInsights = (section: 'reports' | 'breakdown' | 'income' | 'ask') => {
     switch (section) {
-      case 'reports': return <Screens.Reports allExpenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} />;
-      case 'breakdown': return <Screens.PivotAnalysis expenses={hub.allExpenses} />;
+      case 'reports': return <Screens.Reports allExpenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} range={insightsRange} />;
+      case 'breakdown': return <Screens.PivotAnalysis expenses={breakdownExpenses} />;
       case 'ask': return <Screens.AiAnalyst expenses={expenses} incomes={incomes} initialQuestion={(location.state as { ask?: string } | null)?.ask} />;
       case 'income':
         return isLoadingData
@@ -172,8 +177,9 @@ const AppDashboard: React.FC = () => {
               comparisonCutoff={incomeHub.comparisonCutoff}
               allIncomes={hub.allIncomes}
               allExpenses={hub.allExpenses}
-              selectedRange={incomeDateRange}
-              onDateRangeChange={setIncomeDateRange}
+              selectedRange={insightsRange}
+              onDateRangeChange={setInsightsRange}
+              showRangeFilter={false}
             />;
     }
   };
@@ -230,6 +236,7 @@ const AppDashboard: React.FC = () => {
       case 'insights':
         return (
           <>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <SectionTabs
               label="Insights sections"
               tabs={[
@@ -239,6 +246,12 @@ const AppDashboard: React.FC = () => {
                 { label: 'Ask AI', to: PATHS.insights('ask'), active: route.section === 'ask' },
               ]}
             />
+            {route.section !== 'ask' && (
+              <div className="flex lg:justify-end overflow-x-auto no-scrollbar py-1">
+                <DateRangeFilter selectedRange={insightsRange} onChange={setInsightsRange} />
+              </div>
+            )}
+            </div>
             <Suspense fallback={<SectionSkeleton title="Loading insights" rows={4} />}>{renderInsights(route.section)}</Suspense>
           </>
         );

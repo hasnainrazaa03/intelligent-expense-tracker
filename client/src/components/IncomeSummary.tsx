@@ -26,6 +26,8 @@ interface IncomeSummaryProps {
   allExpenses: Expense[];
   selectedRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
+  /** Insights switches the period for all its sections in one bar (U5). */
+  showRangeFilter?: boolean;
 }
 
 // A distinct palette for income sources (separate from the expense category ramp).
@@ -33,7 +35,7 @@ const SOURCE_COLORS = ['#16a34a', '#0d9488', '#0284c7', '#6d5cf0', '#9333ea', '#
 
 /** The Income hub — the income counterpart to the expense Financial hub, with its
  *  own date filter, summary cards, and income-focused charts. */
-const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIncomes = [], comparisonCutoff, allIncomes, allExpenses, selectedRange, onDateRangeChange }) => {
+const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIncomes = [], comparisonCutoff, allIncomes, allExpenses, selectedRange, onDateRangeChange, showRangeFilter = true }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const today = useToday();
 
@@ -110,7 +112,7 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
           </h2>
         </div>
         <div className="w-full lg:w-auto flex justify-center lg:justify-end overflow-x-auto no-scrollbar py-1">
-          <DateRangeFilter selectedRange={selectedRange} onChange={onDateRangeChange} />
+          {showRangeFilter && <DateRangeFilter selectedRange={selectedRange} onChange={onDateRangeChange} />}
         </div>
       </div>
 
