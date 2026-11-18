@@ -186,6 +186,86 @@ test.describe('as the demo account', () => {
   });
 });
 
+test.describe('when saving is slow or fails (5d-2)', () => {
+  test.beforeEach(async ({ page }) => openApp(page));
+
+  // An expense dated today, so it's in the default "This month" list.
+  const addToday = async (page: Page, title: string) => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    await page.request.post(`${API}/expenses`, { headers: await csrfHeaders(page.request), data: { title, amount: 12.5, category: 'Groceries', date: today } });
+    await page.reload();
+    await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
+    await page.getByRole('tab', { name: 'Transactions' }).click();
+    // Many test expenses share today's date: filter the list down to this one.
+    await page.getByPlaceholder('Search transactions…').fill(title.split(' ').pop()!);
+    await expect(page.getByRole('button', { name: `Edit expense ${title}` })).toBeVisible({ timeout: 10_000 });
+  };
+  const failWith500 = { status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'Server error' }) };
+  // Matches whether or not a dialog has hidden the list from the accessibility tree.
+  const row = (page: Page, title: string) => page.locator(`[aria-label="Edit expense ${title}"]`);
+
+  test('an edit shows at once; if the server refuses one, it is undone and the form keeps it', async ({ page }) => {
+    const title = `E2E edit ${Date.now()}`;
+    await addToday(page, title);
+
+    // A slow server: the change is on screen before it answers.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/api/expenses/*', async (route) => {
+      if (route.request().method() !== 'PUT') return route.fallback();
+      await held;
+      return route.continue();
+    });
+    await page.getByRole('button', { name: `Edit expense ${title}` }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Title').fill(`${title} renamed`);
+    await dialog.getByRole('button', { name: 'Save changes' }).click();
+    await expect(row(page, `${title} renamed`)).toHaveCount(1);
+    release();
+    await expect(dialog).toBeHidden({ timeout: 10_000 });
+    await page.unroute('**/api/expenses/*');
+
+    // A refusal: the list goes back, the form stays open with the new text.
+    await page.route('**/api/expenses/*', (route) => (route.request().method() === 'PUT' ? route.fulfill(failWith500) : route.fallback()));
+    await page.getByRole('button', { name: `Edit expense ${title} renamed` }).click();
+    await dialog.getByLabel('Title').fill(`${title} refused`);
+    await dialog.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Could not update expense. Your changes are still in the form.')).toBeVisible({ timeout: 10_000 });
+    await expect(dialog.getByLabel('Title')).toHaveValue(`${title} refused`);
+    await expect(row(page, `${title} renamed`)).toHaveCount(1);
+    await expect(row(page, `${title} refused`)).toHaveCount(0);
+    await page.unroute('**/api/expenses/*');
+  });
+
+  test('a delete the server refuses puts the row back', async ({ page }) => {
+    const title = `E2E keep ${Date.now()}`;
+    await addToday(page, title);
+    await page.route('**/api/expenses/*', (route) => (route.request().method() === 'DELETE' ? route.fulfill(failWith500) : route.fallback()));
+    await page.getByRole('button', { name: `Delete expense ${title}` }).click();
+    await page.getByRole('alertdialog', { name: 'Delete transaction?' }).getByRole('button', { name: 'Confirm' }).click();
+    await expect(row(page, title)).toHaveCount(0);
+    // After the undo window the delete is sent, refused, and the row returns.
+    await expect(page.getByText("Couldn't delete the expense, so it's back in the list.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: `Edit expense ${title}` })).toBeVisible();
+    await page.unroute('**/api/expenses/*');
+  });
+
+  test('an add that fails keeps what was typed (C4)', async ({ page }) => {
+    await page.route('**/api/expenses', (route) => (route.request().method() === 'POST' ? route.fulfill(failWith500) : route.fallback()));
+    await page.getByRole('button', { name: 'Quick actions' }).click();
+    await page.getByRole('menuitem', { name: /add expense/i }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Title').fill('Typed before a failure');
+    await dialog.getByLabel('Amount (USD)').fill('9.99');
+    await dialog.getByRole('button', { name: 'Add expense' }).click();
+    await expect(page.getByText('Could not add expense. Your entry is still in the form.')).toBeVisible({ timeout: 10_000 });
+    await expect(dialog.getByLabel('Title')).toHaveValue('Typed before a failure');
+    await expect(dialog.getByLabel('Amount (USD)')).toHaveValue('9.99');
+    await page.unroute('**/api/expenses');
+  });
+});
+
 test.describe('backup restore (own account)', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
