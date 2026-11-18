@@ -3,7 +3,8 @@ import toast from 'react-hot-toast';
 import { Expense, Budget, Income, Semester, SettingsPatch } from '../types';
 import { getSettings, settingsFromBackup } from '../utils/settingsStore';
 import { exportData, ExportFormat } from '../utils/exportUtils';
-import { parseExpenseCsv } from '../utils/expenseCsvImport';
+import { parseTransactionsCsv } from '../utils/transactionsCsv';
+import { withoutExisting } from '../utils/duplicates';
 import { logAuditEvent } from '../services/api';
 import { APP_CONFIG } from '../config';
 import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange } from '../utils/dateUtils';
@@ -23,7 +24,8 @@ interface DataModalProps {
   allIncomes: Income[];
   budgets: Budget[];
   semesters: Semester[];
-  onImport: (expenses: Omit<Expense, 'id'>[]) => void;
+  /** Save the rows of an imported CSV; resolves true when everything landed. */
+  onImport: (rows: { expenses: Omit<Expense, 'id'>[]; incomes: Omit<Income, 'id'>[] }) => Promise<boolean>;
   /** Opens the dedicated bank-statement import experience. */
   onOpenStatementImport: () => void;
   /** Permanently deletes all of the user's data (already confirmed by the modal). */
@@ -49,6 +51,7 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   const [wipeConfirm, setWipeConfirm] = useState('');
   const [isWiping, setIsWiping] = useState(false);
   const [includeExpenses, setIncludeExpenses] = useState(true);
+  const [includeIncomes, setIncludeIncomes] = useState(true);
   const [includeBudgets, setIncludeBudgets] = useState(true);
   const [format, setFormat] = useState<ExportFormat>('pdf');
 
@@ -69,13 +72,13 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   }>(null);
   const [restoreConfirm, setRestoreConfirm] = useState('');
 
-  const filteredExpenses = useMemo(() => {
-    if (dateRange === 'all_time') return allExpenses;
+  // Local calendar-day boundaries, the same as the dashboard's: "This month" is
+  // the whole month (it ended today, so rent dated the 30th was left out).
+  const inRange = useMemo(() => {
+    if (dateRange === 'all_time') return () => true;
     const now = new Date();
-    // Local calendar-day boundaries, consistent with the dashboard filter.
     let start: string;
-    let end: string = todayCalendar();
-
+    let end: string;
     switch (dateRange) {
         case 'last_month':
             start = startOfMonth(addMonths(now, -1));
@@ -83,24 +86,34 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
             break;
         case 'last_90_days':
             start = formatCalendarDate(addDays(now, -90));
+            end = todayCalendar();
             break;
         case 'this_month':
         default:
             start = startOfMonth(now);
+            end = endOfMonth(now);
             break;
     }
-    return allExpenses.filter((exp) => isWithinRange(exp.date, start, end));
-  }, [allExpenses, dateRange]);
+    return (date: string) => isWithinRange(date, start, end);
+  }, [dateRange]);
+  const filteredExpenses = useMemo(() => allExpenses.filter((e) => inRange(e.date)), [allExpenses, inRange]);
+  const filteredIncomes = useMemo(() => allIncomes.filter((i) => inRange(i.date)), [allIncomes, inRange]);
 
   const handleDownload = () => {
     const dateRangeLabel = ranges.find(r => r.id === dateRange)?.label || 'All Time';
-    exportData(format, includeExpenses, filteredExpenses, includeBudgets, budgets, dateRangeLabel);
+    exportData(format, {
+      expenses: includeExpenses ? filteredExpenses : [],
+      incomes: includeIncomes ? filteredIncomes : [],
+      budgets: includeBudgets ? budgets : [],
+    }, dateRangeLabel);
     logAuditEvent('data_export', {
       format,
       dateRange: dateRangeLabel,
       includeExpenses,
+      includeIncomes,
       includeBudgets,
       expenseCount: filteredExpenses.length,
+      incomeCount: filteredIncomes.length,
       budgetCount: budgets.length,
     }).catch(() => undefined);
     onClose();
@@ -185,24 +198,34 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     setImportError(null);
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
         try {
             const csvText = event.target?.result as string;
-            const { expenses: importedExpenses, skipped: skippedRows, nonPositive } = parseExpenseCsv(csvText, APP_CONFIG.maxCsvImportRows);
+            const parsed = parseTransactionsCsv(csvText, APP_CONFIG.maxCsvImportRows);
+            const { skipped: skippedRows, nonPositive } = parsed;
+            // Rows already in the account (an export imported back into the
+            // same account) are left out rather than duplicated.
+            const expenses = withoutExisting(parsed.expenses, allExpenses);
+            const incomes = withoutExisting(parsed.incomes, allIncomes);
+            const duplicates = expenses.duplicates + incomes.duplicates;
+            const rows = expenses.fresh.length + incomes.fresh.length;
 
-            if (importedExpenses.length === 0) {
+            if (rows === 0) {
                 throw new Error(
-                    skippedRows > 0 ? `NO_VALID_ROWS (${skippedRows} skipped)` : 'CSV_EMPTY_OR_NO_DATA'
+                    duplicates > 0 ? 'Everything in this file is already in your account.'
+                    : skippedRows > 0 ? `NO_VALID_ROWS (${skippedRows} skipped)` : 'CSV_EMPTY_OR_NO_DATA'
                 );
             }
 
-            onImport(importedExpenses);
-            logAuditEvent('expense_csv_import', { importedCount: importedExpenses.length, skippedRows }).catch(() => undefined);
             if (skippedRows > 0) {
                 const refunds = nonPositive > 0 ? ` (${nonPositive} with a zero or negative amount, e.g. refunds)` : '';
-                toast(`Imported ${importedExpenses.length} rows, skipped ${skippedRows}${refunds}.`);
+                toast(`Imported ${rows} rows, skipped ${skippedRows}${refunds}.`);
             }
-            onClose();
+            if (duplicates > 0) toast(`Left out ${duplicates} row${duplicates === 1 ? '' : 's'} already in your account.`);
+            logAuditEvent('expense_csv_import', { importedCount: rows, skippedRows, duplicates }).catch(() => undefined);
+            // Close only once everything is saved; otherwise the file is still
+            // selected here to try again (nothing is duplicated, B5).
+            if (await onImport({ expenses: expenses.fresh, incomes: incomes.fresh })) onClose();
         } catch (error: any) {
             setImportError(error.message || "PARSING_FAILURE");
         } finally {
@@ -322,17 +345,27 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
                     <button onClick={() => setIncludeExpenses(!includeExpenses)} className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition-all ${includeExpenses ? 'bg-primary text-on-primary border-transparent shadow-glow' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}>
                         Expenses: {includeExpenses ? 'On' : 'Off'}
                     </button>
+                    <button onClick={() => setIncludeIncomes(!includeIncomes)} aria-pressed={includeIncomes} className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition-all ${includeIncomes ? 'bg-primary text-on-primary border-transparent shadow-glow' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}>
+                        Income: {includeIncomes ? 'On' : 'Off'}
+                    </button>
                     <button onClick={() => setIncludeBudgets(!includeBudgets)} className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition-all ${includeBudgets ? 'bg-primary text-on-primary border-transparent shadow-glow' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}>
                         Budgets: {includeBudgets ? 'On' : 'Off'}
                     </button>
                 </div>
               </div>
             </div>
+            <p className="text-[11px] text-app-muted -mt-2">
+              {format === 'csv'
+                ? 'CSV puts expenses and income in one file that "Import CSV" below reads back.'
+                : format === 'pdf'
+                  ? 'The PDF lists each section you include.'
+                  : 'This format includes expenses only.'}
+            </p>
 
             <Button
               fullWidth
               onClick={handleDownload}
-              disabled={!includeExpenses && !includeBudgets}
+              disabled={!includeExpenses && !includeIncomes && !includeBudgets}
               className="py-3.5"
             >
               Download export

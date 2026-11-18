@@ -15,7 +15,7 @@ test('lands on the dashboard', async ({ page }) => {
 
 test('navigates between tabs', async ({ page }) => {
   await page.getByRole('tab', { name: 'Reports' }).click();
-  await expect(page.getByRole('heading', { name: 'Annual audit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Spending report' })).toBeVisible();
   await page.getByRole('tab', { name: 'Pivot' }).click();
   await expect(page.getByRole('heading', { name: 'Pivot analysis' })).toBeVisible();
   await page.getByRole('tab', { name: 'Tuition' }).click();

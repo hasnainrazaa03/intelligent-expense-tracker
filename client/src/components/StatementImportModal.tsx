@@ -19,6 +19,7 @@ import {
   type BankParseOptions,
 } from '../utils/bankImport';
 import AiNotice from './legal/AiNotice';
+import { dupeKey, countKeys } from '../utils/duplicates';
 
 export interface StatementImportPayload {
   expenses: Omit<Expense, 'id'>[];
@@ -86,20 +87,6 @@ interface Row {
   problem?: string;
 }
 
-const dupeKey = (date: string, amount: number, description: string) =>
-  `${date}|${Math.round(amount * 100)}|${description.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24)}`;
-
-/** Count occurrences of each key, so duplicate detection is a MULTISET match:
- *  if you genuinely have two identical same-day charges on file, a statement
- *  holding two only flags two — not every future one (B7). */
-const countKeys = (items: Array<{ date: string; amount: number; title?: string }>): Map<string, number> => {
-  const counts = new Map<string, number>();
-  for (const it of items) {
-    const k = dupeKey(it.date, Number(it.amount), it.title || '');
-    counts.set(k, (counts.get(k) || 0) + 1);
-  }
-  return counts;
-};
 
 const defaultCategoryFor = (type: TxnType, description: string): string =>
   type === 'income' ? 'Other' : (suggestCategory(description) || 'Other');

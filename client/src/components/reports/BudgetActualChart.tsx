@@ -11,6 +11,12 @@ import ChartEmpty from '../ChartEmpty';
 interface BudgetActualChartProps {
   expenses: Expense[];
   budgets: Budget[];
+  /**
+   * The report's period: `expenses` are already narrowed to it, and it spans
+   * this many months. Budgets are monthly, so "actual" is the average month.
+   * Without it, the chart shows the current calendar month.
+   */
+  periodMonths?: number;
 }
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
@@ -26,25 +32,26 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
   return null;
 };
 
-const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets }) => {
+const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets, periodMonths }) => {
   const { displayCurrency, conversionRate } = useCurrency();
-    
+
   const data = useMemo(() => {
     if (budgets.length === 0) return [];
 
-    // Current calendar month, shared matcher so subcategory budgets populate and
-    // main-category budgets aggregate their subcategories (CMP-H4/CMP-M13).
-    const monthStart = startOfMonth();
-    const monthEnd = endOfMonth();
-    const monthlyExpenses = expenses.filter((exp) => isWithinRange(exp.date, monthStart, monthEnd));
+    // Shared matcher so subcategory budgets populate and main-category budgets
+    // aggregate their subcategories (CMP-H4/CMP-M13).
+    const inPeriod = periodMonths
+      ? expenses
+      : expenses.filter((exp) => isWithinRange(exp.date, startOfMonth(), endOfMonth()));
+    const months = Math.max(1, periodMonths ?? 1);
 
     const budgetCategories = budgets.map((b) => b.category);
     return budgets.map(budget => ({
       name: budgetLabel(budget.category, budgetCategories),
-      actual: computeBudgetSpend(budget.category, monthlyExpenses, budgetCategories),
+      actual: Math.round((computeBudgetSpend(budget.category, inPeriod, budgetCategories) / months) * 100) / 100,
       budget: budget.amount,
     }));
-  }, [expenses, budgets]);
+  }, [expenses, budgets, periodMonths]);
 
   if (budgets.length === 0) {
     return <ChartEmpty />;

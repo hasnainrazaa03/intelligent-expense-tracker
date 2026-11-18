@@ -8,6 +8,11 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Reports by period, and exports you can import back (#191):** Reports now cover this month,
+  last month, 90 days or all time (they were all-time only), with budgets compared month for
+  month. The CSV export holds expenses and income in one file that "Import CSV" reads back,
+  skipping anything already in your account; imports of more than 500 rows work; restoring a
+  backup keeps each income's account.
 - **Faster edits, safer failures (#190):** editing or deleting a transaction now shows
   immediately; if the server refuses, that item goes back as it was and a message says so.
   A failed add or edit keeps the form open with what you typed. (Internally, `App.tsx`

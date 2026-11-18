@@ -116,7 +116,7 @@ The [deploy runbook](./04-deploy-runbook.md) is the up-to-date version of this l
 - [ ] `FRONTEND_URL` = deployed origin(s).
 - [ ] Rotate + inject secrets via the platform store (`JWT_SECRET` ≥32, `DATABASE_URL`, `GEMINI_API_KEY`, `RESEND_API_KEY`).
 - [ ] Load-balancer readiness probe → `GET /health/ready`.
-- [ ] Run `npm run db:push` once for any additive schema fields.
+- [x] Run `npm run db:push` once for any additive schema fields. Done against production on 2026-11-17 (created `RevokedToken` and `UserSettings` with their indexes). Re-run after any schema change.
 
 ---
 
@@ -167,6 +167,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| 5e-1 Reports period, CSV round trip | Reports get a period selector (this month, last month, 90 days, all time); budget use compares monthly budgets with the period's average month; plain labels instead of "Status: audited" and the "Certified audit" seal. The CSV export puts expenses and income in one file that the CSV importer reads back (account, tags, tax fields, original currency included), skipping rows already in the account; imports over 500 rows no longer fail; a budgets-only PDF no longer throws; backup restore keeps each income's account | #191 |
 | 5d-2 App.tsx split | `App.tsx` 1,597 → 63 lines (routes and toasts). The signed-in app is `app/AppDashboard.tsx`, composing `useAllData` (the data and the "not loaded yet" guard, C2), `useTransactions` (React Query mutations: edits and deletes apply at once and roll back one item on failure; forms close only on success, C4), `useTuition`, `useRecurringSuggestions`, `useDataTransfer`, `useHubData`, and shell components | #190 |
 | 5d-1 Tuition on the server | Paying an installment is one server request (creates the expense and marks it paid; a repeat returns the same expense); editing or deleting a tuition expense updates its installment on the server; the semester save can no longer change payment state, never deletes a semester, and carries a per-semester version so a stale tab's save is refused (409) and that tab shows the latest. Root causes of S2, S12, C3, F6 | #189 |
 | 5c Privacy and terms | `/privacy` and `/terms`, written against what the code stores and sends: every service that handles data, exactly what each AI feature sends to Gemini (paid tier: not used to improve Google's products), retention, export and deletion, contact. Linked from the landing page, sign-up (agreement line), sign-in, and Settings; the receipt, statement and AI Analyst screens now say Gemini reads what they send | #188 |
@@ -190,7 +191,8 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [x] 5c Privacy policy and terms (#188). Plain-language drafts, not reviewed by a lawyer. Keep `client/src/components/legal/PrivacyPolicy.tsx` in step with the code, and bump `LEGAL.lastUpdated` in `client/src/config.ts` when either page changes.
 - [x] 5d-1 Tuition reconciliation on the server (#189): `POST /api/semesters/:id/installments/:id/pay`; expense PUT/DELETE keep the installment in step; `POST /api/semesters` saves structure only, with `Semester.version` (409 `SEMESTERS_CHANGED` with the current copy). Unsaved default semesters carry version -1. Older cached clients still work: a link they save is accepted only if it points at a real, unused Tuition expense.
 - [x] 5d-2 Split `App.tsx` into feature hooks with `useMutation`, optimistic updates, rollback and error toasts (#190). The app's data now loads only on `/app` (not while a signed-in user reads `/privacy`).
-- [ ] 5e Alerts, scheduled summaries, a reports period selector, round-trip export (B3, B6).
+- [x] 5e-1 Reports period selector and round-trip CSV export (#191, improvement 17).
+- [ ] 5e-2 Budget and bill alerts and a scheduled monthly summary (improvement 16; B3, B6). Needs a scheduler and a channel: email to anyone needs a verified sending domain (see `EMAIL_FROM`), Web Push needs VAPID keys.
 - [ ] 5f Copy, empty states, PWA icons, analytics, net-worth accounts saved to the server, Redis-backed limiter, encrypted backups (B9, A6).
 
 **Also open**
