@@ -8,6 +8,9 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Notifications (#193):** turn them on in Settings and Orbit sends budget alerts (at 80%
+  and 100%), reminders two days before a recurring bill, and a summary of last month, in
+  the daytime where you are. Browser push for now; email once Orbit has its own domain.
 - **Reports by period, and exports you can import back (#191):** Reports now cover this month,
   last month, 90 days or all time (they were all-time only), with budgets compared month for
   month. The CSV export holds expenses and income in one file that "Import CSV" reads back,

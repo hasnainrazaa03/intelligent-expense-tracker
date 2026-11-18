@@ -28,6 +28,8 @@ export const deleteAccountData = async (userId: string, email: string) =>
       const budgets = await tx.budget.deleteMany({ where: { userId } });
       await tx.userSettings.deleteMany({ where: { userId } });
       await tx.revokedToken.deleteMany({ where: { userId } });
+      await tx.pushSubscription.deleteMany({ where: { userId } });
+      await tx.notificationLog.deleteMany({ where: { userId } });
       await tx.user.delete({ where: { id: userId } });
 
       return {

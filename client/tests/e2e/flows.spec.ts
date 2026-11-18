@@ -369,12 +369,32 @@ test.describe('settings page (5b-2)', () => {
 
     // Two-factor: the old gear turned it on in one click. Now it asks.
     await expect(page.getByText('Two-factor sign-in: off')).toBeVisible();
-    await page.getByRole('button', { name: 'Turn on' }).click();
+    await page.getByRole('region', { name: 'Security' }).getByRole('button', { name: 'Turn on' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Turn on two-factor sign-in?' });
     await expect(dialog).toContainText('test@test.com');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByText('Two-factor sign-in: off')).toBeVisible();
     expect((await (await page.request.get(`${API}/auth/session`)).json()).twoFactorEnabled).toBe(false);
+  });
+
+  test('notifications: which kinds to send are account settings, and this device says where it stands (5e-2)', async ({ page }) => {
+    await openApp(page);
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const section = page.getByRole('region', { name: 'Notifications' });
+    await expect(section).toBeVisible();
+    // The test API has no VAPID keys, and headless Chromium has no push service.
+    await expect(section.getByText(/aren't set up on the server yet|Off on this device|doesn't support notifications/)).toBeVisible();
+
+    const saved = async () => (await (await page.request.get(`${API}/settings`)).json()).settings;
+    const budgets = section.getByRole('switch', { name: 'Budget alerts' });
+    await expect(budgets).toHaveAttribute('aria-checked', 'false');
+    await budgets.click();
+    await expect(budgets).toHaveAttribute('aria-checked', 'true');
+    await expect.poll(async () => (await saved()).notifyBudgets, { timeout: 10_000, intervals: [500, 1000] }).toBe(true);
+    // The device's time zone goes with it, so alerts arrive in the user's daytime.
+    expect((await saved()).timeZone).toBe(await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone));
+    await budgets.click();
+    await expect.poll(async () => (await saved()).notifyBudgets, { timeout: 10_000, intervals: [500, 1000] }).toBe(false);
   });
 });
 

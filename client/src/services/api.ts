@@ -286,6 +286,21 @@ export const restoreAllData = (payload: {
   });
 };
 
+// --- Push notifications (5e-2) ---
+
+/** The server's VAPID public key. 503 when push isn't set up on the server. */
+export const getPushKey = (): Promise<{ publicKey: string }> => fetchApi('/push/key', { method: 'GET' });
+
+/** Register this browser's push subscription (its toJSON()). */
+export const subscribePush = (subscription: PushSubscriptionJSON): Promise<{ subscribed: boolean }> =>
+  fetchApi('/push/subscribe', { method: 'POST', body: JSON.stringify(subscription) });
+
+export const unsubscribePush = (endpoint: string): Promise<{ subscribed: boolean }> =>
+  fetchApi('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) });
+
+/** A test notification to every browser the user has notifications on in. */
+export const sendTestPush = (): Promise<{ sent: number; removed: number }> => fetchApi('/push/test', { method: 'POST' });
+
 /** Change some settings; returns all of them as stored. See utils/settingsStore. */
 export const patchSettings = (patch: SettingsPatch): Promise<{ settings: UserSettings }> => {
   const body = JSON.stringify(patch);

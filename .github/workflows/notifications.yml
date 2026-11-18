@@ -1,0 +1,37 @@
+name: Notifications
+
+# Hourly: the server works out, per user and in their time zone, which budget
+# alerts, bill reminders and monthly summaries are due, and pushes them (only
+# between 9 am and 9 pm local time, each one once). Render's free plan sleeps,
+# so an in-process timer wouldn't fire; this request also wakes it.
+#
+# Needs the CRON_SECRET repository secret (the same value as CRON_SECRET on
+# Render). Without it the job does nothing. Optional: the API_URL repository
+# variable, if the API isn't at the default address below.
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Run the notification job
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET isn't set, so there's nothing to do."
+            exit 0
+          fi
+          url="${API_URL:-https://orbit-api-elbw.onrender.com}/api/jobs/notify"
+          # A sleeping Render instance takes up to a minute to wake: retry.
+          curl -fsS --max-time 150 --retry 3 --retry-delay 20 --retry-all-errors \
+            -X POST -H "x-cron-secret: $CRON_SECRET" "$url"
+          echo

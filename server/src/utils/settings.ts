@@ -40,6 +40,10 @@ export interface SettingsData {
   hideTuition?: boolean | null;
   onboardingDismissed?: boolean | null;
   recurringSnoozeUntil?: Date | null;
+  notifyBudgets?: boolean | null;
+  notifyBills?: boolean | null;
+  notifyMonthlySummary?: boolean | null;
+  timeZone?: string | null;
   customCategories?: CategoryMap;
   deletedSubcategories?: CategoryMap;
   merchantMap?: Record<string, string>;
@@ -53,6 +57,10 @@ export const SETTINGS_KEYS = [
   'hideTuition',
   'onboardingDismissed',
   'recurringSnoozeUntil',
+  'notifyBudgets',
+  'notifyBills',
+  'notifyMonthlySummary',
+  'timeZone',
   'customCategories',
   'deletedSubcategories',
   'merchantMap',
@@ -174,6 +182,16 @@ const investmentAccounts = (v: unknown): StoredAccount[] =>
     };
   });
 
+/** A time zone the runtime knows (IANA name). */
+export const isTimeZone = (tz: string): boolean => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const bool = (v: unknown, key: string): boolean => {
   if (typeof v !== 'boolean') throw new ValidationError(`${key} must be true or false`);
   return v;
@@ -201,8 +219,19 @@ export const parseSettingsPatch = (input: unknown, now = Date.now()): SettingsDa
       }
       case 'hideTuition':
       case 'onboardingDismissed':
+      case 'notifyBudgets':
+      case 'notifyBills':
+      case 'notifyMonthlySummary':
         data[k] = clear ? null : bool(value, k);
         break;
+      case 'timeZone': {
+        if (clear) { data.timeZone = null; break; }
+        if (typeof value !== 'string' || value.length > 64 || !isTimeZone(value)) {
+          throw new ValidationError('timeZone must be an IANA time zone, e.g. America/Los_Angeles');
+        }
+        data.timeZone = value;
+        break;
+      }
       case 'recurringSnoozeUntil': {
         if (clear) { data.recurringSnoozeUntil = null; break; }
         const ms = typeof value === 'number' ? value : Number.NaN;
@@ -240,6 +269,10 @@ export interface ClientSettings {
   hideTuition?: boolean;
   onboardingDismissed?: boolean;
   recurringSnoozeUntil?: number;
+  notifyBudgets?: boolean;
+  notifyBills?: boolean;
+  notifyMonthlySummary?: boolean;
+  timeZone?: string;
   customCategories?: CategoryMap;
   deletedSubcategories?: CategoryMap;
   merchantMap?: Record<string, string>;
@@ -253,6 +286,10 @@ type SettingsRow = {
   hideTuition?: boolean | null;
   onboardingDismissed?: boolean | null;
   recurringSnoozeUntil?: Date | null;
+  notifyBudgets?: boolean | null;
+  notifyBills?: boolean | null;
+  notifyMonthlySummary?: boolean | null;
+  timeZone?: string | null;
   customCategories?: unknown;
   deletedSubcategories?: unknown;
   merchantMap?: unknown;
@@ -268,6 +305,10 @@ export const settingsToClient = (row: SettingsRow): ClientSettings => {
   if (typeof row.displayCurrency === 'string') out.displayCurrency = row.displayCurrency;
   if (typeof row.hideTuition === 'boolean') out.hideTuition = row.hideTuition;
   if (typeof row.onboardingDismissed === 'boolean') out.onboardingDismissed = row.onboardingDismissed;
+  for (const k of ['notifyBudgets', 'notifyBills', 'notifyMonthlySummary'] as const) {
+    if (typeof row[k] === 'boolean') out[k] = row[k] as boolean;
+  }
+  if (typeof row.timeZone === 'string') out.timeZone = row.timeZone;
   if (row.recurringSnoozeUntil instanceof Date) out.recurringSnoozeUntil = row.recurringSnoozeUntil.getTime();
   if (isPlainObject(row.customCategories)) out.customCategories = row.customCategories as CategoryMap;
   if (isPlainObject(row.deletedSubcategories)) out.deletedSubcategories = row.deletedSubcategories as CategoryMap;

@@ -61,6 +61,11 @@ const PrivacyPolicy: React.FC = () => (
         backup, signing out everywhere, deleting your account), Orbit records when it happened, your IP address and your browser type.
       </li>
       <li>
+        <strong>Notifications:</strong> if you turn them on, Orbit stores your browser's push address and keys (so it
+        can reach that browser), your time zone (so they arrive in the daytime), and which notifications it has sent
+        (so none repeats).
+      </li>
+      <li>
         <strong>In your browser:</strong> two cookies, one that keeps you signed in and one that protects against forged
         requests from other sites. Orbit also keeps some data in your browser's storage (your settings, changes waiting to be
         saved, expenses added while offline) so the app keeps working without a connection. There are no advertising or analytics cookies.
@@ -87,6 +92,10 @@ const PrivacyPolicy: React.FC = () => (
         summary you can ask for includes that month's totals and top spending categories.
       </li>
       <li><strong>Google</strong>, if you choose "Continue with Google", signs you in and tells Orbit your email address.</li>
+      <li>
+        <strong>Your browser's push service</strong> (run by Google, Mozilla, Apple or Microsoft, depending on the
+        browser) delivers notifications if you turn them on. Their content is encrypted so the push service can't read it.
+      </li>
     </UL>
     <P>Your browser also contacts these services directly:</P>
     <UL>

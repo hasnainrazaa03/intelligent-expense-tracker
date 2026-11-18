@@ -74,6 +74,12 @@ export interface UserSettings {
   onboardingDismissed?: boolean;
   /** Epoch ms until which the recurring-charges reminder stays hidden. */
   recurringSnoozeUntil?: number;
+  /** Push notifications (5e-2): which ones, on every browser that has them on. */
+  notifyBudgets?: boolean;
+  notifyBills?: boolean;
+  notifyMonthlySummary?: boolean;
+  /** IANA time zone, so notifications arrive in the daytime and months are the user's. */
+  timeZone?: string;
   /** Subcategories the user added to the built-in categories. */
   customCategories?: CategoryMap;
   /** Built-in subcategories the user removed. */
