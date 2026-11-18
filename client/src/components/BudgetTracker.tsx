@@ -3,7 +3,8 @@ import { Expense, Budget } from '../types';
 import { ExclamationTriangleIcon, ChartPieIcon } from './Icons';
 import { formatCurrency } from '../utils/currencyUtils';
 import { computeBudgetSpend, computeTotalBudgetedSpend, budgetLabel } from '../utils/budgetUtils';
-import { monthKey } from '../utils/dateUtils';
+import { monthKey, parseCalendarDate } from '../utils/dateUtils';
+import { useToday } from '../hooks/useToday';
 import { useCurrency } from '../contexts/CurrencyContext';
 import ChartEmpty from './ChartEmpty';
 
@@ -62,25 +63,25 @@ const BudgetProgressItem: React.FC<{ category: string; label?: string; spent: nu
 
 const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const today = useToday();
 
   // Budget amounts are a single ongoing plan; only the *usage* is per-month, so
   // this selector scopes which month's spending is measured against the plan.
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const selectedKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
-  const currentKey = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  const currentKey = today.slice(0, 7);
   const isCurrentMonth = selectedKey === currentKey;
   const shiftMonth = (delta: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
 
   // Month options run from the earliest recorded expense up to the current month.
   const monthOptions = useMemo(() => {
-    let earliest = new Date();
-    earliest = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
+    const now = parseCalendarDate(today);
+    let earliest = new Date(now.getFullYear(), now.getMonth(), 1);
     for (const e of expenses) {
       const [y, m] = e.date.split('-').map(Number);
       if (y && m) { const d = new Date(y, m - 1, 1); if (d < earliest) earliest = d; }
     }
     const opts: Array<{ key: string; label: string }> = [];
-    const now = new Date();
     for (let d = new Date(now.getFullYear(), now.getMonth(), 1); d >= earliest; d.setMonth(d.getMonth() - 1)) {
       opts.push({
         key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
@@ -88,7 +89,7 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
       });
     }
     return opts;
-  }, [expenses]);
+  }, [expenses, today]);
 
   const monthLabel = month.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 

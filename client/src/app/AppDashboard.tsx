@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useMemo, useState } from 'react';
 import type { Expense, Income } from '../types';
 import Header from '../components/Header';
 import IncomeSummary from '../components/IncomeSummary';
@@ -61,7 +61,13 @@ const AppDashboard: React.FC = () => {
   // --- UI state ---------------------------------------------------------------
   const [activeView, setActiveView] = useActiveView();
   const [hubTab, setHubTab] = useState<'overview' | 'list'>('overview');
-  useEffect(() => { setHubTab('overview'); }, [activeView]);
+  // Each screen opens on its overview: the tab follows the view during render
+  // (it may change by the back button too), not a render later in an effect.
+  const [hubTabView, setHubTabView] = useState(activeView);
+  if (hubTabView !== activeView) {
+    setHubTabView(activeView);
+    setHubTab('overview');
+  }
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [incomeDateRange, setIncomeDateRange] = useState<DateRange>('this_month');
   // Header debounces the search input; only the settled term lands here (APP-H5).

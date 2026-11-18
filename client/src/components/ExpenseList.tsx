@@ -45,10 +45,13 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave,
     const [draftAmount, setDraftAmount] = useState(expense.amount.toString());
     const [draftNotes, setDraftNotes] = useState(expense.notes || '');
 
-    React.useEffect(() => {
+    // The drafts start from the expense as it is when editing begins, so a
+    // refresh in the background can't overwrite what's being typed.
+    const startInlineEdit = () => {
       setDraftAmount(expense.amount.toString());
       setDraftNotes(expense.notes || '');
-    }, [expense.amount, expense.notes]);
+      setIsInlineEditing(true);
+    };
 
     const saveInlineChanges = async () => {
       const parsed = Number.parseFloat(draftAmount);
@@ -99,7 +102,7 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, onEdit, onQuickSave,
                           className="w-28 bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                         />
                       ) : (
-                        <p className="font-display text-lg md:text-xl font-bold text-app-text leading-none tabular-nums cursor-default" onDoubleClick={() => { if (displayCurrency === 'USD') setIsInlineEditing(true); else onEdit(expense); }}>
+                        <p className="font-display text-lg md:text-xl font-bold text-app-text leading-none tabular-nums cursor-default" onDoubleClick={() => { if (displayCurrency === 'USD') startInlineEdit(); else onEdit(expense); }}>
                             {formatCurrency(expense.amount, displayCurrency, conversionRate)}
                         </p>
                       )}
@@ -216,20 +219,21 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses: allExpenses, onEdit
   // content, so a single fixed height clipped/mis-sized them.
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: APP_CONFIG.virtualRowHeight });
 
-  React.useEffect(() => {
+  // A different number of rows (a new filter or search) starts again at page
+  // 1: state follows the list during render, not in an effect.
+  const [seenCount, setSeenCount] = useState(expenses.length);
+  if (seenCount !== expenses.length) {
+    setSeenCount(expenses.length);
     setCurrentPage(1);
-  }, [expenses.length]);
+  }
 
   const totalPages = Math.max(1, Math.ceil(expenses.length / pageSize));
-
-  // Switching filters (or page size) can leave currentPage past the end — clamp
-  // rather than render an empty page.
-  React.useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+  // Switching filters (or page size) can leave currentPage past the end: show
+  // the last page rather than an empty one.
+  const page = Math.min(currentPage, totalPages);
   const paginatedExpenses = expenses.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
+    (page - 1) * pageSize,
+    page * pageSize
   );
 
   const handleConfirmDelete = () => {
@@ -303,7 +307,7 @@ const ExpenseList: React.FC<ExpenseListProps> = ({ expenses: allExpenses, onEdit
 
         {!shouldVirtualize && (
           <Pagination 
-              currentPage={currentPage}
+              currentPage={page}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
               totalItems={expenses.length}

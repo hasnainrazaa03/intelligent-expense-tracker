@@ -3,6 +3,8 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import SummaryCard from '../SummaryCard';
 import { CalendarDaysIcon } from '../Icons';
+import { useToday } from '../../hooks/useToday';
+import { parseCalendarDate } from '../../utils/dateUtils';
 
 interface TimePeriodSummariesProps {
   allExpenses: Expense[];
@@ -10,9 +12,10 @@ interface TimePeriodSummariesProps {
 
 const TimePeriodSummaries: React.FC<TimePeriodSummariesProps> = ({ allExpenses }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const today = useToday();
 
   const summaries = useMemo(() => {
-    const now = new Date();
+    const now = parseCalendarDate(today);
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const currentQuarter = Math.floor(currentMonth / 3);
@@ -61,7 +64,7 @@ const TimePeriodSummaries: React.FC<TimePeriodSummariesProps> = ({ allExpenses }
     });
 
     return { currentQuarterTotal, lastQuarterTotal, currentYearTotal, lastYearTotal };
-  }, [allExpenses]);
+  }, [allExpenses, today]);
 
   const currencyProps = { displayCurrency, conversionRate };
 

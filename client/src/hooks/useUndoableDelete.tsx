@@ -1,4 +1,4 @@
-import { useCallback, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import toast from 'react-hot-toast';
 
 export const UNDO_WINDOW_MS = 5000;
@@ -68,9 +68,10 @@ export const usePendingDeleteIds = (): ReadonlySet<string> =>
  */
 export default function useUndoableDelete(onDelete: (id: string) => Promise<void> | void) {
   // The latest handler, so a delete that fires after a re-render (or after the
-  // list unmounted) uses current state rather than a stale closure.
+  // list unmounted) uses current state rather than a stale closure. Updated
+  // after each render (not during it); the delete runs seconds later anyway.
   const onDeleteRef = useRef(onDelete);
-  onDeleteRef.current = onDelete;
+  useEffect(() => { onDeleteRef.current = onDelete; });
 
   return useCallback((id: string, message = 'Scheduled for deletion.') => {
     // Collapse a re-scheduled delete of the same id.

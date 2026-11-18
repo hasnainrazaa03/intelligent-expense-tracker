@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 
 type Preloadable = { preload: () => void };
 
@@ -28,19 +28,18 @@ export const useIdlePrefetch = (enabled: boolean, screens: Preloadable[]) => {
 };
 
 /**
- * Ctrl/Cmd+N opens a new entry. The listener reads the latest handler through
- * a ref, so it isn't re-attached on every render. No Escape handling here:
- * each dialog closes on Escape through its own onClose (F13).
+ * Ctrl/Cmd+N opens a new entry. The listener calls the latest handler (an
+ * effect event), so it isn't re-attached on every render. No Escape handling
+ * here: each dialog closes on Escape through its own onClose (F13).
  */
 export const useNewEntryShortcut = (enabled: boolean, open: () => void) => {
-  const openRef = useRef(open);
-  openRef.current = open;
+  const openLatest = useEffectEvent(open);
   useEffect(() => {
     if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
-        openRef.current();
+        openLatest();
       }
     };
     window.addEventListener('keydown', onKey);

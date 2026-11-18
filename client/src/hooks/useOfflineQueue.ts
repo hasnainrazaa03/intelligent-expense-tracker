@@ -43,9 +43,13 @@ export default function useOfflineQueue({ ownerId, process, onSynced, onDropped 
   // Set before the first await, or both calls pass the check and replay twice.
   const flushing = useRef(false);
 
+  // Signed out, nothing is pending: derived below rather than set from an effect.
   const refreshCount = useCallback(async () => {
-    if (!ownerId) { setPendingCount(0); return; }
-    try { setPendingCount(await countPendingExpenses(ownerId)); } catch { /* ignore */ }
+    if (!ownerId) return;
+    try {
+      const count = await countPendingExpenses(ownerId);
+      setPendingCount(count);
+    } catch { /* ignore */ }
   }, [ownerId]);
 
   const flush = useCallback(async () => {
@@ -91,6 +95,9 @@ export default function useOfflineQueue({ ownerId, process, onSynced, onDropped 
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
     // Also runs when ownerId changes, so signing in replays that user's queue.
+    // refreshCount only sets state once its IndexedDB read finishes, so not
+    // synchronously; the rule can't see past the await.
+    // oxlint-disable-next-line react/set-state-in-effect
     void refreshCount();
     void flush();
     return () => {
@@ -99,5 +106,5 @@ export default function useOfflineQueue({ ownerId, process, onSynced, onDropped 
     };
   }, [flush, refreshCount]);
 
-  return { isOnline, pendingCount, syncing, refreshCount, flush };
+  return { isOnline, pendingCount: ownerId ? pendingCount : 0, syncing, refreshCount, flush };
 }

@@ -15,40 +15,38 @@ interface AuthProps {
 }
 
 const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  // What brought the user here, read once when the page opens (it used to be
+  // copied into state by effects, a render late):
+  // - back from Google sign-in, a 2FA account gets an emailed code instead of
+  //   a session, and a callback whose OAuth state didn't match is refused;
+  // - from email verification, a message saying it worked (VerifyOTP passed
+  //   one that nothing displayed, so a verified user got no confirmation).
+  const [arrival] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const twoFactorEmail = params.get('twofactor') === '1' ? params.get('email') || '' : '';
+    return {
+      twoFactorEmail,
+      oauthInterrupted: !twoFactorEmail && params.get('error') === 'oauth_state',
+      verifiedMessage: (location.state as { message?: string } | null)?.message ?? null,
+      cleanUrl: params.has('twofactor') || params.has('error'),
+    };
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoginView, setIsLoginView] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(arrival.oauthInterrupted ? 'Google sign-in was interrupted. Please try again.' : null);
   const [loading, setLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(arrival.twoFactorEmail ? 'Verification code sent to your email.' : arrival.verifiedMessage);
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(Boolean(arrival.twoFactorEmail));
   const [loginOtp, setLoginOtp] = useState('');
-  const [pendingLoginEmail, setPendingLoginEmail] = useState('');
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [pendingLoginEmail, setPendingLoginEmail] = useState(arrival.twoFactorEmail);
 
-  // Arriving from email verification: say it worked. VerifyOTP passed a code
-  // here that nothing displayed, so a verified user got no confirmation.
+  // Take the sign-in parameters out of the address once they're read.
   useEffect(() => {
-    const message = (location.state as { message?: string } | null)?.message;
-    if (message) setSuccessMsg(message);
-  }, [location.state]);
-
-  // Redirects back from Google sign-in: a 2FA account gets an emailed code
-  // instead of a session, and a callback whose OAuth state didn't match is refused.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('twofactor') === '1' && params.get('email')) {
-      setRequiresTwoFactor(true);
-      setPendingLoginEmail(params.get('email') || '');
-      setSuccessMsg('Verification code sent to your email.');
-    } else if (params.get('error') === 'oauth_state') {
-      setError('Google sign-in was interrupted. Please try again.');
-    }
-    if (params.has('twofactor') || params.has('error')) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
+    if (arrival.cleanUrl) window.history.replaceState({}, document.title, window.location.pathname);
+  }, [arrival.cleanUrl]);
 
   // Forgot password state
   const [showForgotPassword, setShowForgotPassword] = useState(false);

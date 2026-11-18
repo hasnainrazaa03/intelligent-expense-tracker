@@ -13,6 +13,7 @@ import FinancialPlanningPanel from './FinancialPlanningPanel';
 import { getCategoryColor, getMainCategory } from '../utils/colorUtils';
 import { CalendarDaysIcon, TagIcon, TrendingUpIcon, BanknotesIcon } from './Icons';
 import { startOfMonth, endOfMonth, isWithinRange, addMonths, parseCalendarDate, monthKey } from '../utils/dateUtils';
+import { useToday } from '../hooks/useToday';
 import { formatCurrency } from '../utils/currencyUtils';
 import { computeBudgetSpend, computeTotalBudgetedSpend, budgetLabel } from '../utils/budgetUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -32,21 +33,83 @@ interface DashboardProps {
   isLoading?: boolean;
 }
 
+/** The spending-trend bars: days of the month, or months for longer ranges. */
+const buildBarChartData = (expenses: Expense[], selectedRange: DateRange, today: string): { label: string; amount: number }[] => {
+  if (selectedRange === 'this_month' || selectedRange === 'last_month') {
+      // `expenses` is already filtered to the selected month, so bucket by the
+      // picked calendar day-of-month (local, no UTC shift).
+      const dailyTotals: { [key: number]: number } = {};
+      for (const expense of expenses) {
+          const day = parseCalendarDate(expense.date).getDate();
+          dailyTotals[day] = (dailyTotals[day] || 0) + Number(expense.amount);
+      }
+
+      const now = parseCalendarDate(today);
+      const targetRef = selectedRange === 'this_month' ? now : addMonths(now, -1);
+      const daysInMonth = new Date(targetRef.getFullYear(), targetRef.getMonth() + 1, 0).getDate();
+
+      return Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1;
+          return { label: `${day}`, amount: dailyTotals[day] || 0 };
+      });
+
+  } else {
+      const monthlyTotals: { [key: string]: number } = {};
+      for (const expense of expenses) {
+          const key = monthKey(expense.date); // YYYY-MM
+          monthlyTotals[key] = (monthlyTotals[key] || 0) + Number(expense.amount);
+      }
+
+      if (selectedRange === 'last_90_days') {
+          // Show a continuous run of months (4 covers any 90-day window), filling
+          // empty months with 0 instead of dropping them — a gappy axis misread
+          // the trend (L6).
+          const now = parseCalendarDate(today);
+          return Array.from({ length: 4 }, (_, idx) => {
+              const ref = addMonths(now, -(3 - idx));
+              const key = monthKey(`${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-01`);
+              return {
+                  label: ref.toLocaleString('en-US', { month: 'short', year: '2-digit' }),
+                  amount: monthlyTotals[key] || 0,
+              };
+          });
+      }
+
+      // All-time: show every month between the first and last expense so gaps in
+      // the middle render as zero bars rather than being collapsed out (L6).
+      const keys = Object.keys(monthlyTotals).sort();
+      if (keys.length === 0) return [];
+      const [minY, minM] = keys[0].split('-').map(Number);
+      const [maxY, maxM] = keys[keys.length - 1].split('-').map(Number);
+      const monthSpan = (maxY - minY) * 12 + (maxM - minM);
+      return Array.from({ length: monthSpan + 1 }, (_, i) => {
+          const ref = addMonths(parseCalendarDate(`${keys[0]}-01`), i);
+          const key = monthKey(`${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-01`);
+          return {
+              label: ref.toLocaleString('en-US', { month: 'short', year: '2-digit' }),
+              amount: monthlyTotals[key] || 0,
+          };
+      });
+  }
+};
+
 const Dashboard: React.FC<DashboardProps> = ({
   expenses, incomes, allIncomes, allExpenses, previousPeriodExpenses, comparisonCutoff,
   selectedRange, onDateRangeChange, budgets, isLoading = false
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const today = useToday();
 
   // Budgets are monthly, so budget utilization is ALWAYS the current calendar
   // month — independent of the dashboard's selected period (CMP-M15). Both the
   // alerts and the Budget-protocols tracker use this, so "All time" no longer
   // shows 700%+ (multi-month spend vs a one-month allocation).
   const monthExpenses = useMemo(() => {
-    const monthStart = startOfMonth();
-    const monthEnd = endOfMonth();
+    const now = parseCalendarDate(today);
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
     return allExpenses.filter((e) => isWithinRange(e.date, monthStart, monthEnd));
-  }, [allExpenses]);
+  }, [allExpenses, today]);
 
   const budgetAlerts = useMemo(() => {
     if (budgets.length === 0) return [] as Array<{ category: string; spent: number; budget: number; pct: number; severity: 'warning' | 'danger' }>;
@@ -112,70 +175,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     .sort((a, b) => b.value - a.value);
   }, [expenses]);
   
-  const barChartData = useMemo(() => {
-    if (selectedRange === 'this_month' || selectedRange === 'last_month') {
-        // `expenses` is already filtered to the selected month, so bucket by the
-        // picked calendar day-of-month (local, no UTC shift).
-        const dailyTotals: { [key: number]: number } = {};
-        expenses.forEach(expense => {
-            const day = parseCalendarDate(expense.date).getDate();
-            dailyTotals[day] = (dailyTotals[day] || 0) + Number(expense.amount);
-        });
-
-        const targetRef = selectedRange === 'this_month' ? new Date() : addMonths(new Date(), -1);
-        const daysInMonth = new Date(targetRef.getFullYear(), targetRef.getMonth() + 1, 0).getDate();
-
-        return Array.from({ length: daysInMonth }, (_, i) => {
-            const day = i + 1;
-            return { label: `${day}`, amount: dailyTotals[day] || 0 };
-        });
-
-    } else {
-        const monthlyTotals: { [key: string]: number } = {};
-        expenses.forEach(expense => {
-            const key = monthKey(expense.date); // YYYY-MM
-            monthlyTotals[key] = (monthlyTotals[key] || 0) + Number(expense.amount);
-        });
-
-        if (selectedRange === 'last_90_days') {
-            // Show a continuous run of months (4 covers any 90-day window), filling
-            // empty months with 0 instead of dropping them — a gappy axis misread
-            // the trend (L6).
-            const now = new Date();
-            return Array.from({ length: 4 }, (_, idx) => {
-                const ref = addMonths(now, -(3 - idx));
-                const key = monthKey(`${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-01`);
-                return {
-                    label: ref.toLocaleString('en-US', { month: 'short', year: '2-digit' }),
-                    amount: monthlyTotals[key] || 0,
-                };
-            });
-        }
-
-        // All-time: show every month between the first and last expense so gaps in
-        // the middle render as zero bars rather than being collapsed out (L6).
-        const keys = Object.keys(monthlyTotals).sort();
-        if (keys.length === 0) return [];
-        const [minY, minM] = keys[0].split('-').map(Number);
-        const [maxY, maxM] = keys[keys.length - 1].split('-').map(Number);
-        const monthSpan = (maxY - minY) * 12 + (maxM - minM);
-        return Array.from({ length: monthSpan + 1 }, (_, i) => {
-            const ref = addMonths(parseCalendarDate(`${keys[0]}-01`), i);
-            const key = monthKey(`${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-01`);
-            return {
-                label: ref.toLocaleString('en-US', { month: 'short', year: '2-digit' }),
-                amount: monthlyTotals[key] || 0,
-            };
-        });
-    }
-  }, [expenses, selectedRange]);
+  const barChartData = useMemo(() => buildBarChartData(expenses, selectedRange, today), [expenses, selectedRange, today]);
 
   const budgetPerformanceData = useMemo(() => {
     if (budgets.length === 0) return [];
     const totalMonthlyBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
     const budgetCategories = budgets.map((b) => b.category);
     const data: { name: string; spent: number; budgeted: number }[] = [];
-    const now = new Date();
+    const now = parseCalendarDate(today);
 
     for (let i = 5; i >= 0; i--) {
         // addMonths is overflow-safe (naive setMonth wraps on 29-31st, producing
@@ -193,7 +200,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         data.push({ name: `${monthName} '${yearShort}`, spent: totalSpent, budgeted: totalMonthlyBudget });
     }
     return data;
-}, [allExpenses, budgets]);
+}, [allExpenses, budgets, today]);
 
   const barChartTitle = (selectedRange === 'this_month' || selectedRange === 'last_month') ? 'Daily spending trend' : 'Monthly spending trend';
 

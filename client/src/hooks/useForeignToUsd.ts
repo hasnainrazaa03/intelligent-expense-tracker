@@ -22,29 +22,20 @@ export default function useForeignToUsd(
   foreignAmount: string,
   parentUsdToForeignRate: number | null
 ): ForeignToUsdResult {
-  const [convertedAmount, setConvertedAmount] = useState('');
-  const [rate, setRate] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The latest conversion, labelled with the input it was for. Whether one is
+  // pending, or doesn't apply, is derived from the input during render; the
+  // effect only sets state when the (debounced) conversion comes back.
+  const [result, setResult] = useState<{ input: string; convertedAmount: string; rate: number | null; error: string | null }>(
+    { input: '', convertedAmount: '', rate: null, error: null });
+
+  const value = parseFloat(foreignAmount);
+  const applies = foreignCurrency !== 'USD' && Boolean(foreignAmount) && value > 0;
+  const input = `${foreignCurrency}|${foreignAmount}|${parentUsdToForeignRate ?? ''}`;
 
   useEffect(() => {
-    const value = parseFloat(foreignAmount);
-
-    if (foreignCurrency === 'USD' || !foreignAmount || !(value > 0)) {
-      setConvertedAmount('');
-      setError(null);
-      setLoading(false);
-      return;
-    }
-
-    // Pending from the first keystroke, not only once the debounced fetch
-    // starts — otherwise a form submitted inside the 500ms window sees
-    // loading=false and saves the previous conversion.
-    setLoading(true);
+    if (!applies) return;
     let cancelled = false;
     const convert = async () => {
-      setLoading(true);
-      setError(null);
       try {
         let r: number;
         if (parentUsdToForeignRate && parentUsdToForeignRate > 0) {
@@ -56,24 +47,30 @@ export default function useForeignToUsd(
           r = data?.rates?.USD;
           if (typeof r !== 'number' || !Number.isFinite(r)) throw new Error('BAD_RATE');
         }
-        if (cancelled) return;
-        setRate(r);
-        setConvertedAmount((value * r).toFixed(2));
+        if (!cancelled) setResult({ input, convertedAmount: (value * r).toFixed(2), rate: r, error: null });
       } catch {
-        if (cancelled) return;
-        setError('CONVERSION_FAILED');
-        setConvertedAmount(''); // never leave a stale USD value on failure
-      } finally {
-        if (!cancelled) setLoading(false);
+        // Never leave a stale USD value on failure.
+        if (!cancelled) setResult({ input, convertedAmount: '', rate: null, error: 'CONVERSION_FAILED' });
       }
     };
-
     const debounce = setTimeout(convert, 500);
     return () => {
       cancelled = true;
       clearTimeout(debounce);
     };
-  }, [foreignCurrency, foreignAmount, parentUsdToForeignRate]);
+  }, [applies, input, foreignCurrency, parentUsdToForeignRate, value]);
 
-  return { convertedAmount, rate, loading, error };
+  if (!applies) return { convertedAmount: '', rate: result.rate, loading: false, error: null };
+  const current = result.input === input;
+  return {
+    // The previous conversion stays visible while the next one is pending (the
+    // forms refuse to save while `loading`), so the USD field doesn't blank out.
+    convertedAmount: result.convertedAmount,
+    rate: result.rate,
+    // Pending from the first keystroke, not only once the debounced fetch
+    // starts: a form submitted inside the 500 ms window must not save the
+    // previous conversion.
+    loading: !current,
+    error: current ? result.error : null,
+  };
 }

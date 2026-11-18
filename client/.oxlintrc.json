@@ -8,12 +8,14 @@
   "rules": {
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "error",
-    // React Compiler readiness rules: about 30 findings, mostly Date.now() and
-    // setState inside effects. Worth doing as its own refactor, not as a gate.
-    "react/purity": "off",
-    "react/set-state-in-effect": "off",
-    "react/refs": "off",
-    "react/preserve-manual-memoization": "off"
+    // React Compiler readiness: no impure calls (Date.now(), new Date()) during
+    // render, no setState called synchronously in an effect, no refs read or
+    // written during render. Fixed in 6c; two documented exceptions remain
+    // (useRecurringSuggestions, useOfflineQueue).
+    "react/purity": "error",
+    "react/set-state-in-effect": "error",
+    "react/refs": "error",
+    "react/preserve-manual-memoization": "error"
   },
   "ignorePatterns": ["dist/**", "node_modules/**", "tests/e2e/.auth/**", "public/sw.js"]
 }

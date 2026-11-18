@@ -8,7 +8,8 @@ import { withoutExisting } from '../utils/duplicates';
 import { encryptBackup, decryptBackup, isEncryptedBackup, MIN_PASSPHRASE_LENGTH, type EncryptedBackup } from '../utils/backupCrypto';
 import { logAuditEvent } from '../services/api';
 import { APP_CONFIG } from '../config';
-import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange } from '../utils/dateUtils';
+import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange, parseCalendarDate } from '../utils/dateUtils';
+import { useToday } from '../hooks/useToday';
 import {
   TableCellsIcon,
   ExclamationTriangleIcon,
@@ -49,6 +50,17 @@ interface DataModalProps {
     settings?: SettingsPatch;
   }) => Promise<void> | void;
 }
+
+/** Whether a calendar day falls in the export's date range (local days, as on the dashboard). */
+const rangeFilter = (dateRange: DateRange, today: string): ((date: string) => boolean) => {
+  if (dateRange === 'all_time') return () => true;
+  const now = parseCalendarDate(today);
+  const [start, end] =
+    dateRange === 'last_month' ? [startOfMonth(addMonths(now, -1)), endOfMonth(addMonths(now, -1))]
+    : dateRange === 'last_90_days' ? [formatCalendarDate(addDays(now, -90)), today]
+    : [startOfMonth(now), endOfMonth(now)]; // this_month
+  return (date: string) => isWithinRange(date, start, end);
+};
 
 const ranges: { id: DateRange; label: string }[] = [
   { id: 'this_month', label: 'This month' },
@@ -104,28 +116,8 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
 
   // Local calendar-day boundaries, the same as the dashboard's: "This month" is
   // the whole month (it ended today, so rent dated the 30th was left out).
-  const inRange = useMemo(() => {
-    if (dateRange === 'all_time') return () => true;
-    const now = new Date();
-    let start: string;
-    let end: string;
-    switch (dateRange) {
-        case 'last_month':
-            start = startOfMonth(addMonths(now, -1));
-            end = endOfMonth(addMonths(now, -1));
-            break;
-        case 'last_90_days':
-            start = formatCalendarDate(addDays(now, -90));
-            end = todayCalendar();
-            break;
-        case 'this_month':
-        default:
-            start = startOfMonth(now);
-            end = endOfMonth(now);
-            break;
-    }
-    return (date: string) => isWithinRange(date, start, end);
-  }, [dateRange]);
+  const today = useToday();
+  const inRange = useMemo(() => rangeFilter(dateRange, today), [dateRange, today]);
   const filteredExpenses = useMemo(() => allExpenses.filter((e) => inRange(e.date)), [allExpenses, inRange]);
   const filteredIncomes = useMemo(() => allIncomes.filter((i) => inRange(i.date)), [allIncomes, inRange]);
 
