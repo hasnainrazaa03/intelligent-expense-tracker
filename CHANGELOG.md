@@ -7,6 +7,17 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Account and dates (2026-11-17)
+- **Change your password (#202):** Settings → Security → Password. It asks for the current
+  password, signs you out on your other devices, keeps you signed in here, and emails you
+  that it changed.
+- **Fix a tuition payment's date (#202):** a paid installment has "Change date" in the
+  tuition tracker; the tuition expense moves with it.
+- **Sturdier dates and start-up (#202):** a date sent with a time and timezone is kept on the
+  day it was written (a late-evening entry no longer lands on the next day), impossible days
+  like 30 February are refused instead of becoming 1 March, and the server starts without
+  an email key (with email off) instead of crashing.
+
 ### Phase 5 — product (2026-11-17)
 - **Large statements no longer slow everyone down (#201):** a PDF statement is read in the
   background, so a big upload can't make the app stall for other users, and a file that

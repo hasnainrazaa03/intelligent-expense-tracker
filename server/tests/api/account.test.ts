@@ -101,3 +101,47 @@ describeApi('account: delete and sign out everywhere (5b-2)', () => {
     expect((await again.get('/api/settings')).status).toBe(200);
   });
 });
+
+describeApi('change password while signed in', () => {
+  const NEW_PASSWORD = 'Newer5678?';
+
+  it('checks the current password, then signs out every other device and keeps this one signed in', async () => {
+    const { client, user } = await signedInClient();
+    const phone = newClient();
+    expect((await phone.login(user.email)).status).toBe(200);
+    const change = (body: object) => client.post('/api/auth/change-password', body);
+
+    expect((await change({ currentPassword: 'Wrong123!', newPassword: NEW_PASSWORD })).body.error.code).toBe('INCORRECT_PASSWORD');
+    expect((await change({ currentPassword: PASSWORD, newPassword: 'weakpass' })).body.error.code).toBe('WEAK_PASSWORD');
+    expect((await change({ currentPassword: PASSWORD, newPassword: PASSWORD })).body.error.code).toBe('SAME_PASSWORD');
+    expect((await change({ currentPassword: PASSWORD })).status).toBe(400);
+
+    const { mailbox } = await import('../mailbox');
+    const res = await change({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD });
+    expect(res.status).toBe(200);
+    expect(typeof res.body.csrfToken).toBe('string');
+
+    // This device carries on with its new session; the other one is signed out.
+    expect((await client.get('/api/data/all')).status).toBe(200);
+    expect((await phone.get('/api/data/all')).status).toBe(401);
+    // The old password no longer signs in; the new one does.
+    expect((await newClient().login(user.email, PASSWORD)).status).not.toBe(200);
+    expect((await newClient().login(user.email, NEW_PASSWORD)).status).toBe(200);
+    // The owner is told, in case it wasn't them.
+    expect(mailbox.some((m) => m.to === user.email && m.kind === 'generic' && /password was changed/.test(m.subject ?? ''))).toBe(true);
+  });
+
+  it('five wrong current passwords lock it for a while', async () => {
+    const { client } = await signedInClient();
+    for (let i = 0; i < 5; i++) {
+      expect((await client.post('/api/auth/change-password', { currentPassword: 'Wrong123!', newPassword: NEW_PASSWORD })).status).toBe(401);
+    }
+    expect((await client.post('/api/auth/change-password', { currentPassword: PASSWORD, newPassword: NEW_PASSWORD })).status).toBe(429);
+  });
+
+  it('needs a session and the CSRF token', async () => {
+    const anon = newClient();
+    await anon.csrf();
+    expect((await anon.post('/api/auth/change-password', { currentPassword: PASSWORD, newPassword: NEW_PASSWORD })).status).toBe(401);
+  });
+});

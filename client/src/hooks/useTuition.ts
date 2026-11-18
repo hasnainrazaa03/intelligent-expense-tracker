@@ -200,11 +200,16 @@ export const useTuition = ({
 
   // A paid installment's date is its expense's date: change that, and the
   // server moves the installment's date with it.
-  const updatePaidDate = async (semesterId: string, installmentId: number, newDate: string) => {
+  /** Resolves false when nothing changed because of an error (the form stays open). */
+  const updatePaidDate = async (semesterId: string, installmentId: number, newDate: string): Promise<boolean> => {
     const installment = semesters.find((s) => s.id === semesterId)?.installments.find((i) => i.id === installmentId);
     const expense = installment?.expenseId ? expenses.find((e) => e.id === installment.expenseId) : undefined;
-    if (!expense || expense.date === newDate) return;
-    await updateExpense({ ...expense, date: newDate }, { inForm: false });
+    if (!expense) {
+      notify.error("This payment has no tuition expense linked to it, so its date can't be changed here.");
+      return false;
+    }
+    if (expense.date === newDate) return true;
+    return updateExpense({ ...expense, date: newDate }, { inForm: false });
   };
 
   return { updateTotal, updateInstallmentCount, markPaid, updatePaidDate, resetForFreshLoad };

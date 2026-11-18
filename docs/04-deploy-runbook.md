@@ -32,7 +32,7 @@ data on **MongoDB Atlas**. Follow top-to-bottom; the DB steps are order-sensitiv
 | `JWT_SECRET` | 32+ char random string | boot fails if shorter |
 | `FRONTEND_URL` | `https://your-app.vercel.app` | comma-separated if multiple origins; drives CORS |
 | `GEMINI_API_KEY` | Gemini key | AI Analyst |
-| `RESEND_API_KEY` | Resend key | OTP + emailed summary |
+| `RESEND_API_KEY` | Resend key | Sign-up and sign-in codes, password resets, summaries, the "password changed" notice. Without it the API still starts, with email off (it used to crash at boot). |
 | `EMAIL_FROM` | verified sender, e.g. `Orbit <no-reply@yourdomain>` | |
 
 **Optional:** `ENABLE_API_DOCS=true` (exposes `/api/docs` in prod — off by default), `HOST`, `PORT` (Render sets `PORT`).

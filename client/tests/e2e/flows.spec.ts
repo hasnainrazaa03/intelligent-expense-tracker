@@ -95,6 +95,20 @@ test.describe('as the demo account', () => {
     // Numbered like the tracker shows it, not by a database id.
     expect(title).toMatch(/^USC Tuition - Fall 2026 \(Inst #[1-9]\)$/);
 
+    // Its paid date can be changed from the tracker, and the expense moves with
+    // it. The 1st of this month (the 2nd on the 1st) keeps it in "This month".
+    const n = title.match(/#(\d)/)![1];
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() === 1 ? 2 : 1);
+    const ymd = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+    await page.getByRole('button', { name: `Change the paid date of installment ${n}` }).click();
+    await page.getByRole('button', { name: new RegExp(`^Paid date for installment ${n},`) }).click();
+    await page.getByRole('button', { name: target.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), exact: true }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText(`Paid: ${ymd}`)).toBeVisible({ timeout: 10_000 });
+    const tuitionDate = async () => (await allData(page.request)).expenses.find((e: { title: string }) => e.title === title)?.date?.slice(0, 10);
+    await expect.poll(tuitionDate, { timeout: 10_000, intervals: [500, 1000] }).toBe(ymd);
+
     // Delete it from the list, past the undo window. Searching for it, not
     // paging: a long-lived local database holds hundreds of test expenses.
     await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
@@ -508,6 +522,50 @@ test.describe('account actions (own accounts)', () => {
 
     expect((await laptop.request.get(`${API}/settings`)).status()).toBe(401);
     await other.close();
+  });
+
+  test('changing the password keeps this browser signed in, signs out the others, and the new one works', async ({ page, browser }) => {
+    // Its own account (CI creates it; locally run
+    // `server/scripts/ensure-test-user.ts e2e-password@test.com` first).
+    const email = 'e2e-password@test.com';
+    const NEW_PASSWORD = 'Changed5678?';
+    await page.goto('/login');
+    await page.getByPlaceholder('you@email.com').fill(email);
+    await page.getByLabel('Password', { exact: true }).fill('Test1234!');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    const signedIn = await page.getByRole('tablist', { name: 'Primary navigation' }).waitFor({ timeout: 15_000 }).then(() => true, () => false);
+    test.skip(!signedIn, `No ${email} account: run server/scripts/ensure-test-user.ts ${email} first.`);
+    const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const laptop = await other.newPage();
+    await signIn(laptop, email);
+
+    try {
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('region', { name: 'Security' }).getByRole('button', { name: 'Change' }).click();
+      const form = page.getByRole('form', { name: 'Change password' });
+      await form.getByLabel('Current password').fill('Test1234!');
+      await form.getByLabel('New password', { exact: true }).fill(NEW_PASSWORD);
+      await form.getByLabel('Repeat new password').fill('Changed5678!');
+      await form.getByRole('button', { name: 'Change password' }).click();
+      await expect(form.getByRole('alert')).toHaveText("The new passwords don't match.");
+      await form.getByLabel('Repeat new password').fill(NEW_PASSWORD);
+      await form.getByRole('button', { name: 'Change password' }).click();
+      await expect(page.getByText('Password changed. Every other device is signed out.')).toBeVisible({ timeout: 10_000 });
+      await expect(form).toBeHidden();
+
+      // This browser carries on (writes too: the renewed CSRF token is in use)...
+      const headers = await csrfHeaders(page.request);
+      expect((await page.request.patch(`${API}/settings`, { headers, data: { hideTuition: false } })).status()).toBe(200);
+      // ...the other is signed out, and only the new password signs in.
+      expect((await laptop.request.get(`${API}/settings`)).status()).toBe(401);
+      const tryLogin = async (password: string) => (await other.request.post(`${API}/auth/login`, { headers: await csrfHeaders(other.request), data: { email, password } })).status();
+      expect(await tryLogin('Test1234!')).not.toBe(200);
+      expect(await tryLogin(NEW_PASSWORD)).toBe(200);
+    } finally {
+      // Put the known password back so the test can run again.
+      await page.request.post(`${API}/auth/change-password`, { headers: await csrfHeaders(page.request), data: { currentPassword: NEW_PASSWORD, newPassword: 'Test1234!' } });
+      await other.close();
+    }
   });
 
   test('deleting the account removes it and signs out', async ({ page }) => {

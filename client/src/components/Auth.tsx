@@ -5,6 +5,7 @@ import { registerUser, loginUser, forgotPassword, resetPassword, verifyLoginOtp 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Input, Label } from './ui';
 import { stashVerificationPassword } from '../utils/pendingVerification';
+import { scorePassword, isStrongPassword } from '../utils/password';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -12,18 +13,6 @@ interface AuthProps {
   /** Called with the email that signed in, so per-account storage is ready at once. */
   onLoginSuccess: (email?: string) => void;
 }
-
-const scorePassword = (value: string): number => {
-  let score = 0;
-  if (value.length >= 8) score += 1;
-  if (/[a-z]/.test(value)) score += 1;
-  if (/[A-Z]/.test(value)) score += 1;
-  if (/\d/.test(value)) score += 1;
-  if (/[^A-Za-z0-9]/.test(value)) score += 1;
-  return score;
-};
-
-const isStrongPassword = (value: string): boolean => scorePassword(value) >= 5;
 
 const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
