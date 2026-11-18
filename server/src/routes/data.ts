@@ -85,7 +85,7 @@ router.get('/all', async (req: Request, res: Response) => {
       prisma.budget.findMany({ where: { userId } }),
       prisma.semester.findMany({ 
         where: { userId },
-        include: { installments: true }
+        include: { installments: { orderBy: { id: 'asc' } } }
       }),
       prisma.userSettings.findUnique({ where: { userId } }),
     ]);
@@ -306,7 +306,7 @@ router.post('/restore', async (req: Request, res: Response) => {
       prisma.expense.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
       prisma.income.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
       prisma.budget.findMany({ where: { userId } }),
-      prisma.semester.findMany({ where: { userId }, include: { installments: true } }),
+      prisma.semester.findMany({ where: { userId }, include: { installments: { orderBy: { id: 'asc' } } } }),
       prisma.userSettings.findUnique({ where: { userId } }),
     ]);
 

@@ -232,7 +232,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                             value={selectedDates[dateKey(activeSemester.id, inst.id)] || todayCalendar()}
                             onChange={(v) => setSelectedDates(prev => ({ ...prev, [dateKey(activeSemester.id, inst.id)]: v }))}
                             required
-                            aria-label={`Payment date for installment ${inst.id}`}
+                            aria-label={`Payment date for installment ${index + 1}`}
                             className="!px-3 !py-1.5 !text-[11px] !rounded-xl"
                           />
                         </div>

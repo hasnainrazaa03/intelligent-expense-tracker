@@ -332,4 +332,40 @@ test.describe('account actions (own accounts)', () => {
     const login = await page.request.post(`${API}/auth/login`, { headers: { 'x-csrf-token': csrf }, data: { email, password: 'Test1234!' } });
     expect(login.status()).not.toBe(200);
   });
+
+  test('a tuition change from a tab with an older copy is refused, and that tab shows the latest (S12)', async ({ page, context }) => {
+    await signIn(page, 'e2e-restore@test.com');
+    const headers = await csrfHeaders(page.request);
+    // A new account's default semesters: shown, but saved only on the first edit.
+    await page.request.post(`${API}/data/restore`, { headers, data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+
+    // A second tab, loaded now, before either has saved anything.
+    const second = await context.newPage();
+    await second.goto('/app');
+    await expect(second.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    for (const tab of [page, second]) {
+      await tab.getByRole('tab', { name: 'Tuition', exact: true }).first().click();
+      await tab.mouse.move(1200, 900); // the sidebar expands under the pointer
+    }
+
+    const total = async () => {
+      const sems = (await allData(page.request)).semesters as { totalTuition: number }[];
+      return sems.map((s) => s.totalTuition);
+    };
+    await page.getByLabel('Total tuition in USD').fill('30000');
+    await page.getByLabel('Total tuition in USD').press('Enter');
+    await expect.poll(total, { timeout: 10_000, intervals: [500, 1000] }).toContain(30000);
+
+    // The second tab, still on the old copy, edits too: refused, not overwritten.
+    await second.getByLabel('Total tuition in USD').fill('31000');
+    await second.getByLabel('Total tuition in USD').press('Enter');
+    await expect(second.getByText(/Tuition was changed in another tab or on another device/)).toBeVisible({ timeout: 10_000 });
+    await expect(second.getByText('$30,000.00').first()).toBeVisible();
+    expect(await total()).toContain(30000);
+    expect(await total()).not.toContain(31000);
+    await second.close();
+  });
 });
+

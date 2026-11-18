@@ -8,6 +8,11 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Tuition on the server (#189):** marking an installment paid is one request that creates
+  the tuition expense and marks it paid together, so a double-click, a closed tab or a
+  failed save can no longer leave the two out of step. Editing or deleting the expense
+  updates the installment on the server. A tuition edit from a tab with an older copy is
+  refused (and that tab shows the latest) instead of overwriting newer changes.
 - **Privacy policy and terms (#188):** `/privacy` and `/terms` in plain language, including
   exactly what each AI feature sends to Google Gemini. Linked from the landing page,
   sign-up, sign-in and Settings; receipt scanning, statement import and the AI Analyst now

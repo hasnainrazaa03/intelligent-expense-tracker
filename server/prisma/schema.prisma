@@ -115,6 +115,10 @@ model Semester {
   id           String // This is your 'fall-2025' string
   name         String
   totalTuition Int // integer cents
+  // Bumped by every structure save (name, total, installment amounts). A save
+  // carrying an older version is refused, so a stale tab can't overwrite a
+  // newer edit (S12). Payments don't bump it: the server owns payment state.
+  version      Int    @default(0)
   user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       String @db.ObjectId
   installments TuitionInstallment[]

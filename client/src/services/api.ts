@@ -14,10 +14,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001
  *  to 401/403 by status instead of fragile message-string matching (APP-H2). */
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** The response body, for errors that carry data (e.g. a 409's current state). */
+  data?: unknown;
+  constructor(message: string, status: number, data?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -118,7 +121,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       // If the server returned an error, throw it (with status for callers).
       const errorPayload = data as ApiErrorResponse;
       const message = errorPayload.message || errorPayload.error?.message || 'API request failed';
-      throw new ApiError(message, response.status);
+      throw new ApiError(message, response.status, data);
     }
 
     return data as T;
@@ -456,10 +459,25 @@ export const saveBudgets = (budgets: Budget[]): Promise<Budget[]> => {
 /**
  * Saves the user's entire list of semesters and installments.
  */
+/**
+ * Save semester STRUCTURE (names, totals, unpaid amounts, installment count).
+ * Payment state is the server's: it ignores status/links sent here. Throws
+ * ApiError 409 with `data.semesters` (the current copy) when another tab or
+ * device changed a semester since this copy was loaded.
+ */
 export const saveSemesters = (semesters: Semester[]): Promise<Semester[]> => {
   return fetchApi<Semester[]>('/semesters', {
     method: 'POST',
     body: JSON.stringify(semesters),
+  });
+};
+
+/** Pay an installment: the server creates the tuition expense and marks the
+ *  installment paid together. Repeating it returns the same expense. */
+export const payInstallment = (semesterId: string, installmentId: string, paidDate: string): Promise<{ semester: Semester; expense: Expense | null; alreadyPaid?: boolean }> => {
+  return fetchApi(`/semesters/${encodeURIComponent(semesterId)}/installments/${encodeURIComponent(installmentId)}/pay`, {
+    method: 'POST',
+    body: JSON.stringify({ paidDate }),
   });
 };
 

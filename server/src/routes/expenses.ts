@@ -281,6 +281,14 @@ router.put('/:id', async (req: Request, res: Response) => {
       },
     });
 
+    // A tuition payment's installment follows its expense: editing the amount
+    // or date here updates the installment in the same request, instead of
+    // relying on a later client save of every semester.
+    await prisma.tuitionInstallment.updateMany({
+      where: { semesterUserId: userId, expenseId },
+      data: { amount: updatedExpense.amount, paidDate: updatedExpense.date },
+    });
+
     res.json({
       ...expenseToClient(updatedExpense),
       date: updatedExpense.date.toISOString().split('T')[0]
