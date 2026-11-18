@@ -236,7 +236,7 @@ const AppDashboard: React.FC = () => {
       case 'insights':
         return (
           <>
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="sticky top-0 z-20 glass glass-blur rounded-2xl px-2 py-2 flex flex-col lg:flex-row lg:items-center justify-between gap-2">
             <SectionTabs
               label="Insights sections"
               tabs={[
@@ -309,7 +309,7 @@ const AppDashboard: React.FC = () => {
   const isAsk = route.place === 'insights' && route.section === 'ask';
 
   return (
-    <div className="h-screen bg-transparent flex flex-col overflow-hidden text-app-text font-sans px-3 md:px-6 py-3 md:py-4">
+    <div className="h-screen bg-transparent flex flex-col overflow-hidden text-app-text font-sans pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] md:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 md:py-4">
       <div className="starfield" />
       <p className="sr-only" aria-live="polite" aria-atomic="true">{liveRegionMessage}</p>
 

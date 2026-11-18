@@ -7,6 +7,15 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Phones and Tuition (2026-11-18)
+- **Tuition, summary first:** total, paid, remaining and the next installment to pay sit at the
+  top of each semester ("3 of 4 installments paid"), then the schedule. The "Official Bursar
+  statement" badge and the internal semester id are gone. Hide tuition from summaries is a switch
+  on the page too.
+- **Phones:** drag a dialog's top edge down to close it; bigger tap targets for row actions, search
+  and the profile button; the installed app keeps clear of the notch and the home bar; the Insights
+  bar (sections and period) stays in view while you scroll a long report.
+
 ### Insights in one place (2026-11-18)
 - **One period for every Insights section:** the period switch sits in the Insights bar and applies
   to Reports, Breakdown (which used to total all time only) and Income.

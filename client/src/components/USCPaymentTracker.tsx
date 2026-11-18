@@ -7,6 +7,8 @@ import { useToday } from '../hooks/useToday';
 import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Button, Input, DatePicker } from './ui';
+import { useSetting } from '../hooks/useSetting';
+import { updateSettings } from '../utils/settingsStore';
 
 interface USCPaymentTrackerProps {
   semesters: Semester[];
@@ -55,6 +57,13 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
   const activeSemesterId = semesters.some((s) => s.id === chosenSemesterId) ? chosenSemesterId : semesters[0]?.id ?? chosenSemesterId;
 
   const activeSemester = semesters.find(s => s.id === activeSemesterId);
+  const hideTuition = useSetting('hideTuition') ?? false;
+  // The summary first (U6): what the semester costs, what's paid, what's left,
+  // and the next installment to pay (installments have no due dates).
+  const paid = activeSemester ? activeSemester.installments.reduce((acc, i) => (i.status === 'paid' ? acc + i.amount : acc), 0) : 0;
+  const paidCount = activeSemester ? activeSemester.installments.filter((i) => i.status === 'paid').length : 0;
+  const nextIndex = activeSemester ? activeSemester.installments.findIndex((i) => i.status === 'unpaid') : -1;
+  const money = (n: number) => formatCurrency(n, displayCurrency, conversionRate);
 
   return (
     <div className="space-y-5 md:space-y-6 animate-in fade-in duration-700">
@@ -65,12 +74,27 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
           <AcademicCapIcon className="h-64 w-64 text-app-text" />
         </div>
         <div className="relative z-10">
-          <div className="bg-primary/15 text-primary px-3 py-1 text-[10px] w-fit rounded-full font-semibold uppercase tracking-[0.16em] mb-4">
-            Official Bursar statement // 2024-2026
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-medium tracking-[0.18em] uppercase text-app-muted">Tuition</span>
+              <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight mt-1.5">
+                Tuition ledger
+              </h2>
+            </div>
+            {/* Also in the profile menu and Settings. */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hideTuition}
+              onClick={() => updateSettings({ hideTuition: !hideTuition })}
+              className="inline-flex items-center gap-2.5 rounded-xl border border-app-border bg-surface-2 px-3 py-2 text-sm text-app-text"
+            >
+              Hide tuition from summaries
+              <span aria-hidden="true" className={`relative inline-flex h-5 w-9 rounded-full border ${hideTuition ? 'bg-primary border-primary' : 'bg-surface border-app-border'}`}>
+                <span className={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-all ${hideTuition ? 'left-[18px]' : 'left-0.5'}`} />
+              </span>
+            </button>
           </div>
-          <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight">
-            Tuition ledger
-          </h2>
         </div>
       </div>
 
@@ -108,13 +132,17 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
               <h3 className="font-display font-bold text-2xl md:text-3xl text-app-text tracking-tight">
                 {activeSemester.name}
               </h3>
-              <p className="text-[10px] text-app-faint uppercase tracking-[0.16em] mt-1">Active session</p>
-            </div>
-            <div className="text-right">
-              <span className="block text-[10px] text-app-faint uppercase tracking-[0.16em] leading-none">Semester ID</span>
-              <span className="font-display font-semibold text-app-text text-xs">{activeSemester.id}</span>
+              <p className="text-xs text-app-muted mt-1 tabular-nums">{paidCount} of {activeSemester.installments.length} installments paid</p>
             </div>
           </div>
+
+          {/* Summary first */}
+          <dl className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-app-border border-b border-app-border">
+            <div className="bg-[color:var(--modal-surface)] p-4 md:p-5"><dt className="text-xs text-app-muted">Total tuition</dt><dd className="font-display text-lg md:text-xl font-bold text-app-text tabular-nums">{money(activeSemester.totalTuition)}</dd></div>
+            <div className="bg-[color:var(--modal-surface)] p-4 md:p-5"><dt className="text-xs text-app-muted">Paid</dt><dd className="font-display text-lg md:text-xl font-bold text-ok tabular-nums">{money(paid)}</dd></div>
+            <div className="bg-[color:var(--modal-surface)] p-4 md:p-5"><dt className="text-xs text-app-muted">Remaining</dt><dd className="font-display text-lg md:text-xl font-bold text-app-text tabular-nums">{money(activeSemester.totalTuition - paid)}</dd></div>
+            <div className="bg-[color:var(--modal-surface)] p-4 md:p-5"><dt className="text-xs text-app-muted">Next to pay</dt><dd className="font-display text-lg md:text-xl font-bold text-app-text tabular-nums">{nextIndex >= 0 ? money(activeSemester.installments[nextIndex].amount) : 'All paid'}</dd>{nextIndex >= 0 && <dd className="text-[11px] text-app-muted">Installment {nextIndex + 1}</dd>}</div>
+          </dl>
 
           <div className="p-5 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-start">
           {/* SEMESTER CONFIGURATION PANEL */}
@@ -300,29 +328,6 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
             </div>
           </div>
 
-          {/* Footer Ledger */}
-          <div className="p-6 border-t border-app-border flex justify-between items-center">
-            <div>
-              <p className="text-[10px] text-app-faint uppercase tracking-[0.16em]">Total paid</p>
-              <p className="font-display font-bold text-2xl text-ok tabular-nums">
-                {formatCurrency(
-                  activeSemester.installments.reduce((acc, i) => i.status === 'paid' ? acc + i.amount : acc, 0),
-                  displayCurrency,
-                  conversionRate
-                )}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] text-app-faint uppercase tracking-[0.16em]">Remaining balance</p>
-              <p className="font-display font-bold text-2xl text-app-text tabular-nums">
-                {formatCurrency(
-                  activeSemester.totalTuition - activeSemester.installments.reduce((acc, i) => i.status === 'paid' ? acc + i.amount : acc, 0),
-                  displayCurrency,
-                  conversionRate
-                )}
-              </p>
-            </div>
-          </div>
         </div>
       ) : (
         <div className="glass rounded-2xl border border-dashed border-app-border p-20 text-center">

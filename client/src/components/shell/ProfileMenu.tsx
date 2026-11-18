@@ -51,7 +51,7 @@ const ProfileMenu: React.FC<{
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className="grid place-items-center w-10 h-10 rounded-full bg-primary-soft border border-primary/30 text-primary font-display font-bold text-sm hover:brightness-110 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        className="grid place-items-center w-11 h-11 md:w-10 md:h-10 rounded-full bg-primary-soft border border-primary/30 text-primary font-display font-bold text-sm hover:brightness-110 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
       >
         {initial}
       </button>

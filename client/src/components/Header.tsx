@@ -266,7 +266,7 @@ const Header: React.FC<HeaderProps> = ({
             onClick={() => setPhoneSearchOpen((o) => !o)}
             aria-label={phoneSearchOpen ? 'Close search' : 'Open search'}
             aria-expanded={phoneSearchOpen}
-            className="md:hidden grid place-items-center w-10 h-10 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text transition-colors"
+            className="md:hidden grid place-items-center w-11 h-11 rounded-xl bg-surface-2 border border-app-border text-app-muted hover:text-app-text transition-colors"
           >
             <MagnifyingGlassIcon className="h-5 w-5" />
           </button>
