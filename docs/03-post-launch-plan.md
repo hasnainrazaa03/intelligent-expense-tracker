@@ -207,6 +207,6 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [ ] The weekly Dependency Audit workflow isn't a required check (it only runs when a PR touches a `package*.json`). Watch its Monday runs; it had been failing unnoticed since at least May.
 - [ ] Remove the `deepmerge-ts` override in `server/package.json` if a Prisma 6.x release picks up deepmerge-ts 8.
 - [ ] Check `EMAIL_FROM` on Render. `onboarding@resend.dev` is Resend's test sender and only delivers to the Resend account's own address, so other people's sign-up codes may never arrive. Sending from a verified domain fixes it (see 5a).
-- [ ] Group `tailwindcss` and `@tailwindcss/*` in Dependabot, like React: #181 bumped `tailwindcss` to 4.3.5 alone, and the build still compiles with the 4.3.3 inside `@tailwindcss/postcss`.
+- [x] Group `tailwindcss` and `@tailwindcss/*` in Dependabot, like React (#192); `@tailwindcss/postcss` aligned to 4.3.5.
 - [ ] Change password while signed in (only the forgot-password flow exists).
-- [ ] picomatch ReDoS (GHSA-fc5q-39xc-vjpf, no fixed release yet) fails the Dependency Audit on every dependency PR. It's only in dev tooling (Vite, Vitest, the dev server's file watcher), matching our own patterns; production dependencies audit clean. Decide whether the audit gates on production dependencies only.
+- [x] picomatch ReDoS (GHSA-fc5q-39xc-vjpf, no fixed release yet) failed the Dependency Audit on every dependency PR. The audit now fails on high+ advisories in production dependencies and on critical ones anywhere (#192).

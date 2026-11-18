@@ -30,6 +30,16 @@ jobs:
         working-directory: ${{ matrix.project }}
         run: npm ci
 
-      - name: Run npm audit (high+)
+      # Two bars. Code that runs in production must have no high or critical
+      # advisory. Build and test tools (Vite, Vitest, Playwright, ts-node-dev)
+      # fail only on critical ones: their inputs are our own config and code,
+      # and an unfixable high advisory in one (picomatch, Nov 2026) failed
+      # every dependency PR. Critical still catches cases like the Vite
+      # dev-server RCE (GHSA-p4f5-76q4-ffq7).
+      - name: Run npm audit (production dependencies, high+)
         working-directory: ${{ matrix.project }}
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Run npm audit (all dependencies, critical)
+        working-directory: ${{ matrix.project }}
+        run: npm audit --audit-level=critical
