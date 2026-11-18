@@ -30,6 +30,7 @@ import { swaggerSpec } from './swagger';
 import { prisma } from './db';
 import { authMiddleware } from './middleware/auth';
 import { sharedStateMode } from './utils/sharedState';
+import { KeyLockBusy } from './utils/keyedLock';
 
 validateServerEnv();
 
@@ -184,6 +185,11 @@ app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
   }
   if (typeof err?.message === 'string' && err.message.startsWith('The CORS policy')) {
     return sendError(res, 403, 'CORS_REJECTED', 'This origin is not allowed.');
+  }
+  // Another instance holds the same idempotency key (SHARED_LOCKS): retry soon.
+  if (err instanceof KeyLockBusy) {
+    res.set('Retry-After', '2');
+    return sendError(res, 503, 'BUSY', err.message);
   }
   const status = Number(err?.status ?? err?.statusCode);
   if (status >= 400 && status < 500) {
