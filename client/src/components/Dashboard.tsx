@@ -18,6 +18,7 @@ import { formatCurrency } from '../utils/currencyUtils';
 import { computeBudgetSpend, computeTotalBudgetedSpend, budgetLabel } from '../utils/budgetUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
 import SectionSkeleton from './SectionSkeleton';
+import { useCategories } from '../hooks/useCategories';
 
 interface DashboardProps {
   expenses: Expense[];
@@ -99,6 +100,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const today = useToday();
+  const { subToMain } = useCategories();
 
   // Budgets are monthly, so budget utilization is ALWAYS the current calendar
   // month — independent of the dashboard's selected period (CMP-M15). Both the
@@ -161,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const categoryData = useMemo(() => {
     const mainCategoryTotals = expenses.reduce((acc, exp) => {
-      const mainCategory = getMainCategory(exp.category);
+      const mainCategory = getMainCategory(exp.category, subToMain);
       acc[mainCategory] = (acc[mainCategory] || 0) + Number(exp.amount);
       return acc;
     }, {} as { [key: string]: number });
@@ -170,10 +172,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     .map(([name, value]) => ({
       name,
       value,
-      fill: getCategoryColor(name),
+      fill: getCategoryColor(name, subToMain),
     }))
     .sort((a, b) => b.value - a.value);
-  }, [expenses]);
+    // subToMain: a category edit regroups the chart (A3).
+  }, [expenses, subToMain]);
   
   const barChartData = useMemo(() => buildBarChartData(expenses, selectedRange, today), [expenses, selectedRange, today]);
 

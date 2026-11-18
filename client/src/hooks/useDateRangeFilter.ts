@@ -7,8 +7,10 @@ import {
   endOfMonth,
   formatCalendarDate,
   isWithinRange,
+  parseCalendarDate,
   startOfMonth,
 } from '../utils/dateUtils';
+import { useToday } from './useToday';
 
 interface DateRangeResult {
   filteredExpenses: Expense[];
@@ -36,8 +38,9 @@ export const upToCutoff = <T extends { date: string }>(items: T[], cutoff: strin
 // All boundaries are LOCAL calendar days (YYYY-MM-DD) so a user's "this month"
 // matches the days they picked, regardless of timezone (fixes the UTC drift
 // that hid today's transactions for UTC+ users).
-function computeWindow(dateRange: DateRange): Window | null {
-  const now = new Date();
+// Exported for the export dialog, so its ranges match the dashboard's exactly.
+export function computeWindow(dateRange: DateRange, today: string): Window | null {
+  const now = parseCalendarDate(today);
 
   switch (dateRange) {
     case 'this_month': {
@@ -85,8 +88,10 @@ export default function useDateRangeFilter(
   incomes: Income[],
   dateRange: DateRange
 ): DateRangeResult {
+  // The lists, totals and comparisons move on at midnight with everything else.
+  const today = useToday();
   return useMemo(() => {
-    const window = computeWindow(dateRange);
+    const window = computeWindow(dateRange, today);
     if (!window) {
       return { filteredExpenses: expenses, filteredIncomes: incomes, previousPeriodExpenses: [], previousPeriodIncomes: [], comparisonCutoff: null };
     }
@@ -100,5 +105,5 @@ export default function useDateRangeFilter(
       previousPeriodIncomes: incomes.filter((inc) => isWithinRange(inc.date, prevStart, prevEnd)),
       comparisonCutoff: compareEnd < end ? compareEnd : null,
     };
-  }, [expenses, incomes, dateRange]);
+  }, [expenses, incomes, dateRange, today]);
 }

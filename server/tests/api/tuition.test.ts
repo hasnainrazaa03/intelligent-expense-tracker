@@ -35,6 +35,12 @@ describeApi('tuition on the server (5d-1)', () => {
     expect(await prisma.expense.count({ where: { userId: user.id, category: 'Tuition' } })).toBe(1);
   });
 
+  it('refuses a payment date that does not exist instead of moving it into March', async () => {
+    const { client, user, semester } = await setup();
+    expect((await pay(client, semester.installments[0].id, '2026-02-30')).status).toBe(400);
+    expect(await prisma.expense.count({ where: { userId: user.id, category: 'Tuition' } })).toBe(0);
+  });
+
   it('a double-click (two requests at once) creates one expense (F6)', async () => {
     const { client, user, semester } = await setup();
     const [a, b] = await Promise.all([pay(client, semester.installments[0].id), pay(client, semester.installments[0].id)]);

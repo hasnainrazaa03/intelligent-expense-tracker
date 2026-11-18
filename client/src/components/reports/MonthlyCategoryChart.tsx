@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { CATEGORIES, CATEGORY_COLORS } from '../../constants';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { formatCurrency } from '../../utils/currencyUtils';
+import { useCategories } from '../../hooks/useCategories';
 
 interface MonthlyCategoryChartProps {
   expenses: Expense[];
@@ -12,6 +13,7 @@ interface MonthlyCategoryChartProps {
 
 const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const { subToMain } = useCategories();
   // Categories the user has clicked off in the legend. Hidden series are dropped
   // from the stack (so the bars re-scale) and greyed in the legend.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -30,7 +32,7 @@ const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses })
     expenses.forEach(expense => {
       const date = new Date(expense.date);
       const monthKey = date.toLocaleString('default', { month: 'short', year: '2-digit', timeZone: 'UTC' });
-      const mainCategory = getMainCategory(expense.category);
+      const mainCategory = getMainCategory(expense.category, subToMain);
 
       if (!monthlyData[monthKey]) {
         // Numeric sort key (year*12 + month) — reliable across engines, unlike
@@ -42,7 +44,7 @@ const MonthlyCategoryChart: React.FC<MonthlyCategoryChartProps> = ({ expenses })
     });
 
     return Object.values(monthlyData).sort((a, b) => a.__sort - b.__sort);
-  }, [expenses]);
+  }, [expenses, subToMain]);
 
   if (data.length === 0) return <div className="flex items-center justify-center h-full text-app-muted">Not enough data to display.</div>;
 

@@ -15,6 +15,7 @@ import { sanitizeEmail } from '../utils/sanitize';
 import { authMiddleware } from '../middleware/auth';
 import { csrfProtection } from '../middleware/csrf';
 import { lockedForMs, recordLoginFailure, clearLoginFailures } from '../utils/loginLockout';
+import { holdKeyLockUntilResponse } from '../utils/keyedLock';
 
 const router = Router();
 
@@ -672,28 +673,40 @@ router.post('/delete-account', csrfProtection, authMiddleware, passwordCheckLimi
 // made with Google have a random one: they set a password with "Forgot
 // password"). Other devices are signed out; this one gets a fresh session.
 // Five wrong passwords per 15 minutes lock it, like the other password checks.
-router.post('/change-password', csrfProtection, authMiddleware, passwordCheckLimiter, async (req: Request, res: Response) => {
+// Checked before the limiter, so a weak or unchanged new password isn't
+// counted as one of the five wrong passwords (the limiter counts every 4xx).
+const validateChangePassword = (req: Request, res: Response, next: () => void) => {
   const { currentPassword, newPassword } = req.body || {};
-  const userId = req.user!.id;
-  const audit = (success: boolean, metadata?: Record<string, unknown>) =>
-    writeAuditLog({ action: 'password_change', userId, success, route: '/api/auth/change-password', ip: req.ip, userAgent: req.get('user-agent') || undefined, metadata });
-
   if (typeof currentPassword !== 'string' || !currentPassword || typeof newPassword !== 'string' || !newPassword) {
     return sendError(res, 400, 'VALIDATION_ERROR', 'Enter your current password and a new one.');
   }
   if (!isStrongPassword(newPassword)) {
     return sendError(res, 400, 'WEAK_PASSWORD', `Use ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters with an uppercase letter, a lowercase letter, a number and a symbol.`);
   }
+  // The current password is checked against the hash next, so comparing the
+  // two inputs is enough (no second bcrypt run).
+  if (newPassword === currentPassword) {
+    return sendError(res, 400, 'SAME_PASSWORD', 'Choose a password different from your current one.');
+  }
+  next();
+};
 
+router.post('/change-password', csrfProtection, authMiddleware, validateChangePassword, passwordCheckLimiter, async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+  const userId = req.user!.id;
+  const audit = (success: boolean, metadata?: Record<string, unknown>) =>
+    writeAuditLog({ action: 'password_change', userId, success, route: '/api/auth/change-password', ip: req.ip, userAgent: req.get('user-agent') || undefined, metadata });
+
+  // One change at a time per account: two at once each bumped tokenVersion,
+  // and the browser could keep the older cookie and sign itself out. The
+  // second now waits, then fails the current-password check.
+  await holdKeyLockUntilResponse(`password:${userId}`, res);
   try {
     const account = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, password: true } });
     if (!account) return sendError(res, 401, 'UNAUTHORIZED', 'Account not found.');
     if (!(await bcrypt.compare(currentPassword, account.password))) {
       await audit(false, { reason: 'wrong_password' });
       return sendError(res, 401, 'INCORRECT_PASSWORD', 'Your current password is incorrect.');
-    }
-    if (await bcrypt.compare(newPassword, account.password)) {
-      return sendError(res, 400, 'SAME_PASSWORD', 'Choose a password different from your current one.');
     }
 
     const updated = await prisma.user.update({

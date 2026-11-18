@@ -5,7 +5,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { formatCurrency } from '../../utils/currencyUtils';
 import { seriesValue } from '../../utils/chartPayload';
 import { computeBudgetSpend, budgetLabel } from '../../utils/budgetUtils';
-import { startOfMonth, endOfMonth, isWithinRange } from '../../utils/dateUtils';
+import { startOfMonth, endOfMonth, isWithinRange, parseCalendarDate } from '../../utils/dateUtils';
+import { useToday } from '../../hooks/useToday';
 import ChartEmpty from '../ChartEmpty';
 
 interface BudgetActualChartProps {
@@ -34,6 +35,7 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 
 const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets, periodMonths }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const today = useToday();
 
   const data = useMemo(() => {
     if (budgets.length === 0) return [];
@@ -42,7 +44,7 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
     // aggregate their subcategories (CMP-H4/CMP-M13).
     const inPeriod = periodMonths
       ? expenses
-      : expenses.filter((exp) => isWithinRange(exp.date, startOfMonth(), endOfMonth()));
+      : expenses.filter((exp) => isWithinRange(exp.date, startOfMonth(parseCalendarDate(today)), endOfMonth(parseCalendarDate(today))));
     const months = Math.max(1, periodMonths ?? 1);
 
     const budgetCategories = budgets.map((b) => b.category);
@@ -51,7 +53,7 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
       actual: Math.round((computeBudgetSpend(budget.category, inPeriod, budgetCategories) / months) * 100) / 100,
       budget: budget.amount,
     }));
-  }, [expenses, budgets, periodMonths]);
+  }, [expenses, budgets, periodMonths, today]);
 
   if (budgets.length === 0) {
     return <ChartEmpty />;
