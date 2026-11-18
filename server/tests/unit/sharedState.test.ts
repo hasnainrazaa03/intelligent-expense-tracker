@@ -4,7 +4,7 @@ import request from 'supertest';
 import rateLimit from 'express-rate-limit';
 import {
   hit, unhit, setFlag, flagRemainingMs, removeKeys, resetMemoryState,
-  connectSharedState, disconnectSharedState, sharedStateMode,
+  connectSharedState, disconnectSharedState, sharedStateMode, acquireSharedLock,
 } from '../../src/utils/sharedState';
 import { SharedRateLimitStore } from '../../src/middleware/rateLimitStore';
 
@@ -55,6 +55,9 @@ const behaviours = () => {
 describe('shared state in memory (no REDIS_URL)', () => {
   afterEach(() => resetMemoryState());
   it('says so', () => expect(sharedStateMode()).toBe('memory'));
+  it('has no shared lock, so callers keep their in-process one', async () => {
+    expect(await acquireSharedLock(unique(), 1_000, 1_000)).toBeNull();
+  });
   behaviours();
 });
 
@@ -83,6 +86,31 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('shared state in Redis', () => {
   describe('operations', () => {
     beforeEach(connect);
     behaviours();
+  });
+
+  it('a lock shared by instances: a second holder waits, and gets it once released', async () => {
+    await connect();
+    const key = unique();
+    const first = await acquireSharedLock(key, 5_000, 100);
+    expect(first).toBeTypeOf('function');
+    // Another instance asking now gives up after its wait (and falls back).
+    expect(await acquireSharedLock(key, 5_000, 120)).toBeNull();
+    await first!();
+    const second = await acquireSharedLock(key, 5_000, 100);
+    expect(second).toBeTypeOf('function');
+    await second!();
+  });
+
+  it("an expired holder can't release the next holder's lock", async () => {
+    await connect();
+    const key = unique();
+    const stale = await acquireSharedLock(key, 100, 50);
+    await new Promise((r) => setTimeout(r, 200)); // its lock expires
+    const current = await acquireSharedLock(key, 5_000, 50);
+    expect(current).toBeTypeOf('function');
+    await stale!(); // too late: must not free the current holder's lock
+    expect(await acquireSharedLock(key, 5_000, 80)).toBeNull();
+    await current!();
   });
 
   it('keeps counts across a reconnect (a restarted API keeps its limits)', async () => {

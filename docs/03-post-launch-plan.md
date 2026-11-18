@@ -39,8 +39,8 @@ still open. Start there.
 > **Deploy note:** after deploying, run once in `server/`: `npm run db:backup` then `npm run db:migrate-cents` (idempotent — a marker doc makes a second run a no-op).
 
 ### A5. Quality polish (Phase 7 tail)  *(effort: M)*
-- [ ] Comprehensive keyboard-only a11y audit of every remaining flow/component.
-- [ ] E2E coverage for import/restore, AI chat, and tuition flows (current suite covers auth, dashboard, nav, toggles, add-expense, search).
+- [x] Comprehensive keyboard-only a11y audit of every remaining flow/component. *(Done as 4b: keyboard support throughout, axe 0 issues on every screen and popup, enforced in CI.)*
+- [x] E2E coverage for import/restore, AI chat, and tuition flows. *(Done as 4c, and extended since: 44 flows.)*
 - [ ] Formal `/security-review` + `/code-review high` on the cumulative diff.
 - [x] Service-worker "update available" toast. *(PR #57)*
 
@@ -63,12 +63,12 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 ### Tier 2 — flagship value
 4. [x] **Recurring transactions auto-materialization (S–M)** *(PR #54)* — a recurrence rule + on-login/scheduled job that auto-inserts due transactions with a confirm step. Today `isRecurring` is only a reminder.
 5. [x] **Generalize multi-currency beyond USD/INR (M)** *(PR #55)* — the FX engine already supports all currencies; replace the hardcoded USD↔INR toggle with a currency picker. Biggest audience expander.
-6. [ ] **Push/email budget & bill alerts (M)** — server email (Resend) + Web Push (SW already present) for 80%/100% budget and bill-due reminders.
+6. [x] **Push/email budget & bill alerts (M)** — Web Push since 5e-2 (#193): 80%/100% budget alerts, bill reminders, a monthly summary, from an hourly job. The email copy follows the alerts (6f).
 7. [x] **Bank-statement CSV import with column mapping (M)** *(PR #57)* — map arbitrary bank exports + auto-categorize.
 8. [x] **Savings goals as fundable objects (M)** *(PR #53)* — a `Goal` model with contributions and forecast-projected completion date.
 
 ### Tier 3 — larger investments
-9. [~] **Net-worth trend (M)** — 6-month net-worth curve from transaction history + portfolio. Server-persisted accounts still open. — promote localStorage-only investment snapshots to real accounts + historical net-worth trend.
+9. [x] **Net-worth trend (M)** — 6-month net-worth curve from transaction history + portfolio; investment accounts are saved to the server since 5b-1 (#186).
 10. [x] **Offline write-queue (M)** *(PR #67)* — expenses added offline are queued in IndexedDB, shown optimistically, and auto-replay on reconnect, with an offline/syncing header pill.
 11. [x] **Shared/household accounts (L)** — settle-up (#61), household foundation (#65), and **shared expense pooling (#66)**: tag an expense to a household, and a members-only pooled view with equal-split settle-up (who owes / is owed). Cross-user reads are membership-gated; tagging into a household you're not in is rejected. Verified with two real users.
 12. [x] **Receipt image storage (M)** *(PR #68)* — downscaled receipt images stored in a separate collection (out of /all), attached/viewed/removed on an expense, cascade-deleted with it.
@@ -76,6 +76,8 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 ---
 
 ## Remaining work — why it isn't auto-completed
+
+*(July 2026, kept for history: every item below has since shipped — A4 in #64, B9 and B11 by #66 and 5b-1, B3/B6 as push in 5e-2, A6 Redis in 5f-3, B10 in #67, B12 in #68. Current status is in [Section D](#section-d--november-2026-review-2026-11-17).)*
 
 Everything safely completable client-side without external services or a risky
 data migration has shipped (PRs #49–#58). What's left falls into three buckets
@@ -111,11 +113,11 @@ accent to meet 4.5:1. The user-triggered **`/security-review`** still can't be s
 
 The [deploy runbook](./04-deploy-runbook.md) is the up-to-date version of this list.
 
-- [ ] `NODE_ENV=production` on the backend (enables Secure/SameSite=None cookies + strict CORS).
-- [ ] `TRUST_PROXY=2` on Render: requests pass Vercel's `/api` rewrite, then Render's proxy (it was `1` before PR #158 moved the API behind the site). The server refuses to boot in prod without it.
-- [ ] `FRONTEND_URL` = deployed origin(s).
+- [x] `NODE_ENV=production` on the backend (enables Secure/SameSite=None cookies + strict CORS). *(Checked 2026-11-17: the live session cookies are `Secure; SameSite=None`.)*
+- [x] `TRUST_PROXY=2` on Render: requests pass Vercel's `/api` rewrite, then Render's proxy (it was `1` before PR #158 moved the API behind the site). The server refuses to boot in prod without it. *(Set in 2c; the production API runs.)*
+- [x] `FRONTEND_URL` = deployed origin(s). *(Checked 2026-11-17: CORS refuses other origins with 403.)*
 - [ ] Rotate + inject secrets via the platform store (`JWT_SECRET` ≥32, `DATABASE_URL`, `GEMINI_API_KEY`, `RESEND_API_KEY`).
-- [ ] Load-balancer readiness probe → `GET /health/ready`.
+- [ ] Load-balancer readiness probe → `GET /health/ready`. *(The endpoint answers in production; whether Render's health check uses it is a Render setting: Settings → Health Check Path.)*
 - [x] Run `npm run db:push` once for any additive schema fields. Done against production on 2026-11-17 (created `RevokedToken` and `UserSettings` with their indexes). Re-run after any schema change.
 
 ---
@@ -167,6 +169,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| 6e Shared lock, plan tidy | The lock that keeps an offline replay or a double-submitted import from saving twice now holds across API instances when Redis is up; the plan's finished items are ticked, and the production settings verified | #206 |
 | 6d Categories everywhere | Custom subcategories reach the budget manager, the statement importer and the AI (receipts, statements, AI fill), deleted ones stop being offered, and lists update live when categories change; the category manager refuses a name already used. `ExpenseModal` and five other components drop their hooks-rule suppressions, so the React Compiler checks them too | #205 |
 | 6b, 6c Lint | The server is linted (14 findings fixed, #203). React Compiler readiness rules on as errors with their 41 findings fixed: `useToday()` instead of `new Date()` during render (screens left open overnight move on at midnight), state that follows props during render instead of effects, `useEffectEvent` for latest-callback refs (#204) | #203, #204 |
 | 6a Account and dates | Change password while signed in (other devices signed out, this one renewed, a notice emailed); a paid tuition installment's date can be changed from the tracker; the API starts without a Resend key (email off) instead of crashing; dates are stored as the calendar day sent, and impossible days are refused (SRV-L5) | #202 |
@@ -209,7 +212,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 
 **Also open**
 - [x] PDF statement parsing runs in a worker thread (the rest of S13): stopped after 20 s (`PDF_PARSE_TIMEOUT_MS`), heap capped at 192 MB, at most two at once; on failure the PDF itself goes to Gemini, as before.
-- [ ] `utils/keyedLock.ts` is per process: with more than one API instance, idempotent creates need a unique index or a Redis lock.
+- [x] `utils/keyedLock.ts` holds across instances too when Redis is up (6e): a Redis lock (`SET NX PX`, token-checked release) after the in-process queue, falling back to the in-process lock without Redis.
 - [x] The server starts without `RESEND_API_KEY`, with email off (the Resend client is created on first use; `new Resend('')` threw at boot).
 - [ ] Rotate production secrets (P3).
 - [x] A3: custom categories everywhere (6d). PR #56 built the store, but the budget manager and the statement importer still listed the built-in categories (custom ones missing, deleted ones offered) and nothing re-rendered when categories changed. Now every list reads `useCategories()`, the category manager edits the store directly and refuses a name already used, and the server's AI routes offer and accept each user's own subcategories (`server/src/utils/categories.ts`, one copy of the built-ins).

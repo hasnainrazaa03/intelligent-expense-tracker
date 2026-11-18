@@ -6,8 +6,10 @@
 // check and both insert. Holding a lock per (user, key) across the check and the
 // insert closes that window.
 //
-// Scope: one server process. Running several instances would need a shared
-// store (Redis) or a partial unique index — see SRV-L16 in the post-launch plan.
+// Across instances too when Redis is up (SRV-L16): after the in-process queue,
+// a Redis lock with the same key (utils/sharedState). Without Redis it's the
+// in-process lock alone, which is enough for a single instance.
+import { acquireSharedLock } from './sharedState';
 
 const tails = new Map<string, Promise<void>>();
 
@@ -22,12 +24,15 @@ export const acquireKeyLock = async (key: string): Promise<() => void> => {
   const tail = prev.then(() => mine);
   tails.set(key, tail);
   await prev;
+  // Waits for another instance's holder at most as long as a hold can last.
+  const releaseShared = await acquireSharedLock(key, MAX_HOLD_MS, MAX_HOLD_MS + 1_000);
 
   let released = false;
   const release = () => {
     if (released) return;
     released = true;
     clearTimeout(timer);
+    void releaseShared?.();
     resolveMine();
     if (tails.get(key) === tail) tails.delete(key);
   };

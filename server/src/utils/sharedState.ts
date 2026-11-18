@@ -8,6 +8,7 @@
 // a Redis outage weakens the limits to per-process, never turns them off, and
 // never holds a request up for longer than COMMAND_TIMEOUT_MS.
 import { createClient } from '@redis/client';
+import { randomUUID } from 'crypto';
 
 type Client = ReturnType<typeof createClient>;
 
@@ -161,4 +162,37 @@ export const removeKeys = async (...keys: string[]): Promise<void> => {
   // Both places: a key counted in memory during an outage shouldn't outlive a reset.
   for (const key of keys) memory.delete(key);
   await onRedis((c) => c.sendCommand(['DEL', ...keys.map((k) => KEY_PREFIX + k)]));
+};
+
+// --- Locks across instances -------------------------------------------------
+
+// Delete the lock only if it's still ours: a holder whose lock expired must not
+// release the next holder's.
+const UNLOCK_SCRIPT = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
+return 0`;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * A lock every API instance respects, while Redis is up. Resolves with a
+ * release function once held (it expires by itself after `ttlMs`), or with null
+ * when there's no Redis, it fails, or `maxWaitMs` passes: the caller then relies
+ * on its in-process lock, as with a single instance.
+ */
+export const acquireSharedLock = async (key: string, ttlMs: number, maxWaitMs: number): Promise<(() => Promise<void>) | null> => {
+  const token = randomUUID();
+  const redisKey = `${KEY_PREFIX}lock:${key}`;
+  const deadline = Date.now() + maxWaitMs;
+  let delay = 20;
+  for (;;) {
+    const reply = await onRedis((c) => c.sendCommand(['SET', redisKey, token, 'NX', 'PX', String(Math.ceil(ttlMs))]));
+    if (reply === undefined) return null; // no Redis, or it failed
+    if (reply !== null && String(reply) === 'OK') {
+      return async () => { await onRedis((c) => c.sendCommand(['EVAL', UNLOCK_SCRIPT, '1', redisKey, token])); };
+    }
+    if (Date.now() >= deadline) return null;
+    await sleep(delay);
+    delay = Math.min(delay * 2, 250);
+  }
 };
