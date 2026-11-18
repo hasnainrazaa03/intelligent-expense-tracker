@@ -18,12 +18,12 @@ const notConfigured = (res: Response) =>
 
 const BASE64URL = /^[A-Za-z0-9_-]+={0,2}$/;
 
-// GET /api/push/key → { publicKey }
 // GET /api/push/status → which channels the server can send by (Settings uses it).
 router.get('/status', (_req: Request, res: Response) => {
   res.json({ push: Boolean(vapidPublicKey()), email: emailConfigured() });
 });
 
+// GET /api/push/key → { publicKey }
 router.get('/key', (_req: Request, res: Response) => {
   const publicKey = vapidPublicKey();
   if (!publicKey) return notConfigured(res);

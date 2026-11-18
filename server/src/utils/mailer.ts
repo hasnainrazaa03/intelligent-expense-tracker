@@ -50,13 +50,14 @@ export const sendGenericEmail = async (
   to: string,
   subject: string,
   html: string,
-  text: string
+  text: string,
+  headers?: Record<string, string>
 ): Promise<{ success: boolean; error?: unknown }> => {
   if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
     return { success: false, error: 'EMAIL_NOT_CONFIGURED' };
   }
   try {
-    const { error } = await resend().emails.send({ from: process.env.EMAIL_FROM, to, subject, html, text });
+    const { error } = await resend().emails.send({ from: process.env.EMAIL_FROM, to, subject, html, text, ...(headers ? { headers } : {}) });
     if (error) return { success: false, error };
     return { success: true };
   } catch (err) {

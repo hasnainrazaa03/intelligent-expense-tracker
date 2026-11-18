@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { localParts, addDays, addMonthsSameDay, previousMonth } from '../../src/notify/calendar';
 import { subToMainFor, expenseCategoriesFor } from '../../src/utils/categories';
 import { noticeEmail } from '../../src/notify/email';
+import { unsubscribeToken, userFromUnsubscribeToken } from '../../src/notify/unsubscribe';
+import jwt from 'jsonwebtoken';
 import { upcomingBills } from '../../src/notify/recurrence';
 import { budgetNotice, billNotice, summaryNotice } from '../../src/notify/compose';
 
@@ -107,12 +109,31 @@ describe('monthly summary', () => {
 
 describe('notification emails', () => {
   it("escape the user's own names and link back to the app", () => {
-    const mail = noticeEmail({ keys: ['k'], title: 'Over budget: <b>Boba</b>', body: 'You\'ve used 120% of your "Boba & Co" budget.', url: '/app', tag: 't' }, 'https://orbit.example');
+    const mail = noticeEmail({ keys: ['k'], title: 'Over budget: <b>Boba</b>', body: 'You\'ve used 120% of your "Boba & Co" budget.', url: '/app', tag: 't' }, { base: 'https://orbit.example' });
     expect(mail.subject).toBe('Orbit: Over budget: <b>Boba</b>');
     expect(mail.html).toContain('Over budget: &lt;b&gt;Boba&lt;/b&gt;');
     expect(mail.html).toContain('&quot;Boba &amp; Co&quot;');
     expect(mail.html).not.toContain('<b>Boba</b>');
     expect(mail.html).toContain('href="https://orbit.example/app"');
     expect(mail.text).toContain('Open Orbit: https://orbit.example/app');
+    expect(mail.headers).toEqual({});
+  });
+
+  it('carry a one-click unsubscribe link, in the footer and in the List-Unsubscribe headers', () => {
+    const url = 'https://orbit.example/api/email-alerts/unsubscribe?token=abc';
+    const mail = noticeEmail({ keys: ['k'], title: 'T', body: 'B', url: '/app', tag: 't' }, { base: 'https://orbit.example', unsubscribe: url });
+    expect(mail.headers).toEqual({ 'List-Unsubscribe': `<${url}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' });
+    expect(mail.html).toContain(`href="${url}"`);
+    expect(mail.text).toContain(`Turn them off: ${url}`);
+  });
+});
+
+describe('unsubscribe tokens', () => {
+  it('name their user, and only unsubscribe tokens count (not session tokens)', () => {
+    expect(userFromUnsubscribeToken(unsubscribeToken('user-1'))).toBe('user-1');
+    const session = jwt.sign({ id: 'user-1', email: 'a@b.c', tokenVersion: 0 }, process.env.JWT_SECRET!, { algorithm: 'HS256' });
+    expect(userFromUnsubscribeToken(session)).toBeNull();
+    expect(userFromUnsubscribeToken('garbage')).toBeNull();
+    expect(userFromUnsubscribeToken(undefined)).toBeNull();
   });
 });

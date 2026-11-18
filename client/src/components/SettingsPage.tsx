@@ -147,7 +147,9 @@ const NotificationsSection: React.FC = () => {
         title="By email"
         hint={emailReady === false
           ? "Email isn't set up on the server yet."
-          : <>The alerts you choose below, also sent to <span className="break-all">{userEmail}</span>.</>}
+          : userEmail
+            ? <>The alerts you choose below, also sent to <span className="break-all">{userEmail}</span>.</>
+            : "The alerts you choose below, also sent to your account's email address."}
       >
         <Switch
           checked={emailOn}
