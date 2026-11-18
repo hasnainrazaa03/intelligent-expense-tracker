@@ -95,6 +95,7 @@ export interface Budget {
 }
 
 export interface TuitionInstallment {
+  /** A database id (string) once saved; a temporary number until then. */
   id: number;
   amount: number;
   status: 'paid' | 'unpaid';
@@ -107,4 +108,7 @@ export interface Semester {
   name: string;
   totalTuition: number;
   installments: TuitionInstallment[];
+  /** The server's version of this semester's structure; sent back with every
+   *  save so a stale copy is refused instead of overwriting newer edits. */
+  version?: number;
 }

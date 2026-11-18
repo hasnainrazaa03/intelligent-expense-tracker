@@ -14,7 +14,7 @@ import { budgetForExpense, computeBudgetSpend, budgetLabel } from './utils/budge
 import { stripTuition } from './utils/tuition';
 import { getAllData, isAuthError } from './services/api';
 import { useAuth } from './contexts/AuthContext';
-import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, createBulkExpenses, createBulkIncomes, restoreAllData, wipeAllData } from './services/api';
+import { createExpense, updateExpense, deleteExpense, createIncome, updateIncome, deleteIncome, saveBudgets, saveSemesters, payInstallment, ApiError, createBulkExpenses, createBulkIncomes, restoreAllData, wipeAllData } from './services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from './lib/queryClient';
 import type { AllDataResponse } from './types/api';
@@ -99,9 +99,13 @@ const newBatchId = (): string =>
   (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 
 // Default (empty) tuition plan used when the server has no semesters yet.
+// Shown to a new account until its first tuition edit saves them. Version -1
+// means "not saved yet": if another tab saved these semesters meanwhile, the
+// server refuses this copy (it has version 0+) instead of overwriting it.
 const buildDefaultSemesters = (): Semester[] =>
   USC_SEMESTERS.map((s) => ({
     ...s,
+    version: -1,
     totalTuition: 0,
     installments: Array.from({ length: 4 }, (_, i) => ({ id: i + 1, amount: 0, status: 'unpaid' })),
   }));
@@ -379,51 +383,72 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAuthenticated]);
 
-  // Auto-save semesters (a full-state replace) 800ms after the last change.
+  // Save semester STRUCTURE (names, totals, unpaid amounts, installment count).
+  // Payments are separate server operations (handleMarkInstallmentAsPaid), so a
+  // save can't undo one. One save at a time. Resolves the saved list (with real
+  // installment ids), or null when it failed or was refused as stale.
+  const saveSemestersNow = async (): Promise<Semester[] | null> => {
+    while (semesterSaveInFlight.current) {
+      await semesterSaveInFlight.current.catch(() => undefined);
+    }
+    if (!isSemestersDirtyRef.current) return semestersRef.current; // already saved
+    const version = semestersEditVersion.current;
+    const request = saveSemesters(semestersRef.current);
+    semesterSaveInFlight.current = request;
+    try {
+      const saved = await request;
+      if (semesterSaveFailures.current > 0) notify.success('Tuition changes saved.');
+      semesterSaveFailures.current = 0;
+      if (semestersEditVersion.current === version) {
+        // Nothing changed while saving: adopt the server's copy, so new
+        // installments carry their real ids and every semester its new version.
+        isSemestersDirtyRef.current = false;
+        setSemesters(saved);
+        setIsSemestersDirty(false);
+      } else {
+        // A newer edit is pending and its own timer saves it. Take only the
+        // new versions now, or that save would be refused as stale.
+        setSemesters((prev) => prev.map((s) => {
+          const fresh = saved.find((x) => x.id === s.id);
+          return fresh ? { ...s, version: fresh.version } : s;
+        }));
+      }
+      return saved;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Another tab or device changed tuition since this copy loaded. Show
+        // the current copy rather than overwrite it (S12).
+        const current = (err.data as { semesters?: Semester[] } | undefined)?.semesters;
+        if (current) {
+          isSemestersDirtyRef.current = false;
+          setSemesters(current);
+          setIsSemestersDirty(false);
+        }
+        semesterSaveFailures.current = 0;
+        notify.info('Tuition was changed in another tab or on another device, so this is the latest version. Redo your change if you still need it.');
+        return null;
+      }
+      console.error('Failed to auto-save semesters:', err);
+      semesterSaveFailures.current += 1;
+      if (semesterSaveFailures.current === 1) {
+        notify.error("Couldn't save your tuition changes. Retrying…");
+      }
+      const backoffMs = Math.min(30_000, 2_000 * 2 ** (semesterSaveFailures.current - 1));
+      setTimeout(() => setSemesterRetryTick((t) => t + 1), backoffMs);
+      return null;
+    } finally {
+      semesterSaveInFlight.current = null;
+    }
+  };
+
+  // Auto-save 800ms after the last change (a newer change restarts the timer).
   useEffect(() => {
-    // Semesters save as a full replace, so never before the real list loaded.
+    // Never before the real list loaded: it would save defaults over it.
     if (!isAuthenticated || !isSemestersDirty || !hasServerSnapshot) {
       return;
     }
-
-    let cancelled = false;
-    const saveTimer = setTimeout(async () => {
-      // One save at a time: overlapping full-state saves interleave on the server.
-      while (semesterSaveInFlight.current) {
-        await semesterSaveInFlight.current.catch(() => undefined);
-      }
-      if (cancelled) return; // a newer edit re-ran this effect; its timer saves
-      const version = semestersEditVersion.current;
-      const request = saveSemesters(semestersRef.current);
-      semesterSaveInFlight.current = request;
-      try {
-        const saved = await request;
-        if (semesterSaveFailures.current > 0) notify.success('Tuition changes saved.');
-        semesterSaveFailures.current = 0;
-        if (semestersEditVersion.current === version) {
-          // Nothing changed while saving: adopt the server's copy so new
-          // installments carry their real ids. Kept on temporary numeric ids,
-          // every later save deleted and re-created them.
-          isSemestersDirtyRef.current = false;
-          setSemesters(saved);
-          setIsSemestersDirty(false);
-        }
-        // Otherwise a newer edit is pending; its own timer saves it.
-      } catch (err) {
-        console.error('Failed to auto-save semesters:', err);
-        semesterSaveFailures.current += 1;
-        if (semesterSaveFailures.current === 1) {
-          notify.error("Couldn't save your tuition changes. Retrying…");
-        }
-        const backoffMs = Math.min(30_000, 2_000 * 2 ** (semesterSaveFailures.current - 1));
-        setTimeout(() => setSemesterRetryTick((t) => t + 1), backoffMs);
-      } finally {
-        semesterSaveInFlight.current = null;
-      }
-    }, 800);
-
-    // A change within 800ms supersedes this save.
-    return () => { cancelled = true; clearTimeout(saveTimer); };
+    const saveTimer = setTimeout(() => { void saveSemestersNow(); }, 800);
+    return () => clearTimeout(saveTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [semesters, isAuthenticated, isSemestersDirty, hasServerSnapshot, semesterRetryTick]);
   
@@ -547,6 +572,19 @@ const App: React.FC = () => {
     }
   };
 
+// The server updates a tuition payment's installment (amount, date) when its
+// expense is edited; mirror that locally. No semester save: it would only
+// repeat what the server already did.
+const syncTuitionFromExpense = (expense: Expense) => {
+  if (!semesters.some((sem) => sem.installments.some((i) => i.expenseId === expense.id))) return;
+  setSemesters((prev) => prev.map((sem) => ({
+    ...sem,
+    installments: sem.installments.map((inst) =>
+      inst.expenseId === expense.id ? { ...inst, paidDate: expense.date, amount: expense.amount } : inst
+    ),
+  })));
+};
+
 const handleUpdateExpense = async (updatedExpense: Expense): Promise<boolean> => {
   try {
     const returnedExpense = await updateExpense(updatedExpense);
@@ -555,21 +593,7 @@ const handleUpdateExpense = async (updatedExpense: Expense): Promise<boolean> =>
       checkBudgetAlert(returnedExpense.category, updated);
       return updated;
     });
-    // Only touch semesters (and trigger their autosave) when this expense is
-    // actually a linked tuition installment — editing a normal expense no longer
-    // POSTs the entire semesters array (APP-M1).
-    const isLinkedTuition = semesters.some(sem => sem.installments.some(i => i.expenseId === returnedExpense.id));
-    if (isLinkedTuition) {
-      setSemesters(prev => prev.map(sem => ({
-        ...sem,
-        installments: sem.installments.map(inst =>
-          inst.expenseId === returnedExpense.id
-            ? { ...inst, paidDate: returnedExpense.date, amount: returnedExpense.amount }
-            : inst
-        )
-      })));
-      markSemestersDirty();
-    }
+    syncTuitionFromExpense(returnedExpense);
     setEditingExpense(null);
     setIsExpenseModalOpen(false);
     return true;
@@ -588,19 +612,7 @@ const handleQuickSaveExpense = async (updatedExpense: Expense) => {
       checkBudgetAlert(returnedExpense.category, updated);
       return updated;
     });
-    // See APP-M1 note in handleUpdateExpense.
-    const isLinkedTuition = semesters.some(sem => sem.installments.some(i => i.expenseId === returnedExpense.id));
-    if (isLinkedTuition) {
-      setSemesters(prev => prev.map(sem => ({
-        ...sem,
-        installments: sem.installments.map(inst =>
-          inst.expenseId === returnedExpense.id
-            ? { ...inst, paidDate: returnedExpense.date, amount: returnedExpense.amount }
-            : inst
-        )
-      })));
-      markSemestersDirty();
-    }
+    syncTuitionFromExpense(returnedExpense);
   } catch (error) {
     console.error('Failed to quick update expense:', error);
     notify.error('Could not quick update expense.');
@@ -620,7 +632,8 @@ const handleDeleteExpense = async (id: string) => {
       semester.installments.some(inst => inst.expenseId === id)
     );
 
-    // 3. RESET BURSAR STATE (unlink the installment tied to this expense)
+    // 3. The server re-opened the installment tied to this expense; mirror it
+    // locally (no semester save needed).
     if (wasTuitionPayment) {
       setSemesters(prevSemesters =>
         prevSemesters.map(semester => {
@@ -635,7 +648,6 @@ const handleDeleteExpense = async (id: string) => {
           };
         })
       );
-      markSemestersDirty();
     }
 
     // 4. UPDATE LOCAL EXPENSE LIST
@@ -897,109 +909,43 @@ const handleDeleteIncome = async (id: string) => {
     }
   };
   const markInstallmentAsPaid = async (semesterId: string, installmentId: number, paymentDate: string) => {
-    const semester = semesters.find(s => s.id === semesterId);
-    const installment = semester?.installments.find(i => i.id === installmentId);
-    
-    if (!semester || !installment || installment.status === 'paid' || installment.amount <= 0) return;
+    const before = semestersRef.current.find((s) => s.id === semesterId);
+    const position = before ? before.installments.findIndex((i) => i.id === installmentId) : -1;
+    const target = before?.installments[position];
+    if (!before || !target || target.status === 'paid' || target.amount <= 0) return;
+    if (refuseUntilLoaded('the payment')) return;
 
-    const baseSemesterName = semester.name.split('USC TUITION')[0].trim();
-    // Numbered by position, as the tracker shows it (#1, #2…). It used the
-    // installment's id, which for a semester saved on the server is a database
-    // id: "USC Tuition - Fall 2026 (Inst #6afbf9f7…)" (found by the 4c E2E test).
-    const position = semester.installments.findIndex((i) => i.id === installmentId) + 1;
-    const cleanTitle = `USC Tuition - ${baseSemesterName} (Inst #${position})`;
-    const legacyTitle = `USC Tuition - ${baseSemesterName} (Inst #${installment.id})`;
-
-    // Self-heal / anti-duplicate: if a tuition expense for THIS exact installment
-    // already exists (e.g. it was created on a previous "mark paid" but the
-    // semester link was lost — as happened when the semesters save was failing),
-    // re-link to that existing expense instead of creating a second one.
-    const existingExpense = expenses.find(
-      (e) => e.category === 'Tuition' && (e.title === cleanTitle || e.title === legacyTitle)
-    );
-    if (existingExpense) {
-      setSemesters(prevSemesters =>
-        prevSemesters.map(s =>
-          s.id === semesterId
-            ? { ...s, installments: s.installments.map(i =>
-                i.id === installmentId
-                  ? { ...i, status: 'paid', expenseId: existingExpense.id, paidDate: existingExpense.date }
-                  : i
-              )}
-            : s
-        )
-      );
-      markSemestersDirty();
-      notify.success('Linked to your existing tuition payment (no duplicate created).');
+    // The server records the payment, so the installment has to exist there
+    // with its current amount: save pending tuition edits first.
+    let list: Semester[] | null = semestersRef.current;
+    if (isSemestersDirtyRef.current || semesterSaveInFlight.current) list = await saveSemestersNow();
+    const saved = list?.find((s) => s.id === semesterId)?.installments[position];
+    if (!saved || typeof (saved.id as unknown) !== 'string') {
+      notify.error("Your tuition changes couldn't be saved, so the payment wasn't recorded. Try again.");
       return;
     }
-
-    // 1. Define the new expense data
-    const newExpenseData: Omit<Expense, 'id'> = {
-      title: cleanTitle,
-      amount: installment.amount,
-      category: 'Tuition',
-      date: paymentDate,
-      paymentMethod: 'Bank Transfer',
-      isRecurring: false // Tuition is not a monthly recurring expense
-    };
+    if (saved.status === 'paid') return; // paid in another tab meanwhile
 
     try {
-      // 2. Save the new expense. The key makes a repeat (another tab, a retry)
-      // return the same expense instead of creating a second one.
-      const savedExpense = await createExpense({ ...newExpenseData, clientRequestId: `tuition-${semesterId}-${installmentId}` });
-      
-      // 3. Add the *saved* expense to the local state
-      setExpenses(prevExpenses => [...prevExpenses, savedExpense]);
-
-      // 4. Update the semester state to link the new expense
-      setSemesters(prevSemesters => 
-        prevSemesters.map(s => 
-          s.id === semesterId
-            ? { ...s, installments: s.installments.map(i => 
-                i.id === installmentId
-                  ? { ...i, status: 'paid', expenseId: savedExpense.id, paidDate: savedExpense.date }
-                  : i
-              )}
-            : s
-        )
-      );
-      // This change to 'semesters' will trigger our useEffect to auto-save to the DB
-      markSemestersDirty();
+      // One request: the server creates the tuition expense and marks the
+      // installment paid. A repeat returns the same expense (F6).
+      const { semester, expense } = await payInstallment(semesterId, String(saved.id), paymentDate);
+      if (expense) {
+        setExpenses((prev) => (prev.some((e) => e.id === expense.id) ? prev.map((e) => (e.id === expense.id ? expense : e)) : [...prev, expense]));
+      }
+      setSemesters((prev) => prev.map((s) => (s.id === semesterId ? semester : s)));
     } catch (error) {
-      console.error("Failed to mark installment as paid:", error);
-      notify.error('Could not create the tuition expense.');
+      console.error('Failed to mark installment as paid:', error);
+      notify.error(error instanceof ApiError ? error.message : 'Could not record the tuition payment.');
     }
   };
+  // A paid installment's date is its expense's date: change that, and the
+  // server moves the installment's date with it.
   const handleUpdateInstallmentDate = async (semesterId: string, installmentId: number, newDate: string) => {
-      // Resolve the linked expense from current state BEFORE mutating — reading a
-      // value assigned inside a state updater is unreliable (see handleDeleteExpense),
-      // which previously caused the date change to be persisted only sometimes.
-      const targetInstallment = semesters
-        .find(s => s.id === semesterId)
-        ?.installments.find(i => i.id === installmentId);
-      const expenseSnapshot = targetInstallment?.expenseId
-        ? expenses.find(exp => exp.id === targetInstallment.expenseId)
-        : undefined;
-
-      setSemesters(prevSemesters => prevSemesters.map(s =>
-        s.id === semesterId
-          ? { ...s, installments: s.installments.map(i => i.id === installmentId ? { ...i, paidDate: newDate } : i) }
-          : s
-      ));
-      markSemestersDirty();
-
-      if (expenseSnapshot) {
-        setExpenses(prevExpenses => prevExpenses.map(exp =>
-          exp.id === expenseSnapshot.id ? { ...exp, date: newDate } : exp
-        ));
-        // Persist the date change to the API
-        try {
-          await updateExpense({ ...expenseSnapshot, date: newDate });
-        } catch (error) {
-          console.error('Failed to persist installment date change:', error);
-        }
-      }
+    const installment = semesters.find((s) => s.id === semesterId)?.installments.find((i) => i.id === installmentId);
+    const expense = installment?.expenseId ? expenses.find((e) => e.id === installment.expenseId) : undefined;
+    if (!expense || expense.date === newDate) return;
+    await handleQuickSaveExpense({ ...expense, date: newDate });
   };
 
   const handleUpdateInstallmentCount = (semesterId: string, count: number) => {
