@@ -179,14 +179,16 @@ DNS stays at Namecheap (Advanced DNS):
 
 | Type | Host | Value | For |
 |---|---|---|---|
-| A | `@` | `76.76.21.21` | Vercel (the site) |
-| CNAME | `www` | `cname.vercel-dns.com` | Vercel |
+| A | `@` | `216.198.79.1` | Vercel (the site) |
+| CNAME | `www` | `5ea2ab7d6cea5bc2.vercel-dns-017.com` (this project's; Vercel → Domains shows it) | Vercel |
 | TXT | `resend._domainkey` | from Resend → Domains (DKIM) | sending email |
 | CNAME | `rsend`, `send` | `rsend.forge.rmta.net`, `send.forge.rmta.net` (as Resend lists them) | sending email (SPF, bounces) |
 | TXT | `_dmarc` | `v=DMARC1; p=none;` | spam filters |
 
 Namecheap's student setup starts with GitHub Pages records (four `185.199.x.153` A
-records and `www → orbitexpense.me`); they must be deleted. Resend's current setup
+records and `www → orbitexpense.me`); they must be deleted. Vercel's older general
+values (`76.76.21.21`, `cname.vercel-dns.com`) still work but show "DNS Change
+Recommended". Resend's current setup
 ("Forge") uses the two CNAMEs instead of the older MX + TXT records on `send`, so add
 no MX record: a CNAME can't share its name with any other record, and an MX left on
 `send` keeps Resend at "Action needed". Mail Settings stays on **No Email Service**.
@@ -201,7 +203,11 @@ On Vercel, `orbitexpense.me` redirects to `www.orbitexpense.me`, the main addres
   domains**, `orbitexpense.me`.
 - **Vercel:** redirect `orbit-expense-tracker.vercel.app` to `www.orbitexpense.me`
   (Domains → Edit). Google sign-in started on the old address would otherwise fail
-  its state check, since the callback now comes back to the new one.
+  its state check, since the callback now comes back to the new one. It's a **307**
+  (temporary) on purpose: browsers remember a 308 indefinitely, so if the domain isn't
+  renewed, people typing the old address would keep being sent to a dead one. The
+  canonical tag already tells search engines which address is the main one. Switch
+  to 308 once the domain's renewal is settled.
 
 ## 4. Post-deploy verification
 
