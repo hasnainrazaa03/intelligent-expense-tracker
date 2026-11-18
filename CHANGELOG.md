@@ -7,6 +7,25 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Easier to find your way, part 2 (2026-11-18)
+- **Six places, each with its own address:** Home, Transactions, Budgets, Insights, Tuition and
+  Settings. Back and Forward move between screens, a reload stays where you were, and a screen
+  can be bookmarked. `/app` still opens Home. Signed out on an app address, you sign in and land
+  on that screen.
+- **Transactions** holds the expense and income lists (an Expenses / Income switch). **Insights**
+  holds Reports, Breakdown (was Pivot), Income (the income overview) and Ask AI (was AI Analyst).
+  **Budgets** is a page of its own instead of a pencil icon.
+- **A sidebar with words:** labels always show on screens 1280 px and wider; narrower, the icon
+  rail opens on hover or keyboard focus, and "Keep menu open" pins it.
+- **A slimmer header:** search, an Add button (expense, income, scan a statement) and a profile
+  menu with theme, display currency, hiding tuition, categories, import and export, installing
+  the app, all settings and sign out. Sync status is a dot that turns into words when offline.
+- **Phones:** one-row header with a search button, and a bottom bar with icons and labels:
+  Home, Transactions, a centre +, Insights and More (Budgets, Tuition, Settings). The floating +
+  is gone.
+- **Notification and email links** open the right screen: budget alerts open Budgets, the
+  monthly summary opens Insights → Reports.
+
 ### Easier to read and use, part 1 (2026-11-18)
 - **Recurring charges due are one line now:** "4 recurring charges due · $1,550.24 · Review",
   on the Expenses home only, instead of a long box on top of every screen. Review opens the

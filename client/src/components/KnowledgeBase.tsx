@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const articles = [
-  { id: 'budget-basics', title: 'Setting budgets', body: 'Open Budgets (the pencil icon) and set a monthly amount per category. A budget on a main category, like Food, covers its subcategories that have no budget of their own.' },
+  { id: 'budget-basics', title: 'Setting budgets', body: 'Open Budgets in the menu and choose Set budgets (Edit budgets once you have some) to give each category a monthly amount. A budget on a main category, like Food, covers its subcategories that have no budget of their own.' },
   { id: 'tax-mode', title: 'Tax-deductible expenses', body: 'Mark an expense as tax-deductible and give it a tax category, then choose Import / export → Tax CSV for a file of just those expenses.' },
   { id: 'split-payments', title: 'Splitting a cost', body: 'In an expense, add who you split it with to see each person’s share. Households let roommates see shared expenses and who owes what.' },
   { id: 'import-export', title: 'Importing and exporting', body: 'Import a bank statement (CSV or PDF) or a CSV of transactions. Export a PDF report, a CSV of expenses and income that you can import back, or a full backup. A backup can be locked with a passphrase; Orbit never sees it, so keep it somewhere safe.' },

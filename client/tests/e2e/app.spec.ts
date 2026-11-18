@@ -6,23 +6,78 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/app');
-  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible({ timeout: 20_000 });
 });
 
 test('lands on the dashboard', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
 });
 
-test('navigates between tabs', async ({ page }) => {
-  await page.getByRole('tab', { name: 'Reports' }).click();
+test('every screen has its own address, and Back walks through them (U2a)', async ({ page }) => {
+  const nav = page.getByRole('navigation', { name: 'Primary' });
+  await nav.getByRole('link', { name: 'Insights', exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/insights\/reports$/);
   await expect(page.getByRole('heading', { name: 'Spending report' })).toBeVisible();
-  await page.getByRole('tab', { name: 'Pivot' }).click();
-  await expect(page.getByRole('heading', { name: 'Pivot analysis' })).toBeVisible();
-  await page.getByRole('tab', { name: 'Tuition' }).click();
+  await expect(nav.getByRole('link', { name: 'Insights', exact: true })).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('navigation', { name: 'Insights sections' }).getByRole('link', { name: 'Breakdown' }).click();
+  await expect(page).toHaveURL(/\/app\/insights\/breakdown$/);
+  await expect(page.getByRole('heading', { name: 'Breakdown', exact: true })).toBeVisible();
+  await nav.getByRole('link', { name: 'Tuition', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Tuition ledger' })).toBeVisible();
+  await nav.getByRole('link', { name: 'Budgets', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Budgets', exact: true })).toBeVisible();
+
+  // Back and Forward move between screens; a reload stays put.
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Tuition ledger' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Breakdown', exact: true })).toBeVisible();
+  await page.goForward();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Tuition ledger' })).toBeVisible();
+
+  // /app/insights opens Reports; an address the app doesn't have goes home.
+  await page.goto('/app/insights');
+  await expect(page).toHaveURL(/\/app\/insights\/reports$/);
+  await page.goto('/app/no-such-screen');
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
+});
+
+test('phones: a bottom bar, with More for Budgets, Tuition and Settings (U2a)', async ({ browser }) => {
+  const ctx = await browser.newContext({ storageState: 'tests/e2e/.auth/user.json', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const phone = await ctx.newPage();
+  try {
+    await phone.goto('/app');
+    const bar = phone.getByRole('navigation', { name: 'Primary' });
+    await expect(bar).toBeVisible({ timeout: 20_000 });
+    await expect(bar.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+    await bar.getByRole('button', { name: 'More' }).click();
+    const more = phone.getByRole('dialog', { name: 'More' });
+    await more.getByRole('link', { name: 'Tuition' }).click();
+    await expect(phone).toHaveURL(/\/app\/tuition$/);
+    await expect(more).toBeHidden();
+    await bar.getByRole('button', { name: 'Add new entry' }).click();
+    await expect(phone.getByRole('menuitem', { name: /add expense/i })).toBeVisible();
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('the profile menu holds the preferences that were header icons (U2a)', async ({ page }) => {
+  const profile = page.getByRole('button', { name: 'Account and preferences' });
+  await profile.click();
+  const panel = page.getByRole('dialog', { name: 'Account and preferences' });
+  await expect(panel.getByText('test@test.com')).toBeVisible();
+  for (const name of ['Categories', 'Import and export', 'Sign out']) await expect(panel.getByRole('button', { name })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'All settings' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(profile).toBeFocused();
 });
 
 test('currency picker switches display to INR', async ({ page }) => {
+  await page.getByRole('button', { name: 'Account and preferences' }).click();
   await page.getByRole('button', { name: /Display currency/i }).click();
   await page.getByLabel('Search currency').fill('INR');
   await page.getByRole('option').first().click();
@@ -31,7 +86,10 @@ test('currency picker switches display to INR', async ({ page }) => {
   // An account setting now: saved on the server, so other devices get it.
   const saved = async () => (await (await page.request.get('http://localhost:3001/api/settings')).json()).settings.displayCurrency;
   await expect.poll(saved, { timeout: 10_000, intervals: [500, 1000] }).toBe('INR');
-  // Put it back: the demo account is shared by the other specs.
+  // Put it back: the demo account is shared by the other specs. (The menu
+  // stays open after a pick; Escape closes it.)
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Account and preferences' }).click();
   await page.getByRole('button', { name: /Display currency/i }).click();
   await page.getByLabel('Search currency').fill('USD');
   await page.getByRole('option').first().click();
@@ -39,8 +97,12 @@ test('currency picker switches display to INR', async ({ page }) => {
 });
 
 test('theme toggle switches to light mode', async ({ page }) => {
-  await page.getByRole('button', { name: /switch to light theme/i }).click();
+  await page.getByRole('button', { name: 'Account and preferences' }).click();
+  const dark = page.getByRole('switch', { name: 'Dark theme' });
+  await expect(dark).toHaveAttribute('aria-checked', 'true');
+  await dark.click();
   await expect(page.locator('html')).not.toHaveClass(/dark/);
+  await expect(dark).toHaveAttribute('aria-checked', 'false');
 });
 
 test('recurring charges due: one line on Expenses, reviewed with nothing ticked', async ({ page }) => {
@@ -62,9 +124,9 @@ test('recurring charges due: one line on Expenses, reviewed with nothing ticked'
     await expect(notice).toContainText(/recurring charges? due/);
 
     // Only on the Expenses home, not on top of every screen.
-    await page.getByRole('tab', { name: 'Income', exact: true }).click();
+    await page.getByRole('link', { name: 'Transactions', exact: true }).click();
     await expect(notice).toHaveCount(0);
-    await page.getByRole('tab', { name: 'Expenses', exact: true }).click();
+    await page.getByRole('link', { name: 'Home', exact: true }).click();
 
     await notice.getByRole('button', { name: 'Review' }).click();
     const dialog = page.getByRole('dialog', { name: 'Recurring charges due' });
@@ -84,7 +146,7 @@ test('recurring charges due: one line on Expenses, reviewed with nothing ticked'
 test('adds an expense and finds it via search', async ({ page }) => {
   const title = `E2E test ${Date.now()}`;
 
-  await page.getByRole('button', { name: 'Quick actions' }).click();
+  await page.getByRole('button', { name: 'Add new entry' }).click();
   await page.getByRole('menuitem', { name: /add expense/i }).click();
 
   const dialog = page.getByRole('dialog');
@@ -115,7 +177,8 @@ test('search dropdown surfaces a transaction and opens its detail', async ({ pag
 });
 
 test('bank statement CSV maps columns and reaches the review step', async ({ page }) => {
-  await page.getByRole('button', { name: 'Open data import and export' }).click();
+  await page.getByRole('button', { name: 'Account and preferences' }).click();
+  await page.getByRole('button', { name: 'Import and export' }).click();
   // Launch the dedicated statement-import page from the data modal.
   await page.getByRole('dialog').getByRole('button', { name: /Import a bank statement/ }).click();
   // The importer is a full-page view (region), not a modal.
@@ -150,9 +213,9 @@ test('offline: an expense is queued and syncs on reconnect', async ({ page, cont
   // SW/module cache, which requires them to have loaded once. Also switch to the
   // Transactions sub-tab so the expense list (where the optimistic row appears)
   // is mounted.
-  await page.getByRole('tab', { name: 'Transactions' }).click();
+  await page.getByRole('link', { name: 'Transactions', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Recent expenses' })).toBeVisible();
-  await page.getByRole('button', { name: 'Quick actions' }).click();
+  await page.getByRole('button', { name: 'Add new entry' }).click();
   await page.getByRole('menuitem', { name: /add expense/i }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
@@ -160,7 +223,7 @@ test('offline: an expense is queued and syncs on reconnect', async ({ page, cont
 
   await context.setOffline(true);
 
-  await page.getByRole('button', { name: 'Quick actions' }).click();
+  await page.getByRole('button', { name: 'Add new entry' }).click();
   await page.getByRole('menuitem', { name: /add expense/i }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Title').fill(title);
@@ -182,7 +245,7 @@ test('offline: an expense is queued and syncs on reconnect', async ({ page, cont
 
   // Persisted on the server: a reload + search still finds it.
   await page.reload();
-  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible({ timeout: 20_000 });
   await page.getByPlaceholder('Search transactions…').fill(title);
   await expect(page.getByText(title).first()).toBeVisible({ timeout: 10_000 });
 });

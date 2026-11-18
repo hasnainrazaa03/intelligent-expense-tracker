@@ -10,7 +10,7 @@ setup('authenticate', async ({ page }) => {
   await page.getByPlaceholder('you@email.com').fill('test@test.com');
   await page.getByLabel('Password', { exact: true }).fill('Test1234!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible({ timeout: 20_000 });
   // Preferences are account settings on the server; start every run from the
   // defaults, whatever an earlier (perhaps interrupted) run left behind.
   const api = 'http://localhost:3001/api';

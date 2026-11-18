@@ -23,13 +23,13 @@ const signIn = async (page: Page, email: string) => {
   await page.getByPlaceholder('you@email.com').fill(email);
   await page.getByLabel('Password', { exact: true }).fill('Test1234!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible({ timeout: 20_000 });
 };
 
 const openApp = async (page: Page) => {
   await page.goto('/app');
-  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
-  await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
+  await page.getByRole('link', { name: 'Home', exact: true }).click();
 };
 
 test.describe('as the demo account', () => {
@@ -43,7 +43,8 @@ test.describe('as the demo account', () => {
       `E2E Rent ${tag},1500,Rent,2026-07-01,Bank Transfer,"Split with\nroommates",true,home; fixed`,
       `E2E Refund ${tag},-20,Shopping,2026-07-03,,,false,`,
     ].join('\r\n');
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await page.getByRole('button', { name: 'Import and export' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'expenses.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
     await dialog.getByRole('button', { name: 'Import CSV' }).click();
@@ -57,7 +58,8 @@ test.describe('as the demo account', () => {
 
   test('a bank statement is imported after review: debits as expenses, the credit as income', async ({ page }) => {
     const tag = Date.now();
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await page.getByRole('button', { name: 'Import and export' }).click();
     await page.getByRole('dialog').getByRole('button', { name: /Import a bank statement/ }).click();
     const imp = page.getByRole('region', { name: 'Import bank statement' });
     const csv = [
@@ -78,7 +80,7 @@ test.describe('as the demo account', () => {
   });
 
   test('tuition: paying an installment adds the expense, and deleting it re-opens the installment', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Tuition', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Tuition', exact: true }).click();
     await page.mouse.move(1200, 900); // the sidebar expands under the pointer and covers the semester tabs
     await page.getByRole('button', { name: /^Fall 2026/ }).click();
     const awaiting = page.getByText('Awaiting payment');
@@ -111,8 +113,7 @@ test.describe('as the demo account', () => {
 
     // Delete it from the list, past the undo window. Searching for it, not
     // paging: a long-lived local database holds hundreds of test expenses.
-    await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
-    await page.getByRole('tab', { name: 'Transactions' }).click();
+    await page.getByRole('link', { name: 'Transactions', exact: true }).click();
     await page.getByPlaceholder('Search transactions…').fill(title);
     const del = page.getByRole('button', { name: `Delete expense ${title}` });
     await del.click();
@@ -120,7 +121,7 @@ test.describe('as the demo account', () => {
     await page.getByRole('alertdialog', { name: 'Delete transaction?' }).getByRole('button', { name: 'Confirm' }).click();
     await expect.poll(async () => (await titles(page.request)).includes(title), { timeout: 15_000, intervals: [500, 1000] }).toBe(false);
 
-    await page.getByRole('tab', { name: 'Tuition', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Tuition', exact: true }).click();
     await page.mouse.move(1200, 900); // the sidebar expands under the pointer and covers the semester tabs
     await page.getByRole('button', { name: /^Fall 2026/ }).click();
     await expect(awaiting).toHaveCount(before);
@@ -137,7 +138,7 @@ test.describe('as the demo account', () => {
       data: { title: `E2E PDF ${tag}`, amount: 18.25, category: 'Groceries', date: today },
     });
     await page.reload();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
 
     // jsPDF writes uncompressed text, so each drawn string shows up as "(text) Tj".
     const save = async (download: Download) => {
@@ -149,7 +150,9 @@ test.describe('as the demo account', () => {
       return raw;
     };
 
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+
+    await page.getByRole('button', { name: 'Import and export' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: 'PDF', exact: true }).click();
     const [exported] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download export' }).click()]);
@@ -159,7 +162,7 @@ test.describe('as the demo account', () => {
     expect(report).toContain(`(E2E PDF ${tag}) Tj`); // a table row, drawn by jspdf-autotable
     await page.keyboard.press('Escape');
 
-    await page.getByRole('tab', { name: 'Reports', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Insights', exact: true }).click();
     const [audit] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
     const auditPdf = await save(audit);
     expect(auditPdf).toContain('(Spending report) Tj');
@@ -178,7 +181,7 @@ test.describe('as the demo account', () => {
     const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const phone = await other.newPage();
     await signIn(phone, 'test@test.com');
-    await phone.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
+    await phone.getByRole('link', { name: 'Home', exact: true }).click();
     await expect(phone.getByText(name)).toBeVisible({ timeout: 15_000 });
 
     // Removed there, gone here too after a reload.
@@ -186,13 +189,13 @@ test.describe('as the demo account', () => {
     await expect.poll(async () => (await serverGoals(phone.request)).map((g) => g.name), { timeout: 10_000, intervals: [500, 1000] }).not.toContain(name);
     await other.close();
     await page.reload();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
     await expect(page.getByLabel('Goal name')).toBeVisible();
     await expect(page.getByText(name)).toHaveCount(0);
   });
 
   test('a list emptied by a search or period says so, with a way back (5f-1)', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Transactions' }).click();
+    await page.getByRole('link', { name: 'Transactions', exact: true }).click();
     const search = page.getByPlaceholder('Search transactions…');
     await search.fill('zzqx-nothing-like-this');
     await expect(page.getByText('Nothing matches')).toBeVisible();
@@ -209,7 +212,8 @@ test.describe('as the demo account', () => {
   });
 
   test('import errors are in plain language (5f-1)', async ({ page }) => {
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await page.getByRole('button', { name: 'Import and export' }).click();
     const dialog = page.getByRole('dialog');
     // The file input only accepts .csv in the picker; a drag or a rename can still hand it something else.
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
@@ -221,7 +225,8 @@ test.describe('as the demo account', () => {
 
   test('AI chat answers a question', async ({ page }) => {
     test.skip(!process.env.E2E_MOCK_AI, 'Needs the API pointed at the mock Gemini (CI sets E2E_MOCK_AI).');
-    await page.getByRole('tab', { name: 'AI Analyst', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Insights', exact: true }).click();
+    await page.getByRole('link', { name: 'Ask AI' }).click();
     await page.getByLabel('Ask the AI analyst').fill('How is my spending this month?');
     await page.keyboard.press('Enter');
     await expect(page.getByText('Mock analyst reply: your spending is on track this month.')).toBeVisible({ timeout: 15_000 });
@@ -232,7 +237,7 @@ test.describe('reports period (5e-1)', () => {
   test.beforeEach(async ({ page }) => openApp(page));
 
   test('the period selector changes what the report covers, and says so', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Reports', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Insights', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Spending report' })).toBeVisible();
     const month = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     await expect(page.getByText(`This month · ${month}`)).toBeVisible();
@@ -257,8 +262,7 @@ test.describe('when saving is slow or fails (5d-2)', () => {
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     await page.request.post(`${API}/expenses`, { headers: await csrfHeaders(page.request), data: { title, amount: 12.5, category: 'Groceries', date: today } });
     await page.reload();
-    await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
-    await page.getByRole('tab', { name: 'Transactions' }).click();
+    await page.getByRole('link', { name: 'Transactions', exact: true }).click();
     // Many test expenses share today's date: filter the list down to this one.
     await page.getByPlaceholder('Search transactions…').fill(title.split(' ').pop()!);
     await expect(page.getByRole('button', { name: `Edit expense ${title}` })).toBeVisible({ timeout: 10_000 });
@@ -315,7 +319,7 @@ test.describe('when saving is slow or fails (5d-2)', () => {
 
   test('an add that fails keeps what was typed (C4)', async ({ page }) => {
     await page.route('**/api/expenses', (route) => (route.request().method() === 'POST' ? route.fulfill(failWith500) : route.fallback()));
-    await page.getByRole('button', { name: 'Quick actions' }).click();
+    await page.getByRole('button', { name: 'Add new entry' }).click();
     await page.getByRole('menuitem', { name: /add expense/i }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Title').fill('Typed before a failure');
@@ -339,9 +343,11 @@ test.describe('backup restore (own account)', () => {
     await request.post(`${API}/data/restore`, { headers, data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
     await request.post(`${API}/expenses`, { headers, data: { title: 'Kept by the backup', amount: 25, category: 'Groceries', date: '2026-07-10' } });
     await page.reload();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+
+    await page.getByRole('button', { name: 'Import and export' }).click();
     const dialog = page.getByRole('dialog');
     const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Export full backup (JSON)' }).click()]);
     const file = testInfo.outputPath('backup.json');
@@ -352,7 +358,9 @@ test.describe('backup restore (own account)', () => {
     await request.post(`${API}/expenses`, { headers, data: { title: 'Added after the backup', amount: 9, category: 'Groceries', date: '2026-07-11' } });
     expect(await titles(request)).toHaveLength(2);
 
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+
+    await page.getByRole('button', { name: 'Import and export' }).click();
     await dialog.locator('input[type="file"][accept=".json"]').setInputFiles(file);
     await dialog.getByRole('button', { name: 'Restore full backup…' }).click();
     await dialog.locator('#restore-confirm').fill('REPLACE');
@@ -369,9 +377,11 @@ test.describe('backup restore (own account)', () => {
     await request.post(`${API}/data/restore`, { headers, data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
     await request.post(`${API}/expenses`, { headers, data: { title: 'Kept by the encrypted backup', amount: 31, category: 'Groceries', date: '2026-07-12' } });
     await page.reload();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+
+    await page.getByRole('button', { name: 'Import and export' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Protect the backup with a passphrase').check();
     const exportButton = dialog.getByRole('button', { name: 'Export encrypted backup (JSON)' });
@@ -392,7 +402,9 @@ test.describe('backup restore (own account)', () => {
 
     await request.post(`${API}/expenses`, { headers, data: { title: 'Added after the encrypted backup', amount: 9, category: 'Groceries', date: '2026-07-13' } });
 
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+
+    await page.getByRole('button', { name: 'Import and export' }).click();
     await dialog.locator('input[type="file"][accept=".json"]').setInputFiles(file);
     await dialog.getByRole('button', { name: 'Restore full backup…' }).click();
     await expect(dialog.getByText('This backup is encrypted')).toBeVisible();
@@ -422,7 +434,7 @@ test.describe('backup restore (own account)', () => {
       localStorage.removeItem(`settingsCache::${who}`);
     }, email);
     await page.reload();
-    await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Home', exact: true }).click();
     await expect(page.getByText('Saved before the move')).toBeVisible({ timeout: 15_000 });
 
     await expect.poll(async () => serverGoals(page.request), { timeout: 10_000, intervals: [500, 1000] })
@@ -434,7 +446,7 @@ test.describe('backup restore (own account)', () => {
 test.describe('settings page (5b-2)', () => {
   test('one page for preferences and security; turning on two-factor asks first', async ({ page }) => {
     await openApp(page);
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
 
     // Hide tuition: an account setting, mirrored by the header's tuition button.
@@ -442,7 +454,9 @@ test.describe('settings page (5b-2)', () => {
     await expect(hide).toHaveAttribute('aria-checked', 'false');
     await hide.click();
     await expect(hide).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByRole('button', { name: /Show tuition across summaries/ })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await expect(page.getByRole('switch', { name: 'Hide tuition from summaries' })).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Escape');
     const saved = async () => (await (await page.request.get(`${API}/settings`)).json()).settings.hideTuition;
     await expect.poll(saved, { timeout: 10_000, intervals: [500, 1000] }).toBe(true);
     await hide.click();
@@ -451,7 +465,9 @@ test.describe('settings page (5b-2)', () => {
     // Theme: per device, and the header follows.
     await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'Light' }).click();
     await expect(page.locator('html')).not.toHaveClass(/dark/);
-    await expect(page.getByRole('button', { name: /switch to dark theme/i })).toBeVisible();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await expect(page.getByRole('switch', { name: 'Dark theme' })).toHaveAttribute('aria-checked', 'false');
+    await page.keyboard.press('Escape');
     await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'Dark' }).click();
     await expect(page.locator('html')).toHaveClass(/dark/);
 
@@ -467,7 +483,7 @@ test.describe('settings page (5b-2)', () => {
 
   test('notifications: which kinds to send are account settings, and this device says where it stands (5e-2)', async ({ page }) => {
     await openApp(page);
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     const section = page.getByRole('region', { name: 'Notifications' });
     await expect(section).toBeVisible();
     // The test API has no VAPID keys, and headless Chromium has no push service.
@@ -502,14 +518,14 @@ test.describe('settings page (5b-2)', () => {
     const analyticsRequests: string[] = [];
     page.on('request', (r) => { if (r.url().includes('/_vercel/')) analyticsRequests.push(r.url()); });
     await openApp(page);
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     const visits = page.getByRole('switch', { name: 'Anonymous visit counts' });
     await expect(visits).toHaveAttribute('aria-checked', 'true');
     await visits.click();
     await expect(visits).toHaveAttribute('aria-checked', 'false');
     expect(await page.evaluate(() => localStorage.getItem('analyticsOptOut'))).toBe('1');
     await page.reload();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(visits).toHaveAttribute('aria-checked', 'false');
     await visits.click();
     expect(await page.evaluate(() => localStorage.getItem('analyticsOptOut'))).toBeNull();
@@ -527,7 +543,7 @@ test.describe('account actions (own accounts)', () => {
     await reset();
     await page.reload();
     try {
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('link', { name: 'Settings', exact: true }).click();
       await page.getByRole('button', { name: 'Categories', exact: true }).click();
       const manager = page.getByRole('dialog', { name: 'Categories' });
       await manager.getByRole('button', { name: 'Food', exact: true }).click();
@@ -568,7 +584,7 @@ test.describe('account actions (own accounts)', () => {
     await signIn(laptop, 'e2e-restore@test.com');
     expect((await laptop.request.get(`${API}/settings`)).status()).toBe(200);
 
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Sign out everywhere' }).click();
     await page.getByRole('alertdialog', { name: 'Sign out everywhere?' }).getByRole('button', { name: 'Sign out everywhere' }).click();
     await expect(page).toHaveURL(/\/login/);
@@ -586,14 +602,14 @@ test.describe('account actions (own accounts)', () => {
     await page.getByPlaceholder('you@email.com').fill(email);
     await page.getByLabel('Password', { exact: true }).fill('Test1234!');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    const signedIn = await page.getByRole('tablist', { name: 'Primary navigation' }).waitFor({ timeout: 15_000 }).then(() => true, () => false);
+    const signedIn = await page.getByRole('navigation', { name: 'Primary' }).waitFor({ timeout: 15_000 }).then(() => true, () => false);
     test.skip(!signedIn, `No ${email} account: run server/scripts/ensure-test-user.ts ${email} first.`);
     const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const laptop = await other.newPage();
     await signIn(laptop, email);
 
     try {
-      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('link', { name: 'Settings', exact: true }).click();
       await page.getByRole('region', { name: 'Security' }).getByRole('button', { name: 'Change' }).click();
       const form = page.getByRole('form', { name: 'Change password' });
       await form.getByLabel('Current password').fill('Test1234!');
@@ -629,14 +645,14 @@ test.describe('account actions (own accounts)', () => {
     await page.getByPlaceholder('you@email.com').fill(email);
     await page.getByLabel('Password', { exact: true }).fill('Test1234!');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    const signedIn = await page.getByRole('tablist', { name: 'Primary navigation' }).waitFor({ timeout: 15_000 }).then(() => true, () => false);
+    const signedIn = await page.getByRole('navigation', { name: 'Primary' }).waitFor({ timeout: 15_000 }).then(() => true, () => false);
     test.skip(!signedIn, `No ${email} account: run server/scripts/ensure-test-user.ts ${email} first.`);
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
 
     const headers = await csrfHeaders(page.request);
     await page.request.post(`${API}/expenses`, { headers, data: { title: 'Goes with the account', amount: 5, category: 'Groceries', date: '2026-11-01' } });
 
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     const form = page.getByRole('region', { name: 'Delete account' });
     const remove = form.getByRole('button', { name: 'Delete my account' });
     await form.getByLabel('Password').fill('not-my-password');
@@ -665,14 +681,14 @@ test.describe('account actions (own accounts)', () => {
     // A new account's default semesters: shown, but saved only on the first edit.
     await page.request.post(`${API}/data/restore`, { headers, data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
     await page.reload();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
 
     // A second tab, loaded now, before either has saved anything.
     const second = await context.newPage();
     await second.goto('/app');
-    await expect(second.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(second.getByRole('navigation', { name: 'Primary' })).toBeVisible();
     for (const tab of [page, second]) {
-      await tab.getByRole('tab', { name: 'Tuition', exact: true }).first().click();
+      await tab.getByRole('link', { name: 'Tuition', exact: true }).click();
       await tab.mouse.move(1200, 900); // the sidebar expands under the pointer
     }
 
@@ -709,10 +725,11 @@ test.describe('account actions (own accounts)', () => {
       },
     });
     await page.reload();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
 
     // Export: CSV, all time, expenses and income in one file.
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await page.getByRole('button', { name: 'Import and export' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: 'All time', exact: true }).click();
     await dialog.getByRole('button', { name: 'CSV', exact: true }).click();
@@ -727,8 +744,9 @@ test.describe('account actions (own accounts)', () => {
     // Into an empty account: everything comes back, incomes included.
     await page.request.post(`${API}/data/restore`, { headers, data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
     await page.reload();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await page.getByRole('button', { name: 'Import and export' }).click();
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles(file);
     await dialog.getByRole('button', { name: 'Import CSV' }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
@@ -739,7 +757,8 @@ test.describe('account actions (own accounts)', () => {
     }, { timeout: 10_000, intervals: [500, 1000] }).toEqual([['Round trip coffee|4.5|Discover|daily'], ['Round trip pay|100|USCCU']]);
 
     // Again: nothing new, so nothing is added.
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await page.getByRole('button', { name: 'Import and export' }).click();
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles(file);
     await dialog.getByRole('button', { name: 'Import CSV' }).click();
     await expect(dialog.getByText('Everything in this file is already in your account.')).toBeVisible();
@@ -751,9 +770,10 @@ test.describe('account actions (own accounts)', () => {
     await signIn(page, 'e2e-restore@test.com');
     await page.request.post(`${API}/data/restore`, { headers: await csrfHeaders(page.request), data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
     await page.reload();
-    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
     const csv = ['title,amount,category,date', ...Array.from({ length: 520 }, (_, i) => `Bulk row ${i},${(i % 40) + 1},Groceries,2026-0${(i % 9) + 1}-1${i % 10}`)].join('\n');
-    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await page.getByRole('button', { name: 'Account and preferences' }).click();
+    await page.getByRole('button', { name: 'Import and export' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'big.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
     await dialog.getByRole('button', { name: 'Import CSV' }).click();

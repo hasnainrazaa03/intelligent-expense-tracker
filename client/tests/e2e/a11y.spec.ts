@@ -22,8 +22,8 @@ const ymd = (d: Date) =>
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/app');
-  await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
-  await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
+  await page.getByRole('link', { name: 'Home', exact: true }).click();
 });
 
 test('add an expense with the keyboard only, date picker and category included', async ({ page }) => {
@@ -82,7 +82,7 @@ test('add an expense with the keyboard only, date picker and category included',
 
 test('quick actions menu and confirm dialog work from the keyboard', async ({ page }) => {
   // Quick actions: focus moves into the menu, arrows move, Escape returns.
-  const fab = page.getByRole('button', { name: 'Quick actions' });
+  const fab = page.getByRole('button', { name: 'Add new entry' });
   await fab.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('menuitem', { name: /add expense/i })).toBeFocused();
@@ -135,29 +135,38 @@ test('popups and modals have no WCAG A/AA violations', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeHidden();
 
-  await page.getByRole('button', { name: 'Manage budgets' }).click();
+  await page.getByRole('link', { name: 'Budgets', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit budgets' }).click();
   await expect(page.getByRole('dialog')).toBeVisible(); // lazy-loaded
   expect(await axe(page, '[role="dialog"]'), 'budget manager').toEqual([]);
   await page.keyboard.press('Escape');
 
-  await page.getByRole('button', { name: 'Open data import and export' }).click();
+  await page.getByRole('button', { name: 'Account and preferences' }).click();
+
+  await page.getByRole('button', { name: 'Import and export' }).click();
   await expect(page.getByRole('dialog')).toBeVisible(); // lazy-loaded
   expect(await axe(page, '[role="dialog"]'), 'data modal').toEqual([]);
   await page.keyboard.press('Escape');
 
+  await page.getByRole('button', { name: 'Account and preferences' }).click();
+  expect(await axe(page), 'profile menu').toEqual([]);
   await page.getByRole('button', { name: /^Display currency:/ }).click();
   expect(await axe(page), 'currency picker').toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('listbox', { name: 'Currencies' })).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Account and preferences' })).toBeHidden();
 
   await page.getByRole('combobox', { name: 'Search transactions' }).fill('a');
   await expect(page.getByRole('listbox', { name: 'Matching transactions' })).toBeVisible();
   expect(await axe(page), 'search results').toEqual([]);
 
-  for (const tab of ['Income', 'AI Analyst', 'Pivot', 'Reports', 'Tuition', 'Settings']) {
-    await page.getByRole('tab', { name: tab, exact: true }).first().click();
+  for (const path of ['/app/transactions', '/app/transactions/income', '/app/budgets', '/app/insights/reports', '/app/insights/breakdown',
+    '/app/insights/income', '/app/insights/ask', '/app/tuition', '/app/settings']) {
+    await page.goto(path);
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
     await page.waitForTimeout(600);
-    expect(await axe(page), `${tab} screen`).toEqual([]);
+    expect(await axe(page), `${path} screen`).toEqual([]);
   }
 
   // Settings' confirmation for turning on two-factor (cancelled, not confirmed).

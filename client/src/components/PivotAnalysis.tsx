@@ -48,7 +48,7 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
             <span className="text-[8px] md:text-[10px] uppercase tracking-widest text-app-faint truncate">Group and total your spending</span>
           </div>
           <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight break-words">
-            Pivot analysis
+            Breakdown
           </h2>
         </div>
 

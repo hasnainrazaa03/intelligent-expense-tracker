@@ -57,7 +57,7 @@ export const budgetNotice = ({ budgets, expenses, month, subToMain, sent }: {
     body: hits.length === 1
       ? `You've used ${Math.round(hits[0].pct)}% of your ${hits[0].category} budget (${money(hits[0].amount)}) this month.`
       : `This month so far: ${hits.map(line).join(' · ')}.`,
-    url: '/app',
+    url: '/app/budgets',
     tag: `budget-${month}`,
   };
 };
@@ -100,7 +100,7 @@ export const summaryNotice = ({ lastMonth, expenses, budgets, subToMain }: {
     keys: [`summary:${lastMonth}`],
     title: `Your ${monthName(lastMonth)} summary`,
     body: `You spent ${money(total)}${budgetPart}. Top category: ${topName} (${money(topAmount)}).`,
-    url: '/app',
+    url: '/app/insights/reports',
     tag: `summary-${lastMonth}`,
   };
 };

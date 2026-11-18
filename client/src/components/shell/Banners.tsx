@@ -129,20 +129,3 @@ const RecurringReviewDialog: React.FC<{
     </Modal>
   );
 };
-
-/** Overview vs list, inside the Expenses and Income hubs. */
-export const HubTabs: React.FC<{ value: 'overview' | 'list'; onChange: (tab: 'overview' | 'list') => void; listLabel: string }> = ({ value, onChange, listLabel }) => (
-  <div role="tablist" aria-label="Hub section" className="flex items-center gap-1 bg-surface-2 border border-app-border rounded-xl p-1 w-fit">
-    {([{ id: 'overview' as const, label: 'Overview' }, { id: 'list' as const, label: listLabel }]).map((t) => (
-      <button
-        key={t.id}
-        role="tab"
-        aria-selected={value === t.id}
-        onClick={() => onChange(t.id)}
-        className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${value === t.id ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}
-      >
-        {t.label}
-      </button>
-    ))}
-  </div>
-);
