@@ -10,6 +10,15 @@ import { CurrencyProvider } from './contexts/CurrencyContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { startAnalytics } from './utils/analytics';
 
+// Apply the web fonts preloaded in index.html without blocking the first paint.
+const fontCss = document.getElementById('font-css');
+if (fontCss instanceof HTMLLinkElement) {
+  const sheet = document.createElement('link');
+  sheet.rel = 'stylesheet';
+  sheet.href = fontCss.href;
+  document.head.append(sheet);
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");

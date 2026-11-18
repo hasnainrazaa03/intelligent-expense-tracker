@@ -19,6 +19,11 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
   has, with "3 of 5 done" and a progress bar. Hide puts it away for good; it also goes once every
   step is done or the account has 20 entries. It replaces the old "Welcome to Orbit" card.
 - **Settings links to a section:** "Choose alerts" opens Settings at Notifications.
+- **Faster first load:** the landing page no longer downloads the chart and PDF libraries (React
+  had been bundled inside the chart chunk, and the chunk loader inside the PDF one, so every page
+  fetched both up front), the signed-in app and the Income view load only when needed, and the
+  web fonts no longer hold up the first paint. Lighthouse on a phone: performance 67 → 95–97,
+  first paint 4.9 s → 1.8 s; accessibility and SEO 100.
 
 ### Phones and Tuition (2026-11-18)
 - **Tuition, summary first:** total, paid, remaining and the next installment to pay sit at the

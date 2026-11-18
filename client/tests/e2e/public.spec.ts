@@ -53,7 +53,7 @@ test('landing has no WCAG A/AA accessibility violations', async ({ page }) => {
 
 test('privacy policy and terms are public, linked from the landing page and sign-up, and pass axe', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Privacy Policy' }).click();
+  await page.getByRole('contentinfo').getByRole('link', { name: 'Privacy Policy' }).click();
   await expect(page).toHaveURL(/\/privacy$/);
   await expect(page.getByRole('heading', { name: 'Privacy Policy', level: 1 })).toBeVisible();
   // The parts the plan requires: what goes to Gemini, and how to reach the operator.

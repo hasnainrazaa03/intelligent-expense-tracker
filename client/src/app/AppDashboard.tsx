@@ -2,7 +2,6 @@ import React, { Suspense, useCallback, useMemo, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Expense, Income } from '../types';
 import Header from '../components/Header';
-import IncomeSummary from '../components/IncomeSummary';
 import SectionSkeleton from '../components/SectionSkeleton';
 import { DateRangeFilter, type DateRange } from '../components/DateRangeFilter';
 import useDateRangeFilter from '../hooks/useDateRangeFilter';
@@ -124,7 +123,7 @@ const AppDashboard: React.FC = () => {
   useIdlePrefetch(isAuthenticated, [
     Screens.TransactionsList, Screens.ExpenseModal, Screens.IncomeModal, Screens.BudgetManagerModal,
     Screens.CategoryManagerModal, Screens.AiAnalyst, Screens.USCPaymentTracker, Screens.PivotAnalysis, Screens.SettingsPage,
-    Screens.BudgetsPage, Screens.Reports,
+    Screens.BudgetsPage, Screens.Reports, Screens.IncomeSummary,
   ]);
   // Not while a form is open: it would replace what's being typed.
   useNewEntryShortcut(isAuthenticated && !expenseForm.open && !incomeForm.open, openNewEntry);
@@ -192,7 +191,7 @@ const AppDashboard: React.FC = () => {
       case 'income':
         return isLoadingData
           ? <SectionSkeleton title="Loading income" rows={4} />
-          : <IncomeSummary
+          : <Screens.IncomeSummary
               incomes={incomeHub.incomes}
               previousPeriodIncomes={incomeHub.previousIncomes}
               comparisonCutoff={incomeHub.comparisonCutoff}
