@@ -19,4 +19,4 @@ Engineering docs for Orbit (formerly USC Ledger). Start here.
 2. **Shipping something?** Tick it in the post-launch plan and add a line to the CHANGELOG.
 3. **Deploying?** Follow the runbook top to bottom; the database steps are order-sensitive.
 
-Live site: https://orbit-expense-tracker.vercel.app
+Live site: https://www.orbitexpense.me (the old https://orbit-expense-tracker.vercel.app still works)

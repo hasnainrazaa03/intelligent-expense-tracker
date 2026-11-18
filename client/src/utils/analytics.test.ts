@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 
 const load = () => import('./analytics');
-const PROD = 'orbit-expense-tracker.vercel.app';
+const PROD = 'www.orbitexpense.me';
 /** The beforeSend hook queued for Vercel's script. */
 const beforeSend = () => {
   const queued = (globalThis as unknown as { vaq: unknown[][] }).vaq.find((args) => args[0] === 'beforeSend');
@@ -51,6 +51,14 @@ describe('analytics', () => {
     startAnalytics('localhost');
     startAnalytics('orbit-expense-tracker-git-branch.vercel.app');
     expect(appended).toEqual([]);
+  });
+
+  it('counts the old vercel.app address too, while people move to the domain', async () => {
+    const { analyticsAllowed } = await load();
+    expect(analyticsAllowed('www.orbitexpense.me')).toBe(true);
+    expect(analyticsAllowed('orbitexpense.me')).toBe(true);
+    expect(analyticsAllowed('orbit-expense-tracker.vercel.app')).toBe(true);
+    expect(analyticsAllowed('orbit-expense-tracker-git-branch.vercel.app')).toBe(false);
   });
 
   it("loads Vercel's script once on the production site, with the query stripped", async () => {

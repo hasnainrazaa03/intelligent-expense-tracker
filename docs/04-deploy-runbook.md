@@ -166,10 +166,48 @@ when Redis returns. `/health/ready` then says `"counters":"memory (Redis unavail
    Hobby, up to a monthly event limit).
 2. Redeploy: Vercel adds the `/_vercel/insights/*` routes on the next deployment.
 3. Visits then appear in the Analytics tab. The client loads Vercel's script only on
-   `orbit-expense-tracker.vercel.app`, sends the path without its query or fragment,
-   and stays off when the browser sends Global Privacy Control or Do Not Track, or
-   the user turns it off in Settings. On a new domain (5a), change `ANALYTICS_HOST`
-   in `client/src/utils/analytics.ts`.
+   the production hosts (`ANALYTICS_HOSTS` in `client/src/utils/analytics.ts`:
+   `www.orbitexpense.me`, `orbitexpense.me` and the old `orbit-expense-tracker.vercel.app`),
+   sends the path without its query or fragment, and stays off when the browser sends
+   Global Privacy Control or Do Not Track, or the user turns it off in Settings.
+
+### Own domain (orbitexpense.me)
+
+Registered at Namecheap (free first year from the GitHub Student Developer Pack; renews
+in November 2027 at Namecheap's normal price, so check Auto-Renew in the Domain List).
+DNS stays at Namecheap (Advanced DNS):
+
+| Type | Host | Value | For |
+|---|---|---|---|
+| A | `@` | `216.198.79.1` | Vercel (the site) |
+| CNAME | `www` | `5ea2ab7d6cea5bc2.vercel-dns-017.com` (this project's; Vercel → Domains shows it) | Vercel |
+| TXT | `resend._domainkey` | from Resend → Domains (DKIM) | sending email |
+| CNAME | `rsend`, `send` | `rsend.forge.rmta.net`, `send.forge.rmta.net` (as Resend lists them) | sending email (SPF, bounces) |
+| TXT | `_dmarc` | `v=DMARC1; p=none;` | spam filters |
+
+Namecheap's student setup starts with GitHub Pages records (four `185.199.x.153` A
+records and `www → orbitexpense.me`); they must be deleted. Vercel's older general
+values (`76.76.21.21`, `cname.vercel-dns.com`) still work but show "DNS Change
+Recommended". Resend's current setup
+("Forge") uses the two CNAMEs instead of the older MX + TXT records on `send`, so add
+no MX record: a CNAME can't share its name with any other record, and an MX left on
+`send` keeps Resend at "Action needed". Mail Settings stays on **No Email Service**.
+
+On Vercel, `orbitexpense.me` redirects to `www.orbitexpense.me`, the main address. Then:
+- **Render:** `FRONTEND_URL=https://www.orbitexpense.me,https://orbit-expense-tracker.vercel.app`
+  (the first entry is where sign-in redirects go), `GOOGLE_CALLBACK_URL=https://www.orbitexpense.me/api/auth/google/callback`,
+  `EMAIL_FROM=Orbit <no-reply@orbitexpense.me>` (once Resend shows the domain Verified).
+- **Google Cloud** (Google Auth Platform): on the web client under **Clients**, authorized
+  JavaScript origin `https://www.orbitexpense.me` and redirect URI
+  `https://www.orbitexpense.me/api/auth/google/callback`; under **Branding → Authorized
+  domains**, `orbitexpense.me`.
+- **Vercel:** redirect `orbit-expense-tracker.vercel.app` to `www.orbitexpense.me`
+  (Domains → Edit). Google sign-in started on the old address would otherwise fail
+  its state check, since the callback now comes back to the new one. It's a **307**
+  (temporary) on purpose: browsers remember a 308 indefinitely, so if the domain isn't
+  renewed, people typing the old address would keep being sent to a dead one. The
+  canonical tag already tells search engines which address is the main one. Switch
+  to 308 once the domain's renewal is settled.
 
 ## 4. Post-deploy verification
 
