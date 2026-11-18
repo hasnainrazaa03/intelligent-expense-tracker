@@ -11,7 +11,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "db:migrate-cents": "ts-node scripts/migrate-to-cents.ts",
-    "db:backup": "ts-node scripts/backup-data.ts"
+    "db:backup": "ts-node scripts/backup-data.ts",
+    "db:decrypt-backup": "ts-node scripts/decrypt-backup.ts"
   },
   "keywords": [],
   "author": "",

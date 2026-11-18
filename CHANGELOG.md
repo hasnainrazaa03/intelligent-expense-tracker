@@ -8,6 +8,11 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Icons and encrypted backups (#199):** Orbit gets real app icons for home screens (Android,
+  iPhone) and notifications, and its own picture for link previews in place of a USC
+  Trojan-style image. A full backup can be locked with a passphrase before it downloads;
+  restoring asks for it. The server's database backups are encrypted too, and no longer
+  include one-time sign-in codes or reset links.
 - **Clearer words (#198):** errors in import, backup, sign-in and verification are in plain
   language instead of codes like ONLY_CSV_FILES_ALLOWED; verifying your email now says so;
   a list your search or period empties says "Nothing matches" with a way back, instead of

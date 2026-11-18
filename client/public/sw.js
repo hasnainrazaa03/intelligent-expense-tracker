@@ -1,9 +1,9 @@
 // Bump CACHE_VERSION on any change to the caching strategy or shell asset list.
 // (Content-hashed build assets rotate by URL, so a bump mainly clears stale
 // HTML and orphaned chunks from previous deploys.)
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = `usc-ledger-shell-${CACHE_VERSION}`;
-const APP_SHELL = ['/', '/index.html', '/trojan1.png', '/trojan-logo.png'];
+const APP_SHELL = ['/', '/index.html', '/orbit-icon.svg', '/icon-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -95,8 +95,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(title, {
       body: data.body || '',
       tag: data.tag || undefined,
-      icon: '/orbit-icon.svg',
-      badge: '/orbit-icon.svg',
+      icon: '/icon-192.png',
+      badge: '/badge-96.png',
       data: { url: data.url || '/app' },
     })
   );

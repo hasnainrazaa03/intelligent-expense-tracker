@@ -52,8 +52,10 @@ From a shell with the production `DATABASE_URL` (Render Shell, or locally with t
 #     Idempotent — re-run it after any schema change.
 npm run db:push
 
-# 2b. Back up first (writes server/backups/<timestamp>.json — contains hashes,
-#     keep it private; it's gitignored). Skip only on a brand-new empty DB.
+# 2b. Back up first. Writes an encrypted server/backups/orbit-db-<time>.enc.json
+#     (gitignored); keep the passphrase in a password manager, the file is
+#     useless without it. Skip only on a brand-new empty DB.
+read -rs BACKUP_PASSPHRASE && export BACKUP_PASSPHRASE   # at least 12 characters
 npm run db:backup
 
 # 2c. Convert existing Float dollar amounts to integer cents. Idempotent — a
@@ -143,7 +145,7 @@ AI Analyst (confirms Gemini). Amounts should read as normal dollars — if they'
 
 ## 5. Ongoing operations
 
-- **Backups:** schedule `npm run db:backup` (or Atlas automated backups). Backup files contain password/OTP hashes — keep them off any public store.
+- **Backups:** schedule `npm run db:backup` (or Atlas automated backups). It needs `BACKUP_PASSPHRASE` (12+ characters) and writes an AES-256-GCM encrypted file (key from scrypt); without the passphrase the file can't be opened. It covers every collection except `RevokedToken` and `PushSubscription`, and leaves out one-time codes, reset tokens and lockout counters; password hashes stay so accounts still sign in after a restore. To read one: `npm run db:decrypt-backup -- backups/<file>.enc.json [--out <file>]` writes plain JSON with owner-only permissions; delete it when done. Backups taken before 2026-11-17 are plain JSON and include one-time codes: delete them once you have a new one.
 - **Logs:** audit events + `[SECURITY]` banner go to **stdout** (captured by Render logs). The local `logs/audit.log` is best-effort only and wiped on restart.
 - **Scaling:** the rate-limiter and audit log are in-memory/stdout, so run a **single** backend instance until they're moved to Redis (`SRV-L16`, tracked in [03-post-launch-plan.md](./03-post-launch-plan.md)). `/health/ready` lets the platform restart a wedged instance.
 - **Secrets:** rotate `JWT_SECRET` (invalidates all sessions), `GEMINI_API_KEY`, `RESEND_API_KEY` from the platform store — never commit them.

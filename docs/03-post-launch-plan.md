@@ -47,7 +47,7 @@ still open. Start there.
 ### A6. Scaling readiness (only when traffic warrants)  *(effort: M)*
 - [ ] **SRV-L16** Move rate-limit + audit state to Redis/DB so the server can run multiple instances. In-memory/file today.
 - [x] Gate Swagger UI (`/api/docs`, `/api/openapi.json`) — off in production unless ENABLE_API_DOCS=true. *(PR #57)*
-- [ ] Encrypt on-disk backup files (currently plaintext, secrets already excluded).
+- [x] Encrypt on-disk backup files: `npm run db:backup` writes AES-256-GCM files (key from a passphrase via scrypt), covers every collection, and leaves out one-time codes and reset tokens (they were in the plain files). *(5f-2)*
 
 ---
 
@@ -167,6 +167,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| 5f-2 Icons and encrypted backups | PNG app icons (192, 512, maskable, Apple touch, notification badge) and a 1200×630 Orbit share image replace the SVG-only icon and the USC-Trojan-style picture used for link previews (unused Trojan and title images removed). Full backups downloaded from the app can be protected with a passphrase (PBKDF2-SHA256 600k → AES-256-GCM, in the browser); restore asks for it. The operator's `npm run db:backup` is now encrypted (scrypt → AES-256-GCM), covers every collection, and leaves out one-time codes and reset tokens; `npm run db:decrypt-backup` reads it back | #199 |
 | 5f-1 Copy and empty states | Plain language instead of codes like `ONLY_CSV_FILES_ALLOWED`, `INVALID_BACKUP_STRUCTURE`, `TWO_FACTOR_VERIFICATION_FAILED`, "Engine v4.0", "Budget protocols"; a verified email now says so on the sign-in page; lists emptied by a search or period say "Nothing matches" with Clear search and Show all time; quick-edit amounts say USD; Knowledge base rewritten | #198 |
 | 5e-2 Push alerts | Web Push: budget alerts at 80% and 100%, bill reminders two days ahead, and last month's summary early in the month, between 9 am and 9 pm in the user's time zone, each sent once. An hourly GitHub Actions job calls `POST /api/jobs/notify` (shared secret), which also wakes Render. Settings → Notifications turns a device on and picks the kinds. Email follows once Orbit sends from its own domain | #193 |
 | 5e-1 Reports period, CSV round trip | Reports get a period selector (this month, last month, 90 days, all time); budget use compares monthly budgets with the period's average month; plain labels instead of "Status: audited" and the "Certified audit" seal. The CSV export puts expenses and income in one file that the CSV importer reads back (account, tags, tax fields, original currency included), skipping rows already in the account; imports over 500 rows no longer fail; a budgets-only PDF no longer throws; backup restore keeps each income's account | #191 |
@@ -198,7 +199,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [ ] The same alerts by email, once Orbit sends from a verified domain (5a).
 - [x] 5f-1 Copy and empty states (#198, improvements 14 and 15).
 - [x] Net-worth accounts saved to the server: done in 5b-1 (#186).
-- [ ] 5f-2 Real PWA icons (192 and 512 px PNG, apple-touch-icon) and an absolute OG image; encrypted backups (B9).
+- [x] 5f-2 Real PWA icons (192 and 512 px PNG, maskable, apple-touch-icon, notification badge) and an Orbit OG image; encrypted database backups (A6) and passphrase-protected backup downloads.
 - [ ] 5f-3 Privacy-friendly analytics and a Redis-backed rate limiter (A6): each needs a service chosen.
 
 **Also open**

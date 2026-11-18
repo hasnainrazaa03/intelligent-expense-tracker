@@ -5,6 +5,7 @@ import { getSettings, settingsFromBackup } from '../utils/settingsStore';
 import { exportData, ExportFormat } from '../utils/exportUtils';
 import { parseTransactionsCsv } from '../utils/transactionsCsv';
 import { withoutExisting } from '../utils/duplicates';
+import { encryptBackup, decryptBackup, isEncryptedBackup, MIN_PASSPHRASE_LENGTH, type EncryptedBackup } from '../utils/backupCrypto';
 import { logAuditEvent } from '../services/api';
 import { APP_CONFIG } from '../config';
 import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange } from '../utils/dateUtils';
@@ -13,7 +14,17 @@ import {
   ExclamationTriangleIcon,
   ClipboardDocumentListIcon
 } from './Icons'; // Swapped to icons already in your project
-import { Modal, Button, Label } from './ui';
+import { Modal, Button, Label, Input } from './ui';
+
+const downloadText = (text: string, filename: string) => {
+  const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
 export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time';
 
@@ -72,6 +83,25 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
   }>(null);
   const [restoreConfirm, setRestoreConfirm] = useState('');
 
+  // Passphrase-protected backups (B9): encrypted in the browser before download.
+  const [encryptBackupOn, setEncryptBackupOn] = useState(false);
+  const [backupPass, setBackupPass] = useState('');
+  const [backupPassConfirm, setBackupPassConfirm] = useState('');
+  const [isExportingBackup, setIsExportingBackup] = useState(false);
+  const [exportBackupError, setExportBackupError] = useState<string | null>(null);
+  // An encrypted backup that was chosen for restore, waiting for its passphrase.
+  const [lockedBackup, setLockedBackup] = useState<EncryptedBackup | null>(null);
+  const [unlockPass, setUnlockPass] = useState('');
+  const [isUnlocking, setIsUnlocking] = useState(false);
+
+  const passphraseProblem = !encryptBackupOn
+    ? null
+    : backupPass.length < MIN_PASSPHRASE_LENGTH
+      ? `Use a passphrase of at least ${MIN_PASSPHRASE_LENGTH} characters.`
+      : backupPass !== backupPassConfirm
+        ? "The two passphrases don't match."
+        : null;
+
   // Local calendar-day boundaries, the same as the dashboard's: "This month" is
   // the whole month (it ended today, so rent dated the 30th was left out).
   const inRange = useMemo(() => {
@@ -119,7 +149,14 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     onClose();
   };
 
-  const handleExportFullBackup = () => {
+  const handleExportFullBackup = async () => {
+    if (isExportingBackup) return;
+    if (passphraseProblem) {
+      setExportBackupError(passphraseProblem);
+      toast.error(`${passphraseProblem} Or turn off the passphrase.`);
+      return;
+    }
+    setExportBackupError(null);
     const payload = {
       // 1.1.0: `settings` (goals, accounts, categories, preferences) replaces
       // 1.0.0's `preferences`, which had only the currency and categories.
@@ -135,18 +172,27 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
       settings: getSettings(),
     };
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `expense_tracker_backup_${todayCalendar()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const encrypted = encryptBackupOn;
+    if (encrypted) {
+      setIsExportingBackup(true);
+      try {
+        const envelope = await encryptBackup(JSON.stringify(payload), backupPass);
+        downloadText(JSON.stringify(envelope), `expense_tracker_backup_${todayCalendar()}_encrypted.json`);
+      } catch {
+        setExportBackupError("Couldn't encrypt the backup in this browser. Try again, or export it without a passphrase.");
+        return;
+      } finally {
+        setIsExportingBackup(false);
+      }
+    } else {
+      downloadText(JSON.stringify(payload, null, 2), `expense_tracker_backup_${todayCalendar()}.json`);
+    }
     logAuditEvent('backup_export', {
       expenses: allExpenses.length,
       incomes: allIncomes.length,
       budgets: budgets.length,
       semesters: semesters.length,
+      encrypted,
     }).catch(() => undefined);
   };
   
@@ -171,6 +217,8 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
 
   const handleBackupFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPendingRestore(null);
+    setLockedBackup(null);
+    setUnlockPass('');
     if (event.target.files && event.target.files.length > 0) {
       const file = event.target.files[0];
       const lowerName = file.name.toLowerCase();
@@ -241,7 +289,22 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     reader.readAsText(importFile);
   };
 
-  // Step 1: read and validate the file, then ask for confirmation.
+  // Checks a (decrypted) backup and asks for confirmation; throws if it isn't one.
+  const stagePendingRestore = (parsed: any) => {
+    const backupData = parsed?.data || parsed;
+    if (!backupData || !Array.isArray(backupData.expenses) || !Array.isArray(backupData.incomes) || !Array.isArray(backupData.budgets) || !Array.isArray(backupData.semesters)) {
+      throw new Error("This file isn't an Orbit backup.");
+    }
+    setRestoreConfirm('');
+    setPendingRestore({
+      data: { expenses: backupData.expenses, incomes: backupData.incomes, budgets: backupData.budgets, semesters: backupData.semesters },
+      settings: settingsFromBackup(parsed),
+      exportedAt: typeof parsed?.exportedAt === 'string' ? parsed.exportedAt : null,
+    });
+  };
+
+  // Step 1: read and validate the file (asking for its passphrase if it's
+  // encrypted), then ask for confirmation.
   const handleRestoreBackup = () => {
     if (!backupFile) {
       setBackupError('Choose a backup file first.');
@@ -253,22 +316,34 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        const backupData = parsed?.data || parsed;
-        if (!backupData || !Array.isArray(backupData.expenses) || !Array.isArray(backupData.incomes) || !Array.isArray(backupData.budgets) || !Array.isArray(backupData.semesters)) {
-          throw new Error("This file isn't an Orbit backup.");
+        if (isEncryptedBackup(parsed)) {
+          setUnlockPass('');
+          setLockedBackup(parsed);
+          return;
         }
-        setRestoreConfirm('');
-        setPendingRestore({
-          data: { expenses: backupData.expenses, incomes: backupData.incomes, budgets: backupData.budgets, semesters: backupData.semesters },
-          settings: settingsFromBackup(parsed),
-          exportedAt: typeof parsed?.exportedAt === 'string' ? parsed.exportedAt : null,
-        });
+        stagePendingRestore(parsed);
       } catch (error: any) {
         setBackupError(error instanceof SyntaxError ? "That file isn't an Orbit backup (it isn't valid JSON)." : (error.message || "Couldn't read this backup."));
       }
     };
     reader.onerror = () => setBackupError("Couldn't read the file.");
     reader.readAsText(backupFile);
+  };
+
+  const handleUnlockBackup = async () => {
+    if (!lockedBackup || !unlockPass || isUnlocking) return;
+    setIsUnlocking(true);
+    setBackupError(null);
+    try {
+      const text = await decryptBackup(lockedBackup, unlockPass);
+      stagePendingRestore(JSON.parse(text));
+      setLockedBackup(null);
+      setUnlockPass('');
+    } catch (error: any) {
+      setBackupError(error instanceof SyntaxError ? "This encrypted backup is damaged and can't be opened." : (error.message || "Couldn't open this backup."));
+    } finally {
+      setIsUnlocking(false);
+    }
   };
 
   // Step 2: the user confirmed — replace the account's data with the backup.
@@ -373,14 +448,64 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               Download export
             </Button>
 
-            <Button
-              variant="secondary"
-              fullWidth
-              onClick={handleExportFullBackup}
-              className="py-3"
-            >
-              Export full backup (JSON)
-            </Button>
+            <div className="rounded-xl border border-app-border bg-surface-2 p-4 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={encryptBackupOn}
+                  onChange={(e) => { setEncryptBackupOn(e.target.checked); setExportBackupError(null); }}
+                  className="mt-0.5 h-4 w-4 flex-shrink-0 accent-primary"
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-app-text">Protect the backup with a passphrase</span>
+                  <span className="block text-[11px] text-app-muted mt-0.5">
+                    The file is encrypted in your browser before it downloads. Orbit never sees the passphrase, so if you forget it, the backup can't be opened.
+                  </span>
+                </span>
+              </label>
+              {encryptBackupOn && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="backup-passphrase">Passphrase</Label>
+                    <Input
+                      id="backup-passphrase"
+                      type="password"
+                      autoComplete="new-password"
+                      value={backupPass}
+                      onChange={(e) => { setBackupPass(e.target.value); setExportBackupError(null); }}
+                      aria-describedby="backup-passphrase-hint"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="backup-passphrase-confirm">Repeat passphrase</Label>
+                    <Input
+                      id="backup-passphrase-confirm"
+                      type="password"
+                      autoComplete="new-password"
+                      value={backupPassConfirm}
+                      onChange={(e) => { setBackupPassConfirm(e.target.value); setExportBackupError(null); }}
+                      aria-describedby="backup-passphrase-hint"
+                    />
+                  </div>
+                  <p id="backup-passphrase-hint" className={`sm:col-span-2 text-[11px] ${exportBackupError || (passphraseProblem && backupPassConfirm) ? 'text-danger' : 'text-app-muted'}`}>
+                    {exportBackupError || (backupPassConfirm ? passphraseProblem : null) || `At least ${MIN_PASSPHRASE_LENGTH} characters. A few unrelated words are easy to remember and hard to guess.`}
+                  </p>
+                </div>
+              )}
+              {!encryptBackupOn && exportBackupError && <p role="alert" className="text-[11px] text-danger">{exportBackupError}</p>}
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={handleExportFullBackup}
+                // Not disabled while encrypting: a button that disables itself
+                // drops keyboard focus out of the dialog (and its Escape key).
+                disabled={!!passphraseProblem}
+                aria-busy={isExportingBackup}
+                className="py-3"
+              >
+                {isExportingBackup ? 'Encrypting…' : encryptBackupOn ? 'Export encrypted backup (JSON)' : 'Export full backup (JSON)'}
+              </Button>
+            </div>
           </div>
 
           <div className="relative flex items-center justify-center py-1">
@@ -447,7 +572,35 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
               </div>
             )}
 
-            {!pendingRestore ? (
+            {lockedBackup ? (
+              <form
+                aria-labelledby="unlock-backup-title"
+                onSubmit={(e) => { e.preventDefault(); handleUnlockBackup(); }}
+                className="rounded-xl border border-app-border bg-surface-2 p-4 space-y-3"
+              >
+                <div>
+                  <p id="unlock-backup-title" className="text-sm font-semibold text-app-text">This backup is encrypted</p>
+                  <p className="text-[11px] text-app-muted mt-0.5">Enter the passphrase it was saved with. Nothing is changed until you confirm on the next step.</p>
+                </div>
+                <div>
+                  <Label htmlFor="unlock-passphrase">Passphrase</Label>
+                  <Input
+                    id="unlock-passphrase"
+                    type="password"
+                    autoComplete="off"
+                    autoFocus
+                    value={unlockPass}
+                    onChange={(e) => setUnlockPass(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="secondary" fullWidth onClick={() => { setLockedBackup(null); setUnlockPass(''); setBackupError(null); }} disabled={isUnlocking}>Cancel</Button>
+                  <Button type="submit" fullWidth disabled={!unlockPass} aria-busy={isUnlocking}>
+                    {isUnlocking ? 'Unlocking…' : 'Unlock backup'}
+                  </Button>
+                </div>
+              </form>
+            ) : !pendingRestore ? (
               <Button
                 variant="secondary"
                 fullWidth
@@ -486,6 +639,8 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
                   </label>
                   <input
                     id="restore-confirm"
+                    // The button that led here is gone; keep the keyboard in the dialog.
+                    autoFocus
                     type="text"
                     value={restoreConfirm}
                     onChange={(e) => setRestoreConfirm(e.target.value)}

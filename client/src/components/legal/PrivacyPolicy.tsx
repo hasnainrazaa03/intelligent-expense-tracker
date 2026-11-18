@@ -138,11 +138,15 @@ const PrivacyPolicy: React.FC = () => (
       </li>
       <li>Security records and server logs are kept by the hosting providers for a limited time, then removed.</li>
       <li>Any backups the hosting providers keep expire on their own schedule.</li>
+      <li>
+        Before risky maintenance, the operator may copy the database. Copies are encrypted, leave out one-time sign-in codes
+        and reset links, are kept privately, and are deleted when no longer needed.
+      </li>
     </UL>
 
     <H2 id="your-choices">Your choices</H2>
     <UL>
-      <li><strong>See and export:</strong> Settings → Your data → Export, import and back up downloads everything as one file.</li>
+      <li><strong>See and export:</strong> Settings → Your data → Export, import and back up downloads everything as one file. You can lock it with a passphrase that only you know.</li>
       <li><strong>Correct:</strong> edit anything in the app.</li>
       <li><strong>Delete:</strong> delete items one by one, delete all your financial data, or delete your account (Settings → Delete account).</li>
       <li><strong>Protect:</strong> turn on two-factor sign-in, or sign out everywhere (Settings → Security and Account).</li>

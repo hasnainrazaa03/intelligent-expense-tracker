@@ -95,16 +95,14 @@ test.describe('as the demo account', () => {
     // Numbered like the tracker shows it, not by a database id.
     expect(title).toMatch(/^USC Tuition - Fall 2026 \(Inst #[1-9]\)$/);
 
-    // Delete it from the list (paging until its row shows), past the undo window.
+    // Delete it from the list, past the undo window. Searching for it, not
+    // paging: a long-lived local database holds hundreds of test expenses.
     await page.getByRole('tab', { name: 'Expenses', exact: true }).first().click();
     await page.getByRole('tab', { name: 'Transactions' }).click();
+    await page.getByPlaceholder('Search transactions…').fill(title);
     const del = page.getByRole('button', { name: `Delete expense ${title}` });
-    for (let i = 0; i < 12 && !(await del.isVisible()); i++) {
-      const next = page.getByRole('button', { name: 'Next page' });
-      if (!(await next.isEnabled())) break;
-      await next.click();
-    }
     await del.click();
+    await page.getByPlaceholder('Search transactions…').fill('');
     await page.getByRole('alertdialog', { name: 'Delete transaction?' }).getByRole('button', { name: 'Confirm' }).click();
     await expect.poll(async () => (await titles(page.request)).includes(title), { timeout: 15_000, intervals: [500, 1000] }).toBe(false);
 
@@ -347,6 +345,54 @@ test.describe('backup restore (own account)', () => {
     await dialog.getByRole('button', { name: 'Replace my data' }).click();
 
     await expect.poll(async () => (await titles(request)).sort(), { timeout: 15_000, intervals: [500, 1000] }).toEqual(['Kept by the backup']);
+  });
+
+  test('a passphrase-protected backup is unreadable without it and restores with it (B9)', async ({ page }, testInfo) => {
+    await signIn(page, 'e2e-restore@test.com');
+
+    const request = page.request;
+    const headers = await csrfHeaders(request);
+    await request.post(`${API}/data/restore`, { headers, data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
+    await request.post(`${API}/expenses`, { headers, data: { title: 'Kept by the encrypted backup', amount: 31, category: 'Groceries', date: '2026-07-12' } });
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Protect the backup with a passphrase').check();
+    const exportButton = dialog.getByRole('button', { name: 'Export encrypted backup (JSON)' });
+    await dialog.getByLabel('Passphrase', { exact: true }).fill('orbit test passphrase');
+    await dialog.getByLabel('Repeat passphrase').fill('orbit test passphrasf');
+    await expect(dialog.getByText("The two passphrases don't match.")).toBeVisible();
+    await expect(exportButton).toBeDisabled();
+    await dialog.getByLabel('Repeat passphrase').fill('orbit test passphrase');
+
+    const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()]);
+    expect(download.suggestedFilename()).toMatch(/_encrypted\.json$/);
+    const file = testInfo.outputPath('backup-encrypted.json');
+    await download.saveAs(file);
+    const text = fs.readFileSync(file, 'utf8');
+    expect(JSON.parse(text)).toMatchObject({ format: 'orbit-backup-encrypted', v: 1 });
+    expect(text).not.toContain('Kept by the encrypted backup');
+    await page.keyboard.press('Escape');
+
+    await request.post(`${API}/expenses`, { headers, data: { title: 'Added after the encrypted backup', amount: 9, category: 'Groceries', date: '2026-07-13' } });
+
+    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await dialog.locator('input[type="file"][accept=".json"]').setInputFiles(file);
+    await dialog.getByRole('button', { name: 'Restore full backup…' }).click();
+    await expect(dialog.getByText('This backup is encrypted')).toBeVisible();
+    await dialog.locator('#unlock-passphrase').fill('not the passphrase');
+    await dialog.getByRole('button', { name: 'Unlock backup' }).click();
+    await expect(dialog.getByRole('alert')).toContainText("That passphrase doesn't open this backup.");
+
+    await dialog.locator('#unlock-passphrase').fill('orbit test passphrase');
+    await dialog.getByRole('button', { name: 'Unlock backup' }).click();
+    await expect(dialog.getByText('Replace all your data with this backup?')).toBeVisible();
+    await dialog.locator('#restore-confirm').fill('REPLACE');
+    await dialog.getByRole('button', { name: 'Replace my data' }).click();
+
+    await expect.poll(async () => (await titles(request)).sort(), { timeout: 15_000, intervals: [500, 1000] }).toEqual(['Kept by the encrypted backup']);
   });
 
   test('goals kept in this browser before settings moved to the server are uploaded on sign-in', async ({ page }) => {
