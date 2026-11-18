@@ -18,8 +18,11 @@ declare global {
   }
 }
 
-/** Where Orbit is served in production; previews and local builds send nothing. */
-export const ANALYTICS_HOST = 'orbit-expense-tracker.vercel.app';
+/**
+ * Where Orbit is served in production; previews and local builds send nothing.
+ * The old vercel.app address stays counted while people move to the domain.
+ */
+export const ANALYTICS_HOSTS: readonly string[] = ['www.orbitexpense.me', 'orbitexpense.me', 'orbit-expense-tracker.vercel.app'];
 const OPT_OUT_KEY = 'analyticsOptOut';
 const SCRIPT_SRC = '/_vercel/insights/script.js';
 // The choice made in this tab, which wins even when storage is blocked.
@@ -49,7 +52,7 @@ export const pathOnly = (url: string): string | null => {
 };
 
 export const analyticsAllowed = (host: string = location.hostname): boolean =>
-  host === ANALYTICS_HOST && !browserAsksNotToTrack() && !analyticsOptedOut();
+  ANALYTICS_HOSTS.includes(host) && !browserAsksNotToTrack() && !analyticsOptedOut();
 
 /** Loads Vercel's script once, if allowed. Safe to call again (Settings does). */
 export const startAnalytics = (host: string = location.hostname): void => {

@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://orbit-expense-tracker.vercel.app/</loc>
+    <loc>https://www.orbitexpense.me/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://orbit-expense-tracker.vercel.app/login</loc>
+    <loc>https://www.orbitexpense.me/login</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://orbit-expense-tracker.vercel.app/privacy</loc>
+    <loc>https://www.orbitexpense.me/privacy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://orbit-expense-tracker.vercel.app/terms</loc>
+    <loc>https://www.orbitexpense.me/terms</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>

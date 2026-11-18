@@ -166,10 +166,38 @@ when Redis returns. `/health/ready` then says `"counters":"memory (Redis unavail
    Hobby, up to a monthly event limit).
 2. Redeploy: Vercel adds the `/_vercel/insights/*` routes on the next deployment.
 3. Visits then appear in the Analytics tab. The client loads Vercel's script only on
-   `orbit-expense-tracker.vercel.app`, sends the path without its query or fragment,
-   and stays off when the browser sends Global Privacy Control or Do Not Track, or
-   the user turns it off in Settings. On a new domain (5a), change `ANALYTICS_HOST`
-   in `client/src/utils/analytics.ts`.
+   the production hosts (`ANALYTICS_HOSTS` in `client/src/utils/analytics.ts`:
+   `www.orbitexpense.me`, `orbitexpense.me` and the old `orbit-expense-tracker.vercel.app`),
+   sends the path without its query or fragment, and stays off when the browser sends
+   Global Privacy Control or Do Not Track, or the user turns it off in Settings.
+
+### Own domain (orbitexpense.me)
+
+Registered at Namecheap (free first year from the GitHub Student Developer Pack; renews
+in November 2027 at Namecheap's normal price, so check Auto-Renew in the Domain List).
+DNS stays at Namecheap (Advanced DNS):
+
+| Type | Host | Value | For |
+|---|---|---|---|
+| A | `@` | `76.76.21.21` | Vercel (the site) |
+| CNAME | `www` | `cname.vercel-dns.com` | Vercel |
+| MX, TXT | `send`, `resend._domainkey` (as Resend lists them) | from Resend → Domains | sending email |
+| TXT | `_dmarc` | `v=DMARC1; p=none;` | spam filters |
+
+Namecheap's student setup starts with GitHub Pages records (four `185.199.x.153` A
+records and `www → orbitexpense.me`); they must be deleted. The MX record goes in
+**Mail Settings → Custom MX**.
+
+On Vercel, `orbitexpense.me` redirects to `www.orbitexpense.me`, the main address. Then:
+- **Render:** `FRONTEND_URL=https://www.orbitexpense.me,https://orbit-expense-tracker.vercel.app`
+  (the first entry is where sign-in redirects go), `GOOGLE_CALLBACK_URL=https://www.orbitexpense.me/api/auth/google/callback`,
+  `EMAIL_FROM=Orbit <no-reply@orbitexpense.me>` (once Resend shows the domain Verified).
+- **Google Cloud** (the OAuth client): authorized JavaScript origin `https://www.orbitexpense.me`,
+  redirect URI `https://www.orbitexpense.me/api/auth/google/callback`, and `orbitexpense.me`
+  under the consent screen's authorized domains.
+- **Vercel:** redirect `orbit-expense-tracker.vercel.app` to `www.orbitexpense.me`
+  (Domains → Edit). Google sign-in started on the old address would otherwise fail
+  its state check, since the callback now comes back to the new one.
 
 ## 4. Post-deploy verification
 

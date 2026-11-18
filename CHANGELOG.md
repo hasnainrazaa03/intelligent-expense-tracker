@@ -8,6 +8,9 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Account and dates (2026-11-17)
+- **Orbit has its own address (#209):** www.orbitexpense.me. Links and previews point there;
+  the old vercel.app address keeps working while everyone moves over. Once email is sent
+  from the new domain, sign-up codes, password resets and alerts reach every address.
 - **Alerts by email (#207):** Settings → Notifications → By email sends your budget alerts,
   bill reminders and monthly summary to your email address too, each once, whether or not a
   device has notifications on.
