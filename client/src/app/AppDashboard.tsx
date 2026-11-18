@@ -314,7 +314,7 @@ const AppDashboard: React.FC = () => {
             onClose={() => setIsStatementImportOpen(false)}
             existingExpenses={expenses}
             existingIncomes={incomes}
-            onImport={transfer.importStatement}
+            onImport={transfer.importTransactions}
           />
         </Suspense>
       )}
@@ -327,7 +327,7 @@ const AppDashboard: React.FC = () => {
             allIncomes={incomes}
             budgets={budgets}
             semesters={semesters}
-            onImport={transfer.importExpenses}
+            onImport={transfer.importTransactions}
             onOpenStatementImport={() => { setIsDataModalOpen(false); openStatementImport(); }}
             onRestoreBackup={transfer.restoreBackup}
             onWipeAll={async () => { if (await transfer.wipeAll()) setIsDataModalOpen(false); }}

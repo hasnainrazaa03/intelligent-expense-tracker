@@ -1,5 +1,6 @@
 import { test, expect, type Page, type APIRequestContext, type Download } from '@playwright/test';
 import fs from 'fs';
+import type { Expense, Income } from '../../src/types';
 
 // End-to-end flows: CSV and statement import, tuition, PDF export, AI chat and
 // backup restore. Most run as the shared demo account (see auth.setup.ts); the restore
@@ -9,6 +10,7 @@ const API = 'http://localhost:3001/api';
 
 /** The signed-in user's data, read straight from the API. */
 const allData = async (request: APIRequestContext) => (await request.get(`${API}/data/all`)).json();
+const request = (page: Page) => page.request.get(`${API}/data/all`);
 const titles = async (request: APIRequestContext): Promise<string[]> => (await allData(request)).expenses.map((e: { title: string }) => e.title);
 const csrfHeaders = async (request: APIRequestContext) =>
   ({ 'x-csrf-token': (await (await request.get(`${API}/auth/csrf`)).json()).csrfToken });
@@ -148,8 +150,8 @@ test.describe('as the demo account', () => {
     await page.getByRole('tab', { name: 'Reports', exact: true }).first().click();
     const [audit] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).click()]);
     const auditPdf = await save(audit);
-    expect(auditPdf).toContain('(USC Financial Audit Report) Tj');
-    expect(auditPdf).toContain('(Total Expenditure) Tj');
+    expect(auditPdf).toContain('(Spending report) Tj');
+    expect(auditPdf).toContain('(Total spent) Tj');
   });
 
   test('a savings goal added on one device shows on another (settings live on the server)', async ({ page, browser }) => {
@@ -183,6 +185,26 @@ test.describe('as the demo account', () => {
     await page.getByLabel('Ask the AI analyst').fill('How is my spending this month?');
     await page.keyboard.press('Enter');
     await expect(page.getByText('Mock analyst reply: your spending is on track this month.')).toBeVisible({ timeout: 15_000 });
+  });
+});
+
+test.describe('reports period (5e-1)', () => {
+  test.beforeEach(async ({ page }) => openApp(page));
+
+  test('the period selector changes what the report covers, and says so', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Reports', exact: true }).first().click();
+    await expect(page.getByRole('heading', { name: 'Spending report' })).toBeVisible();
+    const month = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    await expect(page.getByText(`This month · ${month}`)).toBeVisible();
+    const total = page.locator('h3').first();
+    const thisMonth = await total.textContent();
+
+    await page.getByRole('button', { name: 'All time', exact: true }).click();
+    await expect(page.getByText(/^All time · \d{4}/)).toBeVisible();
+    await expect(page.getByText(/Budget used · average month/)).toBeVisible();
+    // The demo account has spending before this month.
+    await expect(total).not.toHaveText(thisMonth ?? '');
+    await expect(page.getByText(/Status: audited|Certified/)).toHaveCount(0);
   });
 });
 
@@ -446,6 +468,73 @@ test.describe('account actions (own accounts)', () => {
     expect(await total()).toContain(30000);
     expect(await total()).not.toContain(31000);
     await second.close();
+  });
+
+  test('a CSV export with income imports back exactly, and importing it again adds nothing (5e-1)', async ({ page }, testInfo) => {
+    await signIn(page, 'e2e-restore@test.com');
+    const headers = await csrfHeaders(page.request);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    await page.request.post(`${API}/data/restore`, {
+      headers,
+      data: {
+        expenses: [{ title: 'Round trip coffee', amount: 4.5, category: 'Dining Out', date: today, account: 'Discover', tags: ['daily'] }],
+        incomes: [{ title: 'Round trip pay', amount: 100, category: 'Salary', date: today, account: 'USCCU' }],
+        budgets: [],
+        semesters: [],
+      },
+    });
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+
+    // Export: CSV, all time, expenses and income in one file.
+    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'All time', exact: true }).click();
+    await dialog.getByRole('button', { name: 'CSV', exact: true }).click();
+    const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download export' }).click()]);
+    expect(download.suggestedFilename()).toMatch(/^transactions-\d{4}-\d{2}-\d{2}\.csv$/);
+    const file = testInfo.outputPath('transactions.csv');
+    await download.saveAs(file);
+    const lines = fs.readFileSync(file, 'utf8').split('\r\n');
+    expect(lines[0].startsWith('type,date,title,amount,category')).toBe(true);
+    expect(lines.slice(1).map((l) => l.split(',')[0]).sort()).toEqual(['expense', 'income']);
+
+    // Into an empty account: everything comes back, incomes included.
+    await page.request.post(`${API}/data/restore`, { headers, data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles(file);
+    await dialog.getByRole('button', { name: 'Import CSV' }).click();
+    await expect(dialog).toBeHidden({ timeout: 10_000 });
+    const data = async () => (await request(page)).json();
+    await expect.poll(async () => {
+      const d = await data();
+      return [d.expenses.map((e: Expense) => `${e.title}|${e.amount}|${e.account}|${e.tags?.join()}`), d.incomes.map((i: Income) => `${i.title}|${i.amount}|${i.account}`)];
+    }, { timeout: 10_000, intervals: [500, 1000] }).toEqual([['Round trip coffee|4.5|Discover|daily'], ['Round trip pay|100|USCCU']]);
+
+    // Again: nothing new, so nothing is added.
+    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles(file);
+    await dialog.getByRole('button', { name: 'Import CSV' }).click();
+    await expect(dialog.getByText('Everything in this file is already in your account.')).toBeVisible();
+    const after = await data();
+    expect([after.expenses.length, after.incomes.length]).toEqual([1, 1]);
+  });
+
+  test('a CSV of more than 500 rows imports in full (it used to fail outright) (5e-1)', async ({ page }) => {
+    await signIn(page, 'e2e-restore@test.com');
+    await page.request.post(`${API}/data/restore`, { headers: await csrfHeaders(page.request), data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Primary navigation' })).toBeVisible();
+    const csv = ['title,amount,category,date', ...Array.from({ length: 520 }, (_, i) => `Bulk row ${i},${(i % 40) + 1},Groceries,2026-0${(i % 9) + 1}-1${i % 10}`)].join('\n');
+    await page.getByRole('button', { name: 'Open data import and export' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'big.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+    await dialog.getByRole('button', { name: 'Import CSV' }).click();
+    await expect(dialog).toBeHidden({ timeout: 20_000 });
+    await expect.poll(async () => (await (await request(page)).json()).expenses.length, { timeout: 15_000, intervals: [500, 1000] }).toBe(520);
   });
 });
 

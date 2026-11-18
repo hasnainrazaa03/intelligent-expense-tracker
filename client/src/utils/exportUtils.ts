@@ -6,24 +6,14 @@ import jsPDF from 'jspdf';
 // jspdf-autotable 4+ no longer patches jsPDF's prototype, so `doc.autoTable`
 // is undefined; call the exported function with the document instead.
 import { autoTable } from 'jspdf-autotable';
-import { Expense, Budget } from '../types';
+import { Expense, Budget, Income } from '../types';
 import { todayCalendar } from './dateUtils';
+import { transactionsToCsv } from './transactionsCsv';
+import { escapeCsvCell, downloadText } from './csv';
+
+export { escapeCsvCell };
 
 export type ExportFormat = 'csv' | 'pdf' | 'quickbooks' | 'xero' | 'tax_csv';
-
-
-// RFC 4180 cell encoding: arrays become "a; b", objects become JSON, and any
-// value containing a comma, quote, or newline is wrapped in double quotes with
-// internal quotes doubled (not backslash-escaped as JSON.stringify did).
-export const escapeCsvCell = (value: unknown): string => {
-  if (value === null || value === undefined) return '';
-  let str: string;
-  if (Array.isArray(value)) str = value.join('; ');
-  else if (typeof value === 'object') str = JSON.stringify(value);
-  else str = String(value);
-
-  return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-};
 
 const generateCsv = (items: any[], filename: string) => {
   if (items.length === 0) return;
@@ -39,16 +29,7 @@ const generateCsv = (items: any[], filename: string) => {
     ...items.map((row) => headers.map((field) => escapeCsvCell(row[field])).join(',')),
   ];
 
-  const blob = new Blob([csvRows.join('\r\n')], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.setAttribute('hidden', '');
-  a.setAttribute('href', url);
-  a.setAttribute('download', filename);
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
+  downloadText(csvRows.join('\r\n'), filename);
 };
 
 // jsPDF's built-in Helvetica only covers Windows-1252. One character outside it
@@ -74,7 +55,16 @@ export const pdfSafeText = (value: unknown): string => {
 /** autoTable hook: run every head/body cell through pdfSafeText (before widths are measured). */
 export const pdfSafeCells = { didParseCell: (data: { cell: { text: string[] } }) => { data.cell.text = data.cell.text.map(pdfSafeText); } };
 
-const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, filename: string) => {
+const BRAND: [number, number, number] = [20, 184, 166];
+
+/** What to export, already narrowed to the chosen period and sections. */
+export interface ExportSelection {
+  expenses: Expense[];
+  incomes: Income[];
+  budgets: Budget[];
+}
+
+const generatePdf = ({ expenses, incomes, budgets }: ExportSelection, dateRange: string, filename: string) => {
     const doc = new jsPDF();
 
     doc.setFontSize(18);
@@ -83,57 +73,42 @@ const generatePdf = (expenses: Expense[], budgets: Budget[], dateRange: string, 
     doc.setTextColor(100);
     doc.text(pdfSafeText(`Date Range: ${dateRange}`), 14, 29);
 
+    // Each section starts below the previous table (or the header). Budgets
+    // used to read lastAutoTable unguarded, which threw with no expense table.
+    let y = 37;
+    const section = (title: string, head: string[], body: string[][]) => {
+        doc.setFontSize(14);
+        doc.setTextColor(0);
+        doc.text(title, 14, y + 8);
+        autoTable(doc, { startY: y + 13, head: [head], body, theme: 'striped', headStyles: { fillColor: BRAND }, ...pdfSafeCells });
+        y = ((doc as any).lastAutoTable?.finalY ?? y + 13) + 4;
+    };
+
     if (expenses.length > 0) {
-        doc.setFontSize(14);
-        doc.text('Expenses', 14, 45);
-        autoTable(doc, {
-            startY: 50,
-            head: [['Date', 'Title', 'Category', 'Amount (USD)']],
-            body: expenses.map(e => [
-                e.date, 
-                e.title, 
-                e.category, 
-                `$${e.amount.toFixed(2)}`
-            ]),
-            theme: 'striped',
-            headStyles: { fillColor: [20, 184, 166] }, // brand-primary color
-            ...pdfSafeCells,
-        });
+        section('Expenses', ['Date', 'Title', 'Category', 'Amount (USD)'], expenses.map((e) => [e.date, e.title, e.category, `$${e.amount.toFixed(2)}`]));
     }
-
+    if (incomes.length > 0) {
+        section('Income', ['Date', 'Title', 'Category', 'Amount (USD)'], incomes.map((i) => [i.date, i.title, i.category, `$${i.amount.toFixed(2)}`]));
+    }
     if (budgets.length > 0) {
-        const lastTableY = (doc as any).lastAutoTable.finalY || 45;
-        doc.setFontSize(14);
-        doc.text('Budgets', 14, lastTableY + 15);
-        autoTable(doc, {
-            startY: lastTableY + 20,
-            head: [['Category', 'Budgeted Amount (USD)']],
-            body: budgets.map(b => [b.category, `$${b.amount.toFixed(2)}`]),
-            theme: 'striped',
-            headStyles: { fillColor: [20, 184, 166] },
-            ...pdfSafeCells,
-        });
+        section('Budgets', ['Category', 'Budgeted Amount (USD)'], budgets.map((b) => [b.category, `$${b.amount.toFixed(2)}`]));
     }
-    
-    doc.save(filename);
-}
 
-export const exportData = (
-  format: ExportFormat,
-  includeExpenses: boolean,
-  expenses: Expense[],
-  includeBudgets: boolean,
-  budgets: Budget[],
-  dateRangeLabel: string
-) => {
+    doc.save(filename);
+};
+
+export const exportData = (format: ExportFormat, selection: ExportSelection, dateRangeLabel: string) => {
     const timestamp = todayCalendar();
+    const { expenses, incomes, budgets } = selection;
 
     if (format === 'csv') {
-        if (includeExpenses) {
-            generateCsv(expenses, `expenses-${timestamp}.csv`);
+        // One file for expenses AND incomes, in the shape the importer reads
+        // back (round trip, improvement 17).
+        if (expenses.length > 0 || incomes.length > 0) {
+            downloadText(transactionsToCsv(expenses, incomes), `transactions-${timestamp}.csv`);
         }
-        if (includeBudgets) {
-            generateCsv(budgets, `budgets-${timestamp}.csv`);
+        if (budgets.length > 0) {
+            generateCsv(budgets.map((b) => ({ category: b.category, amount: b.amount })), `budgets-${timestamp}.csv`);
         }
     } else if (format === 'tax_csv') {
         const taxRows = expenses
@@ -165,10 +140,8 @@ export const exportData = (
         }));
         generateCsv(xeroRows, `xero-adapter-${timestamp}.csv`);
     } else if (format === 'pdf') {
-        const expensesToExport = includeExpenses ? expenses : [];
-        const budgetsToExport = includeBudgets ? budgets : [];
-        if (expensesToExport.length > 0 || budgetsToExport.length > 0) {
-            generatePdf(expensesToExport, budgetsToExport, dateRangeLabel, `financial-report-${timestamp}.pdf`);
+        if (expenses.length > 0 || incomes.length > 0 || budgets.length > 0) {
+            generatePdf(selection, dateRangeLabel, `financial-report-${timestamp}.pdf`);
         }
     }
 };

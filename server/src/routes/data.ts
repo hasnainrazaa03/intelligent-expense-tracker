@@ -222,6 +222,9 @@ router.post('/restore', async (req: Request, res: Response) => {
           originalCurrency: normalizeCurrencyCode(i.originalCurrency),
           tags: normalizeTags(i.tags),
           metadata: normalizeMetadata(i.metadata),
+          // It was left out, so restoring a backup dropped every income's
+          // account (expenses kept theirs). Found by the 5e-1 round-trip test.
+          account: sanitizeOptionalText(i.account),
           userId,
         };
       });

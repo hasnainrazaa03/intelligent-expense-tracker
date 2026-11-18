@@ -7,7 +7,7 @@ const backup = (n: number) => ({
     id: `x${i}`, title: `Backup row ${i} with a realistic merchant name`, amount: 12.34 + (i % 50), category: 'Groceries',
     date: '2026-11-10', paymentMethod: 'Debit Card', notes: 'weekly shop, split with roommates, receipt kept '.repeat(3), tags: ['food'],
   })),
-  incomes: [{ id: 'i1', title: 'Paycheck', amount: 2100, category: 'Salary', date: '2026-11-01' }],
+  incomes: [{ id: 'i1', title: 'Paycheck', amount: 2100, category: 'Salary', date: '2026-11-01', account: 'USCCU' }],
   budgets: [{ category: 'Groceries', amount: 300 }],
   semesters: [],
 });
@@ -21,7 +21,7 @@ describeApi('backup, restore and wipe', () => {
     expect(res.status).toBe(200);
     const all = (await client.get('/api/data/all')).body;
     expect(all.expenses.map((e: { title: string }) => e.title).sort()).toEqual(['Backup row 0 with a realistic merchant name', 'Backup row 1 with a realistic merchant name', 'Backup row 2 with a realistic merchant name']);
-    expect(all.incomes).toHaveLength(1);
+    expect(all.incomes).toEqual([expect.objectContaining({ title: 'Paycheck', account: 'USCCU' })]);
     expect(all.budgets).toEqual([expect.objectContaining({ category: 'Groceries', amount: 300 })]);
     expect(await prisma.expense.count({ where: { userId: user.id, title: 'Old' } })).toBe(0);
   });
