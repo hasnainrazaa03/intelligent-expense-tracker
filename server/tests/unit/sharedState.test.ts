@@ -4,9 +4,10 @@ import request from 'supertest';
 import rateLimit from 'express-rate-limit';
 import {
   hit, unhit, setFlag, flagRemainingMs, removeKeys, resetMemoryState,
-  connectSharedState, disconnectSharedState, sharedStateMode,
+  connectSharedState, disconnectSharedState, sharedStateMode, acquireSharedLock,
 } from '../../src/utils/sharedState';
 import { SharedRateLimitStore } from '../../src/middleware/rateLimitStore';
+import { acquireKeyLock, KeyLockBusy } from '../../src/utils/keyedLock';
 
 const unique = () => `t${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
 
@@ -55,6 +56,9 @@ const behaviours = () => {
 describe('shared state in memory (no REDIS_URL)', () => {
   afterEach(() => resetMemoryState());
   it('says so', () => expect(sharedStateMode()).toBe('memory'));
+  it('has no shared lock, so callers keep their in-process one', async () => {
+    expect(await acquireSharedLock(unique(), 1_000, 1_000)).toEqual({ status: 'unavailable' });
+  });
   behaviours();
 });
 
@@ -83,6 +87,58 @@ describe.skipIf(!process.env.TEST_REDIS_URL)('shared state in Redis', () => {
   describe('operations', () => {
     beforeEach(connect);
     behaviours();
+  });
+
+  it('a lock shared by instances: a waiter gets it as soon as the holder releases', async () => {
+    await connect();
+    const key = unique();
+    const first = await acquireSharedLock(key, 5_000, 100);
+    expect(first.status).toBe('held');
+    const started = Date.now();
+    const waiting = acquireSharedLock(key, 5_000, 3_000);
+    await new Promise((r) => setTimeout(r, 150));
+    if (first.status === 'held') await first.release();
+    const second = await waiting;
+    expect(second.status).toBe('held');
+    expect(Date.now() - started).toBeGreaterThanOrEqual(140);
+    if (second.status === 'held') await second.release();
+  });
+
+  it('busy, not a go-ahead, when the lock stays held past the wait', async () => {
+    await connect();
+    const key = unique();
+    const holder = await acquireSharedLock(key, 5_000, 100);
+    expect((await acquireSharedLock(key, 5_000, 120)).status).toBe('busy');
+    if (holder.status === 'held') await holder.release();
+  });
+
+  it("an expired holder can't release the next holder's lock", async () => {
+    await connect();
+    const key = unique();
+    const stale = await acquireSharedLock(key, 100, 50);
+    await new Promise((r) => setTimeout(r, 200)); // its lock expires
+    const current = await acquireSharedLock(key, 5_000, 50);
+    expect(current.status).toBe('held');
+    if (stale.status === 'held') await stale.release(); // too late: must not free the current one
+    expect((await acquireSharedLock(key, 5_000, 80)).status).toBe('busy');
+    if (current.status === 'held') await current.release();
+  });
+
+  it('the keyed lock answers busy (503) instead of saving unlocked, when SHARED_LOCKS is on', async () => {
+    await connect();
+    const key = unique();
+    process.env.SHARED_LOCKS = 'on';
+    process.env.SHARED_LOCK_WAIT_MS = '100';
+    try {
+      const elsewhere = await acquireSharedLock(key, 5_000, 100); // another instance
+      await expect(acquireKeyLock(key)).rejects.toBeInstanceOf(KeyLockBusy);
+      if (elsewhere.status === 'held') await elsewhere.release();
+      const release = await acquireKeyLock(key);
+      release();
+    } finally {
+      delete process.env.SHARED_LOCKS;
+      delete process.env.SHARED_LOCK_WAIT_MS;
+    }
   });
 
   it('keeps counts across a reconnect (a restarted API keeps its limits)', async () => {
