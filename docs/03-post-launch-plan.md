@@ -167,6 +167,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| S13 PDF worker | Statement PDFs are read in a worker thread instead of the API process, where a 600-page statement held the event loop for its whole parse (every other request waited). The worker is stopped after 20 s, its heap is capped at 192 MB, and at most two run at once | #201 |
 | 5f-3 Visit counts, shared counters | Vercel Web Analytics counts page visits: the script loads from the site itself and only on the production host, sends the path without its query (the Google two-factor redirect carries an email there), and stays off with Global Privacy Control, Do Not Track or the new Settings switch; the privacy policy says so. Rate limits, failed-login lockouts and the daily AI budget move to Redis (Render Key Value) when `REDIS_URL` is set, so restarts no longer reset them; when Redis is down or slow (300 ms) they fall back to memory, never blocking a request | #200 |
 | 5f-2 Icons and encrypted backups | PNG app icons (192, 512, maskable, Apple touch, notification badge) and a 1200×630 Orbit share image replace the SVG-only icon and the USC-Trojan-style picture used for link previews (unused Trojan and title images removed). Full backups downloaded from the app can be protected with a passphrase (PBKDF2-SHA256 600k → AES-256-GCM, in the browser); restore asks for it. The operator's `npm run db:backup` is now encrypted (scrypt → AES-256-GCM), covers every collection, and leaves out one-time codes and reset tokens; `npm run db:decrypt-backup` reads it back | #199 |
 | 5f-1 Copy and empty states | Plain language instead of codes like `ONLY_CSV_FILES_ALLOWED`, `INVALID_BACKUP_STRUCTURE`, `TWO_FACTOR_VERIFICATION_FAILED`, "Engine v4.0", "Budget protocols"; a verified email now says so on the sign-in page; lists emptied by a search or period say "Nothing matches" with Clear search and Show all time; quick-edit amounts say USD; Knowledge base rewritten | #198 |
@@ -204,7 +205,8 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [x] 5f-3 Visit counts with Vercel Web Analytics (path only, no cookies, off with GPC or Do Not Track or in Settings) and shared counters in Render Key Value (A6, SRV-L16). To switch on: enable Web Analytics on Vercel; create the Key Value and set `REDIS_URL` on Render (runbook).
 
 **Also open**
-- [ ] PDF statement parsing still runs on the main thread: move it to a worker with a timeout (the rest of S13).
+- [x] PDF statement parsing runs in a worker thread (the rest of S13): stopped after 20 s (`PDF_PARSE_TIMEOUT_MS`), heap capped at 192 MB, at most two at once; on failure the PDF itself goes to Gemini, as before.
+- [ ] `utils/keyedLock.ts` is per process: with more than one API instance, idempotent creates need a unique index or a Redis lock.
 - [ ] The server crashes at boot without `RESEND_API_KEY`; it should start with email disabled.
 - [ ] Rotate production secrets (P3).
 - [ ] A3: custom categories as a single source of truth (CMP-M24).

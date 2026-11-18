@@ -8,6 +8,9 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Large statements no longer slow everyone down (#201):** a PDF statement is read in the
+  background, so a big upload can't make the app stall for other users, and a file that
+  takes too long is stopped.
 - **Visit counts and sturdier limits (#200):** Orbit counts page visits with Vercel Web
   Analytics: no cookies, nothing that identifies you, and only the page's path. It's off
   when your browser sends Global Privacy Control or Do Not Track, and you can turn it off

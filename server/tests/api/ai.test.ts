@@ -7,6 +7,7 @@ import type { AddressInfo } from 'net';
 vi.hoisted(() => { process.env.AI_DAILY_CALL_BUDGET = '3'; });
 
 import { describeApi, signedInClient } from '../helpers';
+import { makePdf } from '../pdfFixture';
 
 // A stand-in for the Gemini REST API that records each prompt it receives.
 const prompts: string[] = [];
@@ -66,5 +67,15 @@ describeApi('AI analyst', () => {
 
     const light = await withData();
     expect((await light.client.post('/api/ai/chat', { message: 'Hi' })).status).toBe(200);
+  });
+
+  it("reads a statement PDF's text in a worker and sends the text, not the file (S13)", async () => {
+    const { client } = await signedInClient();
+    const pdf = makePdf([['Statement for October 2026', ...Array.from({ length: 12 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')} CORNER CAFE ${i + 1}.25`)]]);
+    const before = prompts.length;
+    await client.post('/api/ai/parse-statement', { pdf: `data:application/pdf;base64,${pdf.toString('base64')}` });
+    const sent = prompts.slice(before).join('\n');
+    expect(sent).toContain('STATEMENT (text extracted from the PDF)');
+    expect(sent).toContain('2026-10-05 CORNER CAFE 5.25');
   });
 });
