@@ -8,6 +8,11 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Phase 5 — product (2026-11-17)
+- **Visit counts and sturdier limits (#200):** Orbit counts page visits with Vercel Web
+  Analytics: no cookies, nothing that identifies you, and only the page's path. It's off
+  when your browser sends Global Privacy Control or Do Not Track, and you can turn it off
+  in Settings. Sign-in lockouts, rate limits and the daily AI allowance no longer reset
+  when the server restarts.
 - **Icons and encrypted backups (#199):** Orbit gets real app icons for home screens (Android,
   iPhone) and notifications, and its own picture for link previews in place of a USC
   Trojan-style image. A full backup can be locked with a passphrase before it downloads;

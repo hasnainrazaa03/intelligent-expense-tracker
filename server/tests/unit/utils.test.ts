@@ -58,26 +58,31 @@ describe('normalize', () => {
 });
 
 describe('login lockout: per (account, IP), with an account-wide ceiling', () => {
-  it('locks the attacking IP after 5 failures without locking the owner on another IP', () => {
+  it('locks the attacking IP after 5 failures without locking the owner on another IP', async () => {
     const email = `lock.${Date.now()}@example.test`;
     const now = 1_000_000;
-    for (let i = 0; i < 4; i++) expect(recordLoginFailure(email, '1.1.1.1', now)).toBe(false);
-    expect(recordLoginFailure(email, '1.1.1.1', now)).toBe(true);
-    expect(lockedForMs(email, '1.1.1.1', now)).toBeGreaterThan(0);
-    expect(lockedForMs(email, '2.2.2.2', now)).toBe(0);
-    expect(lockedForMs(email, '1.1.1.1', now + 16 * 60 * 1000)).toBe(0);
+    for (let i = 0; i < 4; i++) expect(await recordLoginFailure(email, '1.1.1.1', now)).toBe(false);
+    expect(await recordLoginFailure(email, '1.1.1.1', now)).toBe(true);
+    expect(await lockedForMs(email, '1.1.1.1', now)).toBeGreaterThan(0);
+    expect(await lockedForMs(email, '2.2.2.2', now)).toBe(0);
+    expect(await lockedForMs(email, '1.1.1.1', now + 16 * 60 * 1000)).toBe(0);
   });
-  it('a distributed run still trips the account-wide limit', () => {
+  it('a distributed run still trips the account-wide limit', async () => {
     const email = `dist.${Date.now()}@example.test`;
     const now = 2_000_000;
-    for (let i = 0; i < 25; i++) recordLoginFailure(email, `10.0.0.${i}`, now);
-    expect(lockedForMs(email, '99.99.99.99', now)).toBeGreaterThan(0);
+    for (let i = 0; i < 25; i++) await recordLoginFailure(email, `10.0.0.${i}`, now);
+    expect(await lockedForMs(email, '99.99.99.99', now)).toBeGreaterThan(0);
   });
-  it('success clears the IP counter', () => {
+  it('success clears the IP counter', async () => {
     const email = `clear.${Date.now()}@example.test`;
-    for (let i = 0; i < 4; i++) recordLoginFailure(email, '3.3.3.3', 5_000_000);
-    clearLoginFailures(email, '3.3.3.3');
-    expect(recordLoginFailure(email, '3.3.3.3', 5_000_000)).toBe(false);
+    for (let i = 0; i < 4; i++) await recordLoginFailure(email, '3.3.3.3', 5_000_000);
+    await clearLoginFailures(email, '3.3.3.3');
+    expect(await recordLoginFailure(email, '3.3.3.3', 5_000_000)).toBe(false);
+  });
+  it('failures older than the window stop counting', async () => {
+    const email = `window.${Date.now()}@example.test`;
+    for (let i = 0; i < 4; i++) await recordLoginFailure(email, '4.4.4.4', 6_000_000);
+    expect(await recordLoginFailure(email, '4.4.4.4', 6_000_000 + 16 * 60 * 1000)).toBe(false);
   });
 });
 

@@ -128,6 +128,35 @@ Off until these are set. Do it once:
 Changing the VAPID keys later invalidates every browser's subscription: users turn
 notifications on again in Settings.
 
+### Shared rate limits (Render Key Value)
+
+Rate limits, failed-login lockouts and the daily AI budget are counted in Redis when
+`REDIS_URL` is set, so a restart (Render's free plan sleeps) doesn't reset them and
+several API instances would share them. Without it they're counted in memory, as before.
+
+1. On **Render** → New → **Key Value**: the **same region** as the API, plan Free.
+   Free instances don't save to disk; a Key Value restart only resets the counters.
+2. Copy its **Internal Key Value URL** (`redis://red-…:6379`) and add it to the API
+   service as `REDIS_URL`. The internal URL only works inside Render, so it needs no
+   password or IP allow-list.
+3. After the redeploy the log shows `[shared-state] Redis ready (…)`, and
+   `GET /health/ready` returns `"counters":"redis"`.
+
+If Redis goes down, nothing breaks: the API switches to in-memory counters at once
+(commands time out after 300 ms), logs it at most once a minute, and switches back
+when Redis returns. `/health/ready` then says `"counters":"memory (Redis unavailable)"`.
+
+### Visit counts (Vercel Web Analytics)
+
+1. On **Vercel** → the project → **Analytics** → enable **Web Analytics** (free on
+   Hobby, up to a monthly event limit).
+2. Redeploy: Vercel adds the `/_vercel/insights/*` routes on the next deployment.
+3. Visits then appear in the Analytics tab. The client loads Vercel's script only on
+   `orbit-expense-tracker.vercel.app`, sends the path without its query or fragment,
+   and stays off when the browser sends Global Privacy Control or Do Not Track, or
+   the user turns it off in Settings. On a new domain (5a), change `ANALYTICS_HOST`
+   in `client/src/utils/analytics.ts`.
+
 ## 4. Post-deploy verification
 
 ```bash
@@ -147,7 +176,7 @@ AI Analyst (confirms Gemini). Amounts should read as normal dollars — if they'
 
 - **Backups:** schedule `npm run db:backup` (or Atlas automated backups). It needs `BACKUP_PASSPHRASE` (12+ characters) and writes an AES-256-GCM encrypted file (key from scrypt); without the passphrase the file can't be opened. It covers every collection except `RevokedToken` and `PushSubscription`, and leaves out one-time codes, reset tokens and lockout counters; password hashes stay so accounts still sign in after a restore. To read one: `npm run db:decrypt-backup -- backups/<file>.enc.json [--out <file>]` writes plain JSON with owner-only permissions; delete it when done. Backups taken before 2026-11-17 are plain JSON and include one-time codes: delete them once you have a new one.
 - **Logs:** audit events + `[SECURITY]` banner go to **stdout** (captured by Render logs). The local `logs/audit.log` is best-effort only and wiped on restart.
-- **Scaling:** the rate-limiter and audit log are in-memory/stdout, so run a **single** backend instance until they're moved to Redis (`SRV-L16`, tracked in [03-post-launch-plan.md](./03-post-launch-plan.md)). `/health/ready` lets the platform restart a wedged instance.
+- **Scaling:** with `REDIS_URL` set, rate limits, lockouts and AI budgets are shared, so more than one backend instance is possible; audit events go to stdout. Without Redis, run a **single** instance. One thing still assumes a single instance: the per-key lock in `utils/keyedLock.ts`, which stops two copies of one offline or idempotent create (two tabs replaying the offline queue, a double-submitted import) from both inserting. Across instances that needs a unique index or a Redis lock. The notification job is already safe: its database log has a unique key. `/health/ready` lets the platform restart a wedged instance.
 - **Secrets:** rotate `JWT_SECRET` (invalidates all sessions), `GEMINI_API_KEY`, `RESEND_API_KEY` from the platform store — never commit them.
 
 ---

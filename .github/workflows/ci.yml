@@ -67,6 +67,8 @@ jobs:
     env:
       # Dropped and recreated by the test run; CI-only.
       TEST_DATABASE_URL: mongodb://localhost:27017/orbit_test?replicaSet=rs0&directConnection=true
+      # Runs the shared-state tests against a real Valkey (what Render Key Value runs).
+      TEST_REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -80,6 +82,10 @@ jobs:
           for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval "db.adminCommand('ping').ok" && break; sleep 1; done
           docker exec mongo mongosh --quiet --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]})"
           for i in $(seq 1 30); do [ "$(docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary')" = "true" ] && break; sleep 1; done
+      - name: Start Valkey (Redis-compatible)
+        run: |
+          docker run -d --name valkey -p 6379:6379 valkey/valkey:8-alpine
+          for i in $(seq 1 30); do [ "$(docker exec valkey valkey-cli ping)" = "PONG" ] && break; sleep 1; done
       - run: npm ci
       - run: npx prisma generate
       - name: Unit and API tests (vitest + supertest)

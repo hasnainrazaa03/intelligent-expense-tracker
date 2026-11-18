@@ -8,6 +8,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { queryClient } from './lib/queryClient';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { startAnalytics } from './utils/analytics';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -28,6 +29,9 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// Anonymous page-view counts, on the production site only (utils/analytics).
+startAnalytics();
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

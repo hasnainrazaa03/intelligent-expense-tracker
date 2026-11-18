@@ -21,6 +21,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.19.3",
+    "@redis/client": "^6.3.1",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "bcryptjs": "^3.0.3",

@@ -1,7 +1,7 @@
 // Bump CACHE_VERSION on any change to the caching strategy or shell asset list.
 // (Content-hashed build assets rotate by URL, so a bump mainly clears stale
 // HTML and orphaned chunks from previous deploys.)
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const CACHE_NAME = `usc-ledger-shell-${CACHE_VERSION}`;
 const APP_SHELL = ['/', '/index.html', '/orbit-icon.svg', '/icon-192.png'];
 
@@ -36,6 +36,8 @@ self.addEventListener('fetch', (event) => {
   // across users, and the Google sign-in redirect (a navigation) would be
   // stored as the app shell.
   if (url.pathname.startsWith('/api/')) return;
+  // Vercel Web Analytics (its script and page-view requests): always the network.
+  if (url.pathname.startsWith('/_vercel/')) return;
 
   // Navigation requests: network-first so a new deployment always reaches the
   // user. Fall back to the cached shell only when the network is unavailable.

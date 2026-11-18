@@ -29,6 +29,7 @@ import { SERVER_CONFIG, validateServerEnv } from './config';
 import { swaggerSpec } from './swagger';
 import { prisma } from './db';
 import { authMiddleware } from './middleware/auth';
+import { sharedStateMode } from './utils/sharedState';
 
 validateServerEnv();
 
@@ -131,7 +132,8 @@ app.get('/health', (_req: Request, res: Response) => {
 app.get('/health/ready', async (_req: Request, res: Response) => {
   try {
     await prisma.$runCommandRaw({ ping: 1 });
-    res.status(200).json({ status: 'ready', timestamp: new Date().toISOString() });
+    // Redis being down doesn't make the API unready: counters fall back to memory.
+    res.status(200).json({ status: 'ready', counters: sharedStateMode(), timestamp: new Date().toISOString() });
   } catch {
     res.status(503).json({ status: 'unavailable', timestamp: new Date().toISOString() });
   }

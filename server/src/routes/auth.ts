@@ -356,7 +356,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
     // Lockout is per (account, IP) with a higher account-wide ceiling (see
     // utils/loginLockout); an attacker's failures no longer lock the owner out.
-    const lockMs = lockedForMs(email, req.ip);
+    const lockMs = await lockedForMs(email, req.ip);
     if (lockMs > 0) {
       const remainingMin = Math.ceil(lockMs / 60000);
       await writeAuditLog({
@@ -376,7 +376,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       // SRV-L3: run a dummy hash comparison so an unknown email takes about the
       // same time as a known one, removing the user-enumeration timing oracle.
       await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
-      recordLoginFailure(email, req.ip);
+      await recordLoginFailure(email, req.ip);
       await writeAuditLog({
         action: 'login',
         userId: 'unknown',
@@ -391,7 +391,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      const justLocked = recordLoginFailure(email, req.ip);
+      const justLocked = await recordLoginFailure(email, req.ip);
 
       if (justLocked) {
         await writeAuditLog({
@@ -419,7 +419,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    clearLoginFailures(email, req.ip);
+    await clearLoginFailures(email, req.ip);
     // Clear the retired account-wide lock fields if an old lock is still recorded.
     if (user.loginAttempts > 0 || user.lockUntil) {
       await prisma.user.update({ where: { email }, data: { loginAttempts: 0, lockUntil: null } });

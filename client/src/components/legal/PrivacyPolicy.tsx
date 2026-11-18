@@ -34,7 +34,7 @@ const PrivacyPolicy: React.FC = () => (
 
     <H2 id="short-version">The short version</H2>
     <UL>
-      <li>Orbit stores your account and the finances you enter, to run the app for you. It doesn't sell your data, show ads, or use analytics or tracking.</li>
+      <li>Orbit stores your account and the finances you enter, to run the app for you. It doesn't sell your data, show ads, or track you across sites. It counts page visits anonymously, and you can turn that off. <a href="#visit-counts" className="text-primary font-semibold">Details</a></li>
       <li>
         Some features use Google's Gemini AI. When you scan a receipt, read a bank statement with AI, ask for transaction details,
         or use the AI Analyst, that item (or a summary of your figures) is sent to Google to be read. Google doesn't use it to
@@ -87,6 +87,14 @@ const PrivacyPolicy: React.FC = () => (
       <li><strong>MongoDB Atlas</strong> is the database where everything listed above is stored.</li>
       <li><strong>Render</strong> runs Orbit's server.</li>
       <li><strong>Vercel</strong> hosts the website and passes your requests to the server.</li>
+      <li id="visit-counts">
+        <strong>Vercel Web Analytics</strong> counts page visits, so Orbit knows which pages are used. For each visit it gets
+        the page's path (Orbit sends only the path, never the rest of the address), the site you came from, your browser,
+        operating system and device type, and an approximate location. It uses no cookies and nothing that identifies you:
+        Vercel counts visitors with a code worked out from the request, which resets every day. It never sees your
+        finances. When signed in, you can turn it off in Settings → Preferences (for that device); it's also off when your browser sends Global
+        Privacy Control or Do Not Track.
+      </li>
       <li>
         <strong>Resend</strong> sends Orbit's emails, so it receives your email address and each email's content. The monthly
         summary you can ask for includes that month's totals and top spending categories.
