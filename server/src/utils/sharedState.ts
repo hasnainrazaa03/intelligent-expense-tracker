@@ -8,6 +8,7 @@
 // a Redis outage weakens the limits to per-process, never turns them off, and
 // never holds a request up for longer than COMMAND_TIMEOUT_MS.
 import { createClient } from '@redis/client';
+import { randomUUID } from 'crypto';
 
 type Client = ReturnType<typeof createClient>;
 
@@ -161,4 +162,61 @@ export const removeKeys = async (...keys: string[]): Promise<void> => {
   // Both places: a key counted in memory during an outage shouldn't outlive a reset.
   for (const key of keys) memory.delete(key);
   await onRedis((c) => c.sendCommand(['DEL', ...keys.map((k) => KEY_PREFIX + k)]));
+};
+
+// --- Locks across instances -------------------------------------------------
+
+// Delete the lock only if it's still ours: a holder whose lock expired must not
+// release the next holder's.
+const UNLOCK_SCRIPT = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
+return 0`;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export type SharedLock =
+  /** Held by this caller: release it when done (it also expires after its TTL). */
+  | { status: 'held'; release: () => Promise<void> }
+  /** No Redis to lock with: the caller's in-process lock is all there is. */
+  | { status: 'unavailable' }
+  /** Redis is up but the lock couldn't be taken in time: don't go ahead unlocked. */
+  | { status: 'busy' };
+
+/**
+ * A lock every API instance respects. It never fails open while Redis is up:
+ * a lock held elsewhere past `maxWaitMs`, or Redis commands failing all that
+ * time, give 'busy', not a go-ahead. Only a Redis that isn't connected gives
+ * 'unavailable' (every instance is then on its own, as without Redis).
+ *
+ * SET … NX GET returns the previous value, so a SET that reached Redis but
+ * whose reply timed out is recognised on the next try (the value is our own
+ * token) instead of leaving an orphaned lock to expire.
+ */
+export const acquireSharedLock = async (key: string, ttlMs: number, maxWaitMs: number): Promise<SharedLock> => {
+  if (!client?.isReady) return { status: 'unavailable' };
+  const token = randomUUID();
+  const redisKey = `${KEY_PREFIX}lock:${key}`;
+  const deadline = Date.now() + maxWaitMs;
+  let delay = 20;
+  for (;;) {
+    if (!client?.isReady) return { status: 'unavailable' };
+    const reply = await onRedis((c) => c.sendCommand(['SET', redisKey, token, 'NX', 'GET', 'PX', String(Math.ceil(ttlMs))]));
+    // null: there was no lock and now it's ours; our token: an earlier try of ours landed.
+    if (reply === null || (reply !== undefined && String(reply) === token)) {
+      return { status: 'held', release: () => releaseSharedLock(redisKey, token) };
+    }
+    // Someone else holds it, or Redis didn't answer in time: wait and try again.
+    if (Date.now() >= deadline) return { status: 'busy' };
+    await sleep(delay);
+    delay = Math.min(delay * 2, 250);
+  }
+};
+
+const releaseSharedLock = async (redisKey: string, token: string): Promise<void> => {
+  // One retry; if both fail the lock still expires by itself (its TTL).
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const done = await onRedis((c) => c.sendCommand(['EVAL', UNLOCK_SCRIPT, '1', redisKey, token]));
+    if (done !== undefined) return;
+    await sleep(100);
+  }
 };
