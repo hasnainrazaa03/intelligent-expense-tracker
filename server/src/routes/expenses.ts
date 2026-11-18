@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware} from '../middleware/auth';
 import { Expense } from '../types';
-import { toFinPrecision, parseFiniteFloat, parseValidDate, parseAmount, MAX_AMOUNT, MAX_ORIGINAL_AMOUNT } from '../utils/math';
+import { toFinPrecision, parseValidDate, parseAmount, MAX_AMOUNT, MAX_ORIGINAL_AMOUNT } from '../utils/math';
 import { ValidationError } from '../utils/errors';
 import { writeAuditLog } from '../utils/audit';
 import { SERVER_CONFIG } from '../config';
@@ -192,7 +192,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     receiptFileName,
     account,
     householdId,
-    clientRequestId,
   } = req.body;
 
   const safeTitle = sanitizeText(title);

@@ -214,7 +214,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [x] SRV-L5: `parseValidDate` stores the calendar day that was sent, at midnight UTC ("2026-10-05T23:30-07:00" was stored as 6 October), and refuses days that don't exist ("2026-02-30" used to roll into March).
 - [x] A paid tuition installment's date can be changed in the tracker ("Change date"); it moves the tuition expense's date, which the server mirrors onto the installment.
 - [ ] React Compiler readiness: about 30 lint findings (`react/purity`, `react/set-state-in-effect`, `react/refs`), switched off in `client/.oxlintrc.json`.
-- [ ] Lint the server too (it isn't linted yet).
+- [x] The server is linted (oxlint 1.90.0, correctness rules as errors, `npm run lint`), in CI's "Server · typecheck" job. Its 14 findings are fixed: unused imports and variables, two 500 handlers that hid the error from the logs, and a GET with a body in two test scripts.
 - [ ] The weekly Dependency Audit workflow isn't a required check (it only runs when a PR touches a `package*.json`). Watch its Monday runs; it had been failing unnoticed since at least May.
 - [ ] Remove the `deepmerge-ts` override in `server/package.json` if a Prisma 6.x release picks up deepmerge-ts 8.
 - [ ] Check `EMAIL_FROM` on Render. `onboarding@resend.dev` is Resend's test sender and only delivers to the Resend account's own address, so other people's sign-up codes may never arrive. Sending from a verified domain fixes it (see 5a).

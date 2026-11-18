@@ -1,0 +1,8 @@
+{
+  // oxlint, as in the client (typescript-eslint doesn't support TypeScript 7).
+  // Correctness rules are errors; `npm run lint` also fails on warnings.
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "node"],
+  "categories": { "correctness": "error" },
+  "ignorePatterns": ["dist/**", "node_modules/**", "backups/**"]
+}

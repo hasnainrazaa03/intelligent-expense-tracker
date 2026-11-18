@@ -1,4 +1,9 @@
+// Control characters are exactly what these strip, so no-control-regex is off for them.
+// oxlint-disable-next-line no-control-regex
 const CONTROL_CHARS_REGEX = /[\u0000-\u001F\u007F]/g;
+// The same, keeping line feeds (\n), for multi-line notes.
+// oxlint-disable-next-line no-control-regex
+const CONTROL_CHARS_EXCEPT_LF_REGEX = /[\u0000-\u0009\u000B-\u001F\u007F]/g;
 const TAG_REGEX = /<[^>]*>/g;
 
 // Tabs and line breaks become a space: deleting them glued words together
@@ -22,7 +27,7 @@ export const sanitizeNotes = (value: unknown): string => {
   return value
     .replace(/\r\n?/g, '\n')
     .replace(/\t/g, ' ')
-    .replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '')
+    .replace(CONTROL_CHARS_EXCEPT_LF_REGEX, '')
     .replace(TAG_REGEX, '')
     .trim();
 };
