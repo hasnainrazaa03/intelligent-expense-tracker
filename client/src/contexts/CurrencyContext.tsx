@@ -110,12 +110,25 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return !(typeof live === 'number' && Number.isFinite(live));
   }, [rates, displayCurrency]);
 
+  // Rates older than MAX_ENTRY_RATE_AGE_MS can't be used to enter amounts. A
+  // timer marks the current fetch as expired (rather than Date.now() during
+  // render); the initializer catches rates that were already stale on load.
+  const [expiredFetch, setExpiredFetch] = useState<number | null>(() => {
+    const fetchedAt = readRateTable()?.timestamp ?? 0;
+    return Date.now() - fetchedAt > MAX_ENTRY_RATE_AGE_MS ? fetchedAt : null;
+  });
+  useEffect(() => {
+    const timer = setTimeout(() => setExpiredFetch(ratesFetchedAt), Math.max(0, ratesFetchedAt + MAX_ENTRY_RATE_AGE_MS - Date.now()));
+    return () => clearTimeout(timer);
+  }, [ratesFetchedAt]);
+  const ratesFreshForEntry = expiredFetch !== ratesFetchedAt;
+
   const rateForEntry = useMemo<number | null>(() => {
     if (displayCurrency === 'USD') return 1;
     const live = rates?.[displayCurrency];
     if (!(typeof live === 'number' && Number.isFinite(live) && live > 0)) return null;
-    return Date.now() - ratesFetchedAt <= MAX_ENTRY_RATE_AGE_MS ? live : null;
-  }, [rates, ratesFetchedAt, displayCurrency]);
+    return ratesFreshForEntry ? live : null;
+  }, [rates, ratesFreshForEntry, displayCurrency]);
 
   return (
     <CurrencyContext.Provider value={{ displayCurrency, setDisplayCurrency, conversionRate, isRateFallback, rateForEntry, availableCurrencies: SUPPORTED_CURRENCIES }}>

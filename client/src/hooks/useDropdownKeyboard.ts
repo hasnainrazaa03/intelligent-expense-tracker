@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useEffectEvent, type RefObject } from 'react';
 
 /**
  * Keyboard support for a dropdown inside a modal (a search box plus option
@@ -15,8 +15,8 @@ export default function useDropdownKeyboard(
   containerRef: RefObject<HTMLElement | null>,
   toggleId: string,
 ) {
-  const closeRef = useRef(close);
-  closeRef.current = close;
+  // The latest close handler, without re-attaching the listener each render.
+  const closeLatest = useEffectEvent(close);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -27,7 +27,7 @@ export default function useDropdownKeyboard(
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        closeRef.current();
+        closeLatest();
         toggle?.focus();
         return;
       }

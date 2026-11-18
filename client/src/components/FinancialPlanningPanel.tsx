@@ -6,6 +6,7 @@ import { useSetting } from '../hooks/useSetting';
 import { Expense, Income, InvestmentAccount, SavingsGoal } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
 import { todayCalendar, formatCalendarDate } from '../utils/dateUtils';
+import { useToday } from '../hooks/useToday';
 import { Button, Card, DatePicker } from './ui';
 import SpendingBarChart from './SpendingBarChart';
 import HouseholdsManager from './HouseholdsManager';
@@ -49,9 +50,9 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   // The Calendar-spending card can browse any month, independent of "now".
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
 
-  // Today at local midnight, stable for the whole day. A fresh `new Date()` each
-  // render made every memo below that depends on it recompute on every render.
-  const todayKey = todayCalendar();
+  // Today at local midnight, stable for the whole day (and moved on at midnight).
+  // A fresh `new Date()` each render made every memo below recompute every render.
+  const todayKey = useToday();
   const now = useMemo(() => {
     const [y, m, d] = todayKey.split('-').map(Number);
     return new Date(y, m - 1, d);
@@ -296,17 +297,18 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   }, [expenses, incomes, totalInvestments, now]);
 
   const forecast30d = useMemo(() => {
-    const last30Start = new Date();
-    last30Start.setDate(last30Start.getDate() - 30);
+    // Calendar days compared as strings (new Date('YYYY-MM-DD') is UTC midnight,
+    // a day off west of Greenwich).
+    const last30Start = formatCalendarDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30));
     const expense30 = expenses
-      .filter((e) => new Date(e.date) >= last30Start)
+      .filter((e) => e.date.slice(0, 10) >= last30Start)
       .reduce((s, e) => s + e.amount, 0);
     const income30 = incomes
-      .filter((i) => new Date(i.date) >= last30Start)
+      .filter((i) => i.date.slice(0, 10) >= last30Start)
       .reduce((s, i) => s + i.amount, 0);
     const dailyNet = (income30 - expense30) / 30;
     return dailyNet * 30;
-  }, [expenses, incomes]);
+  }, [expenses, incomes, now]);
 
   const calKey = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, '0')}`;
   const isCurrentCalMonth = calKey === currentMonthPrefix;

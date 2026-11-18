@@ -22,19 +22,25 @@ interface IncomeModalProps {
 
 const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, income, onImportStatement, knownAccounts = [] }) => {
   const { displayCurrency, rateForEntry, availableCurrencies } = useCurrency();
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
-  const [date, setDate] = useState(todayCalendar());
-  const [notes, setNotes] = useState('');
-  const [account, setAccount] = useState('');
+  // The form starts from the income being edited (or blank). The dialog is
+  // mounted for each opening, so these initial values are all it needs; an
+  // effect used to refill the form, and reset it if the display currency changed.
+  const storedForeign = Boolean(income?.originalCurrency && income.originalCurrency !== 'USD' && income.originalAmount);
+  const [title, setTitle] = useState(income?.title ?? '');
+  const [amount, setAmount] = useState(income ? income.amount.toString() : '');
+  const [category, setCategory] = useState<string>(income?.category ?? INCOME_CATEGORIES[0]);
+  const [date, setDate] = useState(() => income?.date ?? todayCalendar());
+  const [notes, setNotes] = useState(income?.notes ?? '');
+  const [account, setAccount] = useState(income?.account ?? '');
   const [isSaving, setIsSaving] = useState(false);
-  const [tagsInput, setTagsInput] = useState('');
-  const [metadataInput, setMetadataInput] = useState('');
+  const [tagsInput, setTagsInput] = useState((income?.tags ?? []).join(', '));
+  const [metadataInput, setMetadataInput] = useState(() =>
+    income?.metadata ? Object.entries(income.metadata).map(([k, v]) => `${k}: ${v}`).join('\n') : '');
 
-  const [enterInForeign, setEnterInForeign] = useState(false);
-  const [foreignCurrency, setForeignCurrency] = useState<string>('INR');
-  const [originalAmount, setOriginalAmount] = useState('');
+  const [enterInForeign, setEnterInForeign] = useState(storedForeign);
+  const [foreignCurrency, setForeignCurrency] = useState<string>(() =>
+    storedForeign ? income!.originalCurrency! : displayCurrency !== 'USD' ? displayCurrency : 'INR');
+  const [originalAmount, setOriginalAmount] = useState(storedForeign ? String(income!.originalAmount) : '');
   // See ExpenseModal: don't re-convert a stored foreign record's USD at today's
   // rate unless the user actually edits the foreign amount (H1).
   const [originalAmountDirty, setOriginalAmountDirty] = useState(false);
@@ -49,60 +55,21 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
 
   const isAmountUSDReadOnly = enterInForeign;
 
-  // Mirror the derived USD amount in foreign mode ('' when cleared/failed —
-  // CMP-H5), but only after the user edits the foreign field (H1).
-  useEffect(() => {
-    if (enterInForeign && originalAmountDirty) {
-      setAmount(convertedAmount);
-    }
-  }, [convertedAmount, enterInForeign, originalAmountDirty]);
+  // In foreign mode the USD amount is the conversion ('' when cleared or failed,
+  // CMP-H5), but only once the foreign amount is edited (H1). Derived, not
+  // copied into state by an effect.
+  const usdAmount = enterInForeign && originalAmountDirty ? convertedAmount : amount;
+  // Back to USD: keep the converted amount as the starting point.
+  const switchToUsd = () => {
+    setAmount(usdAmount);
+    setEnterInForeign(false);
+  };
 
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const categoryDropdownRef = React.useRef<HTMLDivElement>(null);
   useDropdownKeyboard(isCategoryDropdownOpen, () => setIsCategoryDropdownOpen(false), categoryDropdownRef, 'income-category-toggle');
 
-  useEffect(() => {
-    if (income) {
-      setTitle(income.title);
-      setAmount(income.amount.toString());
-      setCategory(income.category);
-      setDate(income.date);
-      setNotes(income.notes || '');
-      setAccount(income.account || '');
-      setTagsInput((income.tags || []).join(', '));
-      setMetadataInput(
-        income.metadata
-          ? Object.entries(income.metadata)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join('\n')
-          : ''
-      );
-      setOriginalAmountDirty(false);
-      if (income.originalCurrency && income.originalCurrency !== 'USD' && income.originalAmount) {
-        setEnterInForeign(true);
-        setForeignCurrency(income.originalCurrency);
-        setOriginalAmount(income.originalAmount.toString());
-      } else {
-        setEnterInForeign(false);
-        setForeignCurrency(displayCurrency !== 'USD' ? displayCurrency : 'INR');
-        setOriginalAmount('');
-      }
-    } else {
-      setTitle('');
-      setAmount('');
-      setCategory(INCOME_CATEGORIES[0]);
-      setDate(todayCalendar());
-      setNotes('');
-      setAccount('');
-      setTagsInput('');
-      setMetadataInput('');
-      setEnterInForeign(false);
-      setForeignCurrency(displayCurrency !== 'USD' ? displayCurrency : 'INR');
-      setOriginalAmount('');
-      setOriginalAmountDirty(false);
-    }
-  }, [income, isOpen, displayCurrency]);
 
   // Filter logic for the advanced dropdown
   const filteredCategories = useMemo(() => {
@@ -128,7 +95,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
     setCategorySearchTerm('');
   };
 
-  // See ExpenseModal: until the debounced conversion lands, `amount` holds the
+  // See ExpenseModal: until the debounced conversion lands, `usdAmount` holds the
   // previous conversion, so saving would store a mismatched USD value.
   const isConversionPending = enterInForeign && originalAmountDirty && conversionLoading;
 
@@ -139,12 +106,12 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
       toast.error('Still converting the amount — try again in a moment.');
       return;
     }
-    const primaryAmount = enterInForeign ? originalAmount : amount;
+    const primaryAmount = enterInForeign ? originalAmount : usdAmount;
     if (!title.trim()) {
       toast.error('Add a source for this income.');
       return;
     }
-    if (!primaryAmount || parseFloat(primaryAmount) <= 0 || (isAmountUSDReadOnly && !amount)) {
+    if (!primaryAmount || parseFloat(primaryAmount) <= 0 || (isAmountUSDReadOnly && !usdAmount)) {
       toast.error(enterInForeign && conversionError
         ? 'Could not convert this amount to USD. Enter it in USD instead.'
         : 'Enter an amount greater than zero.');
@@ -164,7 +131,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
         return entries.length > 0 ? Object.fromEntries(entries) : undefined;
       })(),
       title: title.trim(),
-      amount: parseFloat(amount),
+      amount: parseFloat(usdAmount),
       category,
       date,
       notes: notes.trim() || undefined,
@@ -226,7 +193,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
             <div>
                 <Label id="income-currency-label">Entry currency</Label>
                 <div role="group" aria-labelledby="income-currency-label" className="grid grid-cols-2 gap-1 bg-surface-2 border border-app-border rounded-xl p-1">
-                    <button type="button" onClick={() => setEnterInForeign(false)} className={`py-2 rounded-lg text-sm font-semibold transition-all ${!enterInForeign ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
+                    <button type="button" onClick={switchToUsd} className={`py-2 rounded-lg text-sm font-semibold transition-all ${!enterInForeign ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>USD ($)</button>
                     <button type="button" onClick={() => setEnterInForeign(true)} className={`py-2 rounded-lg text-sm font-semibold transition-all ${enterInForeign ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text'}`}>Other currency</button>
                 </div>
             </div>
@@ -268,7 +235,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({ isOpen, onClose, onSave, inco
               <div className="relative">
                   <Input
                     id="income-amount-usd"
-                    type="number" value={amount} onChange={e => setAmount(e.target.value)}
+                    type="number" value={usdAmount} onChange={e => setAmount(e.target.value)}
                     placeholder="0.00"
                     className={isAmountUSDReadOnly ? 'opacity-70' : ''}
                     required readOnly={isAmountUSDReadOnly} step="0.01"

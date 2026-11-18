@@ -9,6 +9,8 @@ import { sanitizeAiHtml } from '../utils/sanitizeAiHtml';
 import { marked } from 'marked';
 import cosmicRobot from '../assets/cosmic-robot.svg';
 import AiNotice from './legal/AiNotice';
+import { useToday } from '../hooks/useToday';
+import { parseCalendarDate } from '../utils/dateUtils';
 
 interface AiAnalystProps {
   expenses: Expense[];
@@ -56,11 +58,12 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
   };
 
   const recordCount = expenses.length + incomes.length;
+  const today = useToday();
 
   // Data-driven "Cosmic tip": this month vs last month spend.
   const cosmicTip = useMemo(() => {
     if (recordCount === 0) return 'Log a few expenses and I’ll surface trends and quick saving moves right here.';
-    const now = new Date();
+    const now = parseCalendarDate(today);
     const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const thisKey = key(now);
     const lastKey = key(new Date(now.getFullYear(), now.getMonth() - 1, 1));
@@ -73,7 +76,7 @@ const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
     const pct = Math.round(((thisM - lastM) / lastM) * 100);
     if (pct <= 0) return `You’ve spent ${Math.abs(pct)}% less than last month so far. Keep it up! 🚀`;
     return `You’re spending ${pct}% more than last month so far — worth a quick review. 🔍`;
-  }, [expenses, recordCount]);
+  }, [expenses, recordCount, today]);
 
   const handleSend = async (preset?: string) => {
     const trimmed = (preset ?? input).trim();

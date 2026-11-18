@@ -27,12 +27,13 @@ export const useRecurringSuggestions = ({ data }: { data: AllData }) => {
     didProcess.current = true;
     const due = computeDueRecurring(loaded.expenses, todayCalendar());
     const snoozeUntil = getSetting('recurringSnoozeUntil') ?? 0;
-    if (due.length === 0 || (Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil)) {
-      setPending([]);
-      return;
-    }
-    setPending(due);
-    setSelected(new Set(due.map((_, i) => i)));
+    const offer = due.length > 0 && !(Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil);
+    // A snapshot taken once per load. It reads the clock and a setting, which
+    // can't happen during render, so the one extra render this costs is accepted.
+    /* oxlint-disable react/set-state-in-effect */
+    setPending(offer ? due : []);
+    setSelected(new Set(offer ? due.map((_, i) => i) : []));
+    /* oxlint-enable react/set-state-in-effect */
   }, [loaded, data.hasServerSnapshot]);
 
   const clear = useCallback(() => {

@@ -7,7 +7,8 @@ import CategoryPieChart from './CategoryPieChart';
 import ChartEmpty from './ChartEmpty';
 import { DateRangeFilter, type DateRange } from './DateRangeFilter';
 import { BanknotesIcon, TagIcon, ChartPieIcon, TrendingUpIcon } from './Icons';
-import { addMonths, monthKey } from '../utils/dateUtils';
+import { addMonths, monthKey, parseCalendarDate } from '../utils/dateUtils';
+import { useToday } from '../hooks/useToday';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -34,6 +35,7 @@ const SOURCE_COLORS = ['#16a34a', '#0d9488', '#0284c7', '#6d5cf0', '#9333ea', '#
  *  own date filter, summary cards, and income-focused charts. */
 const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIncomes = [], comparisonCutoff, allIncomes, allExpenses, selectedRange, onDateRangeChange }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const today = useToday();
 
   const incomeChange = useMemo(() => {
     const prev = previousPeriodIncomes.reduce((s, i) => s + Number(i.amount), 0);
@@ -58,7 +60,7 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
   }, [incomes]);
 
   const trend = useMemo(() => {
-    const now = new Date();
+    const now = parseCalendarDate(today);
     const data: { label: string; amount: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const ref = addMonths(now, -i);
@@ -67,10 +69,10 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
       data.push({ label: ref.toLocaleString('en-US', { month: 'short', year: '2-digit' }), amount });
     }
     return data;
-  }, [allIncomes]);
+  }, [allIncomes, today]);
 
   const incomeVsExpense = useMemo(() => {
-    const now = new Date();
+    const now = parseCalendarDate(today);
     const data: { name: string; income: number; expense: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const ref = addMonths(now, -i);
@@ -80,7 +82,7 @@ const IncomeSummary: React.FC<IncomeSummaryProps> = ({ incomes, previousPeriodIn
       data.push({ name: ref.toLocaleString('en-US', { month: 'short', year: '2-digit' }), income, expense });
     }
     return data;
-  }, [allIncomes, allExpenses]);
+  }, [allIncomes, allExpenses, today]);
 
   const savings = useMemo(() => {
     const inc = incomeVsExpense.reduce((s, d) => s + d.income, 0);

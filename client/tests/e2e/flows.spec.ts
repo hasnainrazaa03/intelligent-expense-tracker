@@ -508,6 +508,17 @@ test.describe('settings page (5b-2)', () => {
 test.describe('account actions (own accounts)', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
+  test('coming back from Google sign-in: a 2FA account is asked for its code, an interrupted one is told, and the address is cleaned', async ({ page }) => {
+    await page.goto('/login?twofactor=1&email=someone%40example.com');
+    await expect(page.getByText('Verification code sent to your email.')).toBeVisible();
+    await expect(page.getByText('Two-factor required')).toBeVisible();
+    await expect(page).toHaveURL(/\/login$/);
+
+    await page.goto('/login?error=oauth_state');
+    await expect(page.getByText('Google sign-in was interrupted. Please try again.')).toBeVisible();
+    await expect(page).toHaveURL(/\/login$/);
+  });
+
   test('"sign out everywhere" ends the session in every browser', async ({ page, browser }) => {
     await signIn(page, 'e2e-restore@test.com');
     const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });

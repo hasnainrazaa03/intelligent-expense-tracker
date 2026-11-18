@@ -57,7 +57,19 @@ const HouseholdsManager: React.FC = () => {
     }
   };
 
-  useEffect(() => { void refresh(); }, []);
+  // First load, ignored if the panel closes before it answers.
+  useEffect(() => {
+    let cancelled = false;
+    listHouseholds()
+      .then((r) => {
+        if (cancelled) return;
+        setHouseholds(r.households);
+        setInvites(r.invites);
+      })
+      .catch(() => { /* non-fatal — panel just shows empty */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);

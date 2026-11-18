@@ -8,6 +8,11 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Account and dates (2026-11-17)
+- **Ready for the React Compiler (#204):** the client passes the compiler's lint rules,
+  now enforced. Visible effects: screens left open overnight move on to the new day at
+  midnight (they kept showing yesterday's "this month"); an inline edit starts from the
+  item's current values; a record being edited is no longer reset if the display currency
+  changes; the sign-in page shows Google's two-factor prompt without a flash.
 - **Server lint (#203):** the server is now linted in CI like the client. Two error handlers
   that answered 500 without logging the cause now log it.
 - **Change your password (#202):** Settings → Security → Password. It asks for the current

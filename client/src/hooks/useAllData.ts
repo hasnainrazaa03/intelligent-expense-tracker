@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAllData, isAuthError } from '../services/api';
 import { queryKeys } from '../lib/queryClient';
@@ -42,13 +42,14 @@ export const useAllData = ({ isAuthenticated, onAuthError }: { isAuthenticated: 
     enabled: isAuthenticated,
   });
 
-  useEffect(() => { if (!isAuthenticated) setHasServerSnapshot(false); }, [isAuthenticated]);
+  // Signed out: forget that a snapshot arrived (during render, not an effect).
+  if (!isAuthenticated && hasServerSnapshot) setHasServerSnapshot(false);
 
   // A 401/403 on load means the session is gone (keyed off the status, APP-H2).
-  const onAuthErrorRef = useRef(onAuthError);
-  onAuthErrorRef.current = onAuthError;
+  // useEffectEvent: always the latest callback, without re-running the effect.
+  const handleAuthError = useEffectEvent(onAuthError);
   useEffect(() => {
-    if (query.error && isAuthError(query.error)) onAuthErrorRef.current();
+    if (query.error && isAuthError(query.error)) handleAuthError();
   }, [query.error]);
 
   // Retry as soon as the connection comes back.

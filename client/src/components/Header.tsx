@@ -70,7 +70,7 @@ const Header: React.FC<HeaderProps> = ({
   const { displayCurrency, conversionRate } = useCurrency();
   const { theme, toggleTheme } = useTheme();
   const { canInstall, promptInstall } = usePwaInstall();
-  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+  const [currentTime, setCurrentTime] = useState(() => new Date().toLocaleTimeString());
 
   // Raw search input is owned here and debounced locally, so keystrokes re-render
   // only the Header — not the whole app (APP-H5).
@@ -79,11 +79,6 @@ const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     onSearch(debouncedSearch);
   }, [debouncedSearch, onSearch]);
-  useEffect(() => {
-    if (clearSearchSignal === 0) return;
-    setSearchInput('');
-    onSearch(''); // now, not after the debounce
-  }, [clearSearchSignal, onSearch]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
@@ -97,6 +92,23 @@ const Header: React.FC<HeaderProps> = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // The search text; any change also resets the keyboard highlight.
+  const updateSearch = (value: string) => {
+    setSearchInput(value);
+    setActiveIndex(-1);
+  };
+  // A parent asks to clear the search ("Clear search" in an empty list). State
+  // follows the signal during render, React's pattern for adjusting state to a
+  // prop, instead of an effect that rendered twice.
+  const [seenClearSignal, setSeenClearSignal] = useState(clearSearchSignal);
+  if (clearSearchSignal !== seenClearSignal) {
+    setSeenClearSignal(clearSearchSignal);
+    updateSearch('');
+  }
+  useEffect(() => {
+    if (clearSearchSignal !== 0) onSearch(''); // now, not after the debounce
+  }, [clearSearchSignal, onSearch]);
 
   const matches = useMemo<SearchHit[]>(() => {
     const q = searchInput.trim();
@@ -116,8 +128,6 @@ const Header: React.FC<HeaderProps> = ({
 
   const showDropdown = isSearchOpen && searchInput.trim().length > 0;
 
-  // Reset the keyboard highlight whenever the result set changes.
-  useEffect(() => { setActiveIndex(-1); }, [searchInput]);
 
   // Close the dropdown on any click outside the search cluster.
   useEffect(() => {
@@ -211,7 +221,7 @@ const Header: React.FC<HeaderProps> = ({
               aria-activedescendant={activeIndex >= 0 ? `search-result-${activeIndex}` : undefined}
               autoComplete="off"
               value={searchInput}
-              onChange={(e) => { setSearchInput(e.target.value); setIsSearchOpen(true); }}
+              onChange={(e) => { updateSearch(e.target.value); setIsSearchOpen(true); }}
               onFocus={() => setIsSearchOpen(true)}
               onKeyDown={handleSearchKeyDown}
               className="w-full bg-surface-2 border border-app-border rounded-xl py-2.5 md:py-3 pl-10 md:pl-11 pr-9 font-sans text-sm text-app-text placeholder:text-app-faint focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
@@ -219,7 +229,7 @@ const Header: React.FC<HeaderProps> = ({
             {searchInput && (
               <button
                 type="button"
-                onClick={() => { setSearchInput(''); setIsSearchOpen(false); }}
+                onClick={() => { updateSearch(''); setIsSearchOpen(false); }}
                 aria-label="Clear search"
                 className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-app-faint hover:text-app-text transition-colors"
               >

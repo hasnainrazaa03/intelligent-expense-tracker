@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Semester } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
@@ -47,15 +47,10 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
   const [savingDate, setSavingDate] = useState(false);
   
   // Initialize with the detected current semester
-  const [activeSemesterId, setActiveSemesterId] = useState<string>(detectCurrentSemesterId());
-
-  // Ensure we fall back to the first available semester if the detected one isn't in the list
-  useEffect(() => {
-    const exists = semesters.find(s => s.id === activeSemesterId);
-    if (!exists && semesters.length > 0) {
-      setActiveSemesterId(semesters[0].id);
-    }
-  }, [semesters, activeSemesterId]);
+  const [chosenSemesterId, setActiveSemesterId] = useState<string>(detectCurrentSemesterId);
+  // The chosen (or detected) semester, or the first one when it isn't in the
+  // list. Derived during render; an effect used to correct it a render later.
+  const activeSemesterId = semesters.some((s) => s.id === chosenSemesterId) ? chosenSemesterId : semesters[0]?.id ?? chosenSemesterId;
 
   const activeSemester = semesters.find(s => s.id === activeSemesterId);
 

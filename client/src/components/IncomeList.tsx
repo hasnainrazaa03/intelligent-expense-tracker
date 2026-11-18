@@ -42,10 +42,13 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
   const [draftAmount, setDraftAmount] = useState(income.amount.toString());
   const [draftSource, setDraftSource] = useState(income.title);
 
-  React.useEffect(() => {
+  // The drafts start from the income as it is when editing begins, so a
+  // refresh in the background can't overwrite what's being typed.
+  const startInlineEdit = () => {
     setDraftAmount(income.amount.toString());
     setDraftSource(income.title);
-  }, [income.amount, income.title]);
+    setIsInlineEditing(true);
+  };
 
   const saveInlineChanges = async () => {
     const parsed = Number.parseFloat(draftAmount);
@@ -75,7 +78,7 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
                 className="bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             ) : (
-              <h4 className="font-display text-sm md:text-base font-semibold leading-tight text-app-text truncate" onDoubleClick={() => { if (displayCurrency === 'USD') setIsInlineEditing(true); else onEdit(income); }}>{income.title}</h4>
+              <h4 className="font-display text-sm md:text-base font-semibold leading-tight text-app-text truncate" onDoubleClick={() => { if (displayCurrency === 'USD') startInlineEdit(); else onEdit(income); }}>{income.title}</h4>
             )}
             <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mt-1.5">
               <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-ok/15 text-ok">
@@ -100,7 +103,7 @@ const IncomeItem: React.FC<IncomeItemProps> = ({ income, onEdit, onQuickSave, on
                 className="w-28 bg-surface-2 border border-app-border rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             ) : (
-              <p className="font-display text-lg md:text-xl font-bold text-ok leading-none tabular-nums cursor-default" onDoubleClick={() => { if (displayCurrency === 'USD') setIsInlineEditing(true); else onEdit(income); }}>
+              <p className="font-display text-lg md:text-xl font-bold text-ok leading-none tabular-nums cursor-default" onDoubleClick={() => { if (displayCurrency === 'USD') startInlineEdit(); else onEdit(income); }}>
                 +{formatCurrency(income.amount, displayCurrency, conversionRate)}
               </p>
             )}
@@ -174,20 +177,21 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes: allIncomes, onEdit, on
   const pageSize = itemsPerPage === 'all' ? incomes.length || 1 : itemsPerPage;
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: APP_CONFIG.virtualRowHeight });
 
-  React.useEffect(() => {
+  // A different number of rows (a new filter or search) starts again at page
+  // 1: state follows the list during render, not in an effect.
+  const [seenCount, setSeenCount] = useState(incomes.length);
+  if (seenCount !== incomes.length) {
+    setSeenCount(incomes.length);
     setCurrentPage(1);
-  }, [incomes.length]);
+  }
 
   const totalPages = Math.max(1, Math.ceil(incomes.length / pageSize));
-
-  // Switching filters (or page size) can leave currentPage past the end — clamp
-  // rather than render an empty page.
-  React.useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+  // Switching filters (or page size) can leave currentPage past the end: show
+  // the last page rather than an empty one.
+  const page = Math.min(currentPage, totalPages);
   const paginatedIncomes = incomes.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
+    (page - 1) * pageSize,
+    page * pageSize
   );
 
   const handleConfirmDelete = () => {
@@ -261,7 +265,7 @@ const IncomeList: React.FC<IncomeListProps> = ({ incomes: allIncomes, onEdit, on
               ))}
             </ul>
             <Pagination 
-                currentPage={currentPage}
+                currentPage={page}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
                 totalItems={incomes.length}
