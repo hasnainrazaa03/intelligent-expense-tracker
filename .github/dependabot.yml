@@ -15,6 +15,13 @@ updates:
           - "react-dom"
           - "@types/react"
           - "@types/react-dom"
+      # The compiler (@tailwindcss/postcss, which carries its own tailwindcss)
+      # and the CSS it imports must match: #181 bumped tailwindcss alone, so the
+      # build compiled with 4.3.3 against 4.3.5's stylesheet.
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
     # jspdf majors were ignored while jspdf-autotable 3 required jspdf 2. Since
     # jspdf-autotable 5 (peer: jspdf ^2 || ^3 || ^4) they are allowed again; the
     # E2E "PDF exports" test checks each bump still draws the report.
