@@ -67,9 +67,17 @@ const BudgetTracker: React.FC<BudgetTrackerProps> = ({ expenses, budgets }) => {
 
   // Budget amounts are a single ongoing plan; only the *usage* is per-month, so
   // this selector scopes which month's spending is measured against the plan.
-  const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const firstOfMonth = (day: string) => { const d = parseCalendarDate(day); return new Date(d.getFullYear(), d.getMonth(), 1); };
+  const [month, setMonth] = useState(() => firstOfMonth(today));
   const selectedKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
   const currentKey = today.slice(0, 7);
+  // A new month arrives (a screen left open overnight): a selection that was on
+  // "this month" moves with it; a past month the user picked stays.
+  const [seenCurrentKey, setSeenCurrentKey] = useState(currentKey);
+  if (seenCurrentKey !== currentKey) {
+    setSeenCurrentKey(currentKey);
+    if (selectedKey === seenCurrentKey) setMonth(firstOfMonth(today));
+  }
   const isCurrentMonth = selectedKey === currentKey;
   const shiftMonth = (delta: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
 

@@ -8,7 +8,8 @@ import { withoutExisting } from '../utils/duplicates';
 import { encryptBackup, decryptBackup, isEncryptedBackup, MIN_PASSPHRASE_LENGTH, type EncryptedBackup } from '../utils/backupCrypto';
 import { logAuditEvent } from '../services/api';
 import { APP_CONFIG } from '../config';
-import { todayCalendar, startOfMonth, endOfMonth, addMonths, addDays, formatCalendarDate, isWithinRange, parseCalendarDate } from '../utils/dateUtils';
+import { todayCalendar, isWithinRange } from '../utils/dateUtils';
+import { computeWindow } from '../hooks/useDateRangeFilter';
 import { useToday } from '../hooks/useToday';
 import {
   TableCellsIcon,
@@ -51,15 +52,12 @@ interface DataModalProps {
   }) => Promise<void> | void;
 }
 
-/** Whether a calendar day falls in the export's date range (local days, as on the dashboard). */
+/** Whether a calendar day falls in the export's date range: the dashboard's own
+ *  windows (computeWindow), so an export of "Last 90 days" matches what it shows. */
 const rangeFilter = (dateRange: DateRange, today: string): ((date: string) => boolean) => {
-  if (dateRange === 'all_time') return () => true;
-  const now = parseCalendarDate(today);
-  const [start, end] =
-    dateRange === 'last_month' ? [startOfMonth(addMonths(now, -1)), endOfMonth(addMonths(now, -1))]
-    : dateRange === 'last_90_days' ? [formatCalendarDate(addDays(now, -90)), today]
-    : [startOfMonth(now), endOfMonth(now)]; // this_month
-  return (date: string) => isWithinRange(date, start, end);
+  const window = computeWindow(dateRange, today);
+  if (!window) return () => true; // all time
+  return (date: string) => isWithinRange(date, window.start, window.end);
 };
 
 const ranges: { id: DateRange; label: string }[] = [

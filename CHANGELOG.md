@@ -11,6 +11,13 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 - **Ready for a second server (#206):** the guard that stops an offline replay or a
   double-submitted import from saving twice can now work across several API instances
   (`SHARED_LOCKS=on` with Redis), asking the app to retry rather than risk a double save.
+- **Fixes from a review of the last four changes (#208):** opening another expense or income
+  (or pressing Ctrl/Cmd+N) while a form is open no longer keeps the old details, which
+  could save a duplicate; impossible tuition payment dates are refused; an old backup with
+  an odd year restores again; typing a weak or unchanged new password no longer counts
+  toward the wrong-password lockout; the lists move on to the new month at midnight, also
+  after a laptop wakes up; deleted categories are no longer suggested; report charts regroup
+  when categories change.
 - **Your categories everywhere (#205):** a subcategory you add can now be budgeted, chosen
   when importing a statement, and picked by the AI when it reads a receipt or a statement;
   one you delete stops being offered. Lists update as soon as categories change, and the

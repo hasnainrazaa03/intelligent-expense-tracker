@@ -35,11 +35,13 @@ export const parseCalendarDate = (value: string): Date => {
 };
 
 /** First calendar day of the month containing `ref` (default: today). */
-export const startOfMonth = (ref: Date = new Date()): string =>
+// `ref` is required: a default of `new Date()` read the clock where callers
+// (memos, renders) couldn't see it, and kept "this month" stale overnight.
+export const startOfMonth = (ref: Date): string =>
   formatCalendarDate(new Date(ref.getFullYear(), ref.getMonth(), 1));
 
 /** Last calendar day of the month containing `ref` (default: today). */
-export const endOfMonth = (ref: Date = new Date()): string =>
+export const endOfMonth = (ref: Date): string =>
   formatCalendarDate(new Date(ref.getFullYear(), ref.getMonth() + 1, 0));
 
 /**

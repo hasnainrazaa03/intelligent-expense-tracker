@@ -102,7 +102,8 @@ const AppDashboard: React.FC = () => {
     Screens.ExpenseList, Screens.IncomeList, Screens.ExpenseModal, Screens.IncomeModal, Screens.BudgetManagerModal,
     Screens.CategoryManagerModal, Screens.AiAnalyst, Screens.USCPaymentTracker, Screens.PivotAnalysis, Screens.SettingsPage,
   ]);
-  useNewEntryShortcut(isAuthenticated, openNewEntry);
+  // Not while a form is open: it would replace what's being typed.
+  useNewEntryShortcut(isAuthenticated && !expenseForm.open && !incomeForm.open, openNewEntry);
 
   // A list emptied by the search or the period says so, with a way out,
   // instead of "No expenses yet" for an account full of them (improvement 14).
@@ -294,6 +295,9 @@ const AppDashboard: React.FC = () => {
       {expenseForm.open && (
         <Suspense fallback={null}>
           <Screens.ExpenseModal
+            // One dialog per record: the form takes the record as its initial
+            // state, so opening another one (header search) must start afresh.
+            key={expenseForm.editing?.id ?? 'new'}
             isOpen
             onClose={() => setExpenseForm({ open: false, editing: null })}
             onSave={saveExpense}
@@ -306,6 +310,7 @@ const AppDashboard: React.FC = () => {
       {incomeForm.open && (
         <Suspense fallback={null}>
           <Screens.IncomeModal
+            key={incomeForm.editing?.id ?? 'new'}
             isOpen
             onClose={() => setIncomeForm({ open: false, editing: null })}
             onSave={saveIncome}

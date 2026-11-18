@@ -9,9 +9,9 @@ import { getEffectiveSubToMain } from './categories';
  * EFFECTIVE subcategory→main map (defaults + custom), so a user's custom
  * subcategory resolves to its real main category instead of "Miscellaneous".
  */
-export const getMainCategory = (categoryOrSubcategory: string): string => {
+export const getMainCategory = (categoryOrSubcategory: string, subToMain: Record<string, string> = getEffectiveSubToMain()): string => {
   if (CATEGORY_COLORS[categoryOrSubcategory]) return categoryOrSubcategory; // already a main category
-  return getEffectiveSubToMain()[categoryOrSubcategory] || 'Miscellaneous';
+  return subToMain[categoryOrSubcategory] || 'Miscellaneous';
 };
 
 /**
@@ -21,14 +21,14 @@ export const getMainCategory = (categoryOrSubcategory: string): string => {
  * @param categoryOrSubcategory The name of the category or subcategory.
  * @returns A hex color string.
  */
-export const getCategoryColor = (categoryOrSubcategory: string): string => {
+export const getCategoryColor = (categoryOrSubcategory: string, subToMain: Record<string, string> = getEffectiveSubToMain()): string => {
   // Check if it's a main category first
   if (CATEGORY_COLORS[categoryOrSubcategory]) {
     return CATEGORY_COLORS[categoryOrSubcategory];
   }
 
   // Assume it's a subcategory and find its main category (custom-aware)
-  const mainCategory = getEffectiveSubToMain()[categoryOrSubcategory] || 'Miscellaneous';
+  const mainCategory = subToMain[categoryOrSubcategory] || 'Miscellaneous';
 
   return CATEGORY_COLORS[mainCategory] || CATEGORY_COLORS['Miscellaneous'];
 };

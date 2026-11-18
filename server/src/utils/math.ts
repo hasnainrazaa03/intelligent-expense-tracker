@@ -19,13 +19,18 @@ export const parseFiniteFloat = (value: any): number | null => {
 };
 
 const YMD_PREFIX = /^(\d{4})-(\d{2})-(\d{2})(T.*)?$/;
-const MIN_YEAR = 1900;
-const MAX_YEAR = 2200;
 
-/** Midnight UTC of a real calendar day, or null (no rolling 30 February into March). */
+/**
+ * Midnight UTC of a real calendar day, or null (no rolling 30 February into
+ * March). Any four-digit year 0001–9999 is kept: the old parser stored years
+ * like 0026 (a half-typed date), and refusing them now would break restoring
+ * a backup that holds one. setUTCFullYear, because Date.UTC maps 0–99 to 19xx.
+ */
 const utcDay = (year: number, month: number, day: number): Date | null => {
-  if (year < MIN_YEAR || year > MAX_YEAR) return null;
-  const d = new Date(Date.UTC(year, month - 1, day));
+  if (year < 1 || year > 9999) return null;
+  const d = new Date(0);
+  d.setUTCFullYear(year, month - 1, day);
+  d.setUTCHours(0, 0, 0, 0);
   return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day ? d : null;
 };
 
@@ -44,15 +49,15 @@ export const parseValidDate = (value: unknown): Date | null => {
   if (typeof value !== 'string' || !value.trim()) return null;
   const text = value.trim();
   const ymd = YMD_PREFIX.exec(text);
-  if (ymd) {
-    // A time part must still be a real timestamp ("2026-10-05Tnonsense" isn't).
-    if (ymd[4] && Number.isNaN(new Date(text).getTime())) return null;
-    return utcDay(Number(ymd[1]), Number(ymd[2]), Number(ymd[3]));
-  }
-  // Other spellings ("Oct 5, 2026"): the day as the parser reads it.
-  const parsed = new Date(text);
-  return Number.isNaN(parsed.getTime()) ? null : utcDay(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
+  if (!ymd) return null; // YYYY-MM-DD only: other spellings ("Oct 5, 2026") read differently by server time zone
+  // A time part must still be a real timestamp ("2026-10-05Tnonsense" isn't).
+  if (ymd[4] && Number.isNaN(new Date(text).getTime())) return null;
+  return utcDay(Number(ymd[1]), Number(ymd[2]), Number(ymd[3]));
 };
+
+/** A calendar day sent as exactly YYYY-MM-DD (no time), or null. */
+export const parseCalendarDay = (value: unknown): Date | null =>
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? parseValidDate(value) : null;
 // Largest amount accepted anywhere: $10M. Money is stored as 32-bit integer cents
 // (max 2,147,483,647 ≈ $21.4M), so larger values used to crash with a 500.
 export const MAX_AMOUNT = 10_000_000;

@@ -320,6 +320,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose, onSave, ex
         setOriginalAmountDirty(true);
         setAmt = true;
       } else if (!usdAmount) {
+        // A USD receipt: enter it in USD (in foreign mode the field shows the
+        // conversion, so the amount set here would stay invisible).
+        if (enterInForeign) {
+          setEnterInForeign(false);
+          setOriginalAmount('');
+          setOriginalAmountDirty(false);
+        }
         setAmount(r.amount.toFixed(2));
         setAmt = true;
       }

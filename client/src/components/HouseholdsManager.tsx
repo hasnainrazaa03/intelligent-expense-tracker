@@ -45,29 +45,22 @@ const HouseholdsManager: React.FC = () => {
     }
   };
 
-  const refresh = async () => {
-    try {
-      const r = await listHouseholds();
-      setHouseholds(r.households);
-      setInvites(r.invites);
-    } catch {
-      /* non-fatal — panel just shows empty */
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // First load, ignored if the panel closes before it answers.
-  useEffect(() => {
-    let cancelled = false;
+  // The panel's data; `isCancelled` lets the first load be ignored if the
+  // panel closes before it answers.
+  const load = (isCancelled: () => boolean = () => false) =>
     listHouseholds()
       .then((r) => {
-        if (cancelled) return;
+        if (isCancelled()) return;
         setHouseholds(r.households);
         setInvites(r.invites);
       })
       .catch(() => { /* non-fatal — panel just shows empty */ })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => { if (!isCancelled()) setLoading(false); });
+  const refresh = () => load();
+
+  useEffect(() => {
+    let cancelled = false;
+    void load(() => cancelled);
     return () => { cancelled = true; };
   }, []);
 

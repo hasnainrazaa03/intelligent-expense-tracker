@@ -1,5 +1,6 @@
 import { getSetting, updateSettings, SETTINGS_LIMITS } from '../utils/settingsStore';
 import { Category } from '../types';
+import { getCategoriesSnapshot } from '../utils/categories';
 
 const normalizeMerchantKey = (title: string): string => {
     return title
@@ -89,18 +90,19 @@ const RULES = [...USC_RULES, ...GENERAL_RULES];
  */
 export const suggestCategory = (title: string): Category | null => {
     if (!title) return null;
+    // Only categories the user still has: a learned or built-in rule must not
+    // suggest one they deleted (A3).
+    const available = new Set(getCategoriesSnapshot().allSubcategories);
 
-        const merchantKey = normalizeMerchantKey(title);
-        if (merchantKey) {
-            const learned = getLearnedMap();
-            if (learned[merchantKey]) {
-                return learned[merchantKey];
-            }
-        }
-    
+    const merchantKey = normalizeMerchantKey(title);
+    if (merchantKey) {
+        const learned = getLearnedMap()[merchantKey];
+        if (learned && available.has(learned)) return learned;
+    }
+
     // Iterate through the array. First match wins.
     for (const [category, regex] of RULES) {
-        if (regex.test(title)) {
+        if (regex.test(title) && available.has(category)) {
             return category as Category;
         }
     }

@@ -61,9 +61,16 @@ export const budgetForExpense = (category: string, budgeted: Set<string>, subToM
  * What one user's expenses can be filed under: every effective subcategory,
  * with "Other" always last as the fallback (even if they removed it).
  */
+// The list goes into every AI prompt: settings allow far more names than a
+// person uses, so cap what's sent (built-ins come first).
+const MAX_PROMPT_CATEGORIES = 300;
+
+const BUILT_IN_NAMES = new Set(Object.values(BUILT_IN_CATEGORIES).flat());
+
 export const expenseCategoriesFor = (custom: unknown, deleted: unknown): string[] => {
-  const all = Object.values(effectiveCategories(custom, deleted)).flat().filter((c) => c !== 'Other');
-  return [...new Set(all), 'Other'];
+  const all = [...new Set(Object.values(effectiveCategories(custom, deleted)).flat())].filter((c) => c !== 'Other');
+  const ordered = [...all.filter((c) => BUILT_IN_NAMES.has(c)), ...all.filter((c) => !BUILT_IN_NAMES.has(c))];
+  return [...ordered.slice(0, MAX_PROMPT_CATEGORIES - 1), 'Other'];
 };
 
 /** expenseCategoriesFor, from the user's saved settings. */
