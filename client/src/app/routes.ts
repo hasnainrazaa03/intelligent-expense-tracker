@@ -7,41 +7,48 @@
  *   /app/transactions         Transactions: expenses
  *   /app/transactions/income  Transactions: income
  *   /app/budgets              Budgets
+ *   /app/budgets/edit         Budgets: set or change them
  *   /app/insights/<section>   Insights: reports, breakdown, income, ask
  *   /app/tuition              Tuition
  *   /app/settings             Settings
+ *   /app/settings/categories  Settings: categories
+ *   /app/settings/data        Settings: export, import and back up
  */
 export type Place = 'home' | 'transactions' | 'budgets' | 'insights' | 'tuition' | 'settings';
 export const INSIGHT_SECTIONS = ['reports', 'breakdown', 'income', 'ask'] as const;
 export type InsightSection = (typeof INSIGHT_SECTIONS)[number];
 export type TransactionType = 'expenses' | 'income';
+export type SettingsSection = 'categories' | 'data';
 
 export type AppRoute =
   | { place: 'home' }
   | { place: 'transactions'; type: TransactionType }
-  | { place: 'budgets' }
+  | { place: 'budgets'; editing?: boolean }
   | { place: 'insights'; section: InsightSection }
   | { place: 'tuition' }
-  | { place: 'settings' };
+  | { place: 'settings'; section?: SettingsSection };
 
 export const PATHS = {
   home: '/app',
   transactions: '/app/transactions',
   transactionsIncome: '/app/transactions/income',
   budgets: '/app/budgets',
+  budgetsEdit: '/app/budgets/edit',
   insights: (section: InsightSection = 'reports') => `/app/insights/${section}`,
   tuition: '/app/tuition',
   settings: '/app/settings',
+  settingsCategories: '/app/settings/categories',
+  settingsData: '/app/settings/data',
 } as const;
 
 export const pathFor = (route: AppRoute): string => {
   switch (route.place) {
     case 'home': return PATHS.home;
     case 'transactions': return route.type === 'income' ? PATHS.transactionsIncome : PATHS.transactions;
-    case 'budgets': return PATHS.budgets;
+    case 'budgets': return route.editing ? PATHS.budgetsEdit : PATHS.budgets;
     case 'insights': return PATHS.insights(route.section);
     case 'tuition': return PATHS.tuition;
-    case 'settings': return PATHS.settings;
+    case 'settings': return route.section ? `${PATHS.settings}/${route.section}` : PATHS.settings;
   }
 };
 
@@ -64,8 +71,12 @@ export const parseAppPath = (pathname: string): AppRoute | null => {
       if (!sub) return { place: 'insights', section: 'reports' };
       return (INSIGHT_SECTIONS as readonly string[]).includes(sub) ? { place: 'insights', section: sub as InsightSection } : null;
     case 'budgets':
-    case 'tuition':
+      if (!sub) return { place: 'budgets' };
+      return sub === 'edit' ? { place: 'budgets', editing: true } : null;
     case 'settings':
+      if (!sub) return { place: 'settings' };
+      return sub === 'categories' || sub === 'data' ? { place: 'settings', section: sub } : null;
+    case 'tuition':
       return sub ? null : { place };
     default:
       return null;
@@ -77,9 +88,9 @@ export const routeLabel = (route: AppRoute): string => {
   switch (route.place) {
     case 'home': return 'Home';
     case 'transactions': return route.type === 'income' ? 'Transactions, income' : 'Transactions, expenses';
-    case 'budgets': return 'Budgets';
+    case 'budgets': return route.editing ? 'Budgets, edit' : 'Budgets';
     case 'insights': return `Insights, ${({ reports: 'reports', breakdown: 'breakdown', income: 'income', ask: 'Ask AI' } as const)[route.section]}`;
     case 'tuition': return 'Tuition';
-    case 'settings': return 'Settings';
+    case 'settings': return route.section === 'categories' ? 'Settings, categories' : route.section === 'data' ? 'Settings, export, import and back up' : 'Settings';
   }
 };

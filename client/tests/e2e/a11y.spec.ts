@@ -137,16 +137,19 @@ test('popups and modals have no WCAG A/AA violations', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Budgets', exact: true }).click();
   await page.getByRole('button', { name: 'Edit budgets' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible(); // lazy-loaded
-  expect(await axe(page, '[role="dialog"]'), 'budget manager').toEqual([]);
-  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/\/app\/budgets\/edit$/);
+  await expect(page.getByRole('region', { name: 'Edit budgets' })).toBeVisible(); // lazy-loaded
+  expect(await axe(page), 'budget editor').toEqual([]);
 
   await page.getByRole('button', { name: 'Account and preferences' }).click();
+  await page.getByRole('link', { name: 'Import and export' }).click();
+  await expect(page).toHaveURL(/\/app\/settings\/data$/);
+  await expect(page.getByRole('region', { name: 'Export, import and back up' })).toBeVisible(); // lazy-loaded
+  expect(await axe(page), 'export, import and back up').toEqual([]);
 
-  await page.getByRole('button', { name: 'Import and export' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible(); // lazy-loaded
-  expect(await axe(page, '[role="dialog"]'), 'data modal').toEqual([]);
-  await page.keyboard.press('Escape');
+  await page.goto('/app/settings/categories');
+  await expect(page.getByRole('region', { name: 'Categories' })).toBeVisible();
+  expect(await axe(page), 'categories').toEqual([]);
 
   await page.getByRole('button', { name: 'Account and preferences' }).click();
   expect(await axe(page), 'profile menu').toEqual([]);

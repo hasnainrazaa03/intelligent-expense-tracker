@@ -9,6 +9,8 @@ import ConfirmationDialog from './ConfirmationDialog';
 interface BudgetManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Shown as the Edit budgets page (U2b) rather than a dialog. */
+  asPage?: boolean;
   onSave: (budgets: Budget[]) => void;
   currentBudgets: Budget[];
 }
@@ -17,7 +19,7 @@ interface BudgetManagerModalProps {
 // the fields were announced only by their "0.00" placeholder.
 const budgetInputId = (name: string) => `budget-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
-const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose, onSave, currentBudgets }) => {
+const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose, onSave, currentBudgets, asPage = false }) => {
   // Amounts are edited in the entry currency (the display currency when a fresh
   // rate exists, else USD) and stored in USD. This used to convert for INR only.
   const entry = useEntryCurrency();
@@ -140,8 +142,9 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
     <Modal
       isOpen={isOpen}
       onClose={handleRequestClose}
-      title="Manage budgets"
+      title="Edit budgets"
       size="xl"
+      asPage={asPage}
       footer={
         <div className="w-full flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="rounded-xl border border-app-border bg-surface-2 px-4 py-3 w-full md:w-auto">

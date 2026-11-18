@@ -79,10 +79,7 @@ const AppDashboard: React.FC = () => {
 
   const [expenseForm, setExpenseForm] = useState<{ open: boolean; editing: Expense | null }>({ open: false, editing: null });
   const [incomeForm, setIncomeForm] = useState<{ open: boolean; editing: Income | null }>({ open: false, editing: null });
-  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
-  const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isStatementImportOpen, setIsStatementImportOpen] = useState(false);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const openExpenseForm = (editing: Expense | null = null) => setExpenseForm({ open: true, editing });
   const openIncomeForm = (editing: Income | null = null) => setIncomeForm({ open: true, editing });
@@ -226,7 +223,17 @@ const AppDashboard: React.FC = () => {
       case 'budgets':
         return (
           <Suspense fallback={<SectionSkeleton title="Loading budgets" rows={4} />}>
-            <Screens.BudgetsPage expenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} onEdit={() => setIsBudgetModalOpen(true)} />
+            {route.editing
+              ? (
+                <Screens.BudgetManagerModal
+                  asPage
+                  isOpen
+                  onClose={() => navigate(PATHS.budgets)}
+                  onSave={async (list) => { if (await tx.saveBudgets(list)) navigate(PATHS.budgets); }}
+                  currentBudgets={budgets}
+                />
+              )
+              : <Screens.BudgetsPage expenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} onEdit={() => navigate(PATHS.budgetsEdit)} />}
           </Suspense>
         );
       case 'insights':
@@ -259,11 +266,29 @@ const AppDashboard: React.FC = () => {
       case 'settings':
         return (
           <Suspense fallback={<SectionSkeleton title="Loading settings" rows={4} />}>
-            <Screens.SettingsPage
-              onOpenData={() => setIsDataModalOpen(true)}
-              onManageCategories={() => setIsCategoryModalOpen(true)}
-              onManageBudgets={() => setIsBudgetModalOpen(true)}
-            />
+            {route.section === 'categories' ? (
+              <Screens.CategoryManagerModal asPage isOpen onClose={() => navigate(PATHS.settings)} />
+            ) : route.section === 'data' ? (
+              <Screens.DataModal
+                asPage
+                isOpen
+                onClose={() => navigate(PATHS.settings)}
+                allExpenses={expenses}
+                allIncomes={incomes}
+                budgets={budgets}
+                semesters={semesters}
+                onImport={transfer.importTransactions}
+                onOpenStatementImport={() => { navigate(PATHS.settings); openStatementImport(); }}
+                onRestoreBackup={transfer.restoreBackup}
+                onWipeAll={async () => { if (await transfer.wipeAll()) navigate(PATHS.settings); }}
+              />
+            ) : (
+              <Screens.SettingsPage
+                onOpenData={() => navigate(PATHS.settingsData)}
+                onManageCategories={() => navigate(PATHS.settingsCategories)}
+                onManageBudgets={() => navigate(PATHS.budgetsEdit)}
+              />
+            )}
           </Suspense>
         );
     }
@@ -292,8 +317,6 @@ const AppDashboard: React.FC = () => {
       <Header
         userEmail={userEmail}
         onLogout={logout}
-        onManageCategories={() => setIsCategoryModalOpen(true)}
-        onDataAction={() => setIsDataModalOpen(true)}
         onAddExpense={() => openExpenseForm()}
         onAddIncome={() => openIncomeForm()}
         onScanStatement={openStatementImport}
@@ -362,16 +385,6 @@ const AppDashboard: React.FC = () => {
           />
         </Suspense>
       )}
-      {isBudgetModalOpen && (
-        <Suspense fallback={null}>
-          <Screens.BudgetManagerModal
-            isOpen
-            onClose={() => setIsBudgetModalOpen(false)}
-            onSave={async (list) => { if (await tx.saveBudgets(list)) setIsBudgetModalOpen(false); }}
-            currentBudgets={budgets}
-          />
-        </Suspense>
-      )}
       {isStatementImportOpen && (
         <Suspense fallback={null}>
           <Screens.StatementImportModal
@@ -381,27 +394,6 @@ const AppDashboard: React.FC = () => {
             existingIncomes={incomes}
             onImport={transfer.importTransactions}
           />
-        </Suspense>
-      )}
-      {isDataModalOpen && (
-        <Suspense fallback={null}>
-          <Screens.DataModal
-            isOpen
-            onClose={() => setIsDataModalOpen(false)}
-            allExpenses={expenses}
-            allIncomes={incomes}
-            budgets={budgets}
-            semesters={semesters}
-            onImport={transfer.importTransactions}
-            onOpenStatementImport={() => { setIsDataModalOpen(false); openStatementImport(); }}
-            onRestoreBackup={transfer.restoreBackup}
-            onWipeAll={async () => { if (await transfer.wipeAll()) setIsDataModalOpen(false); }}
-          />
-        </Suspense>
-      )}
-      {isCategoryModalOpen && (
-        <Suspense fallback={null}>
-          <Screens.CategoryManagerModal isOpen onClose={() => setIsCategoryModalOpen(false)} />
         </Suspense>
       )}
       <Suspense fallback={null}>

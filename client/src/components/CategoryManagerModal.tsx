@@ -8,12 +8,14 @@ import { Modal, Button, IconButton, Input } from './ui';
 interface CategoryManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Shown as Settings → Categories (U2b) rather than a dialog. */
+  asPage?: boolean;
 }
 
 /** The server's limit for a category name (server/src/utils/settings.ts). */
 const MAX_NAME_LENGTH = 60;
 
-const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onClose }) => {
+const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onClose, asPage = false }) => {
   // Edits go straight to the shared categories store (an account setting), and
   // every list a category is picked from follows (A3). It used to edit a local
   // copy saved by an effect, which also sent an update each time it opened.
@@ -52,6 +54,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
       subtitle="Organize your spending categories."
       size="xl"
       labelledById="category-manager-title"
+      asPage={asPage}
       bodyClassName="!p-0 flex flex-col md:flex-row !overflow-hidden min-h-0"
       footer={
         <div className="w-full flex justify-end">
