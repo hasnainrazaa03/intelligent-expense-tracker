@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { cn } from './cn';
 import { fieldClass } from './Field';
 import { CalendarDaysIcon } from '../Icons';
-import { parseCalendarDate, todayCalendar } from '../../utils/dateUtils';
+import { parseCalendarDate } from '../../utils/dateUtils';
+import { useToday } from '../../hooks/useToday';
 
 interface DatePickerProps {
   /** 'YYYY-MM-DD' or '' */
@@ -69,7 +70,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
-  const today = todayCalendar();
+  const today = useToday();
   const clampMin = (key: string) => (min && key < min ? min : key);
   const close = (refocus: boolean) => {
     setOpen(false);

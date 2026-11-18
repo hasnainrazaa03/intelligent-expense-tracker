@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlusCircleIcon, TrashIcon, TagIcon } from './Icons';
 import { saveCategories } from '../utils/categories';
+import { clean } from '../utils/settingsStore';
 import { useCategories } from '../hooks/useCategories';
 import { Modal, Button, IconButton, Input } from './ui';
 
@@ -27,7 +28,9 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
   };
 
   const handleAddSubcategory = (cat: string) => {
-    const trimmed = newSubcategory.trim();
+    // What the server will store (tags and control characters removed), so
+    // "<b>Groceries</b>" is recognised as the existing "Groceries".
+    const trimmed = clean(newSubcategory, MAX_NAME_LENGTH);
     if (!trimmed) return;
     // One name, one place: the same name under two main categories would make
     // it ambiguous which budget an expense counts toward.

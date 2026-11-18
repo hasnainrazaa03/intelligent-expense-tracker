@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { Semester } from '../types';
-import { toFinPrecision, parseFiniteFloat, parseAmount, MAX_AMOUNT } from '../utils/math';
+import { toFinPrecision, parseFiniteFloat, parseAmount, MAX_AMOUNT, parseCalendarDay } from '../utils/math';
 import { toCents, semesterToClient, expenseToClient } from '../utils/money';
 import { holdKeyLockUntilResponse } from '../utils/keyedLock';
 import { sendError } from '../utils/http';
@@ -24,7 +24,6 @@ router.use(authMiddleware);
 
 const MAX_SEMESTERS = 20;
 const MAX_INSTALLMENTS_PER_SEMESTER = 20;
-const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 // Installments in creation order, everywhere: the tracker numbers them by
 // position ("Inst #2"), and that number is part of the tuition expense title.
@@ -168,7 +167,7 @@ router.post('/', async (req: Request, res: Response) => {
           continue;
         }
         const link = wanted.status === 'paid' ? await validLegacyLink(userId, wanted.expenseId, current.id) : null;
-        const paidDate = link && typeof wanted.paidDate === 'string' && YMD.test(wanted.paidDate) ? new Date(wanted.paidDate) : null;
+        const paidDate = link ? parseCalendarDay(wanted.paidDate) : null;
         await prisma.tuitionInstallment.update({
           where: { id: current.id },
           data: link
@@ -208,7 +207,9 @@ router.post('/:semesterId/installments/:installmentId/pay', async (req: Request,
   const { semesterId, installmentId } = req.params;
   const { paidDate } = req.body || {};
 
-  if (typeof paidDate !== 'string' || !YMD.test(paidDate) || Number.isNaN(new Date(`${paidDate}T00:00:00Z`).getTime())) {
+  // A real day: 2026-02-30 used to pass the pattern and land on 2 March.
+  const paidDay = parseCalendarDay(paidDate);
+  if (!paidDay) {
     return sendError(res, 400, 'VALIDATION_ERROR', 'paidDate must be a date (YYYY-MM-DD)');
   }
 
@@ -251,7 +252,7 @@ router.post('/:semesterId/installments/:installmentId/pay', async (req: Request,
         title,
         amount: installment.amount,
         category: 'Tuition',
-        date: new Date(paidDate),
+        date: paidDay,
         paymentMethod: 'Bank Transfer',
         isRecurring: false,
         clientRequestId,

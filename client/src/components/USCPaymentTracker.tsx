@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Semester } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
-import { todayCalendar } from '../utils/dateUtils';
+import { todayCalendar, parseCalendarDate } from '../utils/dateUtils';
+import { useToday } from '../hooks/useToday';
 import { AcademicCapIcon, TagIcon, CalendarDaysIcon } from './Icons';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Button, Input, DatePicker } from './ui';
@@ -17,8 +18,8 @@ interface USCPaymentTrackerProps {
 }
 
 // --- INTELLIGENT SEMESTER DETECTOR ---
-const detectCurrentSemesterId = () => {
-  const now = new Date();
+const detectCurrentSemesterId = (today: string) => {
+  const now = parseCalendarDate(today);
   const year = now.getFullYear();
   const month = now.getMonth(); // 0-11
 
@@ -47,7 +48,8 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
   const [savingDate, setSavingDate] = useState(false);
   
   // Initialize with the detected current semester
-  const [chosenSemesterId, setActiveSemesterId] = useState<string>(detectCurrentSemesterId);
+  const today = useToday();
+  const [chosenSemesterId, setActiveSemesterId] = useState<string>(() => detectCurrentSemesterId(today));
   // The chosen (or detected) semester, or the first one when it isn't in the
   // list. Derived during render; an effect used to correct it a render later.
   const activeSemesterId = semesters.some((s) => s.id === chosenSemesterId) ? chosenSemesterId : semesters[0]?.id ?? chosenSemesterId;
@@ -76,7 +78,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
       <div className="flex glass rounded-2xl p-1 w-full overflow-x-auto no-scrollbar scroll-smooth">
         {semesters.map((s) => {
           const isActive = s.id === activeSemesterId;
-          const isCurrentAuto = s.id === detectCurrentSemesterId();
+          const isCurrentAuto = s.id === detectCurrentSemesterId(today);
 
           return (
             <button
@@ -264,7 +266,7 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                         <div className="flex flex-col">
                           <label className="text-[9px] text-app-faint uppercase tracking-[0.16em] mb-1">Payment date</label>
                           <DatePicker
-                            value={selectedDates[dateKey(activeSemester.id, inst.id)] || todayCalendar()}
+                            value={selectedDates[dateKey(activeSemester.id, inst.id)] || today}
                             onChange={(v) => setSelectedDates(prev => ({ ...prev, [dateKey(activeSemester.id, inst.id)]: v }))}
                             required
                             aria-label={`Payment date for installment ${index + 1}`}

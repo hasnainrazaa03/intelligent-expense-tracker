@@ -25,6 +25,7 @@ import ChartEmpty from './ChartEmpty';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { emailSummary } from '../services/api';
+import { useCategories } from '../hooks/useCategories';
 
 interface ReportsProps {
   allExpenses: Expense[];
@@ -36,6 +37,7 @@ const NO_INCOMES: never[] = [];
 
 const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  const { subToMain } = useCategories();
   const [emailing, setEmailing] = useState(false);
 
   // The period the figures cover. Reports used to be all-time only (improvement 17).
@@ -47,7 +49,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
     const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
     const categoryTotals: Record<string, number> = {};
     expenses.forEach((e) => {
-      const mainCat = getMainCategory(e.category);
+      const mainCat = getMainCategory(e.category, subToMain);
       categoryTotals[mainCat] = (categoryTotals[mainCat] || 0) + e.amount;
     });
     const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
@@ -59,7 +61,7 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
     const budgetUtilization = totalBudget > 0 ? (budgetedSpend / period.months / totalBudget) * 100 : 0;
 
     return { totalSpent, topCategory, budgetUtilization, categoryTotals };
-  }, [expenses, budgets, period.months]);
+  }, [expenses, budgets, period.months, subToMain]);
   const periodText = `${period.label} · ${period.span}`;
 
 

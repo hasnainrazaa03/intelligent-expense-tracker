@@ -131,6 +131,26 @@ describeApi('change password while signed in', () => {
     expect(mailbox.some((m) => m.to === user.email && m.kind === 'generic' && /password was changed/.test(m.subject ?? ''))).toBe(true);
   });
 
+  it("a weak or unchanged new password isn't counted as a wrong password", async () => {
+    const { client } = await signedInClient();
+    for (let i = 0; i < 6; i++) {
+      expect((await client.post('/api/auth/change-password', { currentPassword: PASSWORD, newPassword: PASSWORD })).body.error.code).toBe('SAME_PASSWORD');
+      expect((await client.post('/api/auth/change-password', { currentPassword: PASSWORD, newPassword: 'weak' })).body.error.code).toBe('WEAK_PASSWORD');
+    }
+    // Twelve refusals later, the right password still works (no lockout).
+    expect((await client.post('/api/auth/change-password', { currentPassword: PASSWORD, newPassword: NEW_PASSWORD })).status).toBe(200);
+  });
+
+  it('two changes at once: one succeeds, and this browser stays signed in', async () => {
+    const { client } = await signedInClient();
+    const [a, b] = await Promise.all([
+      client.post('/api/auth/change-password', { currentPassword: PASSWORD, newPassword: NEW_PASSWORD }),
+      client.post('/api/auth/change-password', { currentPassword: PASSWORD, newPassword: 'Other9876!' }),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 401]);
+    expect((await client.get('/api/data/all')).status).toBe(200);
+  });
+
   it('five wrong current passwords lock it for a while', async () => {
     const { client } = await signedInClient();
     for (let i = 0; i < 5; i++) {

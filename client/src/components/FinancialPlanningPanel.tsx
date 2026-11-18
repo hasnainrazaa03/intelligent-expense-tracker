@@ -47,9 +47,6 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<InvestmentAccount['type']>('brokerage');
   const [newAccountValue, setNewAccountValue] = useState('');
-  // The Calendar-spending card can browse any month, independent of "now".
-  const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
-
   // Today at local midnight, stable for the whole day (and moved on at midnight).
   // A fresh `new Date()` each render made every memo below recompute every render.
   const todayKey = useToday();
@@ -58,6 +55,16 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
     return new Date(y, m - 1, d);
   }, [todayKey]);
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // The Calendar-spending card can browse any month. Left on the current month,
+  // it moves on when a new month arrives; a month the user browsed to stays.
+  const [calMonth, setCalMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [seenMonthPrefix, setSeenMonthPrefix] = useState(currentMonthPrefix);
+  if (seenMonthPrefix !== currentMonthPrefix) {
+    setSeenMonthPrefix(currentMonthPrefix);
+    const shown = `${calMonth.getFullYear()}-${String(calMonth.getMonth() + 1).padStart(2, '0')}`;
+    if (shown === seenMonthPrefix) setCalMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+  }
 
   const monthlyExpense = useMemo(
     () => expenses.filter((e) => e.date.startsWith(currentMonthPrefix)).reduce((s, e) => s + e.amount, 0),

@@ -66,7 +66,7 @@ const isTimeZone = (tz: string): boolean => {
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
 
 /** The server's sanitizeText, then capped: what the server would store. */
-const clean = (v: unknown, max: number): string =>
+export const clean = (v: unknown, max: number): string =>
   typeof v === 'string'
     ? v.replace(/[\t\r\n]+/g, ' ').replace(CONTROL_CHARS, '').replace(/<[^>]*>/g, '').trim().slice(0, max).trim()
     : '';
