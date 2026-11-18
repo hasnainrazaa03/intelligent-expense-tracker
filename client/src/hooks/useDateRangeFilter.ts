@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Expense, Income } from '../types';
-import { DateRange } from '../components/Dashboard';
+import type { DateRange } from '../components/DateRangeFilter';
 import {
   addDays,
   addMonths,

@@ -13,6 +13,31 @@ test('lands on the dashboard', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
 });
 
+test('Home: the month, budgets at risk, and links into the details (U3)', async ({ page }) => {
+  // The demo account has budgets: the main card weighs this month against them.
+  const month = page.getByRole('region', { name: 'This month' });
+  await expect(month.getByText('Budget this month')).toBeVisible();
+  await expect(month.getByText(/days? left/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Budgets at risk' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Coming up/ })).toBeVisible();
+
+  // A category opens the expense list filtered to it.
+  const firstCategory = page.getByRole('region', { name: 'Spending by category' }).getByRole('link').first();
+  const name = (await firstCategory.locator('span').nth(1).innerText()).trim();
+  await firstCategory.click();
+  await expect(page).toHaveURL(new RegExp(`/app/transactions\\?category=${encodeURIComponent(name)}`));
+  await expect(page.getByRole('status').filter({ hasText: name })).toBeVisible();
+  await page.getByRole('button', { name: 'Show all categories' }).click();
+  await expect(page).toHaveURL(/\/app\/transactions$/);
+
+  // A question typed on Home arrives in Ask AI, ready to send.
+  await page.getByRole('link', { name: 'Home', exact: true }).click();
+  await page.getByLabel('Your question').fill('Where did my money go?');
+  await page.getByRole('button', { name: 'Ask', exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/insights\/ask$/);
+  await expect(page.getByPlaceholder(/Ask anything about your spending/)).toHaveValue('Where did my money go?');
+});
+
 test('every screen has its own address, and Back walks through them (U2a)', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: 'Primary' });
   await nav.getByRole('link', { name: 'Insights', exact: true }).click();
@@ -259,6 +284,7 @@ test('offline: an expense is queued and syncs on reconnect', async ({ page, cont
 
 test('create and delete a household', async ({ page }) => {
   const name = `E2E Home ${Date.now()}`;
+  await page.getByRole('link', { name: 'Budgets', exact: true }).click(); // planning lives on Budgets (U3)
   await page.getByText('Households · shared budgeting').scrollIntoViewIfNeeded();
   await page.getByLabel('New household name').fill(name);
   await page.getByRole('button', { name: 'Create', exact: true }).click();

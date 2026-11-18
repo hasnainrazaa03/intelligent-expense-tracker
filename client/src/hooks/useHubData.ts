@@ -30,7 +30,7 @@ export const useHubData = ({
   listView: 'expenses' | 'income';
   search: string;
 }) => {
-  const { filteredExpenses, filteredIncomes, previousPeriodExpenses, comparisonCutoff } = useDateRangeFilter(expenses, incomes, dateRange);
+  const { filteredExpenses, filteredIncomes, previousPeriodExpenses, previousPeriodIncomes, comparisonCutoff } = useDateRangeFilter(expenses, incomes, dateRange);
   const { filteredIncomes: incomeHubIncomes, previousPeriodIncomes: incomeHubPrevIncomes, comparisonCutoff: incomeComparisonCutoff } =
     useDateRangeFilter(expenses, incomes, incomeDateRange);
 
@@ -38,6 +38,7 @@ export const useHubData = ({
     expenses: useMemo(() => stripTuition(filteredExpenses, hideTuition), [filteredExpenses, hideTuition]),
     incomes: useMemo(() => stripTuition(filteredIncomes, hideTuition), [filteredIncomes, hideTuition]),
     previousExpenses: useMemo(() => stripTuition(previousPeriodExpenses, hideTuition), [previousPeriodExpenses, hideTuition]),
+    previousIncomes: useMemo(() => stripTuition(previousPeriodIncomes, hideTuition), [previousPeriodIncomes, hideTuition]),
     allExpenses: useMemo(() => stripTuition(expenses, hideTuition), [expenses, hideTuition]),
     allIncomes: useMemo(() => stripTuition(incomes, hideTuition), [incomes, hideTuition]),
     comparisonCutoff,

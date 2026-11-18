@@ -2,7 +2,7 @@ import { lazyWithReload } from '../lib/lazyWithReload';
 
 // Every screen and dialog is its own chunk, loaded on first use (and prefetched
 // while idle, see useIdlePrefetch).
-export const Dashboard = lazyWithReload(() => import('../components/Dashboard'));
+export const HomeOverview = lazyWithReload(() => import('../components/home/HomeOverview'));
 export const ExpenseList = lazyWithReload(() => import('../components/ExpenseList'));
 export const IncomeList = lazyWithReload(() => import('../components/IncomeList'));
 export const ExpenseModal = lazyWithReload(() => import('../components/ExpenseModal'));

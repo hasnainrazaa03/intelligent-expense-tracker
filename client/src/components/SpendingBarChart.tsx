@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useTheme } from '../hooks/useTheme';
 import { getChartColors } from '../utils/chartTheme';
@@ -13,6 +13,8 @@ interface ChartData {
 
 interface SpendingBarChartProps {
   data: ChartData[];
+  /** A dashed line at the daily amount that keeps the month on budget (U3). */
+  allowance?: number;
 }
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
@@ -29,7 +31,7 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
   return null;
 };
 
-const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
+const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data, allowance }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const { theme } = useTheme();
   const c = getChartColors(theme);
@@ -85,6 +87,14 @@ const SpendingBarChart: React.FC<SpendingBarChartProps> = ({ data }) => {
           radius={[4, 4, 0, 0]}
           maxBarSize={48}
         />
+        {allowance !== undefined && allowance > 0 && (
+          <ReferenceLine
+            y={allowance}
+            stroke={c.tick}
+            strokeDasharray="5 5"
+            ifOverflow="extendDomain"
+          />
+        )}
       </BarChart>
     </ResponsiveContainer>
   );
