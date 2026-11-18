@@ -1,4 +1,5 @@
 import { test, expect, type Page, type APIRequestContext, type Download } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 import fs from 'fs';
 import type { Expense, Income } from '../../src/types';
 
@@ -863,3 +864,47 @@ test.describe('account actions (own accounts)', () => {
   });
 });
 
+
+test.describe('first steps (own account)', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('a new account gets a checklist on Home that ticks itself off, links to alerts, and can be hidden (U6b)', async ({ page }) => {
+    await signIn(page, 'e2e-restore@test.com');
+    const api = page.request;
+    const reset = async () => api.patch(`${API}/settings`, {
+      headers: await csrfHeaders(api),
+      data: { onboardingDismissed: null, notifyBudgets: null, notifyBills: null, notifyMonthlySummary: null },
+    });
+    await api.post(`${API}/data/restore`, { headers: await csrfHeaders(api), data: { expenses: [], incomes: [], budgets: [], semesters: [] } });
+    await reset();
+    await page.reload();
+    try {
+      const steps = page.getByRole('region', { name: 'Get set up' });
+      await expect(steps).toBeVisible();
+      await expect(steps.getByText('0 of 5 done')).toBeVisible();
+      const axe = await new AxeBuilder({ page }).include('[aria-labelledby="first-steps-title"]').withTags(['wcag2a', 'wcag2aa']).analyze();
+      expect(axe.violations).toEqual([]);
+
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      await api.post(`${API}/expenses`, { headers: await csrfHeaders(api), data: { title: 'First steps coffee', amount: 4, category: 'Food', date: today } });
+      await page.reload();
+      await expect(steps.getByText('1 of 5 done')).toBeVisible();
+      await expect(steps.getByText('Add your first expense (done)')).toBeVisible();
+      await expect(steps.getByRole('button', { name: 'Add first expense' })).toHaveCount(0);
+
+      // "Choose alerts" lands on the Notifications section, not the top of Settings.
+      await steps.getByRole('link', { name: 'Choose alerts' }).click();
+      await expect(page).toHaveURL(/\/app\/settings#notifications$/);
+      await expect(page.getByRole('region', { name: 'Notifications' })).toBeInViewport();
+
+      await page.getByRole('link', { name: 'Home', exact: true }).click();
+      await steps.getByRole('button', { name: 'Hide' }).click();
+      await expect(steps).toHaveCount(0);
+      await expect.poll(async () => (await (await api.get(`${API}/settings`)).json()).settings.onboardingDismissed, { timeout: 10_000, intervals: [500, 1000] })
+        .toBe(true);
+    } finally {
+      await reset();
+    }
+  });
+});

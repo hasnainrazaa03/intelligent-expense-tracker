@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { useSetting } from '../hooks/useSetting';
@@ -24,10 +24,10 @@ interface SettingsPageProps {
 // One place for the account's settings (improvement 7). They used to be spread
 // over header icons, and the gear icon silently turned on two-factor sign-in.
 
-const Section: React.FC<{ title: string; description?: string; danger?: boolean; children: React.ReactNode }> = ({ title, description, danger, children }) => {
+const Section: React.FC<{ title: string; description?: string; danger?: boolean; anchor?: string; children: React.ReactNode }> = ({ title, description, danger, anchor, children }) => {
   const id = useId();
   return (
-    <Card padding="p-5 md:p-6" className={cn(danger && 'border border-danger/40')} role="region" aria-labelledby={id}>
+    <Card id={anchor} padding="p-5 md:p-6" className={cn(danger && 'border border-danger/40', anchor && 'scroll-mt-4')} role="region" aria-labelledby={id}>
       <h2 id={id} className={cn('font-display text-lg font-bold', danger ? 'text-danger' : 'text-app-text')}>{title}</h2>
       {description && <p className="text-sm text-app-muted mt-1">{description}</p>}
       <div className="mt-4 divide-y divide-app-border">{children}</div>
@@ -133,7 +133,7 @@ const NotificationsSection: React.FC = () => {
   const canUse = serverReady !== false && device !== 'unsupported' && device !== 'loading';
 
   return (
-    <Section title="Notifications" description="Alerts arrive on the devices you turn on, by email if you choose, between 9 am and 9 pm your time, each once.">
+    <Section anchor="notifications" title="Notifications" description="Alerts arrive on the devices you turn on, by email if you choose, between 9 am and 9 pm your time, each once.">
       <Row title="This device" hint={deviceHint}>
         {device === 'on' ? (
           <>
@@ -182,6 +182,12 @@ const errorText = (error: unknown, fallback: string): string => {
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategories, onManageBudgets, onOpenHouseholds }) => {
   const navigate = useNavigate();
+  // A link to a section (Home's "Choose alerts" goes to #notifications) scrolls
+  // to it: the router changes the address without the browser's own jump.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash.length > 1) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
+  }, [hash]);
   const { userEmail, twoFactorEnabled, setTwoFactor, logout, logoutEverywhere, deleteAccount } = useAuth();
   const { theme, setTheme } = useTheme();
   const hideTuition = useSetting('hideTuition') ?? false;

@@ -22,7 +22,9 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   // - back from Google sign-in, a 2FA account gets an emailed code instead of
   //   a session, and a callback whose OAuth state didn't match is refused;
   // - from email verification, a message saying it worked (VerifyOTP passed
-  //   one that nothing displayed, so a verified user got no confirmation).
+  //   one that nothing displayed, so a verified user got no confirmation);
+  // - from the landing page's "Create free account" (?mode=signup), the
+  //   sign-up form instead of sign-in.
   const [arrival] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const twoFactorEmail = params.get('twofactor') === '1' ? params.get('email') || '' : '';
@@ -31,11 +33,12 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
       oauthInterrupted: !twoFactorEmail && params.get('error') === 'oauth_state',
       verifiedMessage: (location.state as { message?: string } | null)?.message ?? null,
       cleanUrl: params.has('twofactor') || params.has('error'),
+      signup: !twoFactorEmail && params.get('mode') === 'signup',
     };
   });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoginView, setIsLoginView] = useState(true);
+  const [isLoginView, setIsLoginView] = useState(!arrival.signup);
   const [error, setError] = useState<string | null>(arrival.oauthInterrupted ? 'Google sign-in was interrupted. Please try again.' : null);
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(arrival.twoFactorEmail ? 'Verification code sent to your email.' : arrival.verifiedMessage);

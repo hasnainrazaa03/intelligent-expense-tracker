@@ -9,7 +9,8 @@ import useDateRangeFilter from '../hooks/useDateRangeFilter';
 import SideNav from '../components/shell/SideNav';
 import MobileNav from '../components/shell/MobileNav';
 import SectionTabs from '../components/shell/SectionTabs';
-import { DataLoadBanner, OnboardingCard } from '../components/shell/Banners';
+import { DataLoadBanner } from '../components/shell/Banners';
+import FirstSteps from '../components/home/FirstSteps';
 import { useAuth } from '../contexts/AuthContext';
 import { useAllData } from '../hooks/useAllData';
 import { useTransactions } from '../hooks/useTransactions';
@@ -25,6 +26,7 @@ import { createExpense } from '../services/api';
 import type { PendingExpense } from '../utils/offlineQueue';
 import { updateSettings } from '../utils/settingsStore';
 import { notify } from '../utils/notifications';
+import { userStorage } from '../utils/userStorage';
 import * as Screens from './screens';
 import type { EntryDraft, SaveOptions } from '../components/entryDraft';
 
@@ -37,6 +39,9 @@ import type { EntryDraft, SaveOptions } from '../components/entryDraft';
  *   useRecurringSuggestions, useDataTransfer, useHubData
  */
 const HOME: AppRoute = { place: 'home' };
+// First steps are for a new account: past this many entries, it's set up.
+const FIRST_STEPS_MAX_ENTRIES = 20;
+const IMPORTED_KEY = 'statementImported';
 
 const AppDashboard: React.FC = () => {
   const { isAuthenticated, userEmail, logout } = useAuth();
@@ -62,6 +67,17 @@ const AppDashboard: React.FC = () => {
     onFreshLoad: () => { recurring.resetForFreshLoad(); tuition.resetForFreshLoad(); },
     onRestored: recurring.clear,
   });
+  // "Import a bank statement" (first steps) is ticked on this device once an
+  // import succeeds; entries don't record where they came from.
+  const [statementImported, setStatementImported] = useState(() => userStorage.getItem(IMPORTED_KEY) === '1');
+  const importTransactions: typeof transfer.importTransactions = async (payload) => {
+    const ok = await transfer.importTransactions(payload);
+    if (ok) {
+      userStorage.setItem(IMPORTED_KEY, '1');
+      setStatementImported(true);
+    }
+    return ok;
+  };
 
   // --- UI state ---------------------------------------------------------------
   // The screen comes from the address (U2a): Back, Forward, reload and
@@ -117,8 +133,13 @@ const AppDashboard: React.FC = () => {
   // instead of "No expenses yet" for an account full of them (improvement 14).
   const clearSearch = () => setClearSearchSignal((n) => n + 1);
 
-  // Not on Settings: "add your first expense" has no place there.
-  const showOnboarding = hasServerSnapshot && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0 && route.place !== 'settings';
+  // U6b: the first-steps checklist, on Home, for a new account (a handful of
+  // entries) until every step is done or it's hidden.
+  const budgetAlerts = useSetting('notifyBudgets') === true;
+  const billAlerts = useSetting('notifyBills') === true;
+  const summaryAlerts = useSetting('notifyMonthlySummary') === true;
+  const alertsOn = budgetAlerts || billAlerts || summaryAlerts;
+  const showFirstSteps = hasServerSnapshot && !isLoadingData && !onboardingDismissed && route.place === 'home' && expenses.length + incomes.length < FIRST_STEPS_MAX_ENTRIES;
 
   const liveRegionMessage = useMemo(() => {
     if (isLoadingData) return 'Loading your financial data.';
@@ -208,6 +229,17 @@ const AppDashboard: React.FC = () => {
               onEditIncome={(i) => openIncomeForm(i)}
               onAddExpense={() => openExpenseForm()}
               onImportStatement={openStatementImport}
+              setup={showFirstSteps ? (
+                <FirstSteps
+                  hasExpense={expenses.length > 0}
+                  hasBudget={budgets.length > 0}
+                  alertsOn={alertsOn}
+                  imported={statementImported}
+                  onAddExpense={() => openExpenseForm()}
+                  onImportStatement={openStatementImport}
+                  onDismiss={() => updateSettings({ onboardingDismissed: true })}
+                />
+              ) : undefined}
             />
           </Suspense>
         );
@@ -283,7 +315,7 @@ const AppDashboard: React.FC = () => {
                 allIncomes={incomes}
                 budgets={budgets}
                 semesters={semesters}
-                onImport={transfer.importTransactions}
+                onImport={importTransactions}
                 onOpenStatementImport={() => { navigate(PATHS.settings); openStatementImport(); }}
                 onRestoreBackup={transfer.restoreBackup}
                 onWipeAll={async () => { if (await transfer.wipeAll()) navigate(PATHS.settings); }}
@@ -353,9 +385,6 @@ const AppDashboard: React.FC = () => {
             {data.dataLoadFailed && (
               <DataLoadBanner hasPartialData={Boolean(data.query.data)} retrying={data.query.isFetching} onRetry={() => { void data.query.refetch(); }} />
             )}
-            {showOnboarding && (
-              <OnboardingCard onAddExpense={() => openExpenseForm()} onAddIncome={() => openIncomeForm()} onDismiss={() => updateSettings({ onboardingDismissed: true })} />
-            )}
             {renderPlace()}
           </div>
         </main>
@@ -403,7 +432,7 @@ const AppDashboard: React.FC = () => {
             onClose={() => setIsStatementImportOpen(false)}
             existingExpenses={expenses}
             existingIncomes={incomes}
-            onImport={transfer.importTransactions}
+            onImport={importTransactions}
           />
         </Suspense>
       )}
