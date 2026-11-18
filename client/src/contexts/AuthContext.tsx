@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getSession,
@@ -67,8 +67,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStorageUser(email);
     return email;
   });
+  // Updated after each render (layout effect: before any event can read it).
   const isAuthenticatedRef = useRef(isAuthenticated);
-  isAuthenticatedRef.current = isAuthenticated;
+  useLayoutEffect(() => { isAuthenticatedRef.current = isAuthenticated; }, [isAuthenticated]);
 
   const setUserEmail = useCallback((email: string | null) => {
     setStorageUser(email);
@@ -148,7 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // On start: finish a logout that never reached the server, else reconcile the
   // session (twoFactorEnabled / email from server truth, APP-H6). Also handles
   // the Google OAuth redirect (?auth=1): the session check below confirms it.
-  useEffect(() => {
+  // Once, on start (an effect event: the latest helpers, without re-running).
+  const onStart = useEffectEvent(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('auth') === '1') {
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -167,8 +169,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       })
       .catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
+  useEffect(() => { onStart(); }, []);
 
   // Retry a pending server logout when the connection comes back.
   useEffect(() => {

@@ -6,6 +6,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { expenseToClient, incomeToClient, budgetToClient } from '../utils/money';
 // Statement PDFs are read in a worker thread with a timeout (utils/pdfText).
 import { extractPdfText, MAX_PDF_TEXT_CHARS } from '../utils/pdfText';
+import { INCOME_CATEGORIES, expenseCategoriesForUser } from '../utils/categories';
 
 const router = Router();
 
@@ -26,26 +27,12 @@ try {
   console.error("Failed to initialize GoogleGenAI:", error);
 }
 
-// Kept in sync with the client's constants.ts — the receipt parser constrains
-// Gemini to these exact category/payment values so the returned fields drop
-// straight into the expense form.
-const RECEIPT_CATEGORIES = [
-  'Tuition', 'Books & Supplies', 'Course Fees', 'Technology', 'Supplies', 'Visa Fees',
-  'Rent', 'Utilities', 'Internet', 'Renters Insurance', 'Furniture', 'Household Items',
-  'Insurance Premium', 'Medical Expenses', 'Dental & Vision', 'Prescriptions',
-  'Groceries', 'Dining Out', 'Coffee & Snacks', 'Meal Plan',
-  'Public Transit', 'Fuel', 'Car Insurance', 'Maintenance', 'Rideshare', 'Parking',
-  'Phone', 'Clothing', 'Entertainment', 'Fitness', 'Personal Care', 'Subscriptions',
-  'Home Visits', 'Local Travel', 'Airfare', 'Accommodation',
-  'Emergency Fund', 'Gifts', 'Other',
-];
+// Expense categories are each user's own (built-in + custom − deleted, see
+// utils/categories): the AI is offered, and held to, the list the app shows.
+// Payment methods are kept in sync with the client's constants.ts.
 const RECEIPT_PAYMENT_METHODS = [
   'Debit Card', 'Credit Card', 'Cash', 'Bank Transfer', 'Zelle', 'Venmo', 'PayPal',
   'Cash App', 'Apple Pay', 'Google Pay', 'Check', 'Wire Transfer', 'Direct Deposit', 'Other',
-];
-// Income categories — kept in sync with the client's constants.ts.
-const INCOME_CATEGORIES = [
-  'Salary', 'Freelance', 'Investment', 'Gift', 'Rental Income', 'Loan', 'Other',
 ];
 
 // Strip ``` fences and pull the first JSON object out of a model response.
@@ -420,6 +407,7 @@ router.post('/parse-receipt', async (req: Request, res: Response) => {
   if (!match) {
     return res.status(400).json({ message: 'image must be a base64 image data URI (png/jpg/webp/gif).' });
   }
+  const expenseCategories = await expenseCategoriesForUser(req.user!.id);
   const mimeType = match[1];
   const base64 = match[2].replace(/\s+/g, '');
   // ~6MB of base64 — the client downscales first, so anything larger is suspect.
@@ -434,7 +422,7 @@ Return ONLY a JSON object with these keys:
 - "amount": the grand total as a plain number in the receipt's own currency (no symbols, no thousands separators)
 - "currency": 3-letter ISO code if shown or inferable (e.g. "USD", "INR", "EUR"), otherwise "USD"
 - "date": the purchase date as "YYYY-MM-DD"; if not visible use "${today}"
-- "category": the single best fit from EXACTLY this list: ${JSON.stringify(RECEIPT_CATEGORIES)}
+- "category": the single best fit from EXACTLY this list: ${JSON.stringify(expenseCategories)}
 - "paymentMethod": one of ${JSON.stringify(RECEIPT_PAYMENT_METHODS)} if the receipt shows how it was paid, otherwise ""
 - "notes": up to 100 chars of useful context (store location, key items), otherwise ""
 If the image is not a receipt, return {"title":"","amount":0,"currency":"USD","date":"${today}","category":"Other","paymentMethod":"","notes":""}.
@@ -473,7 +461,7 @@ Respond with JSON only — no markdown, no commentary.`;
       amount: Number.isFinite(amountNum) && amountNum > 0 ? amountNum : 0,
       currency: /^[A-Z]{3}$/.test(currency) ? currency : 'USD',
       date: /^\d{4}-\d{2}-\d{2}$/.test(String(parsed.date || '')) ? parsed.date : today,
-      category: RECEIPT_CATEGORIES.includes(parsed.category) ? parsed.category : 'Other',
+      category: expenseCategories.includes(parsed.category) ? parsed.category : 'Other',
       paymentMethod: RECEIPT_PAYMENT_METHODS.includes(parsed.paymentMethod) ? parsed.paymentMethod : '',
       notes: String(parsed.notes || '').slice(0, 100),
     };
@@ -499,6 +487,7 @@ router.post('/parse-statement', async (req: Request, res: Response) => {
   }
 
   const { pdf, csvText } = req.body || {};
+  const expenseCategories = await expenseCategoriesForUser(req.user!.id);
 
   let parts: any[] | null = null;
   const instruction = `You are a meticulous, expert bank-statement parser. Read the ENTIRE statement (all pages and all accounts/sections) and extract every genuine transaction, classifying each as an EXPENSE (money spent) or INCOME (money genuinely received). Accuracy matters more than speed — reason carefully about each line before emitting it.
@@ -531,7 +520,7 @@ Each real transaction must appear EXACTLY ONCE even if it is echoed in a per-acc
     "ACH KAMRAN BADR TYPE: P2P ... BANK OF AMERICA" -> "Payment from Kamran Badr"
 - "paymentMethod": expenses only, chosen from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. Decide debit-vs-credit by the ACCOUNT SECTION the transaction sits under: a checking / debit / savings section means a card or POS purchase is "Debit Card"; a CREDIT-CARD section (e.g. a "MASTERCARD"/"VISA" statement or a "Credit Purchases" list) means "Credit Card". Also map by wording: "ACH"/electronic/bill-pay -> "Bank Transfer"; ATM cash withdrawal -> "Cash"; "CHECK"/"draft" -> "Check"; "WIRE" -> "Wire Transfer". Recognizable P2P/wallets: Venmo -> "Venmo", Zelle -> "Zelle", PayPal -> "PayPal", Cash App -> "Cash App", Apple Cash/Apple Pay -> "Apple Pay", Google Pay -> "Google Pay". If genuinely unclear, "". Income: always "".
 - "category": the SINGLE BEST fit, chosen DECISIVELY. Use "Other" only as a genuine last resort.
-  * EXPENSE — choose from EXACTLY: ${JSON.stringify(RECEIPT_CATEGORIES)}. Apply this reasoning:
+  * EXPENSE — choose from EXACTLY: ${JSON.stringify(expenseCategories)}. Apply this reasoning:
     - GROCERIES: supermarkets and food/grocery stores of EVERY kind, INCLUDING international / ethnic / halal / South-Asian / Hispanic / Asian grocers and markets. Treat a merchant whose name contains "bazaar", "market", "supermarket", "mart", "foods", "grocery", "grocers", "produce", "meat", or "halal" as Groceries UNLESS it is clearly a restaurant. Known grocers include: Trader Joe's, Ralphs, Vons, Whole Foods, Safeway, Kroger, Aldi, Costco, Sprouts, Sam's Club, Smart & Final, H Mart, 99 Ranch, Patel Brothers, India Bazaar, JH Bazaar, Al-Noor, Superior Grocers, El Super, Northgate.
     - DINING OUT: restaurants, cafes, coffee shops, fast food, bars, food delivery (Starbucks, McDonald's, Chipotle, DoorDash, Uber Eats, Grubhub).
     - RIDESHARE: Lyft, Uber (rides). PUBLIC TRANSIT: metro/bus/train passes. FUEL: gas stations (Chevron, Shell, Arco, 76). PARKING: parking/garages.
@@ -641,7 +630,7 @@ Return ONLY a JSON object {"account": "...", "transactions":[...]}, at most ${MA
       .map((t: any) => {
         const amountNum = Number(t?.amount);
         const type = t?.type === 'income' ? 'income' : 'expense';
-        const validCategories = type === 'income' ? INCOME_CATEGORIES : RECEIPT_CATEGORIES;
+        const validCategories = type === 'income' ? INCOME_CATEGORIES : expenseCategories;
         return {
           type,
           date: /^\d{4}-\d{2}-\d{2}$/.test(String(t?.date || '')) ? t.date : today,
@@ -676,7 +665,7 @@ router.post('/enrich-transaction', async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'description is required' });
   }
   const isIncome = type === 'income';
-  const categories = isIncome ? INCOME_CATEGORIES : RECEIPT_CATEGORIES;
+  const categories = isIncome ? INCOME_CATEGORIES : await expenseCategoriesForUser(req.user!.id);
 
   const prompt = `You are helping a user log a ${isIncome ? 'income' : 'expense'} transaction. Given:
 - description: "${String(description).slice(0, 120)}"
@@ -740,6 +729,7 @@ router.post('/enrich-transactions', async (req: Request, res: Response) => {
   if (!Array.isArray(transactions) || transactions.length === 0) {
     return res.status(400).json({ message: 'transactions must be a non-empty array' });
   }
+  const expenseCategories = await expenseCategoriesForUser(req.user!.id);
 
   const items = transactions.slice(0, 200).map((t: any, i: number) => ({
     i,
@@ -754,7 +744,7 @@ Rules per item:
 - "i": copy the item's index exactly.
 - "notes": one concise human sentence of useful context (max 100 chars).
 - "tags": 1-3 short lowercase tags (no "#").
-- "category": for an EXPENSE item choose from EXACTLY ${JSON.stringify(RECEIPT_CATEGORIES)}; for an INCOME item from EXACTLY ${JSON.stringify(INCOME_CATEGORIES)}. Categorize decisively — any grocery/supermarket/market/"bazaar"/"mart"/ethnic or international grocer (JH Bazaar, H Mart, Patel Brothers, 99 Ranch) is "Groceries", restaurants/cafes are "Dining Out".
+- "category": for an EXPENSE item choose from EXACTLY ${JSON.stringify(expenseCategories)}; for an INCOME item from EXACTLY ${JSON.stringify(INCOME_CATEGORIES)}. Categorize decisively — any grocery/supermarket/market/"bazaar"/"mart"/ethnic or international grocer (JH Bazaar, H Mart, Patel Brothers, 99 Ranch) is "Groceries", restaurants/cafes are "Dining Out".
 - "paymentMethod": for EXPENSE items, from EXACTLY ${JSON.stringify(RECEIPT_PAYMENT_METHODS)}. These come from a bank/checking statement, so a normal card purchase is "Debit Card", never "Credit Card". P2P/wallet names (Venmo/Zelle/PayPal/Cash App/Apple Pay/Google Pay) map to themselves. If unclear, "". For INCOME always "".
 
 INPUT (JSON array of {i, type, description, amount}):
@@ -796,7 +786,7 @@ Return ONLY: {"details":[{"i":0,"notes":"...","tags":["..."],"category":"...","p
         const idx = Number(d?.i);
         const item = items.find((it) => it.i === idx);
         if (!item) return null;
-        const categories = item.type === 'income' ? INCOME_CATEGORIES : RECEIPT_CATEGORIES;
+        const categories = item.type === 'income' ? INCOME_CATEGORIES : expenseCategories;
         const tags = Array.isArray(d?.tags)
           ? d.tags.map((t: any) => String(t).trim().toLowerCase().replace(/^#/, '')).filter(Boolean).slice(0, 3)
           : [];

@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { CATEGORIES } from '../../constants';
+import { useCategories } from '../../hooks/useCategories';
 import { getCategoryColor } from '../../utils/colorUtils';
 import { formatCurrency } from '../../utils/currencyUtils';
 import ChartEmpty from '../ChartEmpty';
@@ -27,6 +27,7 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
 const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { categories } = useCategories();
 
   const mainCategoryData = useMemo(() => {
     const mainCategoryTotals = expenses.reduce((acc, exp) => {
@@ -70,7 +71,7 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
   // the category name directly from the entry (CMP-H2: drilldown was dead).
   const handleBarClick = (entry: any) => {
     const categoryName = entry?.name ?? entry?.payload?.name;
-    if (categoryName && CATEGORIES[categoryName as keyof typeof CATEGORIES]) {
+    if (categoryName && categories[categoryName]) {
       setSelectedCategory(categoryName);
     }
   };

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { localParts, addDays, addMonthsSameDay, previousMonth } from '../../src/notify/calendar';
-import { subToMainFor } from '../../src/notify/categories';
+import { subToMainFor, expenseCategoriesFor } from '../../src/utils/categories';
 import { upcomingBills } from '../../src/notify/recurrence';
 import { budgetNotice, billNotice, summaryNotice } from '../../src/notify/compose';
 
@@ -26,6 +26,15 @@ describe('categories', () => {
     expect(map.Boba).toBe('Food');
     expect(map.Groceries).toBe('Food');
     expect(map['Meal Plan']).toBeUndefined();
+  });
+  it("lists what a user's expenses can be filed under: theirs in, removed ones out, Other always last", () => {
+    const list = expenseCategoriesFor({ Food: ['Boba'] }, { Food: ['Meal Plan'], Miscellaneous: ['Other'] });
+    expect(list).toContain('Boba');
+    expect(list).toContain('Groceries');
+    expect(list).not.toContain('Meal Plan');
+    expect(list[list.length - 1]).toBe('Other');
+    expect(list.filter((c) => c === 'Other')).toHaveLength(1);
+    expect(expenseCategoriesFor(null, undefined)).toContain('Tuition');
   });
 });
 

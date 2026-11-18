@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { saveSemesters, payInstallment, ApiError } from '../services/api';
 import type { Expense, Semester } from '../types';
 import type { AllData } from './useAllData';
@@ -43,8 +43,9 @@ export const useTuition = ({
     setIsSemestersDirty(true);
   }, [semestersDirtyRef]);
   // Latest semesters, for a save that runs after waiting for an earlier one.
+  // Updated after each render (layout effect: before any click can read it).
   const semestersRef = useRef<Semester[]>([]);
-  semestersRef.current = semesters;
+  useLayoutEffect(() => { semestersRef.current = semesters; }, [semesters]);
   const saveInFlight = useRef<Promise<unknown> | null>(null);
   const failures = useRef(0);
   const [retryTick, setRetryTick] = useState(0);
@@ -116,11 +117,11 @@ export const useTuition = ({
   };
 
   // Autosave 800ms after the last change; never before the real list loaded.
+  const autosave = useEffectEvent(() => { void saveNow(); });
   useEffect(() => {
     if (!isAuthenticated || !isSemestersDirty || !hasServerSnapshot) return;
-    const timer = setTimeout(() => { void saveNow(); }, 800);
+    const timer = setTimeout(autosave, 800);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [semesters, isAuthenticated, isSemestersDirty, hasServerSnapshot, retryTick]);
 
   const updateTotal = (semesterId: string, totalTuition: number) => {

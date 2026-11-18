@@ -508,6 +508,35 @@ test.describe('settings page (5b-2)', () => {
 test.describe('account actions (own accounts)', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
+  test('a custom subcategory reaches the budget manager, and a name already used is refused (A3)', async ({ page }) => {
+    await signIn(page, 'e2e-restore@test.com');
+    const reset = async () => page.request.patch(`${API}/settings`, { headers: await csrfHeaders(page.request), data: { customCategories: null, deletedSubcategories: null } });
+    await reset();
+    await page.reload();
+    try {
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('button', { name: 'Categories', exact: true }).click();
+      const manager = page.getByRole('dialog', { name: 'Categories' });
+      await manager.getByRole('button', { name: 'Food', exact: true }).click();
+      const field = manager.getByLabel('New subcategory for Food');
+      await field.fill('groceries');
+      await manager.getByRole('button', { name: 'Add' }).click();
+      await expect(manager.getByRole('alert')).toHaveText('"Groceries" already exists.');
+      await field.fill('Boba E2E');
+      await manager.getByRole('button', { name: 'Add' }).click();
+      await expect(manager.getByText('Boba E2E', { exact: true })).toBeVisible();
+      await manager.getByRole('button', { name: 'Done' }).click();
+
+      // Saved to the account, and the budget manager offers it.
+      await expect.poll(async () => (await (await page.request.get(`${API}/settings`)).json()).settings.customCategories, { timeout: 10_000, intervals: [500, 1000] })
+        .toEqual({ Food: ['Boba E2E'] });
+      await page.getByRole('button', { name: 'Budgets', exact: true }).click();
+      await expect(page.getByRole('dialog', { name: 'Manage budgets' }).getByLabel('Boba E2E', { exact: true })).toBeVisible();
+    } finally {
+      await reset();
+    }
+  });
+
   test('coming back from Google sign-in: a 2FA account is asked for its code, an interrupted one is told, and the address is cleaned', async ({ page }) => {
     await page.goto('/login?twofactor=1&email=someone%40example.com');
     await expect(page.getByText('Verification code sent to your email.')).toBeVisible();

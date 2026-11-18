@@ -3,7 +3,8 @@ import toast from 'react-hot-toast';
 import { Expense, Income } from '../types';
 import { Button } from './ui';
 import { APP_CONFIG } from '../config';
-import { ALL_SUBCATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../constants';
+import { INCOME_CATEGORIES, PAYMENT_METHODS } from '../constants';
+import { useCategories } from '../hooks/useCategories';
 import { suggestCategory } from '../services/categorySuggestionService';
 import { formatCurrency } from '../utils/currencyUtils';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -97,6 +98,8 @@ const fieldSm = 'w-full bg-surface border border-app-border rounded-md px-2 py-1
 
 const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpenses, existingIncomes, onImport }) => {
   const { displayCurrency, conversionRate } = useCurrency();
+  // The user's own subcategories included, deleted ones left out (A3).
+  const { allSubcategories: expenseCategories } = useCategories();
 
   const [fileName, setFileName] = useState('');
   // Which real-world account this statement belongs to. Stamped onto every row
@@ -200,7 +203,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
       .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
       .map((it, i) => {
         const type: TxnType = it.type === 'income' ? 'income' : 'expense';
-        const validCats = type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
+        const validCats = type === 'income' ? INCOME_CATEGORIES : expenseCategories;
         const aiCat = it.category && it.category !== 'Other' && validCats.includes(it.category) ? it.category : null;
         const category = aiCat || defaultCategoryFor(type, it.description);
         const key = `${type === 'income' ? 'i' : 'e'}:${dupeKey(it.date, it.amount, it.description)}`;
@@ -325,7 +328,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
   }));
   const setType = (id: string, type: TxnType) => setRows((rs) => rs!.map((r) => {
     if (r.id !== id) return r;
-    const validCats = type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
+    const validCats = type === 'income' ? INCOME_CATEGORIES : expenseCategories;
     const category = validCats.includes(r.category) ? r.category : defaultCategoryFor(type, r.description);
     return { ...r, type, category, paymentMethod: type === 'income' ? '' : r.paymentMethod };
   }));
@@ -340,7 +343,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
       const { details } = await enrichTransaction({ type: row.type, description: row.description, amount: row.amount, category: row.category });
       setRows((rs) => rs!.map((r) => {
         if (r.id !== row.id) return r;
-        const validCats = r.type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
+        const validCats = r.type === 'income' ? INCOME_CATEGORIES : expenseCategories;
         return {
           ...r,
           notes: details.notes || r.notes,
@@ -373,7 +376,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
         const idx = included.findIndex((x) => x.id === r.id);
         const d = idx >= 0 ? byIndex.get(idx) : undefined;
         if (!d) return r;
-        const validCats = r.type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
+        const validCats = r.type === 'income' ? INCOME_CATEGORIES : expenseCategories;
         return {
           ...r,
           notes: d.notes || r.notes,
@@ -641,7 +644,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
                 >
                   <option value="">Set category…</option>
                   <optgroup label="Expense">
-                    {ALL_SUBCATEGORIES.map((c) => <option key={`e-${c}`} value={c}>{c}</option>)}
+                    {expenseCategories.map((c) => <option key={`e-${c}`} value={c}>{c}</option>)}
                   </optgroup>
                   <optgroup label="Income">
                     {INCOME_CATEGORIES.map((c) => <option key={`i-${c}`} value={c}>{c}</option>)}
@@ -665,7 +668,7 @@ const StatementImportModal: React.FC<Props> = ({ isOpen, onClose, existingExpens
 
             <div className="space-y-2 max-h-[calc(100vh-11rem)] overflow-y-auto custom-scrollbar pr-1">
               {rows.filter((r) => !hideDuplicates || !r.duplicate).map((r) => {
-                const catOptions = r.type === 'income' ? INCOME_CATEGORIES : ALL_SUBCATEGORIES;
+                const catOptions = r.type === 'income' ? INCOME_CATEGORIES : expenseCategories;
                 return (
                   <div key={r.id} data-row-problem={r.problem ? 'true' : undefined} className={`rounded-lg border bg-surface-2 p-2.5 ${r.problem ? 'border-danger ring-1 ring-danger/40' : 'border-app-border'} ${r.include ? '' : 'opacity-50'}`}>
                     {r.problem && <p role="alert" className="text-[11px] font-semibold text-danger mb-1.5">{r.problem}</p>}

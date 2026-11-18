@@ -8,6 +8,10 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Account and dates (2026-11-17)
+- **Your categories everywhere (#205):** a subcategory you add can now be budgeted, chosen
+  when importing a statement, and picked by the AI when it reads a receipt or a statement;
+  one you delete stops being offered. Lists update as soon as categories change, and the
+  category manager won't add a name that already exists.
 - **Ready for the React Compiler (#204):** the client passes the compiler's lint rules,
   now enforced. Visible effects: screens left open overnight move on to the new day at
   midnight (they kept showing yesterday's "this month"); an inline edit starts from the

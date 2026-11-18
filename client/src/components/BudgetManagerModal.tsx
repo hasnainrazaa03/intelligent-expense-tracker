@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import useEntryCurrency from '../hooks/useEntryCurrency';
 import { Budget } from '../types';
-import { CATEGORIES, SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
+import { useCategories } from '../hooks/useCategories';
+import { SUBCATEGORY_TO_CATEGORY_MAP } from '../constants';
 import { Modal, Button, Label } from './ui';
 import ConfirmationDialog from './ConfirmationDialog';
 
@@ -20,8 +21,23 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
   // Amounts are edited in the entry currency (the display currency when a fresh
   // rate exists, else USD) and stored in USD. This used to convert for INR only.
   const entry = useEntryCurrency();
-  const [budgets, setBudgets] = useState<{ [key: string]: string }>({});
+  // The saved budgets as form values, in the entry currency.
+  const toForm = (list: Budget[]) => list.reduce((acc, budget) => {
+    const displayAmount = entry.fromUsd(budget.amount);
+    acc[budget.category] = displayAmount > 0 ? displayAmount.toFixed(2) : '';
+    return acc;
+  }, {} as { [key: string]: string });
+  const [budgets, setBudgets] = useState<{ [key: string]: string }>(() => toForm(currentBudgets));
   const [isDirty, setIsDirty] = useState(false);
+  // The form starts again from the saved budgets when they change (a save
+  // landing) or the entry currency or its rate changes, since the amounts are
+  // shown in that currency. Followed during render; this was an effect.
+  const [formSource, setFormSource] = useState({ list: currentBudgets, fromUsd: entry.fromUsd });
+  if (formSource.list !== currentBudgets || formSource.fromUsd !== entry.fromUsd) {
+    setFormSource({ list: currentBudgets, fromUsd: entry.fromUsd });
+    setBudgets(toForm(currentBudgets));
+    setIsDirty(false);
+  }
   const [showDiscard, setShowDiscard] = useState(false);
 
   // Close, guarding unsaved edits with an in-app dialog (no native window.confirm).
@@ -57,24 +73,19 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
     },
   };
 
-  // 1. Group subcategories under their parents
+  // 1. Subcategories under their main categories: the user's own included and
+  // deleted ones left out (the built-in list missed both, A3). A budget still
+  // set on a subcategory that was deleted stays listed, under its old main
+  // category, so it can be seen and cleared.
+  const { categories } = useCategories();
   const groupedCategories = useMemo(() => {
-    const groups: Record<string, string[]> = {};
-    
-    // Initialize with main categories from CATEGORIES object keys
-    Object.keys(CATEGORIES).forEach(cat => {
-      groups[cat] = [];
-    });
-
-    // Map subcategories to their parents based on the constant map
-    Object.entries(SUBCATEGORY_TO_CATEGORY_MAP).forEach(([sub, parent]) => {
-      if (groups[parent]) {
-        groups[parent].push(sub);
-      }
-    });
-
+    const listed = new Set([...Object.keys(categories), ...Object.values(categories).flat()]);
+    const orphans = Object.keys(budgets).filter((c) => !listed.has(c));
+    if (orphans.length === 0) return categories;
+    const groups: Record<string, string[]> = Object.fromEntries(Object.entries(categories).map(([main, subs]) => [main, [...subs]]));
+    for (const c of orphans) (groups[SUBCATEGORY_TO_CATEGORY_MAP[c] ?? 'Miscellaneous'] ??= []).push(c);
     return groups;
-  }, []);
+  }, [categories, budgets]);
 
   // 2. Helper to calculate total for a category header (Subcategories + General)
   const getCategoryTotal = (parentCategory: string) => {
@@ -84,16 +95,6 @@ const BudgetManagerModal: React.FC<BudgetManagerModalProps> = ({ isOpen, onClose
     return childrenSum + parentDirect;
   };
 
-  useEffect(() => {
-    const budgetMap = currentBudgets.reduce((acc, budget) => {
-      const displayAmount = entry.fromUsd(budget.amount);
-      acc[budget.category] = displayAmount > 0 ? displayAmount.toFixed(2) : '';
-      return acc;
-    }, {} as { [key: string]: string });
-    setBudgets(budgetMap);
-    setIsDirty(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBudgets, isOpen, entry.currency, entry.fromUsd]);
 
   const totalBudget = useMemo(() => {
     return (Object.values(budgets) as string[]).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0);

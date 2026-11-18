@@ -1,6 +1,9 @@
-// The built-in categories, as in client/src/constants.ts (keep the two in
-// step), plus a user's own additions and removals (UserSettings), so a budget
-// on "Food" covers a custom "Boba" here exactly as it does in the app (C8).
+// Categories on the server: the built-in ones, as in client/src/constants.ts
+// (keep the two in step), plus each user's own additions and removals
+// (UserSettings). The same effective list as the app's, so a budget on "Food"
+// covers a custom "Boba" in alerts (C8), and the AI files a receipt or a
+// statement line under "Boba" too (A3).
+import { prisma } from '../db';
 
 export const BUILT_IN_CATEGORIES: Record<string, string[]> = {
   Education: ['Tuition', 'Books & Supplies', 'Course Fees', 'Technology', 'Supplies', 'Visa Fees'],
@@ -13,11 +16,14 @@ export const BUILT_IN_CATEGORIES: Record<string, string[]> = {
   Miscellaneous: ['Emergency Fund', 'Gifts', 'Other'],
 };
 
+/** Income categories, as in client/src/constants.ts. */
+export const INCOME_CATEGORIES = ['Salary', 'Freelance', 'Investment', 'Gift', 'Rental Income', 'Loan', 'Other'];
+
 type CategoryMap = Record<string, string[]>;
 const isMap = (v: unknown): v is CategoryMap => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/** Subcategory → main category for one user (built-ins + custom − deleted). */
-export const subToMainFor = (custom: unknown, deleted: unknown): Record<string, string> => {
+/** One user's main category → subcategories (built-ins + custom − deleted). */
+export const effectiveCategories = (custom: unknown, deleted: unknown): CategoryMap => {
   const categories: CategoryMap = Object.fromEntries(Object.entries(BUILT_IN_CATEGORIES).map(([k, v]) => [k, [...v]]));
   if (isMap(custom)) {
     for (const [main, subs] of Object.entries(custom)) {
@@ -29,6 +35,12 @@ export const subToMainFor = (custom: unknown, deleted: unknown): Record<string, 
       if (categories[main] && Array.isArray(subs)) categories[main] = categories[main].filter((s) => !subs.includes(s));
     }
   }
+  return categories;
+};
+
+/** Subcategory → main category for one user (built-ins + custom − deleted). */
+export const subToMainFor = (custom: unknown, deleted: unknown): Record<string, string> => {
+  const categories = effectiveCategories(custom, deleted);
   const map: Record<string, string> = {};
   for (const [main, subs] of Object.entries(categories)) for (const sub of subs) map[sub] = main;
   return map;
@@ -43,4 +55,22 @@ export const budgetForExpense = (category: string, budgeted: Set<string>, subToM
   if (budgeted.has(category)) return category;
   const main = subToMain[category];
   return main && budgeted.has(main) ? main : null;
+};
+
+/**
+ * What one user's expenses can be filed under: every effective subcategory,
+ * with "Other" always last as the fallback (even if they removed it).
+ */
+export const expenseCategoriesFor = (custom: unknown, deleted: unknown): string[] => {
+  const all = Object.values(effectiveCategories(custom, deleted)).flat().filter((c) => c !== 'Other');
+  return [...new Set(all), 'Other'];
+};
+
+/** expenseCategoriesFor, from the user's saved settings. */
+export const expenseCategoriesForUser = async (userId: string): Promise<string[]> => {
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId },
+    select: { customCategories: true, deletedSubcategories: true },
+  });
+  return expenseCategoriesFor(settings?.customCategories, settings?.deletedSubcategories);
 };

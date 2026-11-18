@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { PlusCircleIcon, TrashIcon, TagIcon } from './Icons';
-import { CATEGORIES } from '../constants';
-import { getEffectiveCategories, saveCategories } from '../utils/categories';
+import { saveCategories } from '../utils/categories';
+import { useCategories } from '../hooks/useCategories';
 import { Modal, Button, IconButton, Input } from './ui';
 
 interface CategoryManagerModalProps {
@@ -9,34 +9,36 @@ interface CategoryManagerModalProps {
   onClose: () => void;
 }
 
-const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<string>(Object.keys(CATEGORIES)[0]);
-  const [categories, setCategories] = useState<Record<string, string[]>>(getEffectiveCategories);
-  const [newSubcategory, setNewSubcategory] = useState('');
+/** The server's limit for a category name (server/src/utils/settings.ts). */
+const MAX_NAME_LENGTH = 60;
 
-  // Persist through the shared categories store (single source of truth), which
-  // diffs against defaults and invalidates the cache so the expense dropdown and
-  // category colors pick up the change (CMP-M24).
-  useEffect(() => {
-    if (!isOpen) return;
-    saveCategories(categories);
-  }, [categories, isOpen]);
+const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onClose }) => {
+  // Edits go straight to the shared categories store (an account setting), and
+  // every list a category is picked from follows (A3). It used to edit a local
+  // copy saved by an effect, which also sent an update each time it opened.
+  const { categories, allSubcategories } = useCategories();
+  const mains = Object.keys(categories);
+  const [activeTab, setActiveTab] = useState<string>(mains[0] ?? 'Education');
+  const [newSubcategory, setNewSubcategory] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
 
   const handleDeleteSubcategory = (cat: string, sub: string) => {
-    setCategories(prev => ({
-      ...prev,
-      [cat]: prev[cat].filter(s => s !== sub),
-    }));
+    saveCategories({ ...categories, [cat]: categories[cat].filter((s) => s !== sub) });
   };
 
   const handleAddSubcategory = (cat: string) => {
     const trimmed = newSubcategory.trim();
-    if (!trimmed || categories[cat].includes(trimmed)) return;
-    setCategories(prev => ({
-      ...prev,
-      [cat]: [...prev[cat], trimmed],
-    }));
+    if (!trimmed) return;
+    // One name, one place: the same name under two main categories would make
+    // it ambiguous which budget an expense counts toward.
+    const existing = [...mains, ...allSubcategories].find((n) => n.toLowerCase() === trimmed.toLowerCase());
+    if (existing) {
+      setAddError(`"${existing}" already exists.`);
+      return;
+    }
+    saveCategories({ ...categories, [cat]: [...(categories[cat] ?? []), trimmed] });
     setNewSubcategory('');
+    setAddError(null);
   };
 
   return (
@@ -58,10 +60,10 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
     >
           {/* Sidebar: Main Categories */}
           <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-app-border bg-surface-2 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto no-scrollbar flex-shrink-0">
-            {Object.keys(CATEGORIES).map((cat) => (
+            {mains.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setActiveTab(cat)}
+                onClick={() => { setActiveTab(cat); setAddError(null); }}
                 className={`whitespace-nowrap md:whitespace-normal text-left px-4 py-3 md:p-4 text-xs font-semibold transition-colors flex items-center justify-between flex-shrink-0 md:flex-shrink ${
                   activeTab === cat ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text hover:bg-surface'
                 }`}
@@ -100,7 +102,10 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
                 <Input
                   aria-label={`New subcategory for ${activeTab}`}
                   value={newSubcategory}
-                  onChange={(e) => setNewSubcategory(e.target.value)}
+                  maxLength={MAX_NAME_LENGTH}
+                  onChange={(e) => { setNewSubcategory(e.target.value); setAddError(null); }}
+                  aria-invalid={addError ? true : undefined}
+                  aria-describedby={addError ? 'new-subcategory-error' : undefined}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddSubcategory(activeTab); }}
                   placeholder="New subcategory name"
                   className="flex-1"
@@ -114,6 +119,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ isOpen, onC
                   Add
                 </Button>
               </div>
+              {addError && <p id="new-subcategory-error" role="alert" className="text-xs text-danger">{addError}</p>}
             </div>
           </div>
     </Modal>

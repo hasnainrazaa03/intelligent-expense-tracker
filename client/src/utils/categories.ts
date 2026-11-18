@@ -14,9 +14,22 @@ export type CategoryMap = Record<string, string[]>;
 // Cache the built map so the hot-path color/grouping lookups don't rebuild it on
 // every call. Dropped whenever settings change (an edit here, another device's
 // edit arriving, a different account signing in).
-let cache: { categories: CategoryMap; subToMain: Record<string, string> } | null = null;
+export interface CategoriesSnapshot {
+  /** Main category → its subcategories (defaults + custom − deleted). */
+  categories: CategoryMap;
+  /** Subcategory → main category, custom ones included. */
+  subToMain: Record<string, string>;
+  /** Every subcategory, in order: what an expense can be filed under. */
+  allSubcategories: string[];
+}
 
-const build = (): { categories: CategoryMap; subToMain: Record<string, string> } => {
+let cache: CategoriesSnapshot | null = null;
+// The two settings the cache was built from: either one changing means a
+// rebuild, whichever settings listener happens to run first. Other settings
+// changing keep the same snapshot (and spare useCategories a re-render).
+let builtFrom: [unknown, unknown] = [undefined, undefined];
+
+const build = (): CategoriesSnapshot => {
   const categories: CategoryMap = JSON.parse(JSON.stringify(CATEGORIES));
 
   const custom = getSetting('customCategories');
@@ -41,16 +54,30 @@ const build = (): { categories: CategoryMap; subToMain: Record<string, string> }
     for (const sub of categories[main]) subToMain[sub] = main;
   }
 
-  return { categories, subToMain };
+  return { categories, subToMain, allSubcategories: Object.values(categories).flat() };
 };
 
-const getCache = () => (cache ??= build());
+const getCache = (): CategoriesSnapshot => {
+  const custom = getSetting('customCategories');
+  const deleted = getSetting('deletedSubcategories');
+  if (!cache || builtFrom[0] !== custom || builtFrom[1] !== deleted) {
+    cache = build();
+    builtFrom = [custom, deleted];
+  }
+  return cache;
+};
 
 /** The effective main→subcategories map (defaults + custom − deleted). */
 export const getEffectiveCategories = (): CategoryMap => JSON.parse(JSON.stringify(getCache().categories));
 
 /** The effective subcategory→main map, including custom subcategories. */
 export const getEffectiveSubToMain = (): Record<string, string> => getCache().subToMain;
+
+/**
+ * The effective categories, read-only. The same object until categories change,
+ * so it works as a useSyncExternalStore snapshot (see hooks/useCategories).
+ */
+export const getCategoriesSnapshot = (): Readonly<CategoriesSnapshot> => getCache();
 
 /** Drop the cache so the next lookup rebuilds from the current settings. */
 export const invalidateCategoriesCache = (): void => {
