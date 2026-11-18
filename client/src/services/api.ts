@@ -216,6 +216,19 @@ export const logoutEverywhere = (): Promise<{ message: string }> => {
  * Permanently deletes the account and all its data. Needs the password, or a
  * sign-in within the last 10 minutes (accounts that only use Google).
  */
+/**
+ * Changes the password. The server signs out every other device and renews this
+ * session, with a new CSRF cookie: use the token it returns from now on.
+ */
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
+  const res = await fetchApi<{ message: string; csrfToken?: string }>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  cachedCsrfToken = res?.csrfToken ?? null;
+  return res;
+};
+
 export const deleteAccount = (password: string): Promise<{ message: string }> => {
   return fetchApi('/auth/delete-account', {
     method: 'POST',

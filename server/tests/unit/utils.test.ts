@@ -33,6 +33,26 @@ describe('math: amount and date parsing', () => {
     expect(parseValidDate('2026-11-17')).toBeInstanceOf(Date);
     expect(parseValidDate('not a date')).toBeNull();
     expect(parseValidDate('')).toBeNull();
+    expect(parseValidDate(null)).toBeNull();
+    expect(parseValidDate(1_700_000_000_000)).toBeNull();
+  });
+  it('stores the calendar day that was sent, at midnight UTC (SRV-L5)', () => {
+    const iso = (v: unknown) => parseValidDate(v)?.toISOString() ?? null;
+    expect(iso('2026-10-05')).toBe('2026-10-05T00:00:00.000Z');
+    // Late evening in California is already the next day in UTC: the written day wins.
+    expect(iso('2026-10-05T23:30:00-07:00')).toBe('2026-10-05T00:00:00.000Z');
+    expect(iso('2026-10-05T00:30:00+05:30')).toBe('2026-10-05T00:00:00.000Z');
+    expect(iso(' 2026-10-05 ')).toBe('2026-10-05T00:00:00.000Z');
+    expect(iso(new Date('2026-10-05T18:00:00Z'))).toBe('2026-10-05T00:00:00.000Z');
+    expect(iso('Oct 5, 2026')).toBe('2026-10-05T00:00:00.000Z');
+  });
+  it('refuses days that do not exist instead of rolling them into the next month', () => {
+    expect(parseValidDate('2026-02-30')).toBeNull();
+    expect(parseValidDate('2026-02-29')).toBeNull(); // 2026 isn't a leap year
+    expect(parseValidDate('2028-02-29')).toBeInstanceOf(Date);
+    expect(parseValidDate('2026-13-01')).toBeNull();
+    expect(parseValidDate('2026-10-05Tnonsense')).toBeNull();
+    expect(parseValidDate('1850-01-01')).toBeNull();
   });
 });
 

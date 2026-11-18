@@ -167,6 +167,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| 6a Account and dates | Change password while signed in (other devices signed out, this one renewed, a notice emailed); a paid tuition installment's date can be changed from the tracker; the API starts without a Resend key (email off) instead of crashing; dates are stored as the calendar day sent, and impossible days are refused (SRV-L5) | #202 |
 | S13 PDF worker | Statement PDFs are read in a worker thread instead of the API process, where a 600-page statement held the event loop for its whole parse (every other request waited). The worker is stopped after 20 s, its heap is capped at 192 MB, and at most two run at once | #201 |
 | 5f-3 Visit counts, shared counters | Vercel Web Analytics counts page visits: the script loads from the site itself and only on the production host, sends the path without its query (the Google two-factor redirect carries an email there), and stays off with Global Privacy Control, Do Not Track or the new Settings switch; the privacy policy says so. Rate limits, failed-login lockouts and the daily AI budget move to Redis (Render Key Value) when `REDIS_URL` is set, so restarts no longer reset them; when Redis is down or slow (300 ms) they fall back to memory, never blocking a request | #200 |
 | 5f-2 Icons and encrypted backups | PNG app icons (192, 512, maskable, Apple touch, notification badge) and a 1200×630 Orbit share image replace the SVG-only icon and the USC-Trojan-style picture used for link previews (unused Trojan and title images removed). Full backups downloaded from the app can be protected with a passphrase (PBKDF2-SHA256 600k → AES-256-GCM, in the browser); restore asks for it. The operator's `npm run db:backup` is now encrypted (scrypt → AES-256-GCM), covers every collection, and leaves out one-time codes and reset tokens; `npm run db:decrypt-backup` reads it back | #199 |
@@ -207,16 +208,16 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 **Also open**
 - [x] PDF statement parsing runs in a worker thread (the rest of S13): stopped after 20 s (`PDF_PARSE_TIMEOUT_MS`), heap capped at 192 MB, at most two at once; on failure the PDF itself goes to Gemini, as before.
 - [ ] `utils/keyedLock.ts` is per process: with more than one API instance, idempotent creates need a unique index or a Redis lock.
-- [ ] The server crashes at boot without `RESEND_API_KEY`; it should start with email disabled.
+- [x] The server starts without `RESEND_API_KEY`, with email off (the Resend client is created on first use; `new Resend('')` threw at boot).
 - [ ] Rotate production secrets (P3).
 - [ ] A3: custom categories as a single source of truth (CMP-M24).
-- [ ] SRV-L5: normalise dates to a calendar day on the server (`parseValidDate` still accepts any timestamp).
-- [ ] A paid tuition installment's date can't be changed in the UI: `App` has the handler (`handleUpdateInstallmentDate`) but the tracker never calls it.
+- [x] SRV-L5: `parseValidDate` stores the calendar day that was sent, at midnight UTC ("2026-10-05T23:30-07:00" was stored as 6 October), and refuses days that don't exist ("2026-02-30" used to roll into March).
+- [x] A paid tuition installment's date can be changed in the tracker ("Change date"); it moves the tuition expense's date, which the server mirrors onto the installment.
 - [ ] React Compiler readiness: about 30 lint findings (`react/purity`, `react/set-state-in-effect`, `react/refs`), switched off in `client/.oxlintrc.json`.
 - [ ] Lint the server too (it isn't linted yet).
 - [ ] The weekly Dependency Audit workflow isn't a required check (it only runs when a PR touches a `package*.json`). Watch its Monday runs; it had been failing unnoticed since at least May.
 - [ ] Remove the `deepmerge-ts` override in `server/package.json` if a Prisma 6.x release picks up deepmerge-ts 8.
 - [ ] Check `EMAIL_FROM` on Render. `onboarding@resend.dev` is Resend's test sender and only delivers to the Resend account's own address, so other people's sign-up codes may never arrive. Sending from a verified domain fixes it (see 5a).
 - [x] Group `tailwindcss` and `@tailwindcss/*` in Dependabot, like React (#192); `@tailwindcss/postcss` aligned to 4.3.5.
-- [ ] Change password while signed in (only the forgot-password flow exists).
+- [x] Change password while signed in (Settings → Security): needs the current password, signs out every other device, keeps this one signed in, and emails the owner. Five wrong passwords per 15 minutes lock it.
 - [x] picomatch ReDoS (GHSA-fc5q-39xc-vjpf, no fixed release yet) failed the Dependency Audit on every dependency PR. The audit now fails on high+ advisories in production dependencies and on critical ones anywhere (#192).

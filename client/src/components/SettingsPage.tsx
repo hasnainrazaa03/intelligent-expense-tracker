@@ -4,7 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { useSetting } from '../hooks/useSetting';
 import { updateSettings } from '../utils/settingsStore';
-import { ApiError, getPushKey, sendTestPush } from '../services/api';
+import { ApiError, getPushKey, sendTestPush, changePassword } from '../services/api';
+import { isStrongPassword, PASSWORD_RULES_TEXT } from '../utils/password';
 import { currentPushState, enablePush, disablePush, needsHomeScreenInstall, type PushState } from '../utils/push';
 import { notify } from '../utils/notifications';
 import { analyticsOptedOut, browserAsksNotToTrack, setAnalyticsOptOut } from '../utils/analytics';
@@ -213,6 +214,38 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategor
     }
   };
 
+  // Change password
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const closePasswordForm = () => {
+    setChangingPassword(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setRepeatPassword('');
+    setPasswordError(null);
+  };
+  const submitPasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordBusy) return;
+    if (!isStrongPassword(newPassword)) return setPasswordError(`The new password is too weak. ${PASSWORD_RULES_TEXT}`);
+    if (newPassword !== repeatPassword) return setPasswordError("The new passwords don't match.");
+    setPasswordBusy(true);
+    setPasswordError(null);
+    try {
+      const { message } = await changePassword(currentPassword, newPassword);
+      notify.success(message || 'Password changed.');
+      closePasswordForm();
+    } catch (error) {
+      setPasswordError(errorText(error, "Couldn't change the password."));
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
   // Delete account
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
@@ -287,6 +320,38 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenData, onManageCategor
       <NotificationsSection />
 
       <Section title="Security">
+        <Row
+          title="Password"
+          hint="Changing it signs you out on every other device. Signed up with Google? Set a password with “Forgot password” on the sign-in page."
+        >
+          {!changingPassword && <Button variant="secondary" size="sm" onClick={() => setChangingPassword(true)}>Change</Button>}
+        </Row>
+        {changingPassword && (
+          <form onSubmit={submitPasswordChange} aria-label="Change password" className="py-3.5 space-y-3">
+            <div>
+              <Label htmlFor="current-password">Current password</Label>
+              <Input id="current-password" type="password" autoComplete="current-password" autoFocus value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="new-password">New password</Label>
+                <Input id="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} aria-describedby="new-password-hint" />
+              </div>
+              <div>
+                <Label htmlFor="repeat-password">Repeat new password</Label>
+                <Input id="repeat-password" type="password" autoComplete="new-password" value={repeatPassword} onChange={(e) => setRepeatPassword(e.target.value)} aria-describedby="new-password-hint" />
+              </div>
+            </div>
+            <p id="new-password-hint" className="text-xs text-app-muted">{PASSWORD_RULES_TEXT}</p>
+            {passwordError && <p role="alert" className="text-xs text-danger">{passwordError}</p>}
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={!currentPassword || !newPassword || !repeatPassword} aria-busy={passwordBusy}>
+                {passwordBusy ? 'Changing…' : 'Change password'}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={closePasswordForm}>Cancel</Button>
+            </div>
+          </form>
+        )}
         <Row
           title={`Two-factor sign-in: ${twoFactorEnabled ? 'on' : 'off'}`}
           hint={

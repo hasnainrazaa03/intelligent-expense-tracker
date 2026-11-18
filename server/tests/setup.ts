@@ -18,7 +18,6 @@ vi.mock('../src/utils/mailer', async () => {
   const { mailbox } = await import('./mailbox');
   const ok = { success: true as const };
   return {
-    resend: {},
     sendVerificationEmail: vi.fn(async (to: string, code: string) => { mailbox.push({ kind: 'verification', to, code }); return ok; }),
     sendTwoFactorEmail: vi.fn(async (to: string, code: string) => { mailbox.push({ kind: 'two-factor', to, code }); return ok; }),
     sendPasswordResetEmail: vi.fn(async (to: string, code: string) => { mailbox.push({ kind: 'password-reset', to, code }); return ok; }),

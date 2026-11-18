@@ -12,7 +12,8 @@ interface USCPaymentTrackerProps {
   onUpdateTuition: (semesterId: string, totalTuition: number) => void;
   onUpdateInstallmentCount: (semesterId: string, count: number) => void;
   onMarkAsPaid: (semesterId: string, installmentId: number, paymentDate: string) => Promise<void> | void;
-  onUpdateDate: (semesterId: string, installmentId: number, newDate: string) => void;
+  /** Moves a paid installment's date (its tuition expense's date). */
+  onUpdateDate: (semesterId: string, installmentId: number, newDate: string) => Promise<boolean> | boolean;
 }
 
 // --- INTELLIGENT SEMESTER DETECTOR ---
@@ -30,9 +31,7 @@ const detectCurrentSemesterId = () => {
 };
 
 const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
-  // onUpdateDate is accepted but not used yet: there's no control for changing a
-  // paid installment's date (tracked in the post-launch plan).
-  semesters, onUpdateTuition, onUpdateInstallmentCount, onMarkAsPaid,
+  semesters, onUpdateTuition, onUpdateInstallmentCount, onMarkAsPaid, onUpdateDate,
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   
@@ -43,6 +42,9 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
   // Installments with a "mark paid" request in flight: the button is disabled so
   // a double-click can't create two tuition expenses.
   const [markingPaid, setMarkingPaid] = useState<Set<string>>(new Set());
+  // The paid installment whose date is being changed, and the date picked.
+  const [editingDate, setEditingDate] = useState<{ key: string; value: string } | null>(null);
+  const [savingDate, setSavingDate] = useState(false);
   
   // Initialize with the detected current semester
   const [activeSemesterId, setActiveSemesterId] = useState<string>(detectCurrentSemesterId());
@@ -214,9 +216,47 @@ const USCPaymentTracker: React.FC<USCPaymentTrackerProps> = ({
                         {formatCurrency(inst.amount, displayCurrency, conversionRate)}
                       </p>
                       {inst.status === 'paid' ? (
-                        <div className="flex items-center mt-2 text-ok font-semibold text-[10px]">
-                          <TagIcon className="h-3 w-3 mr-1" /> Paid: {inst.paidDate}
-                        </div>
+                        editingDate?.key === dateKey(activeSemester.id, inst.id) ? (
+                          <form
+                            className="flex flex-wrap items-center gap-2 mt-2"
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              if (savingDate || !editingDate.value) return;
+                              setSavingDate(true);
+                              try {
+                                if (await onUpdateDate(activeSemester.id, inst.id, editingDate.value)) setEditingDate(null);
+                              } finally {
+                                setSavingDate(false);
+                              }
+                            }}
+                          >
+                            <DatePicker
+                              value={editingDate.value}
+                              onChange={(v) => setEditingDate({ key: editingDate.key, value: v })}
+                              required
+                              aria-label={`Paid date for installment ${index + 1}`}
+                              className="!px-3 !py-1.5 !text-[11px] !rounded-xl"
+                            />
+                            <Button type="submit" size="sm" aria-busy={savingDate} className="rounded-xl text-[10px] px-3 py-1.5">
+                              {savingDate ? 'Saving…' : 'Save'}
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setEditingDate(null)} className="rounded-xl text-[10px] px-3 py-1.5">
+                              Cancel
+                            </Button>
+                          </form>
+                        ) : (
+                          <div className="flex items-center gap-2 mt-2 text-ok font-semibold text-[10px]">
+                            <span className="flex items-center"><TagIcon className="h-3 w-3 mr-1" /> Paid: {inst.paidDate}</span>
+                            <button
+                              type="button"
+                              onClick={() => setEditingDate({ key: dateKey(activeSemester.id, inst.id), value: inst.paidDate || todayCalendar() })}
+                              aria-label={`Change the paid date of installment ${index + 1}`}
+                              className="text-app-muted hover:text-app-text underline underline-offset-2"
+                            >
+                              Change date
+                            </button>
+                          </div>
+                        )
                       ) : (
                         <div className="flex items-center mt-2 text-app-faint text-[10px]">
                           <CalendarDaysIcon className="h-3 w-3 mr-1" /> Awaiting payment

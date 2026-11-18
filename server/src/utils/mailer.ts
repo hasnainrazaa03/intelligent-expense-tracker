@@ -1,15 +1,14 @@
 import { Resend } from 'resend';
 
-// Helper to get the key safely
-const getResendKey = () => {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    console.warn("⚠️ WARNING: RESEND_API_KEY is missing from environment variables.");
-  }
-  return key || ""; 
-};
-
-export const resend = new Resend(getResendKey());
+// Created on first use. `new Resend('')` throws, so creating it when this
+// module loaded crashed the whole API at start-up whenever RESEND_API_KEY was
+// missing. Now the API starts with email off: each send below reports that
+// email isn't set up instead.
+let client: Resend | null = null;
+const resend = (): Resend => (client ??= new Resend(process.env.RESEND_API_KEY));
+if (!process.env.RESEND_API_KEY) {
+  console.warn('⚠️ RESEND_API_KEY is not set: the API runs, but it cannot send email (sign-up codes, password resets, summaries).');
+}
 
 export const sendVerificationEmail = async (email: string, otp: string) => {
   try {
@@ -22,7 +21,7 @@ export const sendVerificationEmail = async (email: string, otp: string) => {
       throw new Error("Cannot send email: EMAIL_FROM is undefined.");
     }
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await resend().emails.send({
       from: emailFrom,
       to: email,
       subject: 'Your Verification Code',
@@ -57,7 +56,7 @@ export const sendGenericEmail = async (
     return { success: false, error: 'EMAIL_NOT_CONFIGURED' };
   }
   try {
-    const { error } = await resend.emails.send({ from: process.env.EMAIL_FROM, to, subject, html, text });
+    const { error } = await resend().emails.send({ from: process.env.EMAIL_FROM, to, subject, html, text });
     if (error) return { success: false, error };
     return { success: true };
   } catch (err) {
@@ -77,7 +76,7 @@ export const sendPasswordResetEmail = async (email: string, resetCode: string) =
       throw new Error("Cannot send email: EMAIL_FROM is undefined.");
     }
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await resend().emails.send({
       from: emailFrom,
       to: email,
       subject: 'Password Reset Code',
@@ -111,7 +110,7 @@ export const sendTwoFactorEmail = async (email: string, code: string) => {
       throw new Error('Cannot send email: EMAIL_FROM is undefined.');
     }
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await resend().emails.send({
       from: emailFrom,
       to: email,
       subject: 'Your Login Verification Code',

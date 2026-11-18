@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import otpGenerator from 'otp-generator';
 import crypto from 'crypto';
-import { sendVerificationEmail, sendPasswordResetEmail, sendTwoFactorEmail } from '../utils/mailer';
+import { sendVerificationEmail, sendPasswordResetEmail, sendTwoFactorEmail, sendGenericEmail } from '../utils/mailer';
 import { authLimiter, loginLimiter, otpLimiter, passwordResetLimiter, recipientEmailLimiter, passwordCheckLimiter } from '../middleware/rateLimiter';
 import { deleteAccountData } from '../utils/deleteAccount';
 import { writeAuditLog } from '../utils/audit';
@@ -663,6 +663,65 @@ router.post('/delete-account', csrfProtection, authMiddleware, passwordCheckLimi
     console.error('Delete account error:', error);
     await audit(false, { error: error instanceof Error ? error.message : 'unknown' });
     return sendError(res, 500, 'DELETE_FAILED', 'Could not delete the account. Nothing was removed.');
+  }
+});
+
+// Change the password while signed in. Needs the current password (accounts
+// made with Google have a random one: they set a password with "Forgot
+// password"). Other devices are signed out; this one gets a fresh session.
+// Five wrong passwords per 15 minutes lock it, like the other password checks.
+router.post('/change-password', csrfProtection, authMiddleware, passwordCheckLimiter, async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body || {};
+  const userId = req.user!.id;
+  const audit = (success: boolean, metadata?: Record<string, unknown>) =>
+    writeAuditLog({ action: 'password_change', userId, success, route: '/api/auth/change-password', ip: req.ip, userAgent: req.get('user-agent') || undefined, metadata });
+
+  if (typeof currentPassword !== 'string' || !currentPassword || typeof newPassword !== 'string' || !newPassword) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Enter your current password and a new one.');
+  }
+  if (!isStrongPassword(newPassword)) {
+    return sendError(res, 400, 'WEAK_PASSWORD', `Use ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters with an uppercase letter, a lowercase letter, a number and a symbol.`);
+  }
+
+  try {
+    const account = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, password: true } });
+    if (!account) return sendError(res, 401, 'UNAUTHORIZED', 'Account not found.');
+    if (!(await bcrypt.compare(currentPassword, account.password))) {
+      await audit(false, { reason: 'wrong_password' });
+      return sendError(res, 401, 'INCORRECT_PASSWORD', 'Your current password is incorrect.');
+    }
+    if (await bcrypt.compare(newPassword, account.password)) {
+      return sendError(res, 400, 'SAME_PASSWORD', 'Choose a password different from your current one.');
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: await bcrypt.hash(newPassword, 10),
+        ...CLEAR_ALL_CODES,
+        otpAttempts: 0,
+        // Every other session ends (SRV-M2); this one is re-issued below.
+        tokenVersion: { increment: 1 },
+      },
+      select: { id: true, email: true, tokenVersion: true },
+    });
+    const csrfToken = issueSessionCookies(res, signSessionToken(updated));
+    await audit(true);
+
+    // Best effort, in case it wasn't them. Never fails the change.
+    const when = new Date().toUTCString();
+    void sendGenericEmail(
+      updated.email,
+      'Your Orbit password was changed',
+      `<p>The password for your Orbit account was changed on ${when}, and every other device was signed out.</p><p>If this wasn't you, reset your password now with "Forgot password" on the sign-in page.</p>`,
+      `The password for your Orbit account was changed on ${when}, and every other device was signed out. If this wasn't you, reset your password now with "Forgot password" on the sign-in page.`,
+    ).catch(() => undefined);
+
+    return res.status(200).json({ message: 'Password changed. Every other device is signed out.', csrfToken });
+  } catch (error) {
+    console.error('Change password error:', error);
+    await audit(false, { error: error instanceof Error ? error.message : 'unknown' });
+    return sendError(res, 500, 'CHANGE_FAILED', "Couldn't change the password. It's unchanged.");
   }
 });
 
