@@ -8,6 +8,9 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 ## [Unreleased]
 
 ### Account and dates (2026-11-17)
+- **Alerts by email (#207):** Settings → Notifications → By email sends your budget alerts,
+  bill reminders and monthly summary to your email address too, each once, whether or not a
+  device has notifications on.
 - **Ready for a second server (#206):** the guard that stops an offline replay or a
   double-submitted import from saving twice can now work across several API instances
   (`SHARED_LOCKS=on` with Redis), asking the app to retry rather than risk a double save.

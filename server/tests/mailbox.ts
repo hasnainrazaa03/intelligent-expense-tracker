@@ -1,6 +1,6 @@
 // What the (mocked) mailer would have sent, so tests can read verification,
 // sign-in and reset codes. Filled by the mock in setup.ts.
-export interface SentMail { kind: 'verification' | 'two-factor' | 'password-reset' | 'generic'; to: string; code?: string; subject?: string }
+export interface SentMail { kind: 'verification' | 'two-factor' | 'password-reset' | 'generic'; to: string; code?: string; subject?: string; text?: string; headers?: Record<string, string> }
 
 export const mailbox: SentMail[] = [];
 

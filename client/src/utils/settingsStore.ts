@@ -172,6 +172,7 @@ export const normalizePatch = (patch: SettingsPatch): SettingsPatch => {
       case 'notifyBudgets':
       case 'notifyBills':
       case 'notifyMonthlySummary':
+      case 'notifyByEmail':
         if (typeof v === 'boolean') out[k] = v;
         break;
       case 'timeZone':
@@ -520,7 +521,7 @@ export const hydrateSettings = (fromServer: UserSettings | undefined, { authorit
 const SETTINGS_KEYS: Key[] = [
   'displayCurrency', 'hideTuition', 'onboardingDismissed', 'recurringSnoozeUntil', 'customCategories',
   'deletedSubcategories', 'merchantMap', 'pausedRecurring', 'savingsGoals', 'investmentAccounts',
-  'notifyBudgets', 'notifyBills', 'notifyMonthlySummary', 'timeZone',
+  'notifyBudgets', 'notifyBills', 'notifyMonthlySummary', 'notifyByEmail', 'timeZone',
 ];
 
 /**

@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { sendError } from '../utils/http';
 import { pushConfigured, vapidPublicKey, sendToUser } from '../notify/push';
 import { pushTestLimiter } from '../middleware/rateLimiter';
+import { emailConfigured } from '../notify/email';
 
 // Web Push subscriptions (5e-2). The browser subscribes with the public key;
 // the hourly job (notify/job.ts) sends budget alerts, bill reminders and the
@@ -16,6 +17,11 @@ const notConfigured = (res: Response) =>
   sendError(res, 503, 'PUSH_NOT_CONFIGURED', "Notifications aren't set up on the server yet.");
 
 const BASE64URL = /^[A-Za-z0-9_-]+={0,2}$/;
+
+// GET /api/push/status → which channels the server can send by (Settings uses it).
+router.get('/status', (_req: Request, res: Response) => {
+  res.json({ push: Boolean(vapidPublicKey()), email: emailConfigured() });
+});
 
 // GET /api/push/key → { publicKey }
 router.get('/key', (_req: Request, res: Response) => {

@@ -58,7 +58,7 @@ Effort: **S** ≈ 1–3 days · **M** ≈ ~1 week · **L** ≈ multi-week. Order
 ### Tier 1 — cheap, high-impact (lean on existing infra)
 1. [x] **Subscription price-creep detector (S)** — flag recurring charges whose amount rose vs the prior cycle; show cumulative spend. *(PR #52)*
 2. [x] **Spending anomaly cards (S)** — "Dining up 60% vs your recent average" spike detection in the planning insight cards. Full AI/email digest still open. *(PR #52)*
-3. [~] **Emailed summary (S)** — on-demand 'email me a summary' via Resend (scheduled version still open). — reuse the existing report renderer + Resend.
+3. [x] **Emailed summary (S)** — on demand ('email me a summary', Resend), and monthly with the alerts by email (6f): the summary of last month goes out early in the new month to users who turn email on.
 
 ### Tier 2 — flagship value
 4. [x] **Recurring transactions auto-materialization (S–M)** *(PR #54)* — a recurrence rule + on-login/scheduled job that auto-inserts due transactions with a confirm step. Today `isRecurring` is only a reminder.
@@ -169,6 +169,7 @@ was checked in the browser or API against the original code before merging.
 | 3e Housekeeping | Offline tab switching and service-worker shell (C15); this tidy-up | #175 |
 | Dependencies | Routine bumps; react and react-dom grouped in Dependabot | #161–#166, #169 |
 | Dependency audit | `npm audit` clean (was 1 critical, 11 high): Vite dev-server RCE fix and the dev server back on localhost, jsPDF 2 → 4, Prisma's `deepmerge-ts` overridden to 8.x, transitive fixes; E2E test for both PDF exports | #179 |
+| 6f Alerts by email | Settings → Notifications → By email: the hourly job emails each budget alert, bill reminder and monthly summary to the account address too, once, for users with or without a device; Settings says when email isn't set up on the server (`GET /api/push/status`). A notice nothing delivered is retried next run; sends are spaced for Resend's rate limit; one-click unsubscribe (signed link and `List-Unsubscribe` headers). Reaches everyone once Orbit sends from its own domain | #207 |
 | 6e Shared lock, plan tidy | The lock that keeps an offline replay or a double-submitted import from saving twice can hold across API instances (`SHARED_LOCKS=on` with Redis; 503 rather than saving unlocked); the plan's finished items are ticked, and the production settings verified | #206 |
 | 6g Review fixes | A code review of #202–#205 found real bugs, fixed here. Opening another record (or Ctrl/Cmd+N) while a form was open kept the old record's details and could save a duplicate (both dialogs are now one per record, and the shortcut waits for an open form); the tuition pay route still rolled 30 February into March; a backup holding an odd old year (0026) couldn't be restored; weak or unchanged new passwords counted toward the five-wrong-passwords lockout; two password changes at once could sign out the device that made them; the lists' "this month" didn't move on at midnight (nor on a laptop opened in the morning), while the charts did; deleted subcategories were still suggested; category edits didn't regroup the report charts | #208 |
 | 6d Categories everywhere | Custom subcategories reach the budget manager, the statement importer and the AI (receipts, statements, AI fill), deleted ones stop being offered, and lists update live when categories change; the category manager refuses a name already used. `ExpenseModal` and five other components drop their hooks-rule suppressions, so the React Compiler checks them too | #205 |
@@ -205,7 +206,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [x] 5d-2 Split `App.tsx` into feature hooks with `useMutation`, optimistic updates, rollback and error toasts (#190). The app's data now loads only on `/app` (not while a signed-in user reads `/privacy`).
 - [x] 5e-1 Reports period selector and round-trip CSV export (#191, improvement 17).
 - [x] 5e-2 Budget and bill alerts and a monthly summary, by Web Push (#193, improvement 16; B3, B6). To switch on: VAPID keys and `CRON_SECRET` on Render, `CRON_SECRET` as a GitHub Actions secret (runbook, "Push notifications").
-- [ ] The same alerts by email, once Orbit sends from a verified domain (5a).
+- [x] The same alerts by email (6f): Settings → Notifications → By email sends every notice the hourly job makes to the account address too, claimed once for both channels. Built and tested; it reaches everyone once `EMAIL_FROM` is on a verified domain (5a). Until then Resend's test sender only delivers to its owner.
 - [x] 5f-1 Copy and empty states (#198, improvements 14 and 15).
 - [x] Net-worth accounts saved to the server: done in 5b-1 (#186).
 - [x] 5f-2 Real PWA icons (192 and 512 px PNG, maskable, apple-touch-icon, notification badge) and an Orbit OG image; encrypted database backups (A6) and passphrase-protected backup downloads.
@@ -223,7 +224,7 @@ live site), P4 (the demo seed script writes cents), and removing `server/prisma.
 - [x] `ExpenseModal` starts from the record (initial state), derives the USD amount, and suggests a category where the title changes (6d). The compiler skipped it, and five other components, because of `eslint-disable react-hooks` comments; all six are gone, with the findings they hid fixed (date picker, tuition autosave, auth start-up, currency picker, budget manager).
 - [x] The server is linted (oxlint 1.90.0, correctness rules as errors, `npm run lint`), in CI's "Server · typecheck" job. Its 14 findings are fixed: unused imports and variables, two 500 handlers that hid the error from the logs, and a GET with a body in two test scripts.
 - [ ] The weekly Dependency Audit workflow isn't a required check (it only runs when a PR touches a `package*.json`). Watch its Monday runs; it had been failing unnoticed since at least May.
-- [ ] Remove the `deepmerge-ts` override in `server/package.json` if a Prisma 6.x release picks up deepmerge-ts 8.
+- [ ] Remove the `deepmerge-ts` override in `server/package.json` if a Prisma 6.x release picks up deepmerge-ts 8. *(Checked 2026-11-17: 6.19.3 is still the latest 6.x, and @prisma/config 6 still pulls deepmerge-ts 7.1.5.)*
 - [ ] Check `EMAIL_FROM` on Render. `onboarding@resend.dev` is Resend's test sender and only delivers to the Resend account's own address, so other people's sign-up codes may never arrive. Sending from a verified domain fixes it (see 5a).
 - [x] Group `tailwindcss` and `@tailwindcss/*` in Dependabot, like React (#192); `@tailwindcss/postcss` aligned to 4.3.5.
 - [x] Change password while signed in (Settings → Security): needs the current password, signs out every other device, keeps this one signed in, and emails the owner. Five wrong passwords per 15 minutes lock it.

@@ -24,6 +24,7 @@ import householdRoutes from './routes/households';
 import settingsRoutes from './routes/settings';
 import pushRoutes from './routes/push';
 import jobsRoutes from './routes/jobs';
+import emailAlertsRoutes from './routes/emailAlerts';
 import { sendError } from './utils/http';
 import { SERVER_CONFIG, validateServerEnv } from './config';
 import { swaggerSpec } from './swagger';
@@ -170,6 +171,8 @@ app.use('/api/settings', userApiLimiter, csrfProtection, settingsRoutes);
 app.use('/api/push', userApiLimiter, csrfProtection, pushRoutes);
 // Server-to-server (shared secret, no cookies), so no CSRF check.
 app.use('/api/jobs', jobsRoutes);
+// Signed-link unsubscribe from the alert emails (the token is the authorisation).
+app.use('/api/email-alerts', emailAlertsRoutes);
 
 // --- Global Error Handler ---
 // Client errors keep their status: malformed JSON (400), an oversized body (413)

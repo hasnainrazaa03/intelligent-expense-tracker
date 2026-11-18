@@ -211,6 +211,8 @@ model UserSettings {
   notifyBudgets        Boolean?
   notifyBills          Boolean?
   notifyMonthlySummary Boolean?
+  // The same notifications by email too, to the account's address (6f).
+  notifyByEmail        Boolean?
   timeZone             String?
   updatedAt            DateTime  @updatedAt
 }

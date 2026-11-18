@@ -5,6 +5,7 @@ vi.hoisted(() => {
   process.env.VAPID_PUBLIC_KEY = 'test-public-key';
   process.env.VAPID_PRIVATE_KEY = 'test-private-key';
   process.env.CRON_SECRET = 'test-cron-secret-0123456789abcdef';
+  process.env.EMAIL_SEND_INTERVAL_MS = '0';
 });
 const sendNotification = vi.hoisted(() => vi.fn());
 vi.mock('web-push', () => ({ default: { setVapidDetails: vi.fn(), sendNotification } }));
@@ -12,6 +13,9 @@ vi.mock('web-push', () => ({ default: { setVapidDetails: vi.fn(), sendNotificati
 import { describeApi, signedInClient, newClient } from '../helpers';
 import { prisma } from '../../src/db';
 import { runNotificationJob } from '../../src/notify/job';
+import { mailbox } from '../mailbox';
+import { sendGenericEmail } from '../../src/utils/mailer';
+import { userFromUnsubscribeToken } from '../../src/notify/unsubscribe';
 
 const subscription = (n: number) => ({
   endpoint: `https://push.example.test/send/${n}-${Date.now()}`,
@@ -111,6 +115,72 @@ describeApi('push notifications (5e-2)', () => {
     await client.post('/api/expenses', { title: 'Feast', amount: 50, category: 'Groceries', date: '2026-11-10' });
     await runNotificationJob(new Date('2026-11-17T12:00:00Z'));
     expect(payloads().some((p) => p.body.includes('Feast') || p.body.includes('500%'))).toBe(false);
+  });
+
+  it('email alerts (6f): sent to the account address, once, with or without a device', async () => {
+    const { client, user } = await signedInClient();
+    await client.patch('/api/settings', { notifyBudgets: true, notifyByEmail: true, timeZone: 'UTC' });
+    await client.post('/api/budgets', [{ category: 'Food', amount: 100 }]);
+    await client.post('/api/expenses', { title: 'Big shop', amount: 120, category: 'Groceries', date: '2026-11-10' });
+    const emailsTo = () => mailbox.filter((m) => m.to === user.email && m.kind === 'generic' && /Over budget: Food/.test(m.subject ?? ''));
+
+    const result = await runNotificationJob(new Date('2026-11-17T12:00:00Z'));
+    expect(result).toMatchObject({ configured: true, push: true, email: true });
+    expect(emailsTo()).toHaveLength(1);
+    await runNotificationJob(new Date('2026-11-17T13:00:00Z'));
+    expect(emailsTo()).toHaveLength(1); // not repeated
+
+    // Off again: nothing by email.
+    const other = await signedInClient();
+    await other.client.patch('/api/settings', { notifyBudgets: true, notifyByEmail: false, timeZone: 'UTC' });
+    await other.client.post('/api/budgets', [{ category: 'Food', amount: 10 }]);
+    await other.client.post('/api/expenses', { title: 'Feast', amount: 50, category: 'Groceries', date: '2026-11-10' });
+    await runNotificationJob(new Date('2026-11-17T12:00:00Z'));
+    expect(mailbox.some((m) => m.to === other.user.email && m.kind === 'generic')).toBe(false);
+  });
+
+  it('a failed email is tried again on the next run, and its link turns email alerts off in one click', async () => {
+    const { client, user } = await signedInClient();
+    await client.patch('/api/settings', { notifyBills: true, notifyByEmail: true, timeZone: 'UTC' });
+    await client.post('/api/expenses', { title: 'Gym membership', amount: 30, category: 'Fitness', date: '2026-10-19', isRecurring: true });
+    const emailsTo = () => mailbox.filter((m) => m.to === user.email && m.kind === 'generic' && /Gym membership/.test(m.subject ?? ''));
+
+    // The email service fails: nothing is logged as sent...
+    vi.mocked(sendGenericEmail).mockResolvedValueOnce({ success: false, error: 'rate limited' });
+    const first = await runNotificationJob(new Date('2026-11-17T12:00:00Z'));
+    expect(first).toMatchObject({ retryLater: 1 });
+    expect(await prisma.notificationLog.count({ where: { userId: user.id, key: { startsWith: 'bill:' } } })).toBe(0);
+    // ...so the next run sends it.
+    await runNotificationJob(new Date('2026-11-17T13:00:00Z'));
+    const sent = emailsTo();
+    expect(sent).toHaveLength(1);
+
+    // One-click unsubscribe, as a mail app does it.
+    const header = sent[0].headers?.['List-Unsubscribe'] ?? '';
+    expect(sent[0].headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+    const path = new URL(header.slice(1, -1)).pathname + new URL(header.slice(1, -1)).search;
+    expect(path).toMatch(/^\/api\/email-alerts\/unsubscribe\?token=/);
+    expect(userFromUnsubscribeToken(new URL(header.slice(1, -1)).searchParams.get('token'))).toBe(user.id);
+    const anon = newClient();
+    // Opening the link only shows a page; nothing changes yet.
+    const page = await anon.get(path);
+    expect(page.status).toBe(200);
+    expect(page.text).toContain('Turn off email alerts');
+    expect((await client.get('/api/settings')).body.settings.notifyByEmail).toBe(true);
+    // The POST (the button, or the mail app's one-click) turns them off.
+    expect((await anon.post(path).type('form').send('List-Unsubscribe=One-Click')).status).toBe(200);
+    expect((await client.get('/api/settings')).body.settings.notifyByEmail).toBe(false);
+    expect((await anon.post('/api/email-alerts/unsubscribe?token=not-a-token')).status).toBe(400);
+  });
+
+  it('runs one pass at a time: an overlapping run is skipped', async () => {
+    const [a, b] = await Promise.all([runNotificationJob(new Date('2026-11-17T12:00:00Z')), runNotificationJob(new Date('2026-11-17T12:00:00Z'))]);
+    expect([a, b].filter((r) => 'skipped' in r)).toHaveLength(1);
+  });
+
+  it('says which channels are set up', async () => {
+    const { client } = await signedInClient();
+    expect((await client.get('/api/push/status')).body).toEqual({ push: true, email: true });
   });
 
   it('settings accept the notification switches and a real time zone only', async () => {

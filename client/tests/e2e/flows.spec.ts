@@ -483,6 +483,19 @@ test.describe('settings page (5b-2)', () => {
     expect((await saved()).timeZone).toBe(await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone));
     await budgets.click();
     await expect.poll(async () => (await saved()).notifyBudgets, { timeout: 10_000, intervals: [500, 1000] }).toBe(false);
+
+    // By email (6f): usable when the server can send email, and says so when it can't.
+    const byEmail = section.getByRole('switch', { name: 'Notifications by email' });
+    const { email } = await (await page.request.get(`${API}/push/status`)).json();
+    if (email) {
+      await byEmail.click();
+      await expect.poll(async () => (await saved()).notifyByEmail, { timeout: 10_000, intervals: [500, 1000] }).toBe(true);
+      await byEmail.click();
+      await expect.poll(async () => (await saved()).notifyByEmail, { timeout: 10_000, intervals: [500, 1000] }).toBe(false);
+    } else {
+      await expect(byEmail).toBeDisabled();
+      await expect(section.getByText("Email isn't set up on the server yet.")).toBeVisible();
+    }
   });
 
   test('anonymous visit counts can be turned off per device, and nothing loads off the production site (5f-3)', async ({ page }) => {

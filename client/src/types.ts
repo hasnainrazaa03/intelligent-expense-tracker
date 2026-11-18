@@ -78,6 +78,8 @@ export interface UserSettings {
   notifyBudgets?: boolean;
   notifyBills?: boolean;
   notifyMonthlySummary?: boolean;
+  /** The same notifications by email too (6f). */
+  notifyByEmail?: boolean;
   /** IANA time zone, so notifications arrive in the daytime and months are the user's. */
   timeZone?: string;
   /** Subcategories the user added to the built-in categories. */

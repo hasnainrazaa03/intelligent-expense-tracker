@@ -21,6 +21,6 @@ vi.mock('../src/utils/mailer', async () => {
     sendVerificationEmail: vi.fn(async (to: string, code: string) => { mailbox.push({ kind: 'verification', to, code }); return ok; }),
     sendTwoFactorEmail: vi.fn(async (to: string, code: string) => { mailbox.push({ kind: 'two-factor', to, code }); return ok; }),
     sendPasswordResetEmail: vi.fn(async (to: string, code: string) => { mailbox.push({ kind: 'password-reset', to, code }); return ok; }),
-    sendGenericEmail: vi.fn(async (to: string, subject: string) => { mailbox.push({ kind: 'generic', to, subject }); return ok; }),
+    sendGenericEmail: vi.fn(async (to: string, subject: string, _html: string, text: string, headers?: Record<string, string>) => { mailbox.push({ kind: 'generic', to, subject, text, headers }); return ok; }),
   };
 });

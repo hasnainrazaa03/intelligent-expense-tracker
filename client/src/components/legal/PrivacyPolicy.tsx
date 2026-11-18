@@ -97,7 +97,8 @@ const PrivacyPolicy: React.FC = () => (
       </li>
       <li>
         <strong>Resend</strong> sends Orbit's emails, so it receives your email address and each email's content. The monthly
-        summary you can ask for includes that month's totals and top spending categories.
+        summary you can ask for includes that month's totals and top spending categories, and the alerts you choose to get by
+        email (Settings → Notifications) include the budget, bill or monthly figures they're about.
       </li>
       <li><strong>Google</strong>, if you choose "Continue with Google", signs you in and tells Orbit your email address.</li>
       <li>
