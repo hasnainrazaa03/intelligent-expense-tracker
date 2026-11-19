@@ -232,6 +232,11 @@
     from { opacity: 0; transform: scale(0.94) translateY(6px); }
     to   { opacity: 1; transform: scale(1) translateY(0); }
   }
+  /* Phone dialogs rise from the bottom edge (U4). */
+  @keyframes sheetup {
+    from { transform: translateY(24px); opacity: 0.6; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
 
   /* ---- Glass surface helper for panels ----
      NOTE: no backdrop-filter here on purpose. backdrop-blur is recomputed

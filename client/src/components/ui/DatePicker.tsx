@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useEffectEvent, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from './cn';
 import { fieldClass } from './Field';
@@ -92,6 +92,8 @@ const DatePicker: React.FC<DatePickerProps> = ({
     });
   };
 
+  const reposition = useEffectEvent(() => place());
+
   // Opening shows the value's month, focuses its day and places the popover.
   // Done in the click that opens it; it used to be a layout effect on `open`.
   const openPicker = () => {
@@ -115,7 +117,10 @@ const DatePicker: React.FC<DatePickerProps> = ({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); close(true); }
     };
-    const onScrollResize = () => setOpen(false);
+    // Follow the field when the page or a dialog scrolls. It used to close
+    // instead, which also closed it right after opening whenever focusing the
+    // field had scrolled the dialog to show it.
+    const onScrollResize = () => reposition();
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey, true);
     window.addEventListener('resize', onScrollResize);
@@ -138,8 +143,8 @@ const DatePicker: React.FC<DatePickerProps> = ({
     return out;
   }, [view]);
 
-  // Move focus onto the active day once it's rendered. preventScroll: the
-  // picker closes on any scroll, so focusing must not scroll the page.
+  // Move focus onto the active day once it's rendered. preventScroll: moving
+  // focus inside the calendar shouldn't scroll the page under it.
   useEffect(() => {
     if (!open || !focusDayRef.current || !pos) return;
     const btn = popRef.current?.querySelector<HTMLButtonElement>(`[data-day="${focusKey}"]`);

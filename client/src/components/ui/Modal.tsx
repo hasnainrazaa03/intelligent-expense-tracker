@@ -64,7 +64,8 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-center p-4"
+      // Phones: a sheet from the bottom edge, within thumb reach (U4); wider: centred.
+      className="fixed inset-0 bg-black/70 z-[100] flex justify-center items-end sm:items-center sm:p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -73,7 +74,7 @@ export const Modal: React.FC<ModalProps> = ({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={cn('modal-surface rounded-2xl w-full flex flex-col max-h-[90vh]', SIZES[size])}
+        className={cn('modal-surface rounded-t-2xl sm:rounded-2xl w-full flex flex-col max-h-[92vh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom,0px)] sm:pb-0 motion-safe:animate-[sheetup_180ms_ease-out] sm:motion-safe:animate-none', SIZES[size])}
       >
         <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-start gap-3 flex-shrink-0">
           <div className="min-w-0">

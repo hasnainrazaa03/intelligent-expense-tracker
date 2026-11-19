@@ -25,6 +25,7 @@ import type { PendingExpense } from '../utils/offlineQueue';
 import { updateSettings } from '../utils/settingsStore';
 import { notify } from '../utils/notifications';
 import * as Screens from './screens';
+import type { EntryDraft, SaveOptions } from '../components/entryDraft';
 
 /**
  * The signed-in app: composes the data hooks and lays out the shell (header,
@@ -77,8 +78,9 @@ const AppDashboard: React.FC = () => {
   const [search, setSearch] = useState('');
   const [clearSearchSignal, setClearSearchSignal] = useState(0);
 
-  const [expenseForm, setExpenseForm] = useState<{ open: boolean; editing: Expense | null }>({ open: false, editing: null });
-  const [incomeForm, setIncomeForm] = useState<{ open: boolean; editing: Income | null }>({ open: false, editing: null });
+  // `draft` carries title, amount and date when a new entry switches kind (U4).
+  const [expenseForm, setExpenseForm] = useState<{ open: boolean; editing: Expense | null; draft?: EntryDraft }>({ open: false, editing: null });
+  const [incomeForm, setIncomeForm] = useState<{ open: boolean; editing: Income | null; draft?: EntryDraft }>({ open: false, editing: null });
   const [isStatementImportOpen, setIsStatementImportOpen] = useState(false);
 
   const openExpenseForm = (editing: Expense | null = null) => setExpenseForm({ open: true, editing });
@@ -120,15 +122,15 @@ const AppDashboard: React.FC = () => {
     return `Viewing ${routeLabel(route)}.`;
   }, [isLoadingData, recurring.pending.length, route]);
 
-  // Forms close only when the save succeeded (C4).
-  const saveExpense = async (expense: Expense | Omit<Expense, 'id'>) => {
+  // Forms close only when the save succeeded (C4), and not after "Save & add another".
+  const saveExpense = async (expense: Expense | Omit<Expense, 'id'>, options?: SaveOptions) => {
     const ok = expenseForm.editing ? await tx.updateExpense(expense as Expense) : await tx.addExpense(expense);
-    if (ok) setExpenseForm({ open: false, editing: null });
+    if (ok && !options?.keepOpen) setExpenseForm({ open: false, editing: null });
     return ok;
   };
-  const saveIncome = async (income: Income | Omit<Income, 'id'>) => {
+  const saveIncome = async (income: Income | Omit<Income, 'id'>, options?: SaveOptions) => {
     const ok = incomeForm.editing ? await tx.updateIncome(income as Income) : await tx.addIncome(income);
-    if (ok) setIncomeForm({ open: false, editing: null });
+    if (ok && !options?.keepOpen) setIncomeForm({ open: false, editing: null });
     return ok;
   };
 
@@ -151,6 +153,7 @@ const AppDashboard: React.FC = () => {
       onDeleteExpense={async (id) => { await tx.deleteExpense(id); }}
       onDeleteIncome={async (id) => { await tx.deleteIncome(id); }}
       onBulkChanged={data.invalidate}
+      onImportStatement={openStatementImport}
       onCreate={type === 'income' ? () => openIncomeForm() : () => openExpenseForm()}
     />
   );
@@ -355,7 +358,9 @@ const AppDashboard: React.FC = () => {
             onClose={() => setExpenseForm({ open: false, editing: null })}
             onSave={saveExpense}
             expense={expenseForm.editing}
-            onImportStatement={() => { setExpenseForm({ open: false, editing: null }); openStatementImport(); }}
+            draft={expenseForm.draft}
+            pastExpenses={expenses}
+            onSwitchKind={(draft) => { setExpenseForm({ open: false, editing: null }); setIncomeForm({ open: true, editing: null, draft }); }}
             knownAccounts={knownAccounts}
           />
         </Suspense>
@@ -368,7 +373,9 @@ const AppDashboard: React.FC = () => {
             onClose={() => setIncomeForm({ open: false, editing: null })}
             onSave={saveIncome}
             income={incomeForm.editing}
-            onImportStatement={() => { setIncomeForm({ open: false, editing: null }); openStatementImport(); }}
+            draft={incomeForm.draft}
+            pastIncomes={incomes}
+            onSwitchKind={(draft) => { setIncomeForm({ open: false, editing: null }); setExpenseForm({ open: true, editing: null, draft }); }}
             knownAccounts={knownAccounts}
           />
         </Suspense>
