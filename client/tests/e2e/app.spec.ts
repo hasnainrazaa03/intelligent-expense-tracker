@@ -69,11 +69,18 @@ test('the profile menu holds the preferences that were header icons (U2a)', asyn
   await profile.click();
   const panel = page.getByRole('dialog', { name: 'Account and preferences' });
   await expect(panel.getByText('test@test.com')).toBeVisible();
-  for (const name of ['Categories', 'Import and export', 'Sign out']) await expect(panel.getByRole('button', { name })).toBeVisible();
-  await expect(panel.getByRole('link', { name: 'All settings' })).toBeVisible();
+  for (const name of ['Categories', 'Import and export', 'All settings']) await expect(panel.getByRole('link', { name })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();
   await expect(profile).toBeFocused();
+
+  // The pop-ups that were header icons are pages with addresses now (U2b).
+  await profile.click();
+  await panel.getByRole('link', { name: 'Categories' }).click();
+  await expect(page).toHaveURL(/\/app\/settings\/categories$/);
+  await page.getByRole('region', { name: 'Categories' }).getByRole('button', { name: 'Back' }).click();
+  await expect(page).toHaveURL(/\/app\/settings$/);
 });
 
 test('currency picker switches display to INR', async ({ page }) => {
@@ -178,9 +185,9 @@ test('search dropdown surfaces a transaction and opens its detail', async ({ pag
 
 test('bank statement CSV maps columns and reaches the review step', async ({ page }) => {
   await page.getByRole('button', { name: 'Account and preferences' }).click();
-  await page.getByRole('button', { name: 'Import and export' }).click();
+  await page.getByRole('link', { name: 'Import and export' }).click();
   // Launch the dedicated statement-import page from the data modal.
-  await page.getByRole('dialog').getByRole('button', { name: /Import a bank statement/ }).click();
+  await page.getByRole('region', { name: 'Export, import and back up' }).getByRole('button', { name: /Import a bank statement/ }).click();
   // The importer is a full-page view (region), not a modal.
   const imp = page.getByRole('region', { name: 'Import bank statement' });
   await expect(imp.getByRole('heading', { name: 'Import bank statement' })).toBeVisible();

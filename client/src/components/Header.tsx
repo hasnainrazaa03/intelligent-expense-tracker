@@ -19,8 +19,6 @@ export type SearchHit =
 interface HeaderProps {
   userEmail: string | null;
   onLogout: () => void;
-  onManageCategories: () => void;
-  onDataAction: () => void;
   onAddExpense: () => void;
   onAddIncome: () => void;
   onScanStatement: () => void;
@@ -47,7 +45,7 @@ const MAX_SEARCH_RESULTS = 8;
  * from an icon.
  */
 const Header: React.FC<HeaderProps> = ({
-  userEmail, onLogout, onManageCategories, onDataAction, onAddExpense, onAddIncome, onScanStatement, onSearch,
+  userEmail, onLogout, onAddExpense, onAddIncome, onScanStatement, onSearch,
   hideTuition, onToggleHideTuition, offlineStatus, expenses, incomes, onSelectTransaction, clearSearchSignal = 0
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
@@ -279,8 +277,6 @@ const Header: React.FC<HeaderProps> = ({
             email={userEmail}
             hideTuition={hideTuition}
             onToggleHideTuition={onToggleHideTuition}
-            onManageCategories={onManageCategories}
-            onOpenData={onDataAction}
             onLogout={onLogout}
           />
         </div>

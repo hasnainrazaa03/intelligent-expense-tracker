@@ -44,8 +44,8 @@ test.describe('as the demo account', () => {
       `E2E Refund ${tag},-20,Shopping,2026-07-03,,,false,`,
     ].join('\r\n');
     await page.getByRole('button', { name: 'Account and preferences' }).click();
-    await page.getByRole('button', { name: 'Import and export' }).click();
-    const dialog = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Import and export' }).click();
+    const dialog = page.getByRole('region', { name: 'Export, import and back up' });
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'expenses.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
     await dialog.getByRole('button', { name: 'Import CSV' }).click();
     await expect(page.getByText(/skipped 1 \(1 with a zero or negative amount/)).toBeVisible({ timeout: 10_000 });
@@ -59,8 +59,8 @@ test.describe('as the demo account', () => {
   test('a bank statement is imported after review: debits as expenses, the credit as income', async ({ page }) => {
     const tag = Date.now();
     await page.getByRole('button', { name: 'Account and preferences' }).click();
-    await page.getByRole('button', { name: 'Import and export' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: /Import a bank statement/ }).click();
+    await page.getByRole('link', { name: 'Import and export' }).click();
+    await page.getByRole('region', { name: 'Export, import and back up' }).getByRole('button', { name: /Import a bank statement/ }).click();
     const imp = page.getByRole('region', { name: 'Import bank statement' });
     const csv = [
       'Posted Date,Description,Amount,Category',
@@ -152,8 +152,8 @@ test.describe('as the demo account', () => {
 
     await page.getByRole('button', { name: 'Account and preferences' }).click();
 
-    await page.getByRole('button', { name: 'Import and export' }).click();
-    const dialog = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Import and export' }).click();
+    const dialog = page.getByRole('region', { name: 'Export, import and back up' });
     await dialog.getByRole('button', { name: 'PDF', exact: true }).click();
     const [exported] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download export' }).click()]);
     expect(exported.suggestedFilename()).toMatch(/^financial-report-\d{4}-\d{2}-\d{2}\.pdf$/);
@@ -213,8 +213,8 @@ test.describe('as the demo account', () => {
 
   test('import errors are in plain language (5f-1)', async ({ page }) => {
     await page.getByRole('button', { name: 'Account and preferences' }).click();
-    await page.getByRole('button', { name: 'Import and export' }).click();
-    const dialog = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Import and export' }).click();
+    const dialog = page.getByRole('region', { name: 'Export, import and back up' });
     // The file input only accepts .csv in the picker; a drag or a rename can still hand it something else.
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
     await expect(dialog.getByRole('alert')).toHaveText('Choose a .csv file.');
@@ -347,8 +347,8 @@ test.describe('backup restore (own account)', () => {
 
     await page.getByRole('button', { name: 'Account and preferences' }).click();
 
-    await page.getByRole('button', { name: 'Import and export' }).click();
-    const dialog = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Import and export' }).click();
+    const dialog = page.getByRole('region', { name: 'Export, import and back up' });
     const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Export full backup (JSON)' }).click()]);
     const file = testInfo.outputPath('backup.json');
     await download.saveAs(file);
@@ -360,7 +360,7 @@ test.describe('backup restore (own account)', () => {
 
     await page.getByRole('button', { name: 'Account and preferences' }).click();
 
-    await page.getByRole('button', { name: 'Import and export' }).click();
+    await page.getByRole('link', { name: 'Import and export' }).click();
     await dialog.locator('input[type="file"][accept=".json"]').setInputFiles(file);
     await dialog.getByRole('button', { name: 'Restore full backup…' }).click();
     await dialog.locator('#restore-confirm').fill('REPLACE');
@@ -381,8 +381,8 @@ test.describe('backup restore (own account)', () => {
 
     await page.getByRole('button', { name: 'Account and preferences' }).click();
 
-    await page.getByRole('button', { name: 'Import and export' }).click();
-    const dialog = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Import and export' }).click();
+    const dialog = page.getByRole('region', { name: 'Export, import and back up' });
     await dialog.getByLabel('Protect the backup with a passphrase').check();
     const exportButton = dialog.getByRole('button', { name: 'Export encrypted backup (JSON)' });
     await dialog.getByLabel('Passphrase', { exact: true }).fill('orbit test passphrase');
@@ -404,7 +404,7 @@ test.describe('backup restore (own account)', () => {
 
     await page.getByRole('button', { name: 'Account and preferences' }).click();
 
-    await page.getByRole('button', { name: 'Import and export' }).click();
+    await page.getByRole('link', { name: 'Import and export' }).click();
     await dialog.locator('input[type="file"][accept=".json"]').setInputFiles(file);
     await dialog.getByRole('button', { name: 'Restore full backup…' }).click();
     await expect(dialog.getByText('This backup is encrypted')).toBeVisible();
@@ -545,7 +545,7 @@ test.describe('account actions (own accounts)', () => {
     try {
       await page.getByRole('link', { name: 'Settings', exact: true }).click();
       await page.getByRole('button', { name: 'Categories', exact: true }).click();
-      const manager = page.getByRole('dialog', { name: 'Categories' });
+      const manager = page.getByRole('region', { name: 'Categories' });
       await manager.getByRole('button', { name: 'Food', exact: true }).click();
       const field = manager.getByLabel('New subcategory for Food');
       await field.fill('groceries');
@@ -560,7 +560,7 @@ test.describe('account actions (own accounts)', () => {
       await expect.poll(async () => (await (await page.request.get(`${API}/settings`)).json()).settings.customCategories, { timeout: 10_000, intervals: [500, 1000] })
         .toEqual({ Food: ['Boba E2E'] });
       await page.getByRole('button', { name: 'Budgets', exact: true }).click();
-      await expect(page.getByRole('dialog', { name: 'Manage budgets' }).getByLabel('Boba E2E', { exact: true })).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Edit budgets' }).getByLabel('Boba E2E', { exact: true })).toBeVisible();
     } finally {
       await reset();
     }
@@ -729,8 +729,8 @@ test.describe('account actions (own accounts)', () => {
 
     // Export: CSV, all time, expenses and income in one file.
     await page.getByRole('button', { name: 'Account and preferences' }).click();
-    await page.getByRole('button', { name: 'Import and export' }).click();
-    const dialog = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Import and export' }).click();
+    const dialog = page.getByRole('region', { name: 'Export, import and back up' });
     await dialog.getByRole('button', { name: 'All time', exact: true }).click();
     await dialog.getByRole('button', { name: 'CSV', exact: true }).click();
     const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download export' }).click()]);
@@ -746,7 +746,7 @@ test.describe('account actions (own accounts)', () => {
     await page.reload();
     await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
     await page.getByRole('button', { name: 'Account and preferences' }).click();
-    await page.getByRole('button', { name: 'Import and export' }).click();
+    await page.getByRole('link', { name: 'Import and export' }).click();
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles(file);
     await dialog.getByRole('button', { name: 'Import CSV' }).click();
     await expect(dialog).toBeHidden({ timeout: 10_000 });
@@ -758,7 +758,7 @@ test.describe('account actions (own accounts)', () => {
 
     // Again: nothing new, so nothing is added.
     await page.getByRole('button', { name: 'Account and preferences' }).click();
-    await page.getByRole('button', { name: 'Import and export' }).click();
+    await page.getByRole('link', { name: 'Import and export' }).click();
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles(file);
     await dialog.getByRole('button', { name: 'Import CSV' }).click();
     await expect(dialog.getByText('Everything in this file is already in your account.')).toBeVisible();
@@ -773,8 +773,8 @@ test.describe('account actions (own accounts)', () => {
     await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
     const csv = ['title,amount,category,date', ...Array.from({ length: 520 }, (_, i) => `Bulk row ${i},${(i % 40) + 1},Groceries,2026-0${(i % 9) + 1}-1${i % 10}`)].join('\n');
     await page.getByRole('button', { name: 'Account and preferences' }).click();
-    await page.getByRole('button', { name: 'Import and export' }).click();
-    const dialog = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Import and export' }).click();
+    const dialog = page.getByRole('region', { name: 'Export, import and back up' });
     await dialog.locator('input[type="file"][accept=".csv"]').setInputFiles({ name: 'big.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
     await dialog.getByRole('button', { name: 'Import CSV' }).click();
     await expect(dialog).toBeHidden({ timeout: 20_000 });

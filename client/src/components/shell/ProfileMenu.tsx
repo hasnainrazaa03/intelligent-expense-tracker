@@ -16,10 +16,8 @@ const ProfileMenu: React.FC<{
   email: string | null;
   hideTuition: boolean;
   onToggleHideTuition: () => void;
-  onManageCategories: () => void;
-  onOpenData: () => void;
   onLogout: () => void;
-}> = ({ email, hideTuition, onToggleHideTuition, onManageCategories, onOpenData, onLogout }) => {
+}> = ({ email, hideTuition, onToggleHideTuition, onLogout }) => {
   const [open, setOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { canInstall, promptInstall } = usePwaInstall();
@@ -86,8 +84,8 @@ const ProfileMenu: React.FC<{
             <CurrencyPicker />
           </div>
           <div className="my-1 border-t border-app-border" />
-          <button type="button" onClick={run(onManageCategories)} className={row}><TagIcon className="h-4 w-4 text-app-muted" /> Categories</button>
-          <button type="button" onClick={run(onOpenData)} className={row}><TableCellsIcon className="h-4 w-4 text-app-muted" /> Import and export</button>
+          <Link to={PATHS.settingsCategories} onClick={() => close()} className={row}><TagIcon className="h-4 w-4 text-app-muted" /> Categories</Link>
+          <Link to={PATHS.settingsData} onClick={() => close()} className={row}><TableCellsIcon className="h-4 w-4 text-app-muted" /> Import and export</Link>
           {canInstall && (
             <button type="button" onClick={run(() => { void promptInstall(); })} className={row}><ArrowDownTrayIcon className="h-4 w-4 text-app-muted" /> Install the app</button>
           )}

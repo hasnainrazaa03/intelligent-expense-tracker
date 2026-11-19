@@ -25,6 +25,10 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
   is gone.
 - **Notification and email links** open the right screen: budget alerts open Budgets, the
   monthly summary opens Insights → Reports.
+- **Pop-ups became pages:** Budgets → Edit budgets (`/app/budgets/edit`), Settings → Categories
+  (`/app/settings/categories`) and Settings → Export, import and back up (`/app/settings/data`)
+  are pages with a Back button and their own address, instead of dialogs over the screen. On
+  long pages the Save button stays in reach.
 
 ### Easier to read and use, part 1 (2026-11-18)
 - **Recurring charges due are one line now:** "4 recurring charges due · $1,550.24 · Review",

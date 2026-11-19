@@ -33,6 +33,8 @@ export type DateRange = 'this_month' | 'last_month' | 'last_90_days' | 'all_time
 interface DataModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Shown as Settings → Your data (U2b) rather than a dialog. */
+  asPage?: boolean;
   allExpenses: Expense[];
   allIncomes: Income[];
   budgets: Budget[];
@@ -67,7 +69,7 @@ const ranges: { id: DateRange; label: string }[] = [
   { id: 'all_time', label: 'All time' },
 ];
 
-const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onOpenStatementImport, onWipeAll, onRestoreBackup }) => {
+const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, allIncomes, budgets, semesters, onImport, onOpenStatementImport, onWipeAll, onRestoreBackup, asPage = false }) => {
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [wipeConfirm, setWipeConfirm] = useState('');
   const [isWiping, setIsWiping] = useState(false);
@@ -365,10 +367,11 @@ const DataModal: React.FC<DataModalProps> = ({ isOpen, onClose, allExpenses, all
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Export data"
-      subtitle="Export, import, or back up your data."
+      title="Export, import and back up"
+      subtitle="Download a report or a full backup, import a CSV or bank statement, or start over."
       size="xl"
       labelledById="data-modal-title"
+      asPage={asPage}
       bodyClassName="space-y-8"
     >
 
