@@ -52,6 +52,8 @@ interface HomeOverviewProps {
   onEditIncome: (income: Income) => void;
   onAddExpense: () => void;
   onImportStatement: () => void;
+  /** The first-steps checklist (U6b), shown under the heading for a new account. */
+  setup?: React.ReactNode;
 }
 
 const RANGE_WORDS: Record<DateRange, string> = {
@@ -84,7 +86,7 @@ const Change: React.FC<{ value: number | undefined; upIsGood: boolean }> = ({ va
 const HomeOverview: React.FC<HomeOverviewProps> = ({
   expenses, incomes, previousExpenses, previousIncomes, comparisonCutoff, allExpenses, allIncomes,
   budgets, semesters, hideTuition, selectedRange, onDateRangeChange, recurring, isLoading,
-  onEditExpense, onEditIncome, onAddExpense, onImportStatement,
+  onEditExpense, onEditIncome, onAddExpense, onImportStatement, setup,
 }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const money = (n: number) => formatCurrency(n, displayCurrency, conversionRate);
@@ -163,6 +165,16 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
 
   // --- 1. The main card -------------------------------------------------------
   const mainCard = (() => {
+    // The checklist above already offers adding, importing and budgets.
+    if (isEmpty && setup) {
+      return (
+        <>
+          <p className="text-sm text-app-muted">Nothing recorded yet</p>
+          <p className="font-display text-2xl md:text-3xl font-bold text-app-text mt-1">Your month will show here</p>
+          <p className="text-sm text-app-muted mt-2 max-w-prose">Once you add an expense, this card shows what you've spent and, with a budget, what's left.</p>
+        </>
+      );
+    }
     if (isEmpty) {
       return (
         <>
@@ -264,6 +276,8 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
           <DateRangeFilter selectedRange={selectedRange} onChange={onDateRangeChange} />
         </div>
       </div>
+
+      {setup}
 
       {/* 1-2. The month, then income / spent / net */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">

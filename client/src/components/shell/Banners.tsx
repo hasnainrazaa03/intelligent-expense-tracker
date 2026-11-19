@@ -22,24 +22,6 @@ export const DataLoadBanner: React.FC<{ hasPartialData: boolean; retrying: boole
   </section>
 );
 
-export const OnboardingCard: React.FC<{ onAddExpense: () => void; onAddIncome: () => void; onDismiss: () => void }> = ({ onAddExpense, onAddIncome, onDismiss }) => (
-  <section className="glass rounded-2xl p-5 md:p-6">
-    <h3 className="font-display text-lg md:text-xl font-bold text-app-text mb-1.5">Welcome to Orbit</h3>
-    <p className="text-sm text-app-muted mb-4">Start by adding one expense, one income, then set a budget for your top category.</p>
-    <div className="flex flex-wrap gap-2.5">
-      <button onClick={onAddExpense} className="bg-primary text-on-primary shadow-glow font-semibold text-sm py-2 px-4 rounded-xl hover:brightness-110 transition-all">
-        Add first expense
-      </button>
-      <button onClick={onAddIncome} className="bg-surface-2 border border-app-border text-app-text font-semibold text-sm py-2 px-4 rounded-xl hover:border-app-border-strong transition-all">
-        Add first income
-      </button>
-      <button onClick={onDismiss} className="text-app-muted hover:text-app-text font-semibold text-sm py-2 px-4 rounded-xl transition-all">
-        Dismiss
-      </button>
-    </div>
-  </section>
-);
-
 /**
  * F3: the recurring charges that are due. One line on the Expenses home
  * ("4 recurring charges due · $1,550.24 · Review") instead of a box on every

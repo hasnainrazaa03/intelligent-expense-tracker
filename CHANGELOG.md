@@ -7,6 +7,24 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Landing page and first steps (2026-11-18)
+- **A new landing page:** the real Home screen (sample data, in the visitor's theme, phone-sized on
+  a phone), "Create free account" and "Sign in" up front, three reasons students use Orbit, a
+  privacy note in the Privacy Policy's own words, a short FAQ (cost, banks, who sees what, AI,
+  phones, leaving), and a "More features" list that still names budget templates and alerts, tax
+  CSV, QuickBooks and Xero exports, and the installable app.
+- **"Create free account" opens the sign-up form** (`/login?mode=signup`), not sign-in.
+- **First steps on Home:** a new account gets a five-step checklist (first expense, a budget,
+  alerts, the app on your phone, a statement import) that ticks itself off from what the account
+  has, with "3 of 5 done" and a progress bar. Hide puts it away for good; it also goes once every
+  step is done or the account has 20 entries. It replaces the old "Welcome to Orbit" card.
+- **Settings links to a section:** "Choose alerts" opens Settings at Notifications.
+- **Faster first load:** the landing page no longer downloads the chart and PDF libraries (React
+  had been bundled inside the chart chunk, and the chunk loader inside the PDF one, so every page
+  fetched both up front), the signed-in app and the Income view load only when needed, and the
+  web fonts no longer hold up the first paint. Lighthouse on a phone: performance 67 → 95–97,
+  first paint 4.9 s → 1.8 s; accessibility and SEO 100.
+
 ### Phones and Tuition (2026-11-18)
 - **Tuition, summary first:** total, paid, remaining and the next installment to pay sit at the
   top of each semester ("3 of 4 installments paid"), then the schedule. The "Official Bursar

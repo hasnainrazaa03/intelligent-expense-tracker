@@ -50,7 +50,10 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fetched now, applied by src/index.tsx: a stylesheet link here held up the
+         first paint by most of a second on a phone (U7), and the CSP forbids the
+         inline onload trick. Text shows in the fallback font until it arrives. -->
+    <link id="font-css" rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
   </head>
   <body class="antialiased">
     <div id="root"></div>

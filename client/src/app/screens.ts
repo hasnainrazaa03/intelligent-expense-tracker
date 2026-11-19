@@ -13,12 +13,12 @@ export const StatementImportModal = lazyWithReload(() => import('../components/S
 export const AiAnalyst = lazyWithReload(() => import('../components/AiAnalyst'));
 export const Auth = lazyWithReload(() => import('../components/Auth'));
 export const VerifyOTP = lazyWithReload(() => import('../components/VerifyOTP'));
-export const LandingPage = lazyWithReload(() => import('../components/LandingPage'));
 export const KnowledgeBase = lazyWithReload(() => import('../components/KnowledgeBase'));
 export const MobileInstallPrompt = lazyWithReload(() => import('../components/MobileInstallPrompt'));
 export const USCPaymentTracker = lazyWithReload(() => import('../components/USCPaymentTracker'));
 export const PivotAnalysis = lazyWithReload(() => import('../components/PivotAnalysis'));
 export const Reports = lazyWithReload(() => import('../components/Reports'));
+export const IncomeSummary = lazyWithReload(() => import('../components/IncomeSummary'));
 export const SettingsPage = lazyWithReload(() => import('../components/SettingsPage'));
 export const BudgetsPage = lazyWithReload(() => import('../components/BudgetsPage'));
 export const HouseholdsPage = lazyWithReload(() => import('../components/HouseholdsPage'));

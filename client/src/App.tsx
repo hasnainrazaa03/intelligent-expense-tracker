@@ -3,8 +3,15 @@ import { Toaster } from 'react-hot-toast';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import SectionSkeleton from './components/SectionSkeleton';
-import AppDashboard from './app/AppDashboard';
-import { Auth, VerifyOTP, LandingPage, KnowledgeBase, PrivacyPolicy, TermsOfUse } from './app/screens';
+import { lazyWithReload } from './lib/lazyWithReload';
+import { Auth, VerifyOTP, KnowledgeBase, PrivacyPolicy, TermsOfUse } from './app/screens';
+// The first thing a visitor sees, so it comes with the first download (no
+// second round trip before the hero can paint).
+import LandingPage from './components/LandingPage';
+
+// The signed-in app is its own chunk: the landing page and sign-in don't
+// download it (U7).
+const AppDashboard = lazyWithReload(() => import('./app/AppDashboard'));
 
 /** Signed out on an app address (a bookmark, a link in an email): sign in, then
  *  land on that screen rather than on Home. */
@@ -62,7 +69,7 @@ const App: React.FC = () => {
             // Per-account storage (goals, categories, …) is keyed by the signed-in
             // email, so wait for it: rendering earlier would read an empty store,
             // and a first save could overwrite real data.
-            ? (userEmail ? <AppDashboard /> : <SectionSkeleton title="Loading your account" rows={3} />)
+            ? (userEmail ? page('Loading your account', <AppDashboard />, 3) : <SectionSkeleton title="Loading your account" rows={3} />)
             : <ToLogin />}
         />
         {/* Unknown paths go home. */}
