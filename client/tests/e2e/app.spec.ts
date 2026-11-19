@@ -26,8 +26,8 @@ test('Home: the month, budgets at risk, and links into the details (U3)', async 
   const name = (await firstCategory.locator('span').nth(1).innerText()).trim();
   await firstCategory.click();
   await expect(page).toHaveURL(new RegExp(`/app/transactions\\?category=${encodeURIComponent(name)}`));
-  await expect(page.getByRole('status').filter({ hasText: name })).toBeVisible();
-  await page.getByRole('button', { name: 'Show all categories' }).click();
+  await expect(page.getByRole('button', { name: `Remove filter ${name}` })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear filters' }).first().click();
   await expect(page).toHaveURL(/\/app\/transactions$/);
 
   // A question typed on Home arrives in Ask AI, ready to send.
@@ -246,7 +246,7 @@ test('offline: an expense is queued and syncs on reconnect', async ({ page, cont
   // Transactions sub-tab so the expense list (where the optimistic row appears)
   // is mounted.
   await page.getByRole('link', { name: 'Transactions', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Recent expenses' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Transactions', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add new entry' }).click();
   await page.getByRole('menuitem', { name: /add expense/i }).click();
   await expect(page.getByRole('dialog')).toBeVisible();

@@ -2,7 +2,6 @@ export const APP_CONFIG = {
   searchDebounceMs: 250,
   defaultItemsPerPage: 10,
   maxVirtualizedItemsThreshold: 75,
-  virtualRowHeight: 132,
   virtualListHeight: 620,
   maxCsvImportRows: 2000,
   maxImportFileSizeBytes: 2 * 1024 * 1024,

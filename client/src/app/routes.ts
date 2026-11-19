@@ -4,8 +4,9 @@
  * screen can be bookmarked or linked from an email.
  *
  *   /app                      Home
- *   /app/transactions         Transactions: expenses
- *   /app/transactions/income  Transactions: income
+ *   /app/transactions         Transactions: everything
+ *   /app/transactions/expenses  Transactions: expenses only
+ *   /app/transactions/income  Transactions: income only
  *   /app/budgets              Budgets
  *   /app/budgets/edit         Budgets: set or change them
  *   /app/insights/<section>   Insights: reports, breakdown, income, ask
@@ -17,7 +18,7 @@
 export type Place = 'home' | 'transactions' | 'budgets' | 'insights' | 'tuition' | 'settings';
 export const INSIGHT_SECTIONS = ['reports', 'breakdown', 'income', 'ask'] as const;
 export type InsightSection = (typeof INSIGHT_SECTIONS)[number];
-export type TransactionType = 'expenses' | 'income';
+export type TransactionType = 'all' | 'expenses' | 'income';
 export type SettingsSection = 'categories' | 'data';
 
 export type AppRoute =
@@ -31,6 +32,7 @@ export type AppRoute =
 export const PATHS = {
   home: '/app',
   transactions: '/app/transactions',
+  transactionsExpenses: '/app/transactions/expenses',
   transactionsIncome: '/app/transactions/income',
   budgets: '/app/budgets',
   budgetsEdit: '/app/budgets/edit',
@@ -44,7 +46,7 @@ export const PATHS = {
 export const pathFor = (route: AppRoute): string => {
   switch (route.place) {
     case 'home': return PATHS.home;
-    case 'transactions': return route.type === 'income' ? PATHS.transactionsIncome : PATHS.transactions;
+    case 'transactions': return route.type === 'income' ? PATHS.transactionsIncome : route.type === 'expenses' ? PATHS.transactionsExpenses : PATHS.transactions;
     case 'budgets': return route.editing ? PATHS.budgetsEdit : PATHS.budgets;
     case 'insights': return PATHS.insights(route.section);
     case 'tuition': return PATHS.tuition;
@@ -65,8 +67,8 @@ export const parseAppPath = (pathname: string): AppRoute | null => {
   if (!place) return { place: 'home' };
   switch (place) {
     case 'transactions':
-      if (!sub) return { place: 'transactions', type: 'expenses' };
-      return sub === 'income' ? { place: 'transactions', type: 'income' } : null;
+      if (!sub) return { place: 'transactions', type: 'all' };
+      return sub === 'income' || sub === 'expenses' ? { place: 'transactions', type: sub } : null;
     case 'insights':
       if (!sub) return { place: 'insights', section: 'reports' };
       return (INSIGHT_SECTIONS as readonly string[]).includes(sub) ? { place: 'insights', section: sub as InsightSection } : null;
@@ -87,7 +89,7 @@ export const parseAppPath = (pathname: string): AppRoute | null => {
 export const routeLabel = (route: AppRoute): string => {
   switch (route.place) {
     case 'home': return 'Home';
-    case 'transactions': return route.type === 'income' ? 'Transactions, income' : 'Transactions, expenses';
+    case 'transactions': return route.type === 'income' ? 'Transactions, income' : route.type === 'expenses' ? 'Transactions, expenses' : 'Transactions';
     case 'budgets': return route.editing ? 'Budgets, edit' : 'Budgets';
     case 'insights': return `Insights, ${({ reports: 'reports', breakdown: 'breakdown', income: 'income', ask: 'Ask AI' } as const)[route.section]}`;
     case 'tuition': return 'Tuition';

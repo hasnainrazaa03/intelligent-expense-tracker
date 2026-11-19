@@ -16,7 +16,6 @@ export const useHubData = ({
   dateRange,
   incomeDateRange,
   hideTuition,
-  listView,
   search,
 }: {
   expenses: Expense[];
@@ -26,8 +25,6 @@ export const useHubData = ({
   /** The Income hub keeps its own range, so filtering one never moves the other. */
   incomeDateRange: DateRange;
   hideTuition: boolean;
-  /** Which list the search applies to. */
-  listView: 'expenses' | 'income';
   search: string;
 }) => {
   const { filteredExpenses, filteredIncomes, previousPeriodExpenses, previousPeriodIncomes, comparisonCutoff } = useDateRangeFilter(expenses, incomes, dateRange);
@@ -58,26 +55,23 @@ export const useHubData = ({
     return [...set].sort();
   }, [expenses, incomes]);
 
-  const listItems = useMemo(() => {
-    const items: (Expense | Income)[] = listView === 'income' ? [...incomeHubIncomes] : [...filteredExpenses];
-    const results = search
-      ? items.filter((item) => {
-          const threshold = search.length > 5 ? 2 : 1;
-          const match = (text?: string) => (text ? fuzzyMatch(search, text, threshold) : false);
-          // Tags (from the importer and AI), payment method and account are
-          // searchable too, so "discover" or "credit card" isolate a card (B6).
-          return (
-            match(item.title) ||
-            match(item.category) ||
-            match(item.notes) ||
-            (item.tags?.some((tag) => match(tag)) ?? false) ||
-            match((item as Partial<Expense>).paymentMethod) ||
-            match(item.account)
-          );
-        })
-      : items;
-    return results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredExpenses, incomeHubIncomes, search, listView]);
+  // The Transactions list (U4): both kinds in the Home period, matching the
+  // header search. Tags (from the importer and AI), payment method and account
+  // are searchable too, so "discover" or "credit card" isolate a card (B6).
+  const matches = useMemo(() => {
+    if (!search) return null;
+    const threshold = search.length > 5 ? 2 : 1;
+    const match = (text?: string) => (text ? fuzzyMatch(search, text, threshold) : false);
+    return (item: Expense | Income) =>
+      match(item.title) ||
+      match(item.category) ||
+      match(item.notes) ||
+      (item.tags?.some((tag) => match(tag)) ?? false) ||
+      match((item as Partial<Expense>).paymentMethod) ||
+      match(item.account);
+  }, [search]);
+  const listExpenses = useMemo(() => (matches ? filteredExpenses.filter(matches) : filteredExpenses), [filteredExpenses, matches]);
+  const listIncomes = useMemo(() => (matches ? filteredIncomes.filter(matches) : filteredIncomes), [filteredIncomes, matches]);
 
-  return { hub, incomeHub, knownAccounts, listItems };
+  return { hub, incomeHub, knownAccounts, listExpenses, listIncomes };
 };

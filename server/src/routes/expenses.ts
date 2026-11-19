@@ -10,6 +10,7 @@ import { sanitizeText, sanitizeOptionalText, sanitizeNotes, sanitizeOptionalNote
 import { normalizeTags, normalizeMetadata, normalizeStringArray, normalizeNumberArray, normalizeCurrencyCode } from '../utils/normalize';
 import { toCents, expenseToClient } from '../utils/money';
 import { holdKeyLockUntilResponse } from '../utils/keyedLock';
+import { parseSelection } from '../utils/bulkSelection';
 
 const router = Router();
 
@@ -301,6 +302,66 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
+
+// --- Bulk actions on ticked expenses (U4) ---
+// POST /api/expenses/bulk-delete { ids }: the same clean-up as deleting one.
+router.post('/bulk-delete', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const selection = parseSelection(req.body?.ids);
+  if ('error' in selection) return res.status(400).json({ message: selection.error });
+  try {
+    // Only the signed-in user's rows ever match; ids of anyone else's are ignored.
+    const owned = (await prisma.expense.findMany({ where: { userId, id: { in: selection.ids } }, select: { id: true } })).map((r) => r.id);
+    if (owned.length > 0) {
+      await prisma.expense.deleteMany({ where: { userId, id: { in: owned } } });
+      // As for one delete: receipts go, and a tuition payment un-pays its installment.
+      await prisma.receipt.deleteMany({ where: { userId, expenseId: { in: owned } } });
+      await prisma.tuitionInstallment.updateMany({
+        where: { semesterUserId: userId, expenseId: { in: owned } },
+        data: { expenseId: null, status: 'unpaid', paidDate: null },
+      });
+    }
+    await writeAuditLog({
+      action: 'expense_bulk_delete',
+      userId,
+      success: true,
+      route: '/api/expenses/bulk-delete',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { requested: selection.ids.length, deleted: owned.length },
+    });
+    res.json({ deleted: owned.length });
+  } catch (error: any) {
+    console.error('Failed to delete expenses:', error);
+    res.status(500).json({ message: 'Failed to delete expenses' });
+  }
+});
+
+// POST /api/expenses/bulk-update { ids, category }: recategorise several at once.
+router.post('/bulk-update', async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const selection = parseSelection(req.body?.ids);
+  if ('error' in selection) return res.status(400).json({ message: selection.error });
+  const category = sanitizeText(req.body?.category);
+  if (!category) return res.status(400).json({ message: 'Choose a category' });
+  if (category.length > MAX_TEXT_LENGTH) return res.status(400).json({ message: `Text fields must be ${MAX_TEXT_LENGTH} characters or less` });
+  try {
+    const result = await prisma.expense.updateMany({ where: { userId, id: { in: selection.ids } }, data: { category } });
+    await writeAuditLog({
+      action: 'expense_bulk_update',
+      userId,
+      success: true,
+      route: '/api/expenses/bulk-update',
+      ip: req.ip,
+      userAgent: req.get('user-agent') || undefined,
+      metadata: { requested: selection.ids.length, updated: result.count, category },
+    });
+    res.json({ updated: result.count });
+  } catch (error: any) {
+    console.error('Failed to update expenses:', error);
+    res.status(500).json({ message: 'Failed to update expenses' });
+  }
+});
 
 // --- 3. Delete an Expense ---
 // DELETE /api/expenses/:id
