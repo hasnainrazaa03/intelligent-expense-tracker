@@ -257,7 +257,7 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
   const top = categories[0];
   const largest = expenses.reduce<Expense | null>((m, e) => (!m || Number(e.amount) > Number(m.amount) ? e : m), null);
   const facts = !isEmpty && (
-    <dl className="grid grid-cols-3 gap-3 pt-4 mt-auto border-t border-app-border text-sm">
+    <dl className="grid grid-cols-3 gap-3 pt-4 border-t border-app-border text-sm">
       <div className="min-w-0"><dt className="text-[11px] text-app-muted">Top category</dt><dd className="font-semibold text-app-text truncate">{top ? top.name : '—'}</dd><dd className="text-[11px] text-app-muted tabular-nums">{top ? money(top.value) : ''}</dd></div>
       <div className="min-w-0"><dt className="text-[11px] text-app-muted">Largest expense</dt><dd className="font-semibold text-app-text truncate">{largest ? largest.title : '—'}</dd><dd className="text-[11px] text-app-muted tabular-nums">{largest ? money(largest.amount) : ''}</dd></div>
       <div className="min-w-0"><dt className="text-[11px] text-app-muted">Entries</dt><dd className="font-semibold text-app-text tabular-nums">{expenses.length + incomes.length}</dd><dd className="text-[11px] text-app-muted">{RANGE_WORDS[selectedRange]}</dd></div>
@@ -280,12 +280,15 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
       {setup}
 
       {/* 1-2. The month, then income / spent / net */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
-        <section aria-label="This month" className={`${card} lg:col-span-2 md:!p-6 flex flex-col`}>
+      {/* The month across the full width, the three totals in a row under it
+          (U7: beside it, the card stretched to the stacked totals' height and
+          left a gap in the middle). */}
+      <div className="space-y-2.5 sm:space-y-3 md:space-y-4">
+        <section aria-label="This month" className={`${card} md:!p-6`}>
           <div>{mainCard}</div>
-          {facts && <div className="hidden sm:flex flex-col flex-1 mt-5">{facts}</div>}
+          {facts && <div className="hidden sm:block mt-5">{facts}</div>}
         </section>
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2.5 sm:gap-3 md:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 md:gap-4">
           {stat('Income', totals.income, <Change value={totals.incomeChange} upIsGood />, 'text-ok')}
           {stat('Spent', totals.spent, <Change value={totals.spentChange} upIsGood={false} />)}
           {stat('Net', totals.net,

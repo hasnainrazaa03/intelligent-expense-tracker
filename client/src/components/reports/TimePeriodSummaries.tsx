@@ -70,12 +70,11 @@ const TimePeriodSummaries: React.FC<TimePeriodSummariesProps> = ({ allExpenses }
 
   return (
     <div className="bg-surface-2 border border-app-border p-6 rounded-2xl shadow-soft">
-        <h3 className="text-lg font-semibold mb-4 text-center text-app-muted">Long-Term Summaries</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <SummaryCard title="This Quarter" value={summaries.currentQuarterTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
-            <SummaryCard title="Last Quarter" value={summaries.lastQuarterTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
-            <SummaryCard title="This Year" value={summaries.currentYearTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
-            <SummaryCard title="Last Year" value={summaries.lastYearTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
+            <SummaryCard title="This quarter" value={summaries.currentQuarterTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
+            <SummaryCard title="Last quarter" value={summaries.lastQuarterTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
+            <SummaryCard title="This year" value={summaries.currentYearTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
+            <SummaryCard title="Last year" value={summaries.lastYearTotal} icon={<CalendarDaysIcon />} {...currencyProps} />
         </div>
     </div>
   );

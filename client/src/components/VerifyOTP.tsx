@@ -105,10 +105,7 @@ const VerifyOTP: React.FC = () => {
       <div className="starfield" />
 
       <div className="max-w-md w-full glass glass-blur rounded-2xl p-8 relative z-10 overflow-hidden">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="font-display font-bold text-3xl text-app-text tracking-tight">Identity check</h2>
-          <span className="text-[10px] bg-surface-2 border border-app-border text-app-muted rounded-lg px-2 py-1">v2.0</span>
-        </div>
+        <h1 className="font-display font-bold text-3xl text-app-text tracking-tight mb-8">Check your email</h1>
 
         <p className="text-xs text-app-muted mb-8 leading-relaxed">
           A verification code has been sent to: <br/>
