@@ -42,6 +42,14 @@ export const Modal: React.FC<ModalProps> = ({
   // dialog is left unlabeled.
   const autoId = React.useId();
   const titleId = labelledById ?? autoId;
+  // Phones (U6): drag the sheet's top edge down to close it.
+  const [dragY, setDragY] = React.useState(0);
+  const dragStart = React.useRef<number | null>(null);
+  const swipe = {
+    onTouchStart: (e: React.TouchEvent) => { dragStart.current = e.touches[0].clientY; },
+    onTouchMove: (e: React.TouchEvent) => { if (dragStart.current !== null) setDragY(Math.max(0, e.touches[0].clientY - dragStart.current)); },
+    onTouchEnd: () => { const y = dragY; dragStart.current = null; setDragY(0); if (y > 90) onClose(); },
+  };
   if (!isOpen) return null;
   if (asPage) {
     return (
@@ -74,9 +82,13 @@ export const Modal: React.FC<ModalProps> = ({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        style={dragY ? { transform: `translateY(${dragY}px)` } : undefined}
         className={cn('modal-surface rounded-t-2xl sm:rounded-2xl w-full flex flex-col max-h-[92vh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom,0px)] sm:pb-0 motion-safe:animate-[sheetup_180ms_ease-out] sm:motion-safe:animate-none', SIZES[size])}
       >
-        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-start gap-3 flex-shrink-0">
+        <div aria-hidden="true" className="sm:hidden flex justify-center pt-2.5 -mb-2 touch-none" {...swipe}>
+          <span className="h-1.5 w-10 rounded-full bg-app-border" />
+        </div>
+        <div className="p-5 sm:p-6 border-b border-app-border flex justify-between items-start gap-3 flex-shrink-0" {...swipe}>
           <div className="min-w-0">
             <h2 id={titleId} className="font-display text-xl sm:text-2xl font-bold text-app-text leading-tight truncate">
               {title}

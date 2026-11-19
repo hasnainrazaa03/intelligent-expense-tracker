@@ -70,7 +70,7 @@ const TransactionRow: React.FC<{
 
   const meta = [item.category, item.account || (!isIncome ? (item as Expense).paymentMethod : undefined)].filter(Boolean).join(' · ');
   const amountText = `${isIncome ? '+' : ''}${formatCurrency(item.amount, displayCurrency, conversionRate)}`;
-  const iconBtn = 'grid place-items-center w-8 h-8 rounded-lg text-app-muted hover:text-app-text hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 transition-colors';
+  const iconBtn = 'grid place-items-center w-10 h-10 sm:w-8 sm:h-8 rounded-lg text-app-muted hover:text-app-text hover:bg-surface-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 transition-colors';
 
   return (
     <li className="relative overflow-hidden rounded-xl">
