@@ -4,6 +4,7 @@ import { Expense } from '../../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { PAYMENT_METHODS } from '../../constants';
+import { ChartTable } from './ChartTable';
 
 // Canonical display label per lowercased payment method, so "Cash"/"CASH"/"cash"
 // collapse into one slice instead of three. Known methods snap to their proper
@@ -15,6 +16,8 @@ const CANONICAL_METHOD: Record<string, string> = PAYMENT_METHODS.reduce(
 
 interface PaymentMethodChartProps {
   expenses: Expense[];
+  /** Show the numbers as a table instead of the chart (U5). */
+  asTable?: boolean;
 }
 
 const COLORS = ['#14b8a6', '#0f766e', '#f97316', '#eab308', '#84cc16', '#22c55e', '#3b82f6', '#8b5cf6', '#a8a29e'];
@@ -31,7 +34,7 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
   return null;
 };
 
-const PaymentMethodChart: React.FC<PaymentMethodChartProps> = ({ expenses }) => {
+const PaymentMethodChart: React.FC<PaymentMethodChartProps> = ({ expenses, asTable = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const data = useMemo(() => {
     // Group by a case-insensitive key so different casings of the same method
@@ -53,6 +56,7 @@ const PaymentMethodChart: React.FC<PaymentMethodChartProps> = ({ expenses }) => 
       // colored amount agree.
       .map((d, i) => ({ ...d, fill: COLORS[i % COLORS.length] }));
   }, [expenses]);
+  if (asTable) return <ChartTable caption="Payment method distribution" columns={[{ key: 'name', label: 'Payment method' }, { key: 'value', label: 'Spent', money: true }]} rows={data} />;
   
   if (data.length === 0) {
     return <div className="flex items-center justify-center h-full text-app-muted">No data to display.</div>;

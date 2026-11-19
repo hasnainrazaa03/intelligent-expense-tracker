@@ -3,9 +3,12 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
+import { ChartTable } from './ChartTable';
 
 interface RecurringVsOneTimeChartProps {
   expenses: Expense[];
+  /** Show the numbers as a table instead of the chart (U5). */
+  asTable?: boolean;
 }
 
 const COLORS = ['#ef4444', '#3b82f6'];
@@ -23,7 +26,7 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
 };
 
 
-const RecurringVsOneTimeChart: React.FC<RecurringVsOneTimeChartProps> = ({ expenses }) => {
+const RecurringVsOneTimeChart: React.FC<RecurringVsOneTimeChartProps> = ({ expenses, asTable = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const data = useMemo(() => {
     const totals = expenses.reduce(
@@ -43,6 +46,7 @@ const RecurringVsOneTimeChart: React.FC<RecurringVsOneTimeChartProps> = ({ expen
       { name: 'One-Time', value: totals.oneTime, fill: COLORS[1] },
     ].filter(d => d.value > 0);
   }, [expenses]);
+  if (asTable) return <ChartTable caption="Recurring vs one-time" columns={[{ key: 'name', label: 'Kind' }, { key: 'value', label: 'Spent', money: true }]} rows={data} />;
   
   if (data.length === 0) {
     return <div className="flex items-center justify-center h-full text-app-muted">No data to display.</div>;

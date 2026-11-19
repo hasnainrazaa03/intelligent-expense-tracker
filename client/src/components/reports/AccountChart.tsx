@@ -4,9 +4,12 @@ import { Expense } from '../../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { seriesValue } from '../../utils/chartPayload';
+import { ChartTable } from './ChartTable';
 
 interface AccountChartProps {
   expenses: Expense[];
+  /** Show the numbers as a table instead of the chart (U5). */
+  asTable?: boolean;
 }
 
 const COLORS = ['#6d5cf0', '#0284c7', '#d97706', '#16a34a', '#ec4899', '#9333ea', '#0d9488', '#64748b'];
@@ -31,7 +34,7 @@ const CustomTooltip = ({ active, payload, displayCurrency, conversionRate }: any
  * this — two different credit cards are both "Credit Card" — so this groups on
  * the `account` field instead.
  */
-const AccountChart: React.FC<AccountChartProps> = ({ expenses }) => {
+const AccountChart: React.FC<AccountChartProps> = ({ expenses, asTable = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
 
   const data = useMemo(() => {
@@ -50,6 +53,7 @@ const AccountChart: React.FC<AccountChartProps> = ({ expenses }) => {
       .sort((a, b) => b.value - a.value)
       .map((d) => ({ name: d.label, value: Number(d.value.toFixed(2)) }));
   }, [expenses]);
+  if (asTable) return <ChartTable caption="Spend by account or card" columns={[{ key: 'name', label: 'Account or card' }, { key: 'value', label: 'Spent', money: true }]} rows={data} />;
 
   if (data.length === 0) {
     return <div className="flex items-center justify-center h-full text-sm text-app-faint">No spending to break down yet</div>;

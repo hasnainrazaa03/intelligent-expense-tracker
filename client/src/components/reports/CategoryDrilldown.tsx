@@ -7,9 +7,12 @@ import { useCategories } from '../../hooks/useCategories';
 import { getCategoryColor } from '../../utils/colorUtils';
 import { formatCurrency } from '../../utils/currencyUtils';
 import ChartEmpty from '../ChartEmpty';
+import { ChartTable } from './ChartTable';
 
 interface CategoryDrilldownProps {
   expenses: Expense[];
+  /** Show the numbers as a table instead of the chart (U5). */
+  asTable?: boolean;
 }
 
 const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate }: any) => {
@@ -24,7 +27,7 @@ const CustomTooltip = ({ active, payload, label, displayCurrency, conversionRate
   return null;
 };
 
-const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
+const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses, asTable = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { categories, subToMain } = useCategories();
@@ -77,6 +80,14 @@ const CategoryDrilldown: React.FC<CategoryDrilldownProps> = ({ expenses }) => {
   };
   
   const chartData = selectedCategory ? subCategoryData : mainCategoryData;
+  if (asTable) {
+    return (
+      <div className="space-y-2">
+        {selectedCategory && <button type="button" onClick={() => setSelectedCategory(null)} className="text-xs font-semibold text-primary hover:underline">Back to main categories</button>}
+        <ChartTable caption={selectedCategory ? `Spending in ${selectedCategory}` : 'Spending by main category'} columns={[{ key: 'name', label: selectedCategory ? 'Subcategory' : 'Category' }, { key: 'value', label: 'Spent', money: true }]} rows={chartData} />
+      </div>
+    );
+  }
   const title = selectedCategory ? `Breakdown for ${selectedCategory}` : 'Spending by Main Category';
 
   if (chartData.length === 0) {

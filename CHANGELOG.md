@@ -7,6 +7,18 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Insights in one place (2026-11-18)
+- **One period for every Insights section:** the period switch sits in the Insights bar and applies
+  to Reports, Breakdown (which used to total all time only) and Income.
+- **Reports grouped under headings:** Overview (budget vs actual, the last six months), Categories
+  (breakdown, drill-down, monthly flow), Payment methods and accounts, Recurring vs one-time,
+  Period summaries and Year over year. Download PDF and Email me a summary stay at the top.
+- **"Show as table" on every chart,** so the exact numbers can be read, copied, and reached by a
+  screen reader.
+- **Breakdown:** columns sort (click a heading, again to flip), and a category or payment method
+  opens Transactions filtered to it.
+- **Accessibility:** the period buttons now say which one is chosen, not only by colour.
+
 ### Budgets, organised (2026-11-18)
 - **The Budgets page in sections:** this month's budgets (month by month), the last six months,
   then planning under four headings: **Goals** (savings goals, money in minus money out),

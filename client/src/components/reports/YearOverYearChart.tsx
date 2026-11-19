@@ -3,14 +3,17 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { Expense } from '../../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/currencyUtils';
+import { ChartTable } from './ChartTable';
 
 interface YearOverYearChartProps {
   expenses: Expense[];
+  /** Show the numbers as a table instead of the chart (U5). */
+  asTable?: boolean;
 }
 
 const COLORS = ['#14b8a6', '#f97316', '#3b82f6', '#ef4444', '#8b5cf6'];
 
-const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses }) => {
+const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses, asTable = false }) => {
   const { displayCurrency, conversionRate } = useCurrency();
 
   const { data, years } = useMemo(() => {
@@ -41,6 +44,7 @@ const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses }) => {
 
     return { data: Object.values(monthlyData), years: sortedYears };
   }, [expenses]);
+  if (asTable) return <ChartTable caption="Year over year" columns={[{ key: 'name', label: 'Month' }, ...years.map((y) => ({ key: y, label: y, money: true }))]} rows={data} />;
   
   if (years.length < 1) {
     return <div className="flex items-center justify-center h-full text-app-muted">Not enough data for year-over-year comparison.</div>;

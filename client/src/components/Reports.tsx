@@ -8,7 +8,7 @@ import { computeTotalBudgetedSpend } from '../utils/budgetUtils';
 import { todayCalendar } from '../utils/dateUtils';
 import { describePeriod } from '../utils/reportPeriod';
 import useDateRangeFilter from '../hooks/useDateRangeFilter';
-import { DateRangeFilter, type DateRange } from './DateRangeFilter';
+import type { DateRange } from './DateRangeFilter';
 import { ClipboardDocumentListIcon, ChartPieIcon, BanknotesIcon, ExclamationTriangleIcon } from './Icons';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable'; // 4+: function API, no prototype patch
@@ -26,22 +26,27 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { emailSummary } from '../services/api';
 import { useCategories } from '../hooks/useCategories';
+import { useToday } from '../hooks/useToday';
+import { buildBudgetPerformance } from '../utils/chartData';
+import { ChartCard } from './reports/ChartTable';
+import BudgetPerformanceChart from './BudgetPerformanceChart';
 
 interface ReportsProps {
   allExpenses: Expense[];
   budgets: Budget[];
   isLoading?: boolean;
+  /** The period, shared by every Insights section and switched in their bar (U5). */
+  range: DateRange;
 }
 
 const NO_INCOMES: never[] = [];
 
-const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = false }) => {
+const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = false, range }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const { subToMain } = useCategories();
   const [emailing, setEmailing] = useState(false);
 
   // The period the figures cover. Reports used to be all-time only (improvement 17).
-  const [range, setRange] = useState<DateRange>('this_month');
   const { filteredExpenses: expenses } = useDateRangeFilter(allExpenses, NO_INCOMES, range);
   const period = useMemo(() => describePeriod(range, allExpenses.map((e) => e.date)), [range, allExpenses]);
 
@@ -63,6 +68,8 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
     return { totalSpent, topCategory, budgetUtilization, categoryTotals };
   }, [expenses, budgets, period.months, subToMain]);
   const periodText = `${period.label} · ${period.span}`;
+  const today = useToday();
+  const performance = useMemo(() => buildBudgetPerformance(allExpenses, budgets, today), [allExpenses, budgets, today]);
 
 
   if (isLoading) {
@@ -127,7 +134,6 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
           <h2 className="font-display font-bold text-2xl md:text-3xl text-app-text leading-tight tracking-tight break-words">
             Spending report
           </h2>
-          <DateRangeFilter selectedRange={range} onChange={setRange} />
         </div>
         <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2.5">
           <button
@@ -186,7 +192,18 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
         </div>
       </div>
 
-      {/* 3. CATEGORY BREAKDOWN + BUDGET VS ACTUAL (side by side, equal height) */}
+      {/* Grouped under short headings (U5); every chart has "Show as table". */}
+      <h3 className="font-display text-lg md:text-xl font-bold text-app-text pt-2">Overview</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
+        <ChartCard title={<>Budget vs actual{period.months > 1 ? ' · average month' : ''}</>} bodyClassName="flex-1 min-h-[18rem]">
+          {(asTable) => <BudgetActualChart expenses={expenses} budgets={budgets} periodMonths={period.months} asTable={asTable} />}
+        </ChartCard>
+        <ChartCard title={<>Last 6 months <span className="text-app-faint text-xs font-normal">· spent against budget</span></>} bodyClassName="h-72">
+          {(asTable) => <BudgetPerformanceChart data={performance} asTable={asTable} />}
+        </ChartCard>
+      </div>
+
+      <h3 className="font-display text-lg md:text-xl font-bold text-app-text pt-2">Categories</h3>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
         {/* Category Breakdown Ledger */}
         <div className="glass rounded-2xl overflow-hidden flex flex-col">
@@ -222,72 +239,39 @@ const Reports: React.FC<ReportsProps> = ({ allExpenses, budgets, isLoading = fal
             </div>
           )}
         </div>
+        <ChartCard title="Category drill-down" bodyClassName="flex-1 min-h-[18rem]">
+          {(asTable) => <CategoryDrilldown expenses={expenses} asTable={asTable} />}
+        </ChartCard>
+      </div>
+      <ChartCard title={<>Monthly category flow <span className="text-app-faint text-xs font-normal">· all history</span></>} bodyClassName="h-72 md:h-96">
+        {(asTable) => <MonthlyCategoryChart expenses={allExpenses} asTable={asTable} />}
+      </ChartCard>
 
-        {/* Budget vs Actual */}
-        <div className="glass rounded-2xl p-4 md:p-6 flex flex-col">
-          <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">
-            Budget vs actual{period.months > 1 ? ' · average month' : ''}
-          </h4>
-          <div className="flex-1 min-h-[18rem]">
-            <BudgetActualChart expenses={expenses} budgets={budgets} periodMonths={period.months} />
-          </div>
-        </div>
+      <h3 className="font-display text-lg md:text-xl font-bold text-app-text pt-2">Payment methods and accounts</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
+        <ChartCard title="Payment method distribution" bodyClassName="flex-1 min-h-[16rem]">
+          {(asTable) => <PaymentMethodChart expenses={expenses} asTable={asTable} />}
+        </ChartCard>
+        <ChartCard title="Spend by account or card" bodyClassName="flex-1 min-h-[16rem]">
+          {(asTable) => <AccountChart expenses={expenses} asTable={asTable} />}
+        </ChartCard>
       </div>
 
-      {/* 4. THREE SMALL CHARTS (payment · recurring · drilldown) — equal-height
-          cards with uniform chart bodies so they line up and render cleanly. */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0 flex flex-col">
-          <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Payment method distribution</h4>
-          <div className="flex-1 min-h-[16rem]">
-            <PaymentMethodChart expenses={expenses} />
-          </div>
-        </div>
+      <h3 className="font-display text-lg md:text-xl font-bold text-app-text pt-2">Recurring vs one-time</h3>
+      <ChartCard title="Recurring charges and one-off spending" bodyClassName="min-h-[16rem]">
+        {(asTable) => <RecurringVsOneTimeChart expenses={expenses} asTable={asTable} />}
+      </ChartCard>
 
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0 flex flex-col">
-          <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Spend by account / card</h4>
-          <div className="flex-1 min-h-[16rem]">
-            <AccountChart expenses={expenses} />
-          </div>
-        </div>
-
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0 flex flex-col">
-          <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Recurring vs one-time</h4>
-          <div className="flex-1 min-h-[16rem]">
-            <RecurringVsOneTimeChart expenses={expenses} />
-          </div>
-        </div>
-
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0 flex flex-col">
-          <h4 className="font-display font-semibold text-sm md:text-base text-app-text mb-4 border-b border-app-border pb-2">Category drilldown</h4>
-          <div className="flex-1 min-h-[16rem]">
-            <CategoryDrilldown expenses={expenses} />
-          </div>
-        </div>
-      </div>
-
-      {/* 5. MONTHLY FLOW + YEAR OVER YEAR (side by side) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 items-start">
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
-          <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Monthly category flow <span className="text-app-faint text-xs font-normal">· all history</span></h4>
-          <div className="h-72 md:h-96">
-            <MonthlyCategoryChart expenses={allExpenses} />
-          </div>
-        </div>
-
-        <div className="glass rounded-2xl p-4 md:p-6 min-w-0">
-          <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Year over year comparison <span className="text-app-faint text-xs font-normal">· all history</span></h4>
-          <div className="h-72 md:h-96">
-            <YearOverYearChart expenses={allExpenses} />
-          </div>
-        </div>
-      </div>
-
-      {/* 6. Time Period Summaries */}
+      <h3 className="font-display text-lg md:text-xl font-bold text-app-text pt-2">Period summaries</h3>
       <div className="glass rounded-2xl p-4 md:p-6">
         <h4 className="font-display font-semibold text-base md:text-lg text-app-text mb-4 border-b border-app-border pb-3">Time period summaries <span className="text-app-faint text-xs font-normal">· all history</span></h4>
         <TimePeriodSummaries allExpenses={allExpenses} />
       </div>
+
+      <h3 className="font-display text-lg md:text-xl font-bold text-app-text pt-2">Year over year</h3>
+      <ChartCard title={<>Year over year comparison <span className="text-app-faint text-xs font-normal">· all history</span></>} bodyClassName="h-72 md:h-96">
+        {(asTable) => <YearOverYearChart expenses={allExpenses} asTable={asTable} />}
+      </ChartCard>
 
     </div>
   );

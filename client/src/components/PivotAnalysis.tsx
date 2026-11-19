@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { PATHS } from '../app/routes';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Expense } from '../types';
 import { formatCurrency } from '../utils/currencyUtils';
@@ -12,6 +14,8 @@ interface PivotAnalysisProps {
 const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
   const { displayCurrency, conversionRate } = useCurrency();
   const [groupBy, setGroupBy] = useState<'category' | 'month' | 'paymentMethod'>('category');
+  // Sortable columns (U5): click a heading; again to flip the order.
+  const [sort, setSort] = useState<{ key: 'name' | 'total' | 'count' | 'avg'; desc: boolean }>({ key: 'total', desc: true });
 
   const pivotData = useMemo(() => {
     const groups: Record<string, { total: number; count: number; avg: number }> = {};
@@ -34,8 +38,23 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
         ...data,
         avg: data.total / data.count,
       }))
-      .sort((a, b) => b.total - a.total);
-  }, [expenses, groupBy]);
+      .sort((a, b) => {
+        const by = sort.key === 'name' ? a.name.localeCompare(b.name) : a[sort.key] - b[sort.key];
+        return sort.desc ? -by : by;
+      });
+  }, [expenses, groupBy, sort]);
+  const sortBy = (key: typeof sort.key) => setSort((s) => ({ key, desc: s.key === key ? !s.desc : key !== 'name' }));
+  const ariaSort = (key: typeof sort.key) => (sort.key === key ? (sort.desc ? 'descending' : 'ascending') : 'none');
+  const head = (key: typeof sort.key, label: string) => (
+    <button type="button" onClick={() => sortBy(key)} className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-app-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded">
+      {label}<span aria-hidden="true">{sort.key === key ? (sort.desc ? '↓' : '↑') : ''}</span>
+    </button>
+  );
+  // A category or payment method opens Transactions filtered to it.
+  const rowLink = (name: string) =>
+    groupBy === 'category' ? `${PATHS.transactionsExpenses}?category=${encodeURIComponent(name)}`
+    : groupBy === 'paymentMethod' && name !== 'UNSPECIFIED' ? `${PATHS.transactionsExpenses}?method=${encodeURIComponent(name)}`
+    : null;
 
   const totalVolume = pivotData.reduce((sum, d) => sum + d.total, 0);
 
@@ -77,17 +96,19 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
         <table className="w-full text-left relative z-10 border-collapse">
           <thead>
             <tr className="text-app-muted text-xs uppercase tracking-wide border-b border-app-border">
-              <th className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide">{groupBy === 'paymentMethod' ? 'Payment method' : groupBy === 'month' ? 'Month' : 'Category'}</th>
-              <th className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide text-right">Total</th>
-              <th className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right">Transactions</th>
-              <th className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right whitespace-nowrap">Average</th>
+              <th aria-sort={ariaSort('name')} className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide">{head('name', groupBy === 'paymentMethod' ? 'Payment method' : groupBy === 'month' ? 'Month' : 'Category')}</th>
+              <th aria-sort={ariaSort('total')} className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide text-right">{head('total', 'Total')}</th>
+              <th aria-sort={ariaSort('count')} className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right">{head('count', 'Transactions')}</th>
+              <th aria-sort={ariaSort('avg')} className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right whitespace-nowrap">{head('avg', 'Average')}</th>
             </tr>
           </thead>
           <tbody>
             {pivotData.map((row) => (
               <tr key={row.name} className="border-b border-app-border odd:bg-surface-2/40 hover:bg-surface-2/60 transition-colors group">
                 <td className="p-3 md:p-4 font-display font-semibold text-sm md:text-base text-app-text truncate max-w-[120px] md:max-w-none">
-                  {row.name.replace('-', '/')}
+                  {rowLink(row.name)
+                    ? <Link to={rowLink(row.name)!} className="hover:text-primary hover:underline underline-offset-2">{row.name}</Link>
+                    : row.name.replace('-', '/')}
                 </td>
                 <td className="p-3 md:p-4 text-right">
                   <span className="font-display font-bold text-sm md:text-lg text-app-text tabular-nums block">
