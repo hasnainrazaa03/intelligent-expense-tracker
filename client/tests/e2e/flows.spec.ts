@@ -171,6 +171,7 @@ test.describe('as the demo account', () => {
 
   test('a savings goal added on one device shows on another (settings live on the server)', async ({ page, browser }) => {
     const name = `E2E goal ${Date.now()}`;
+    await page.getByRole('link', { name: 'Budgets', exact: true }).click(); // goals live on Budgets (U3)
     await page.getByLabel('Goal name').fill(name);
     await page.getByLabel(/^Goal target amount/).fill('750');
     await page.getByRole('button', { name: 'Add goal' }).click();
@@ -181,7 +182,7 @@ test.describe('as the demo account', () => {
     const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const phone = await other.newPage();
     await signIn(phone, 'test@test.com');
-    await phone.getByRole('link', { name: 'Home', exact: true }).click();
+    await phone.getByRole('link', { name: 'Budgets', exact: true }).click();
     await expect(phone.getByText(name)).toBeVisible({ timeout: 15_000 });
 
     // Removed there, gone here too after a reload.
@@ -434,7 +435,7 @@ test.describe('backup restore (own account)', () => {
       localStorage.removeItem(`settingsCache::${who}`);
     }, email);
     await page.reload();
-    await page.getByRole('link', { name: 'Home', exact: true }).click();
+    await page.getByRole('link', { name: 'Budgets', exact: true }).click(); // goals live on Budgets (U3)
     await expect(page.getByText('Saved before the move')).toBeVisible({ timeout: 15_000 });
 
     await expect.poll(async () => serverGoals(page.request), { timeout: 10_000, intervals: [500, 1000] })

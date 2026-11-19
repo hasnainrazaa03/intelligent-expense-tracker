@@ -7,6 +7,22 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### A Home that answers "how am I doing?" (2026-11-18)
+- **The month against its budget, first:** spent of budget with a bar, what's left, the days
+  left and about how much a day keeps you on budget, or how much you're over. With no budgets:
+  spent so far against the same point last month. Other periods show the total and a monthly
+  average. A new account gets a starting card instead of zeros.
+- **Income, Spent and Net** for the period, each compared with the period before (income had no
+  comparison). On phones they're rows, so long amounts aren't cut off.
+- **Budgets at risk** (the three most used, in dollars left or over), **Coming up** in the next
+  14 days (recurring charges due, upcoming ones, unpaid tuition), and the **5 most recent**
+  entries, each opening for editing.
+- **Spending by category** with the top five; tapping one opens Transactions filtered to it.
+  **Daily spending** shows a dashed daily-budget line. **Ask AI** takes a question (or a
+  suggestion) to Insights → Ask AI, ready to send.
+- **Moved, not removed:** the 6-month budget chart and planning (savings goals, recurring
+  management, accounts, households) are on the Budgets page now.
+
 ### Easier to find your way, part 2 (2026-11-18)
 - **Six places, each with its own address:** Home, Transactions, Budgets, Insights, Tuition and
   Settings. Back and Forward move between screens, a reload stays where you were, and a screen

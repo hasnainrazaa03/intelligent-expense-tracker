@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useMemo, useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Expense, Income } from '../types';
 import Header from '../components/Header';
 import IncomeSummary from '../components/IncomeSummary';
@@ -8,7 +8,7 @@ import { DateRangeFilter, type DateRange } from '../components/DateRangeFilter';
 import SideNav from '../components/shell/SideNav';
 import MobileNav from '../components/shell/MobileNav';
 import SectionTabs from '../components/shell/SectionTabs';
-import { DataLoadBanner, OnboardingCard, RecurringNotice } from '../components/shell/Banners';
+import { DataLoadBanner, OnboardingCard } from '../components/shell/Banners';
 import { useAuth } from '../contexts/AuthContext';
 import { useAllData } from '../hooks/useAllData';
 import { useTransactions } from '../hooks/useTransactions';
@@ -18,6 +18,8 @@ import { useDataTransfer } from '../hooks/useDataTransfer';
 import { useHubData } from '../hooks/useHubData';
 import { useIdlePrefetch, useNewEntryShortcut } from '../hooks/useAppEffects';
 import { useSetting } from '../hooks/useSetting';
+import { useCategories } from '../hooks/useCategories';
+import { getMainCategory } from '../utils/colorUtils';
 import useOfflineQueue from '../hooks/useOfflineQueue';
 import { parseAppPath, pathFor, PATHS, routeLabel, type AppRoute } from './routes';
 import { createExpense } from '../services/api';
@@ -71,6 +73,11 @@ const AppDashboard: React.FC = () => {
   const canonicalPath = pathFor(route);
   const isIncomeList = route.place === 'transactions' && route.type === 'income';
   const isIncomeOverview = route.place === 'insights' && route.section === 'income';
+  // Home's "spending by category" opens the expense list filtered to one
+  // category (?category=Food); the full filter bar comes with U4.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryFilter = route.place === 'transactions' && !isIncomeList ? searchParams.get('category') : null;
+  const { subToMain } = useCategories();
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [incomeDateRange, setIncomeDateRange] = useState<DateRange>('this_month');
   // Header debounces the search input; only the settled term lands here (APP-H5).
@@ -137,9 +144,12 @@ const AppDashboard: React.FC = () => {
     return ok;
   };
 
+  const shownExpenses = categoryFilter
+    ? (listItems as Expense[]).filter((e) => e.category === categoryFilter || getMainCategory(e.category, subToMain) === categoryFilter)
+    : (listItems as Expense[]);
   const expenseListScreen = (
     <Screens.ExpenseList
-      expenses={listItems as Expense[]}
+      expenses={shownExpenses}
       onEdit={(e) => openExpenseForm(e)}
       onQuickSave={async (e) => { await tx.updateExpense(e, { inForm: false }); }}
       onDelete={async (id) => { await tx.deleteExpense(id); }}
@@ -166,7 +176,7 @@ const AppDashboard: React.FC = () => {
     switch (section) {
       case 'reports': return <Screens.Reports allExpenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} />;
       case 'breakdown': return <Screens.PivotAnalysis expenses={hub.allExpenses} />;
-      case 'ask': return <Screens.AiAnalyst expenses={expenses} incomes={incomes} />;
+      case 'ask': return <Screens.AiAnalyst expenses={expenses} incomes={incomes} initialQuestion={(location.state as { ask?: string } | null)?.ask} />;
       case 'income':
         return isLoadingData
           ? <SectionSkeleton title="Loading income" rows={4} />
@@ -186,24 +196,28 @@ const AppDashboard: React.FC = () => {
     switch (route.place) {
       case 'home':
         return (
-          <>
-            {/* Only on Home: it used to sit on top of every screen. */}
-            {recurring.pending.length > 0 && <RecurringNotice recurring={recurring} />}
-            <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>
-              <Screens.Dashboard
-                expenses={hub.expenses}
-                incomes={hub.incomes}
-                allIncomes={hub.allIncomes}
-                allExpenses={hub.allExpenses}
-                previousPeriodExpenses={hub.previousExpenses}
-                comparisonCutoff={hub.comparisonCutoff}
-                selectedRange={dateRange}
-                onDateRangeChange={setDateRange}
-                budgets={budgets}
-                isLoading={isLoadingData}
-              />
-            </Suspense>
-          </>
+          <Suspense fallback={<SectionSkeleton title="Loading your overview" rows={4} />}>
+            <Screens.HomeOverview
+              expenses={hub.expenses}
+              incomes={hub.incomes}
+              previousExpenses={hub.previousExpenses}
+              previousIncomes={hub.previousIncomes}
+              comparisonCutoff={hub.comparisonCutoff}
+              allExpenses={hub.allExpenses}
+              allIncomes={hub.allIncomes}
+              budgets={budgets}
+              semesters={semesters}
+              hideTuition={hideTuition}
+              selectedRange={dateRange}
+              onDateRangeChange={setDateRange}
+              recurring={recurring}
+              isLoading={isLoadingData}
+              onEditExpense={(e) => openExpenseForm(e)}
+              onEditIncome={(i) => openIncomeForm(i)}
+              onAddExpense={() => openExpenseForm()}
+              onImportStatement={openStatementImport}
+            />
+          </Suspense>
         );
       case 'transactions':
         return (
@@ -215,6 +229,13 @@ const AppDashboard: React.FC = () => {
                 { label: 'Income', to: PATHS.transactionsIncome, active: isIncomeList },
               ]}
             />
+            {categoryFilter && (
+              <div className="flex flex-wrap items-center gap-2 text-sm" role="status">
+                <span className="text-app-muted">Showing</span>
+                <span className="rounded-full bg-primary-soft text-primary font-semibold px-3 py-1">{categoryFilter}</span>
+                <button type="button" onClick={() => setSearchParams({})} className="text-xs font-semibold text-primary hover:underline underline-offset-2">Show all categories</button>
+              </div>
+            )}
             <Suspense fallback={<SectionSkeleton title="Loading transactions" rows={4} />}>
               {isIncomeList ? incomeListScreen : expenseListScreen}
             </Suspense>
@@ -233,7 +254,7 @@ const AppDashboard: React.FC = () => {
                   currentBudgets={budgets}
                 />
               )
-              : <Screens.BudgetsPage expenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} onEdit={() => navigate(PATHS.budgetsEdit)} />}
+              : <Screens.BudgetsPage expenses={hub.allExpenses} incomes={hub.allIncomes} budgets={budgets} isLoading={isLoadingData} onEdit={() => navigate(PATHS.budgetsEdit)} />}
           </Suspense>
         );
       case 'insights':

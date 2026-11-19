@@ -45,7 +45,7 @@ export const OnboardingCard: React.FC<{ onAddExpense: () => void; onAddIncome: (
  * ("4 recurring charges due · $1,550.24 · Review") instead of a box on every
  * screen; Review opens the list, with nothing ticked, to pick what to add.
  */
-export const RecurringNotice: React.FC<{ recurring: RecurringSuggestions }> = ({ recurring }) => {
+export const RecurringNotice: React.FC<{ recurring: RecurringSuggestions; inline?: boolean }> = ({ recurring, inline = false }) => {
   const [open, setOpen] = useState(false);
   const { displayCurrency, conversionRate } = useCurrency();
   const { pending } = recurring;
@@ -55,7 +55,7 @@ export const RecurringNotice: React.FC<{ recurring: RecurringSuggestions }> = ({
     <>
       <section
         aria-label="Recurring charges due"
-        className="glass rounded-2xl px-4 py-3 border border-warn/30 flex flex-wrap items-center gap-x-3 gap-y-2"
+        className={`${inline ? 'rounded-xl bg-warn/5' : 'glass rounded-2xl'} px-4 py-3 border border-warn/30 flex flex-wrap items-center gap-x-3 gap-y-2`}
       >
         <CalendarDaysIcon className="h-5 w-5 text-warn flex-shrink-0" aria-hidden="true" />
         <p className="text-sm text-app-text min-w-0 flex-1">

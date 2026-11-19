@@ -11,8 +11,11 @@ import cosmicRobot from '../assets/cosmic-robot.svg';
 import AiNotice from './legal/AiNotice';
 import { useToday } from '../hooks/useToday';
 import { parseCalendarDate } from '../utils/dateUtils';
+import { AI_PROMPTS } from '../utils/aiPrompts';
 
 interface AiAnalystProps {
+  /** A question typed on Home's Ask AI card, put in the box ready to send (U3). */
+  initialQuestion?: string;
   expenses: Expense[];
   incomes: Income[];
 }
@@ -20,10 +23,10 @@ interface AiAnalystProps {
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
 const QUICK_PROMPTS: Array<{ text: string; icon: React.ReactNode; tint: string }> = [
-  { text: 'What are my top 3 spending leaks this month?', icon: <ChartPieIcon className="h-4 w-4" />, tint: 'text-[color:var(--color-cat-indigo)] bg-[color:var(--color-cat-indigo)]/15' },
-  { text: 'Give me a 7-day spending plan to stay on budget.', icon: <CalendarDaysIcon className="h-4 w-4" />, tint: 'text-[color:var(--color-cat-sky)] bg-[color:var(--color-cat-sky)]/15' },
-  { text: 'Where can I save quickly without hurting essentials?', icon: <BanknotesIcon className="h-4 w-4" />, tint: 'text-ok bg-ok/15' },
-  { text: 'Summarize this month in 5 bullet points.', icon: <ClipboardDocumentListIcon className="h-4 w-4" />, tint: 'text-warn bg-warn/15' },
+  { text: AI_PROMPTS[0], icon: <ChartPieIcon className="h-4 w-4" />, tint: 'text-[color:var(--color-cat-indigo)] bg-[color:var(--color-cat-indigo)]/15' },
+  { text: AI_PROMPTS[1], icon: <CalendarDaysIcon className="h-4 w-4" />, tint: 'text-[color:var(--color-cat-sky)] bg-[color:var(--color-cat-sky)]/15' },
+  { text: AI_PROMPTS[2], icon: <BanknotesIcon className="h-4 w-4" />, tint: 'text-ok bg-ok/15' },
+  { text: AI_PROMPTS[3], icon: <ClipboardDocumentListIcon className="h-4 w-4" />, tint: 'text-warn bg-warn/15' },
 ];
 
 // Cosmic robot mascot (custom SVG asset). The SVG has a transparent background
@@ -38,9 +41,9 @@ const Mascot: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) =
   />
 );
 
-const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes }) => {
+const AiAnalyst: React.FC<AiAnalystProps> = ({ expenses, incomes, initialQuestion }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialQuestion ?? '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
