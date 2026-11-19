@@ -7,6 +7,15 @@ and this project aims to adhere to [Semantic Versioning](https://semver.org/spec
 
 ## [Unreleased]
 
+### Budgets, organised (2026-11-18)
+- **The Budgets page in sections:** this month's budgets (month by month), the last six months,
+  then planning under four headings: **Goals** (savings goals, money in minus money out),
+  **Recurring and subscriptions** (recurring management, bills coming up, price-increase watch,
+  calendar spending), **Accounts** (investments and position, net-worth trend, split and settle-up)
+  and **Planning insights**. Every card is as it was; only the grouping changed.
+- **Households moved to Settings → Households** (`/app/settings/households`), next to the other
+  account settings. Tagging an expense to a household stays in the expense form.
+
 ### Quicker to add an entry (2026-11-18)
 - **Amount first,** large, with the number keypad on phones; the title suggests your past entries,
   and picking one fills in the category, payment method and account you used last time.

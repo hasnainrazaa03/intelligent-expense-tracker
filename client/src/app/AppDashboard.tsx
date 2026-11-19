@@ -259,6 +259,8 @@ const AppDashboard: React.FC = () => {
           <Suspense fallback={<SectionSkeleton title="Loading settings" rows={4} />}>
             {route.section === 'categories' ? (
               <Screens.CategoryManagerModal asPage isOpen onClose={() => navigate(PATHS.settings)} />
+            ) : route.section === 'households' ? (
+              <Screens.HouseholdsPage onBack={() => navigate(PATHS.settings)} />
             ) : route.section === 'data' ? (
               <Screens.DataModal
                 asPage
@@ -278,6 +280,7 @@ const AppDashboard: React.FC = () => {
                 onOpenData={() => navigate(PATHS.settingsData)}
                 onManageCategories={() => navigate(PATHS.settingsCategories)}
                 onManageBudgets={() => navigate(PATHS.budgetsEdit)}
+                onOpenHouseholds={() => navigate(PATHS.settingsHouseholds)}
               />
             )}
           </Suspense>

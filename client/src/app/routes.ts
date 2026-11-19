@@ -14,12 +14,13 @@
  *   /app/settings             Settings
  *   /app/settings/categories  Settings: categories
  *   /app/settings/data        Settings: export, import and back up
+ *   /app/settings/households  Settings: households
  */
 export type Place = 'home' | 'transactions' | 'budgets' | 'insights' | 'tuition' | 'settings';
 export const INSIGHT_SECTIONS = ['reports', 'breakdown', 'income', 'ask'] as const;
 export type InsightSection = (typeof INSIGHT_SECTIONS)[number];
 export type TransactionType = 'all' | 'expenses' | 'income';
-export type SettingsSection = 'categories' | 'data';
+export type SettingsSection = 'categories' | 'data' | 'households';
 
 export type AppRoute =
   | { place: 'home' }
@@ -41,6 +42,7 @@ export const PATHS = {
   settings: '/app/settings',
   settingsCategories: '/app/settings/categories',
   settingsData: '/app/settings/data',
+  settingsHouseholds: '/app/settings/households',
 } as const;
 
 export const pathFor = (route: AppRoute): string => {
@@ -77,7 +79,7 @@ export const parseAppPath = (pathname: string): AppRoute | null => {
       return sub === 'edit' ? { place: 'budgets', editing: true } : null;
     case 'settings':
       if (!sub) return { place: 'settings' };
-      return sub === 'categories' || sub === 'data' ? { place: 'settings', section: sub } : null;
+      return sub === 'categories' || sub === 'data' || sub === 'households' ? { place: 'settings', section: sub } : null;
     case 'tuition':
       return sub ? null : { place };
     default:
@@ -93,6 +95,6 @@ export const routeLabel = (route: AppRoute): string => {
     case 'budgets': return route.editing ? 'Budgets, edit' : 'Budgets';
     case 'insights': return `Insights, ${({ reports: 'reports', breakdown: 'breakdown', income: 'income', ask: 'Ask AI' } as const)[route.section]}`;
     case 'tuition': return 'Tuition';
-    case 'settings': return route.section === 'categories' ? 'Settings, categories' : route.section === 'data' ? 'Settings, export, import and back up' : 'Settings';
+    case 'settings': return route.section === 'categories' ? 'Settings, categories' : route.section === 'data' ? 'Settings, export, import and back up' : route.section === 'households' ? 'Settings, households' : 'Settings';
   }
 };

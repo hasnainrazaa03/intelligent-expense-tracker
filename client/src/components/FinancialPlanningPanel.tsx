@@ -9,7 +9,6 @@ import { todayCalendar, formatCalendarDate } from '../utils/dateUtils';
 import { useToday } from '../hooks/useToday';
 import { Button, Card, DatePicker } from './ui';
 import SpendingBarChart from './SpendingBarChart';
-import HouseholdsManager from './HouseholdsManager';
 
 // Assets count up, loans count down. A loan used to be ADDED like any account,
 // so a $40k student loan raised "net worth" by $40k (F16). Its balance is a
@@ -369,11 +368,16 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
   const rowCls = "text-xs rounded-lg border border-app-border bg-surface px-2.5 py-2 flex justify-between items-center tabular-nums";
 
   return (
-    <Card className="space-y-4">
-      <h3 className="font-display text-xl md:text-2xl font-bold text-app-text">Financial planning</h3>
+    <Card className="space-y-6">
+      <h3 className="font-display text-xl md:text-2xl font-bold text-app-text">Planning</h3>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className={cardCls}>
+      <section aria-labelledby="plan-goals" className="space-y-3">
+        <div>
+          <h4 id="plan-goals" className="font-display text-base md:text-lg font-semibold text-app-text">Goals</h4>
+          <p className="text-xs text-app-muted">What you&apos;re saving for, and the rate your money moves at.</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<div className={cardCls}>
           <p className={subLabelCls}>Savings goals</p>
           <p className="text-xs text-app-muted mb-3 tabular-nums">Monthly net: <span className="text-app-text font-medium">{formatCurrency(monthlyNet, displayCurrency, conversionRate)}</span> · projections use this rate</p>
 
@@ -415,16 +419,84 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             })}
           </div>
         </div>
-
-        <div className={cardCls}>
+<div className={cardCls}>
           <p className={subLabelCls}>Money in minus money out, last 30 days</p>
           <p className={`font-display text-2xl font-bold tabular-nums ${forecast30d < 0 ? 'text-danger' : 'text-ok'}`}>{formatCurrency(forecast30d, displayCurrency, conversionRate)}</p>
           <p className="text-xs text-app-muted mt-2">Income minus expenses over the last 30 days.</p>
         </div>
-      </div>
+        </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className={cardCls}>
+      <section aria-labelledby="plan-recurring" className="space-y-3">
+        <div>
+          <h4 id="plan-recurring" className="font-display text-base md:text-lg font-semibold text-app-text">Recurring and subscriptions</h4>
+          <p className="text-xs text-app-muted">Bills coming up, charges you can pause, and prices that went up.</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<div className={cardCls}>
+          <p className={subLabelCls}>Recurring management</p>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {recurringTemplates.slice(0, 8).map((e) => {
+              const paused = !!pausedRecurring[templateKey(e)];
+              return (
+                <div key={templateKey(e)} className="flex items-center justify-between rounded-lg border border-app-border p-2.5 bg-surface">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-app-text truncate">{e.title}</p>
+                    <p className="text-xs text-app-muted tabular-nums">{formatCurrency(e.amount, displayCurrency, conversionRate)}</p>
+                  </div>
+                  <button
+                    onClick={() => togglePauseRecurring(e)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors flex-shrink-0 ${paused ? 'bg-warn/15 border-warn/30 text-warn' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
+                  >
+                    {paused ? 'Resume' : 'Pause'}
+                  </button>
+                </div>
+              );
+            })}
+            {recurringTemplates.length === 0 && <p className="text-xs text-app-muted">No recurring templates yet.</p>}
+          </div>
+        </div>
+<div className={cardCls}>
+          <p className={subLabelCls}>Bills & subscriptions</p>
+          {upcomingBills.length === 0 ? (
+            <p className="text-xs text-app-muted">No recurring bills due in the next 10 days.</p>
+          ) : (
+            <ul className="space-y-2">
+              {upcomingBills.map((bill) => (
+                <li key={`${templateKey(bill)}-${bill.dueDate.toISOString()}`} className={rowCls}>
+                  <span className="text-app-text font-medium truncate">{bill.title}</span>
+                  <span className="text-app-muted">{formatCalendarDate(bill.dueDate)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+<div className={`${cardCls} flex flex-col`}>
+          <p className={subLabelCls}>Subscription watch · price increases</p>
+          {subscriptionCreep.length > 0 ? (
+            <>
+              <div className="space-y-2">
+                {subscriptionCreep.map((s) => (
+                  <div key={`${s.title}-${s.category}`} className="flex items-center justify-between rounded-lg border border-warn/30 bg-warn/10 p-2.5 gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-app-text truncate">{s.title}</p>
+                      <p className="text-[11px] text-app-muted tabular-nums">
+                        {formatCurrency(s.from, displayCurrency, conversionRate)} → {formatCurrency(s.to, displayCurrency, conversionRate)} · {s.count} charges · {formatCurrency(s.total, displayCurrency, conversionRate)} total
+                      </p>
+                    </div>
+                    <span className="flex-shrink-0 rounded-lg bg-warn/20 text-warn px-2 py-1 text-[11px] font-bold tabular-nums">+{s.pct.toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-app-muted mt-2.5">Based on recurring-flagged charges whose amount rose over time.</p>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center min-h-[8rem] py-4">
+              <p className="text-xs text-app-muted text-center max-w-xs">No price increases detected. Recurring charges whose amount rises over time will appear here.</p>
+            </div>
+          )}
+        </div>
+<div className={cardCls}>
           <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
             <p className={`${subLabelCls} mb-0`}>
               Calendar spending
@@ -468,99 +540,16 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             ))}
           </div>
         </div>
-
-        <div className={cardCls}>
-          <p className={subLabelCls}>Recurring management</p>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {recurringTemplates.slice(0, 8).map((e) => {
-              const paused = !!pausedRecurring[templateKey(e)];
-              return (
-                <div key={templateKey(e)} className="flex items-center justify-between rounded-lg border border-app-border p-2.5 bg-surface">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-app-text truncate">{e.title}</p>
-                    <p className="text-xs text-app-muted tabular-nums">{formatCurrency(e.amount, displayCurrency, conversionRate)}</p>
-                  </div>
-                  <button
-                    onClick={() => togglePauseRecurring(e)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors flex-shrink-0 ${paused ? 'bg-warn/15 border-warn/30 text-warn' : 'bg-surface-2 border-app-border text-app-muted hover:text-app-text'}`}
-                  >
-                    {paused ? 'Resume' : 'Pause'}
-                  </button>
-                </div>
-              );
-            })}
-            {recurringTemplates.length === 0 && <p className="text-xs text-app-muted">No recurring templates yet.</p>}
-          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Settle-up only exists once you split expenses, so keep it conditional —
-          but full width, so it never leaves a lonely gap beside another card. */}
-      {settleUp.length > 0 && (
-        <div className={cardCls}>
-          <div className="flex items-center justify-between mb-3">
-            <p className={`${subLabelCls} mb-0`}>Split &amp; settle-up</p>
-            <span className="text-xs font-semibold text-ok tabular-nums">{formatCurrency(settleUpTotal, displayCurrency, conversionRate)} owed to you</span>
-          </div>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {settleUp.map((r) => (
-              <div key={r.name} className="flex items-center justify-between rounded-lg border border-app-border bg-surface px-3 py-2.5">
-                <span className="text-sm font-medium text-app-text truncate">{r.name}</span>
-                <span className="text-sm font-semibold text-ok tabular-nums flex-shrink-0">owes {formatCurrency(r.amount, displayCurrency, conversionRate)}</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-[11px] text-app-muted mt-2.5">Summed from each expense's split shares (participants other than you).</p>
+      <section aria-labelledby="plan-accounts" className="space-y-3">
+        <div>
+          <h4 id="plan-accounts" className="font-display text-base md:text-lg font-semibold text-app-text">Accounts</h4>
+          <p className="text-xs text-app-muted">Investments, loans, your estimated position, and what others owe you.</p>
         </div>
-      )}
-
-      {/* Subscription watch is always rendered (with an empty state) so it always
-          pairs with the net-worth chart — no half-empty row. Both stretch to the
-          same height; the empty message is centred so the card doesn't look
-          top-heavy. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className={`${cardCls} flex flex-col`}>
-          <p className={subLabelCls}>Subscription watch · price increases</p>
-          {subscriptionCreep.length > 0 ? (
-            <>
-              <div className="space-y-2">
-                {subscriptionCreep.map((s) => (
-                  <div key={`${s.title}-${s.category}`} className="flex items-center justify-between rounded-lg border border-warn/30 bg-warn/10 p-2.5 gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-app-text truncate">{s.title}</p>
-                      <p className="text-[11px] text-app-muted tabular-nums">
-                        {formatCurrency(s.from, displayCurrency, conversionRate)} → {formatCurrency(s.to, displayCurrency, conversionRate)} · {s.count} charges · {formatCurrency(s.total, displayCurrency, conversionRate)} total
-                      </p>
-                    </div>
-                    <span className="flex-shrink-0 rounded-lg bg-warn/20 text-warn px-2 py-1 text-[11px] font-bold tabular-nums">+{s.pct.toFixed(0)}%</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] text-app-muted mt-2.5">Based on recurring-flagged charges whose amount rose over time.</p>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center min-h-[8rem] py-4">
-              <p className="text-xs text-app-muted text-center max-w-xs">No price increases detected. Recurring charges whose amount rises over time will appear here.</p>
-            </div>
-          )}
-        </div>
-
-        <div className={cardCls}>
-          <div className="flex items-center justify-between mb-3">
-            <p className={`${subLabelCls} mb-0`}>Net-worth trend · 6-month</p>
-            {/* The chart's latest point. It showed this month's net + accounts while
-                the chart beside it is cumulative, so the two disagreed. */}
-            <span className="text-xs font-semibold text-app-text tabular-nums">{formatCurrency(netWorthTrend.at(-1)?.amount ?? totalInvestments, displayCurrency, conversionRate)}</span>
-          </div>
-          <div className="h-32 md:h-36">
-            <SpendingBarChart data={netWorthTrend} />
-          </div>
-          <p className="text-[11px] text-app-muted mt-2">Cumulative cash flow plus your accounts (assets − loans) — an estimate, not audited net worth.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className={cardCls}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<div className={cardCls}>
           <p className={subLabelCls}>Investments & position</p>
           <p className="text-xs text-app-muted mb-1 tabular-nums">Accounts (assets − loans): <span className="text-app-text font-medium">{formatCurrency(totalInvestments, displayCurrency, conversionRate)}</span></p>
           <p className="font-display text-lg font-bold text-app-text tabular-nums">Est. position: {formatCurrency(netWorth, displayCurrency, conversionRate)}</p>
@@ -587,26 +576,45 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             ))}
           </div>
         </div>
-
-        <HouseholdsManager />
-
-        <div className={cardCls}>
-          <p className={subLabelCls}>Bills & subscriptions</p>
-          {upcomingBills.length === 0 ? (
-            <p className="text-xs text-app-muted">No recurring bills due in the next 10 days.</p>
-          ) : (
-            <ul className="space-y-2">
-              {upcomingBills.map((bill) => (
-                <li key={`${templateKey(bill)}-${bill.dueDate.toISOString()}`} className={rowCls}>
-                  <span className="text-app-text font-medium truncate">{bill.title}</span>
-                  <span className="text-app-muted">{formatCalendarDate(bill.dueDate)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+<div className={cardCls}>
+          <div className="flex items-center justify-between mb-3">
+            <p className={`${subLabelCls} mb-0`}>Net-worth trend · 6-month</p>
+            {/* The chart's latest point. It showed this month's net + accounts while
+                the chart beside it is cumulative, so the two disagreed. */}
+            <span className="text-xs font-semibold text-app-text tabular-nums">{formatCurrency(netWorthTrend.at(-1)?.amount ?? totalInvestments, displayCurrency, conversionRate)}</span>
+          </div>
+          <div className="h-32 md:h-36">
+            <SpendingBarChart data={netWorthTrend} />
+          </div>
+          <p className="text-[11px] text-app-muted mt-2">Cumulative cash flow plus your accounts (assets − loans) — an estimate, not audited net worth.</p>
         </div>
+        </div>
+        {settleUp.length > 0 && (
+<div className={cardCls}>
+          <div className="flex items-center justify-between mb-3">
+            <p className={`${subLabelCls} mb-0`}>Split &amp; settle-up</p>
+            <span className="text-xs font-semibold text-ok tabular-nums">{formatCurrency(settleUpTotal, displayCurrency, conversionRate)} owed to you</span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {settleUp.map((r) => (
+              <div key={r.name} className="flex items-center justify-between rounded-lg border border-app-border bg-surface px-3 py-2.5">
+                <span className="text-sm font-medium text-app-text truncate">{r.name}</span>
+                <span className="text-sm font-semibold text-ok tabular-nums flex-shrink-0">owes {formatCurrency(r.amount, displayCurrency, conversionRate)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-app-muted mt-2.5">Summed from each expense's split shares (participants other than you).</p>
+        </div>
+        )}
+      </section>
 
-        <div className={cardCls}>
+      <section aria-labelledby="plan-insights" className="space-y-3">
+        <div>
+          <h4 id="plan-insights" className="font-display text-base md:text-lg font-semibold text-app-text">Planning insights</h4>
+          <p className="text-xs text-app-muted">Patterns worth a look.</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<div className={cardCls}>
           <p className={subLabelCls}>Insights</p>
           <ul className="space-y-2">
             {proactiveInsights.map((insight, idx) => (
@@ -615,7 +623,8 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
             {proactiveInsights.length === 0 && <li className="text-xs text-app-muted">No insights yet. Add more transactions.</li>}
           </ul>
         </div>
-      </div>
+        </div>
+      </section>
     </Card>
   );
 };

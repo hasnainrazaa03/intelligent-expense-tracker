@@ -15,6 +15,7 @@ describe('parseAppPath', () => {
     expect(parseAppPath('/app/budgets/edit')).toEqual({ place: 'budgets', editing: true });
     expect(parseAppPath('/app/settings/categories')).toEqual({ place: 'settings', section: 'categories' });
     expect(parseAppPath('/app/settings/data')).toEqual({ place: 'settings', section: 'data' });
+    expect(parseAppPath('/app/settings/households')).toEqual({ place: 'settings', section: 'households' });
   });
 
   it('opens Reports for /app/insights and ignores a trailing slash', () => {

@@ -21,5 +21,6 @@ export const PivotAnalysis = lazyWithReload(() => import('../components/PivotAna
 export const Reports = lazyWithReload(() => import('../components/Reports'));
 export const SettingsPage = lazyWithReload(() => import('../components/SettingsPage'));
 export const BudgetsPage = lazyWithReload(() => import('../components/BudgetsPage'));
+export const HouseholdsPage = lazyWithReload(() => import('../components/HouseholdsPage'));
 export const PrivacyPolicy = lazyWithReload(() => import('../components/legal/PrivacyPolicy'));
 export const TermsOfUse = lazyWithReload(() => import('../components/legal/TermsOfUse'));
