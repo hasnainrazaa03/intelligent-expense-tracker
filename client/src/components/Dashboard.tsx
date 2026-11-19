@@ -216,12 +216,11 @@ const Dashboard: React.FC<DashboardProps> = ({
         {/* 1. HEADER SECTION */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4">
           <div className="flex flex-col min-w-0">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium tracking-[0.18em] uppercase text-app-muted mb-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-ok shadow-glow" />
-              Live overview
+            <span className="text-[10px] font-medium tracking-[0.18em] uppercase text-app-muted mb-1.5">
+              Expenses
             </span>
               <h2 className="font-display text-2xl md:text-3xl font-bold text-app-text leading-tight tracking-tight break-words">
-                Financial hub
+                Overview
               </h2>
           </div>
           <div className="w-full lg:w-auto flex justify-center lg:justify-end overflow-x-auto no-scrollbar py-1">
@@ -236,11 +235,12 @@ const Dashboard: React.FC<DashboardProps> = ({
             {budgetAlerts.map((alert) => (
               <div
                 key={alert.category}
-                className={`flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 text-xs md:text-sm border ${alert.severity === 'danger' ? 'bg-danger/10 border-danger/30 text-danger' : 'bg-warn/10 border-warn/30 text-warn'}`}
+                className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-xl px-3.5 py-2.5 text-xs md:text-sm border ${alert.severity === 'danger' ? 'bg-danger/10 border-danger/30 text-danger' : 'bg-warn/10 border-warn/30 text-warn'}`}
               >
                 <span className="font-medium truncate">{budgetLabel(alert.category, budgets.map((b) => b.category))}</span>
                 <span className="font-semibold tabular-nums whitespace-nowrap">
-                  {formatCurrency(alert.spent, displayCurrency, conversionRate, true)} / {formatCurrency(alert.budget, displayCurrency, conversionRate, true)} · {alert.pct.toFixed(0)}%
+                  {formatCurrency(alert.spent, displayCurrency, conversionRate)} / {formatCurrency(alert.budget, displayCurrency, conversionRate)} · {alert.pct.toFixed(0)}%
+                  {alert.spent > alert.budget && <> · {formatCurrency(alert.spent - alert.budget, displayCurrency, conversionRate)} over</>}
                 </span>
               </div>
             ))}
@@ -262,7 +262,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             <div className="glass rounded-2xl p-4 md:p-5 min-w-0 flex-1 flex flex-col">
-              <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Categorical split</h3>
+              <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Spending by category</h3>
               <div className="flex-1 min-h-[260px] md:min-h-[300px]">
                 <CategoryPieChart data={categoryData} />
               </div>
@@ -282,7 +282,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         {/* 3. HISTORICAL ANALYTICS + SPENDING TREND (side by side) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
           <div className="glass rounded-2xl p-4 md:p-5 min-w-0">
-            <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Historical analytics · 6-month window</h3>
+            <h3 className="font-display text-base md:text-lg font-semibold mb-5 text-app-text">Last 6 months</h3>
             <div className="h-64 md:h-72">
               <BudgetPerformanceChart data={budgetPerformanceData} />
             </div>

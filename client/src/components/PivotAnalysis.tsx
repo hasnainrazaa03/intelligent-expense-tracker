@@ -77,10 +77,10 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
         <table className="w-full text-left relative z-10 border-collapse">
           <thead>
             <tr className="text-app-muted text-xs uppercase tracking-wide border-b border-app-border">
-              <th className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide">Data point</th>
-              <th className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide text-right">Volume sum</th>
-              <th className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right">Freq count</th>
-              <th className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right whitespace-nowrap">Mean value</th>
+              <th className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide">{groupBy === 'paymentMethod' ? 'Payment method' : groupBy === 'month' ? 'Month' : 'Category'}</th>
+              <th className="p-3 md:p-4 font-semibold text-[10px] md:text-sm tracking-wide text-right">Total</th>
+              <th className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right">Transactions</th>
+              <th className="hidden md:table-cell p-6 font-semibold text-sm tracking-wide text-right whitespace-nowrap">Average</th>
             </tr>
           </thead>
           <tbody>
@@ -101,7 +101,7 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
                 </div>
                 </td>
                 <td className="hidden md:table-cell p-4 text-right text-sm text-app-muted tabular-nums">
-                  {row.count.toString().padStart(3, '0')}
+                  {row.count}
                 </td>
                 <td className="hidden md:table-cell p-4 text-right font-display font-semibold text-base text-app-muted tabular-nums">
                   {formatCurrency(row.avg, displayCurrency, conversionRate)}
@@ -111,13 +111,11 @@ const PivotAnalysis: React.FC<PivotAnalysisProps> = ({ expenses }) => {
           </tbody>
           <tfoot>
             <tr className="border-t border-app-border bg-surface-2/40">
-              <td className="p-3 md:p-4 font-display font-bold text-sm md:text-lg text-app-text">Aggregate total</td>
+              <td className="p-3 md:p-4 font-display font-bold text-sm md:text-lg text-app-text">Total</td>
               <td className="p-3 md:p-4 text-right font-display font-bold text-base md:text-xl text-app-text tabular-nums">
                 {formatCurrency(totalVolume, displayCurrency, conversionRate)}
               </td>
-              <td colSpan={2} className="hidden md:table-cell p-6 text-right italic text-[10px] text-app-faint">
-                End of USC financial analysis
-              </td>
+              <td colSpan={2} className="hidden md:table-cell p-6" />
             </tr>
           </tfoot>
         </table>

@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('lands on the dashboard', async ({ page }) => {
-  await expect(page.getByRole('heading', { name: 'Financial hub' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
 });
 
 test('navigates between tabs', async ({ page }) => {
@@ -41,6 +41,44 @@ test('currency picker switches display to INR', async ({ page }) => {
 test('theme toggle switches to light mode', async ({ page }) => {
   await page.getByRole('button', { name: /switch to light theme/i }).click();
   await expect(page.locator('html')).not.toHaveClass(/dark/);
+});
+
+test('recurring charges due: one line on Expenses, reviewed with nothing ticked', async ({ page }) => {
+  const API = 'http://localhost:3001/api';
+  const headers = { 'x-csrf-token': (await (await page.request.get(`${API}/auth/csrf`)).json()).csrfToken };
+  // A monthly charge last paid 40 days ago is due again.
+  const d = new Date(Date.now() - 40 * 864e5);
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const title = `E2E Gym ${Date.now()}`;
+  const created = await page.request.post(`${API}/expenses`, {
+    headers, data: { title, amount: 30, category: 'Personal', date, isRecurring: true, tags: [] },
+  });
+  expect(created.ok()).toBe(true);
+  const { id } = await created.json();
+  try {
+    await page.reload();
+    const notice = page.getByRole('region', { name: 'Recurring charges due' });
+    await expect(notice).toBeVisible({ timeout: 20_000 });
+    await expect(notice).toContainText(/recurring charges? due/);
+
+    // Only on the Expenses home, not on top of every screen.
+    await page.getByRole('tab', { name: 'Income', exact: true }).click();
+    await expect(notice).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Expenses', exact: true }).click();
+
+    await notice.getByRole('button', { name: 'Review' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Recurring charges due' });
+    const box = dialog.getByRole('checkbox', { name: `Add recurring ${title}` });
+    await expect(box).not.toBeChecked();
+    await expect(dialog.getByRole('button', { name: 'Add selected (0)' })).toBeDisabled();
+    await box.check();
+    await expect(dialog.getByRole('button', { name: 'Add selected (1)' })).toBeEnabled();
+    await dialog.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(notice).toHaveCount(0);
+  } finally {
+    await page.request.delete(`${API}/expenses/${id}`, { headers });
+  }
 });
 
 test('adds an expense and finds it via search', async ({ page }) => {

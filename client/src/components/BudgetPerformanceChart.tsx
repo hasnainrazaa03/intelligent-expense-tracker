@@ -64,7 +64,7 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data })
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
         data={data}
-        margin={{ top: 10, right: 8, left: -15, bottom: 0 }}
+        margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
       >
         <defs>
           <linearGradient id="spentFill" x1="0" y1="0" x2="0" y2="1">
@@ -87,7 +87,7 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data })
           tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)}
           axisLine={false}
           tickLine={false}
-          width={40}
+          width="auto"
         />
 
         <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate} />} cursor={{ stroke: c.axisLine, strokeWidth: 1 }} position={{ y: 0 }} />
@@ -101,9 +101,11 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data })
           iconSize={9}
         />
 
-        {/* Budget limit — smooth dashed reference */}
+        {/* Budget limit — dashed reference. Straight segments: one point per
+            month, and a curve between them would suggest values that never
+            happened. */}
         <Line
-          type="monotone"
+          type="linear"
           dataKey="budgeted"
           name="Budget"
           stroke={c.tick}
@@ -113,9 +115,9 @@ const BudgetPerformanceChart: React.FC<BudgetPerformanceChartProps> = ({ data })
           activeDot={false}
         />
 
-        {/* Actual spending — smooth curve with a soft gradient area */}
+        {/* Actual spending — straight segments with a soft gradient area */}
         <Area
-          type="monotone"
+          type="linear"
           dataKey="spent"
           name="Spent"
           stroke={c.danger}

@@ -70,13 +70,13 @@ const BudgetActualChart: React.FC<BudgetActualChartProps> = ({ expenses, budgets
                 margin={{
                 top: 5,
                 right: 20,
-                left: -10,
+                left: 0,
                 bottom: 20,
                 }}
             >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.3)" />
                 <XAxis dataKey="name" angle={-25} textAnchor="end" tick={{ fill: '#64748b', fontSize: 12 }} interval={0} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)} />
+                <YAxis width="auto" tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)} />
                 <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} conversionRate={conversionRate} />} cursor={{fill: 'rgba(20, 184, 166, 0.1)'}} />
                 <Legend wrapperStyle={{paddingTop: '20px'}}/>
                 <Bar dataKey="actual" name="Actual Spending" fill="#14b8a6" radius={[4, 4, 0, 0]} />

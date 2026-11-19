@@ -417,9 +417,9 @@ const FinancialPlanningPanel: React.FC<FinancialPlanningPanelProps> = ({ expense
         </div>
 
         <div className={cardCls}>
-          <p className={subLabelCls}>Trailing 30-day net flow</p>
+          <p className={subLabelCls}>Money in minus money out, last 30 days</p>
           <p className={`font-display text-2xl font-bold tabular-nums ${forecast30d < 0 ? 'text-danger' : 'text-ok'}`}>{formatCurrency(forecast30d, displayCurrency, conversionRate)}</p>
-          <p className="text-xs text-app-muted mt-2">Net of the last 30 days (income minus expenses) — a simple forward proxy.</p>
+          <p className="text-xs text-app-muted mt-2">Income minus expenses over the last 30 days.</p>
         </div>
       </div>
 

@@ -7,7 +7,7 @@ import { DateRangeFilter, type DateRange } from '../components/DateRangeFilter';
 import SideNav from '../components/shell/SideNav';
 import MobileNav from '../components/shell/MobileNav';
 import QuickActions from '../components/shell/QuickActions';
-import { DataLoadBanner, OnboardingCard, RecurringReview, HubTabs } from '../components/shell/Banners';
+import { DataLoadBanner, OnboardingCard, RecurringNotice, HubTabs } from '../components/shell/Banners';
 import { useAuth } from '../contexts/AuthContext';
 import { useAllData } from '../hooks/useAllData';
 import { useTransactions } from '../hooks/useTransactions';
@@ -244,9 +244,10 @@ const AppDashboard: React.FC = () => {
             {showOnboarding && (
               <OnboardingCard onAddExpense={() => openExpenseForm()} onAddIncome={() => openIncomeForm()} onDismiss={() => updateSettings({ onboardingDismissed: true })} />
             )}
-            {recurring.pending.length > 0 && <RecurringReview recurring={recurring} />}
+            {/* Only on the Expenses home: it used to sit on top of every screen. */}
+            {activeView === 'expenses' && recurring.pending.length > 0 && <RecurringNotice recurring={recurring} />}
 
-            {isHub && <HubTabs value={hubTab} onChange={setHubTab} listLabel={activeView === 'expenses' ? 'Transactions' : 'Income stream'} />}
+            {isHub && <HubTabs value={hubTab} onChange={setHubTab} listLabel={activeView === 'expenses' ? 'Transactions' : 'Income entries'} />}
 
             {activeView === 'expenses' && hubTab === 'overview' && (
               <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>

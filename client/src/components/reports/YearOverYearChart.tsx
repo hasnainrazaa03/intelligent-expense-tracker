@@ -53,13 +53,13 @@ const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses }) => {
         margin={{
           top: 5,
           right: 20,
-          left: -10,
+          left: 0,
           bottom: 5,
         }}
       >
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.3)" />
         <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} />
-        <YAxis tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)} />
+        <YAxis width="auto" tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => formatCurrency(value, displayCurrency, conversionRate, true)} />
         <Tooltip 
              cursor={{fill: 'rgba(20, 184, 166, 0.1)'}}
             formatter={(value) => formatCurrency(Number(value), displayCurrency, conversionRate)}
@@ -75,7 +75,7 @@ const YearOverYearChart: React.FC<YearOverYearChartProps> = ({ expenses }) => {
         {years.map((year, index) => (
             <Line
                 key={year}
-                type="monotone"
+                type="linear"
                 dataKey={year}
                 stroke={COLORS[index % COLORS.length]}
                 strokeWidth={2}

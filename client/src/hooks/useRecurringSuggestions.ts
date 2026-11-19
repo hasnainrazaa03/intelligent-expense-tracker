@@ -9,7 +9,8 @@ import { notify } from '../utils/notifications';
 
 /**
  * F3: recurring charges that are due again, offered once per fresh load for
- * the user to tick and add (each dated at its next due date).
+ * the user to tick and add (each dated at its next due date). Nothing starts
+ * ticked: adding a charge is a choice, and one tap used to add every one.
  */
 export const useRecurringSuggestions = ({ data }: { data: AllData }) => {
   const [pending, setPending] = useState<Omit<Expense, 'id'>[]>([]);
@@ -32,7 +33,7 @@ export const useRecurringSuggestions = ({ data }: { data: AllData }) => {
     // can't happen during render, so the one extra render this costs is accepted.
     /* oxlint-disable react/set-state-in-effect */
     setPending(offer ? due : []);
-    setSelected(new Set(offer ? due.map((_, i) => i) : []));
+    setSelected(new Set());
     /* oxlint-enable react/set-state-in-effect */
   }, [loaded, data.hasServerSnapshot]);
 
@@ -51,6 +52,9 @@ export const useRecurringSuggestions = ({ data }: { data: AllData }) => {
     if (next.has(index)) next.delete(index); else next.add(index);
     return next;
   });
+
+  const selectAll = () => setSelected(new Set(pending.map((_, i) => i)));
+  const selectNone = () => setSelected(new Set());
 
   const accept = async () => {
     const toAdd = pending.filter((_, i) => selected.has(i));
@@ -73,7 +77,7 @@ export const useRecurringSuggestions = ({ data }: { data: AllData }) => {
     notify.info('Recurring reminder snoozed for 24 hours.');
   };
 
-  return { pending, selected, toggle, accept, dismiss: clear, snooze, clear, resetForFreshLoad };
+  return { pending, selected, toggle, selectAll, selectNone, accept, dismiss: clear, snooze, clear, resetForFreshLoad };
 };
 
 export type RecurringSuggestions = ReturnType<typeof useRecurringSuggestions>;

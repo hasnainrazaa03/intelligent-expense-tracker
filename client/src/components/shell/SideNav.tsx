@@ -14,7 +14,7 @@ const VerticalTab: React.FC<{ icon: React.ReactNode; label: string; isActive: bo
       ${isActive ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text hover:bg-surface-2'}`}
   >
     <span className={`flex-shrink-0 transition-transform ${isActive ? '' : 'group-hover:scale-110'}`}>{icon}</span>
-    <span className="text-sm font-semibold tracking-tight whitespace-nowrap opacity-0 group-hover/nav:opacity-100 transition-opacity duration-150">{label}</span>
+    <span className="text-sm font-semibold tracking-tight whitespace-nowrap opacity-0 group-hover/nav:opacity-100 group-has-[:focus-visible]/nav:opacity-100 transition-opacity duration-150">{label}</span>
   </button>
 );
 
@@ -28,7 +28,9 @@ const TABS: { view: ActiveView; label: string; Icon: React.FC<{ className?: stri
   { view: 'settings', label: 'Settings', Icon: Cog6ToothIcon },
 ];
 
-/** Desktop: a slim icon rail that expands to show labels on hover. Arrow keys, Home and End move between tabs. */
+/** Desktop: a slim icon rail that expands to show labels on hover, and while a
+ *  keyboard user is in it (not after a mouse click, or it would stay open over
+ *  the page). Arrow keys, Home and End move between tabs. */
 const SideNav: React.FC<{ activeView: ActiveView; onSelect: (view: ActiveView) => void }> = ({ activeView, onSelect }) => {
   const navRef = useRef<HTMLElement | null>(null);
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -50,9 +52,9 @@ const SideNav: React.FC<{ activeView: ActiveView; onSelect: (view: ActiveView) =
         aria-label="Primary navigation"
         aria-orientation="vertical"
         onKeyDown={onKeyDown}
-        className="group/nav absolute left-0 top-0 h-full w-[64px] hover:w-52 hover:shadow-soft transition-[width] duration-200 ease-out flex flex-col gap-1 modal-surface rounded-2xl p-2 overflow-hidden"
+        className="group/nav absolute left-0 top-0 h-full w-[64px] hover:w-52 hover:shadow-soft has-[:focus-visible]:w-52 has-[:focus-visible]:shadow-soft transition-[width] duration-200 ease-out flex flex-col gap-1 modal-surface rounded-2xl p-2 overflow-hidden"
       >
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-muted px-3 h-4 pt-1 mb-1 whitespace-nowrap opacity-0 group-hover/nav:opacity-100 transition-opacity duration-150">Menu</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-muted px-3 h-4 pt-1 mb-1 whitespace-nowrap opacity-0 group-hover/nav:opacity-100 group-has-[:focus-visible]/nav:opacity-100 transition-opacity duration-150">Menu</p>
         {TABS.map(({ view, label, Icon }) => (
           <VerticalTab key={view} icon={<Icon className="h-5 w-5" />} label={label} isActive={activeView === view} onClick={() => onSelect(view)} />
         ))}

@@ -94,8 +94,8 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ data }) => {
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-[10px] uppercase tracking-[0.15em] text-app-faint">{hidden.length ? 'Shown' : 'Total'}</span>
-              <span className="font-display text-base md:text-lg font-bold text-app-text tabular-nums">
-                {formatCurrency(visibleTotal, displayCurrency, conversionRate, true)}
+              <span className="font-display text-sm md:text-base font-bold text-app-text tabular-nums">
+                {formatCurrency(visibleTotal, displayCurrency, conversionRate)}
               </span>
             </div>
           </>
