@@ -1,63 +1,69 @@
-import React, { useRef } from 'react';
-import { ClipboardDocumentListIcon, TableCellsIcon, AcademicCapIcon, ChartPieIcon, BanknotesIcon, ChatBubbleBottomCenterTextIcon, Cog6ToothIcon } from '../Icons';
-import type { ActiveView } from '../../app/useActiveView';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import type { Place } from '../../app/routes';
+import { NAV_ITEMS, type NavItem } from './navItems';
 
-const VerticalTab: React.FC<{ icon: React.ReactNode; label: string; isActive: boolean; onClick: () => void }> = ({ icon, label, isActive, onClick }) => (
-  <button
-    onClick={onClick}
-    role="tab"
-    aria-selected={isActive}
-    aria-current={isActive ? 'page' : undefined}
-    aria-label={label}
-    title={label}
-    className={`group relative flex items-center gap-3 w-full pl-[10px] pr-2 py-2.5 rounded-xl transition-colors flex-shrink-0 text-left
-      ${isActive ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text hover:bg-surface-2'}`}
-  >
-    <span className={`flex-shrink-0 transition-transform ${isActive ? '' : 'group-hover:scale-110'}`}>{icon}</span>
-    <span className="text-sm font-semibold tracking-tight whitespace-nowrap opacity-0 group-hover/nav:opacity-100 group-has-[:focus-visible]/nav:opacity-100 transition-opacity duration-150">{label}</span>
-  </button>
-);
+const PIN_KEY = 'orbit:nav-pinned';
+const readPinned = () => { try { return localStorage.getItem(PIN_KEY) === '1'; } catch { return false; } };
 
-const TABS: { view: ActiveView; label: string; Icon: React.FC<{ className?: string }> }[] = [
-  { view: 'expenses', label: 'Expenses', Icon: ClipboardDocumentListIcon },
-  { view: 'income', label: 'Income', Icon: BanknotesIcon },
-  { view: 'ai', label: 'AI Analyst', Icon: ChatBubbleBottomCenterTextIcon },
-  { view: 'pivot', label: 'Pivot', Icon: TableCellsIcon },
-  { view: 'reports', label: 'Reports', Icon: ChartPieIcon },
-  { view: 'usc', label: 'Tuition', Icon: AcademicCapIcon },
-  { view: 'settings', label: 'Settings', Icon: Cog6ToothIcon },
-];
-
-/** Desktop: a slim icon rail that expands to show labels on hover, and while a
- *  keyboard user is in it (not after a mouse click, or it would stay open over
- *  the page). Arrow keys, Home and End move between tabs. */
-const SideNav: React.FC<{ activeView: ActiveView; onSelect: (view: ActiveView) => void }> = ({ activeView, onSelect }) => {
-  const navRef = useRef<HTMLElement | null>(null);
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) || !navRef.current) return;
-    const tabs = Array.from(navRef.current.querySelectorAll('button')) as HTMLButtonElement[];
-    const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
-    if (tabs.length === 0 || current === -1) return;
-    e.preventDefault();
-    if (e.key === 'Home') return tabs[0].focus();
-    if (e.key === 'End') return tabs[tabs.length - 1].focus();
-    const delta = e.key === 'ArrowDown' ? 1 : -1;
-    tabs[(current + delta + tabs.length) % tabs.length].focus();
+/**
+ * Desktop navigation (U2a): Home, Transactions, Budgets, Insights, Tuition, and
+ * Settings at the bottom, as real links with their words.
+ *
+ * At 1280 px and wider the labels always show. Narrower, it's an icon rail
+ * that opens over the page on hover or while a keyboard user is in it (not
+ * after a mouse click, or it would stay open), and "Keep menu open" pins it
+ * open beside the page on this device.
+ */
+const SideNav: React.FC<{ place: Place }> = ({ place }) => {
+  const [pinned, setPinned] = useState(readPinned);
+  const togglePin = () => {
+    const next = !pinned;
+    setPinned(next);
+    try { localStorage.setItem(PIN_KEY, next ? '1' : '0'); } catch { /* storage unavailable */ }
   };
+  // Wide when pinned or on a wide screen; otherwise it widens over the page.
+  const open = pinned ? 'w-52' : 'w-16 xl:w-52';
+  const reveal = pinned ? 'opacity-100' : 'opacity-0 group-hover/nav:opacity-100 group-has-[:focus-visible]/nav:opacity-100 xl:opacity-100';
+
+  const link = ({ place: p, label, to, Icon }: NavItem) => {
+    const active = p === place;
+    return (
+      <li key={p}>
+        <Link
+          to={to}
+          aria-current={active ? 'page' : undefined}
+          className={`flex items-center gap-3 w-full pl-[12px] pr-2 py-2.5 rounded-xl transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60
+            ${active ? 'bg-primary text-on-primary shadow-glow' : 'text-app-muted hover:text-app-text hover:bg-surface-2'}`}
+        >
+          <Icon className="h-5 w-5 flex-shrink-0" />
+          <span className={`text-sm font-semibold tracking-tight whitespace-nowrap transition-opacity duration-150 ${reveal}`}>{label}</span>
+        </Link>
+      </li>
+    );
+  };
+
   return (
-    <div className="hidden md:block relative w-[64px] flex-shrink-0 h-full z-30">
+    <div className={`hidden md:block relative flex-shrink-0 h-full z-30 ${open}`}>
       <nav
-        ref={navRef}
-        role="tablist"
-        aria-label="Primary navigation"
-        aria-orientation="vertical"
-        onKeyDown={onKeyDown}
-        className="group/nav absolute left-0 top-0 h-full w-[64px] hover:w-52 hover:shadow-soft has-[:focus-visible]:w-52 has-[:focus-visible]:shadow-soft transition-[width] duration-200 ease-out flex flex-col gap-1 modal-surface rounded-2xl p-2 overflow-hidden"
+        aria-label="Primary"
+        className={`group/nav absolute left-0 top-0 h-full ${open} ${pinned ? '' : 'hover:w-52 hover:shadow-soft has-[:focus-visible]:w-52 has-[:focus-visible]:shadow-soft xl:shadow-none'} transition-[width] duration-200 ease-out flex flex-col modal-surface rounded-2xl p-2 overflow-hidden`}
       >
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-muted px-3 h-4 pt-1 mb-1 whitespace-nowrap opacity-0 group-hover/nav:opacity-100 group-has-[:focus-visible]/nav:opacity-100 transition-opacity duration-150">Menu</p>
-        {TABS.map(({ view, label, Icon }) => (
-          <VerticalTab key={view} icon={<Icon className="h-5 w-5" />} label={label} isActive={activeView === view} onClick={() => onSelect(view)} />
-        ))}
+        <ul className="flex flex-col gap-1">{NAV_ITEMS.filter((i) => i.place !== 'settings').map(link)}</ul>
+        <ul className="mt-auto flex flex-col gap-1 pt-2 border-t border-app-border">
+          {link(NAV_ITEMS.find((i) => i.place === 'settings')!)}
+          <li className="xl:hidden">
+            <button
+              type="button"
+              onClick={togglePin}
+              aria-pressed={pinned}
+              className="flex items-center gap-3 w-full pl-[12px] pr-2 py-2 rounded-xl text-app-faint hover:text-app-text hover:bg-surface-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={`h-5 w-5 flex-shrink-0 transition-transform ${pinned ? 'rotate-180' : ''}`} aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+              <span className={`text-xs font-semibold whitespace-nowrap transition-opacity duration-150 ${reveal}`}>{pinned ? 'Collapse menu' : 'Keep menu open'}</span>
+            </button>
+          </li>
+        </ul>
       </nav>
     </div>
   );

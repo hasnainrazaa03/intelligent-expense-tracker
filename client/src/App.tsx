@@ -1,10 +1,21 @@
 import React, { Suspense } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import SectionSkeleton from './components/SectionSkeleton';
 import AppDashboard from './app/AppDashboard';
 import { Auth, VerifyOTP, LandingPage, KnowledgeBase, PrivacyPolicy, TermsOfUse } from './app/screens';
+
+/** Signed out on an app address (a bookmark, a link in an email): sign in, then
+ *  land on that screen rather than on Home. */
+const ToLogin: React.FC = () => {
+  const location = useLocation();
+  return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+};
+const AfterLogin: React.FC = () => {
+  const from = (useLocation().state as { from?: unknown } | null)?.from;
+  return <Navigate to={typeof from === 'string' && from.startsWith('/app') ? from : '/app'} replace />;
+};
 
 // Routes and toasts. The signed-in app lives in app/AppDashboard.tsx; its
 // behaviour is in hooks/ (useAllData, useTransactions, useTuition, …).
@@ -37,21 +48,22 @@ const App: React.FC = () => {
         }}
       />
       <Routes>
-        <Route path="/login" element={!isAuthenticated ? page('Loading login', <Auth onLoginSuccess={loginSuccess} />) : <Navigate to="/app" />} />
+        <Route path="/login" element={!isAuthenticated ? page('Loading login', <Auth onLoginSuccess={loginSuccess} />) : <AfterLogin />} />
         <Route path="/" element={!isAuthenticated ? page('Loading landing', <LandingPage />) : <Navigate to="/app" />} />
         <Route path="/knowledge" element={page('Loading knowledge base', <KnowledgeBase />)} />
         {/* Public for everyone, signed in or not. */}
         <Route path="/privacy" element={page('Loading privacy policy', <PrivacyPolicy />, 3)} />
         <Route path="/terms" element={page('Loading terms', <TermsOfUse />, 3)} />
         <Route path="/verify" element={page('Loading verification', <VerifyOTP />)} />
+        {/* /app and every screen under it (/app/transactions, /app/insights/…). */}
         <Route
-          path="/app"
+          path="/app/*"
           element={isAuthenticated
             // Per-account storage (goals, categories, …) is keyed by the signed-in
             // email, so wait for it: rendering earlier would read an empty store,
             // and a first save could overwrite real data.
             ? (userEmail ? <AppDashboard /> : <SectionSkeleton title="Loading your account" rows={3} />)
-            : <Navigate to="/login" />}
+            : <ToLogin />}
         />
         {/* Unknown paths go home. */}
         <Route path="*" element={<Navigate to={isAuthenticated ? '/app' : '/'} />} />

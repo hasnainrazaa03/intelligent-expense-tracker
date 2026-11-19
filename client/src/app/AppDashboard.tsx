@@ -1,4 +1,5 @@
 import React, { Suspense, useCallback, useMemo, useState } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Expense, Income } from '../types';
 import Header from '../components/Header';
 import IncomeSummary from '../components/IncomeSummary';
@@ -6,8 +7,8 @@ import SectionSkeleton from '../components/SectionSkeleton';
 import { DateRangeFilter, type DateRange } from '../components/DateRangeFilter';
 import SideNav from '../components/shell/SideNav';
 import MobileNav from '../components/shell/MobileNav';
-import QuickActions from '../components/shell/QuickActions';
-import { DataLoadBanner, OnboardingCard, RecurringNotice, HubTabs } from '../components/shell/Banners';
+import SectionTabs from '../components/shell/SectionTabs';
+import { DataLoadBanner, OnboardingCard, RecurringNotice } from '../components/shell/Banners';
 import { useAuth } from '../contexts/AuthContext';
 import { useAllData } from '../hooks/useAllData';
 import { useTransactions } from '../hooks/useTransactions';
@@ -18,7 +19,7 @@ import { useHubData } from '../hooks/useHubData';
 import { useIdlePrefetch, useNewEntryShortcut } from '../hooks/useAppEffects';
 import { useSetting } from '../hooks/useSetting';
 import useOfflineQueue from '../hooks/useOfflineQueue';
-import { useActiveView } from './useActiveView';
+import { parseAppPath, pathFor, PATHS, routeLabel, type AppRoute } from './routes';
 import { createExpense } from '../services/api';
 import type { PendingExpense } from '../utils/offlineQueue';
 import { updateSettings } from '../utils/settingsStore';
@@ -33,6 +34,8 @@ import * as Screens from './screens';
  *   useTuition       — semesters and payments (5d-1)
  *   useRecurringSuggestions, useDataTransfer, useHubData
  */
+const HOME: AppRoute = { place: 'home' };
+
 const AppDashboard: React.FC = () => {
   const { isAuthenticated, userEmail, logout } = useAuth();
   const data = useAllData({ isAuthenticated, onAuthError: logout });
@@ -59,15 +62,15 @@ const AppDashboard: React.FC = () => {
   });
 
   // --- UI state ---------------------------------------------------------------
-  const [activeView, setActiveView] = useActiveView();
-  const [hubTab, setHubTab] = useState<'overview' | 'list'>('overview');
-  // Each screen opens on its overview: the tab follows the view during render
-  // (it may change by the back button too), not a render later in an effect.
-  const [hubTabView, setHubTabView] = useState(activeView);
-  if (hubTabView !== activeView) {
-    setHubTabView(activeView);
-    setHubTab('overview');
-  }
+  // The screen comes from the address (U2a): Back, Forward, reload and
+  // bookmarks all work. An address the app doesn't have goes home.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const parsed = useMemo(() => parseAppPath(location.pathname), [location.pathname]);
+  const route: AppRoute = parsed ?? HOME;
+  const canonicalPath = pathFor(route);
+  const isIncomeList = route.place === 'transactions' && route.type === 'income';
+  const isIncomeOverview = route.place === 'insights' && route.section === 'income';
   const [dateRange, setDateRange] = useState<DateRange>('this_month');
   const [incomeDateRange, setIncomeDateRange] = useState<DateRange>('this_month');
   // Header debounces the search input; only the settled term lands here (APP-H5).
@@ -83,7 +86,8 @@ const AppDashboard: React.FC = () => {
 
   const openExpenseForm = (editing: Expense | null = null) => setExpenseForm({ open: true, editing });
   const openIncomeForm = (editing: Income | null = null) => setIncomeForm({ open: true, editing });
-  const openNewEntry = () => (activeView === 'income' ? openIncomeForm() : openExpenseForm());
+  // Ctrl/Cmd+N adds income where income is on show, an expense everywhere else.
+  const openNewEntry = () => (isIncomeList || isIncomeOverview ? openIncomeForm() : openExpenseForm());
   const openStatementImport = () => setIsStatementImportOpen(true);
 
   const hideTuition = useSetting('hideTuition') ?? false;
@@ -94,13 +98,14 @@ const AppDashboard: React.FC = () => {
     dateRange,
     incomeDateRange,
     hideTuition,
-    listView: activeView === 'income' ? 'income' : 'expenses',
+    listView: isIncomeList ? 'income' : 'expenses',
     search,
   });
 
   useIdlePrefetch(isAuthenticated, [
     Screens.ExpenseList, Screens.IncomeList, Screens.ExpenseModal, Screens.IncomeModal, Screens.BudgetManagerModal,
     Screens.CategoryManagerModal, Screens.AiAnalyst, Screens.USCPaymentTracker, Screens.PivotAnalysis, Screens.SettingsPage,
+    Screens.BudgetsPage, Screens.Reports,
   ]);
   // Not while a form is open: it would replace what's being typed.
   useNewEntryShortcut(isAuthenticated && !expenseForm.open && !incomeForm.open, openNewEntry);
@@ -114,14 +119,14 @@ const AppDashboard: React.FC = () => {
   const incomeFilters = { hasAny: incomes.length > 0, search, onClearSearch: clearSearch, periodLabel: periodLabel(incomeDateRange), onShowAllTime: () => setIncomeDateRange('all_time') };
 
   // Not on Settings: "add your first expense" has no place there.
-  const showOnboarding = hasServerSnapshot && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0 && activeView !== 'settings';
+  const showOnboarding = hasServerSnapshot && !isLoadingData && !onboardingDismissed && expenses.length === 0 && incomes.length === 0 && route.place !== 'settings';
 
   const liveRegionMessage = useMemo(() => {
     if (isLoadingData) return 'Loading your financial data.';
     const n = recurring.pending.length;
     if (n > 0) return `${n} recurring expense suggestion${n > 1 ? 's are' : ' is'} ready to review.`;
-    return `Viewing ${activeView}.`;
-  }, [isLoadingData, recurring.pending.length, activeView]);
+    return `Viewing ${routeLabel(route)}.`;
+  }, [isLoadingData, recurring.pending.length, route]);
 
   // Forms close only when the save succeeded (C4).
   const saveExpense = async (expense: Expense | Omit<Expense, 'id'>) => {
@@ -135,64 +140,141 @@ const AppDashboard: React.FC = () => {
     return ok;
   };
 
-  const renderActiveView = () => {
-    switch (activeView) {
-      case 'expenses':
-        return (
-          <Screens.ExpenseList
-            expenses={listItems as Expense[]}
-            onEdit={(e) => openExpenseForm(e)}
-            onQuickSave={async (e) => { await tx.updateExpense(e, { inForm: false }); }}
-            onDelete={async (id) => { await tx.deleteExpense(id); }}
-            onCreate={openNewEntry}
-            isLoading={isLoadingData}
-            dateFilter={<DateRangeFilter selectedRange={dateRange} onChange={setDateRange} />}
-            filters={expenseFilters}
-          />
-        );
+  const expenseListScreen = (
+    <Screens.ExpenseList
+      expenses={listItems as Expense[]}
+      onEdit={(e) => openExpenseForm(e)}
+      onQuickSave={async (e) => { await tx.updateExpense(e, { inForm: false }); }}
+      onDelete={async (id) => { await tx.deleteExpense(id); }}
+      onCreate={openNewEntry}
+      isLoading={isLoadingData}
+      dateFilter={<DateRangeFilter selectedRange={dateRange} onChange={setDateRange} />}
+      filters={expenseFilters}
+    />
+  );
+  const incomeListScreen = (
+    <Screens.IncomeList
+      incomes={listItems as Income[]}
+      onEdit={(i) => openIncomeForm(i)}
+      onQuickSave={async (i) => { await tx.updateIncome(i, { inForm: false }); }}
+      onDelete={async (id) => { await tx.deleteIncome(id); }}
+      onCreate={openNewEntry}
+      isLoading={isLoadingData}
+      dateFilter={<DateRangeFilter selectedRange={incomeDateRange} onChange={setIncomeDateRange} />}
+      filters={incomeFilters}
+    />
+  );
+
+  const renderInsights = (section: 'reports' | 'breakdown' | 'income' | 'ask') => {
+    switch (section) {
+      case 'reports': return <Screens.Reports allExpenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} />;
+      case 'breakdown': return <Screens.PivotAnalysis expenses={hub.allExpenses} />;
+      case 'ask': return <Screens.AiAnalyst expenses={expenses} incomes={incomes} />;
       case 'income':
-        return (
-          <Screens.IncomeList
-            incomes={listItems as Income[]}
-            onEdit={(i) => openIncomeForm(i)}
-            onQuickSave={async (i) => { await tx.updateIncome(i, { inForm: false }); }}
-            onDelete={async (id) => { await tx.deleteIncome(id); }}
-            onCreate={openNewEntry}
-            isLoading={isLoadingData}
-            dateFilter={<DateRangeFilter selectedRange={incomeDateRange} onChange={setIncomeDateRange} />}
-            filters={incomeFilters}
-          />
-        );
-      case 'ai':
-        return <Screens.AiAnalyst expenses={expenses} incomes={incomes} />;
-      case 'pivot':
-        return <Screens.PivotAnalysis expenses={hub.allExpenses} />;
-      case 'usc':
-        return (
-          <Screens.USCPaymentTracker
-            semesters={semesters}
-            onUpdateTuition={tuition.updateTotal}
-            onUpdateInstallmentCount={tuition.updateInstallmentCount}
-            onMarkAsPaid={tuition.markPaid}
-            onUpdateDate={tuition.updatePaidDate}
-          />
-        );
-      case 'reports':
-        return <Screens.Reports allExpenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} />;
-      case 'settings':
-        return (
-          <Screens.SettingsPage
-            onOpenData={() => setIsDataModalOpen(true)}
-            onManageCategories={() => setIsCategoryModalOpen(true)}
-            onManageBudgets={() => setIsBudgetModalOpen(true)}
-          />
-        );
-      default:
-        return null;
+        return isLoadingData
+          ? <SectionSkeleton title="Loading income" rows={4} />
+          : <IncomeSummary
+              incomes={incomeHub.incomes}
+              previousPeriodIncomes={incomeHub.previousIncomes}
+              comparisonCutoff={incomeHub.comparisonCutoff}
+              allIncomes={hub.allIncomes}
+              allExpenses={hub.allExpenses}
+              selectedRange={incomeDateRange}
+              onDateRangeChange={setIncomeDateRange}
+            />;
     }
   };
 
-  const isHub = activeView === 'expenses' || activeView === 'income';
+  const renderPlace = () => {
+    switch (route.place) {
+      case 'home':
+        return (
+          <>
+            {/* Only on Home: it used to sit on top of every screen. */}
+            {recurring.pending.length > 0 && <RecurringNotice recurring={recurring} />}
+            <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>
+              <Screens.Dashboard
+                expenses={hub.expenses}
+                incomes={hub.incomes}
+                allIncomes={hub.allIncomes}
+                allExpenses={hub.allExpenses}
+                previousPeriodExpenses={hub.previousExpenses}
+                comparisonCutoff={hub.comparisonCutoff}
+                selectedRange={dateRange}
+                onDateRangeChange={setDateRange}
+                budgets={budgets}
+                isLoading={isLoadingData}
+              />
+            </Suspense>
+          </>
+        );
+      case 'transactions':
+        return (
+          <>
+            <SectionTabs
+              label="Transaction type"
+              tabs={[
+                { label: 'Expenses', to: PATHS.transactions, active: !isIncomeList },
+                { label: 'Income', to: PATHS.transactionsIncome, active: isIncomeList },
+              ]}
+            />
+            <Suspense fallback={<SectionSkeleton title="Loading transactions" rows={4} />}>
+              {isIncomeList ? incomeListScreen : expenseListScreen}
+            </Suspense>
+          </>
+        );
+      case 'budgets':
+        return (
+          <Suspense fallback={<SectionSkeleton title="Loading budgets" rows={4} />}>
+            <Screens.BudgetsPage expenses={hub.allExpenses} budgets={budgets} isLoading={isLoadingData} onEdit={() => setIsBudgetModalOpen(true)} />
+          </Suspense>
+        );
+      case 'insights':
+        return (
+          <>
+            <SectionTabs
+              label="Insights sections"
+              tabs={[
+                { label: 'Reports', to: PATHS.insights('reports'), active: route.section === 'reports' },
+                { label: 'Breakdown', to: PATHS.insights('breakdown'), active: route.section === 'breakdown' },
+                { label: 'Income', to: PATHS.insights('income'), active: route.section === 'income' },
+                { label: 'Ask AI', to: PATHS.insights('ask'), active: route.section === 'ask' },
+              ]}
+            />
+            <Suspense fallback={<SectionSkeleton title="Loading insights" rows={4} />}>{renderInsights(route.section)}</Suspense>
+          </>
+        );
+      case 'tuition':
+        return (
+          <Suspense fallback={<SectionSkeleton title="Loading tuition" rows={4} />}>
+            <Screens.USCPaymentTracker
+              semesters={semesters}
+              onUpdateTuition={tuition.updateTotal}
+              onUpdateInstallmentCount={tuition.updateInstallmentCount}
+              onMarkAsPaid={tuition.markPaid}
+              onUpdateDate={tuition.updatePaidDate}
+            />
+          </Suspense>
+        );
+      case 'settings':
+        return (
+          <Suspense fallback={<SectionSkeleton title="Loading settings" rows={4} />}>
+            <Screens.SettingsPage
+              onOpenData={() => setIsDataModalOpen(true)}
+              onManageCategories={() => setIsCategoryModalOpen(true)}
+              onManageBudgets={() => setIsBudgetModalOpen(true)}
+            />
+          </Suspense>
+        );
+    }
+  };
+
+  // After every hook: an unknown address goes home, and /app/insights or a
+  // trailing slash becomes the one address each screen has.
+  if (parsed === null) return <Navigate to={PATHS.home} replace />;
+  if (canonicalPath !== location.pathname) return <Navigate to={canonicalPath} replace />;
+
+  const isAsk = route.place === 'insights' && route.section === 'ask';
 
   return (
     <div className="h-screen bg-transparent flex flex-col overflow-hidden text-app-text font-sans px-3 md:px-6 py-3 md:py-4">
@@ -208,89 +290,48 @@ const AppDashboard: React.FC = () => {
       </a>
 
       <Header
+        userEmail={userEmail}
         onLogout={logout}
-        onManageBudgets={() => setIsBudgetModalOpen(true)}
         onManageCategories={() => setIsCategoryModalOpen(true)}
         onDataAction={() => setIsDataModalOpen(true)}
-        onOpenSettings={() => setActiveView('settings')}
-        settingsActive={activeView === 'settings'}
+        onAddExpense={() => openExpenseForm()}
+        onAddIncome={() => openIncomeForm()}
+        onScanStatement={openStatementImport}
         hideTuition={hideTuition}
         onToggleHideTuition={() => updateSettings({ hideTuition: !hideTuition })}
         onSearch={setSearch}
         clearSearchSignal={clearSearchSignal}
-        activeView={activeView}
         offlineStatus={{ isOnline: offline.isOnline, pendingCount: offline.pendingCount, syncing: offline.syncing }}
         expenses={expenses}
         incomes={incomes}
         onSelectTransaction={(hit) => {
           if (hit.type === 'expense') {
-            setActiveView('expenses');
+            navigate(PATHS.transactions);
             openExpenseForm(hit.item);
           } else {
-            setActiveView('income');
+            navigate(PATHS.transactionsIncome);
             openIncomeForm(hit.item);
           }
         }}
       />
 
       <div className="flex flex-1 overflow-hidden gap-4 md:gap-6">
-        <SideNav activeView={activeView} onSelect={setActiveView} />
+        <SideNav place={route.place} />
 
         <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-1 md:pr-2 custom-scrollbar relative bg-transparent focus:outline-none">
-          <div className={`w-full max-w-full overflow-hidden space-y-5 md:space-y-7 ${activeView === 'ai' ? 'pb-28 md:pb-4' : 'pb-56 md:pb-40'}`}>
+          <div className={`w-full max-w-full overflow-hidden space-y-5 md:space-y-7 ${isAsk ? 'pb-24 md:pb-4' : 'pb-28 md:pb-10'}`}>
             {data.dataLoadFailed && (
               <DataLoadBanner hasPartialData={Boolean(data.query.data)} retrying={data.query.isFetching} onRetry={() => { void data.query.refetch(); }} />
             )}
             {showOnboarding && (
               <OnboardingCard onAddExpense={() => openExpenseForm()} onAddIncome={() => openIncomeForm()} onDismiss={() => updateSettings({ onboardingDismissed: true })} />
             )}
-            {/* Only on the Expenses home: it used to sit on top of every screen. */}
-            {activeView === 'expenses' && recurring.pending.length > 0 && <RecurringNotice recurring={recurring} />}
-
-            {isHub && <HubTabs value={hubTab} onChange={setHubTab} listLabel={activeView === 'expenses' ? 'Transactions' : 'Income entries'} />}
-
-            {activeView === 'expenses' && hubTab === 'overview' && (
-              <Suspense fallback={<SectionSkeleton title="Loading dashboard" rows={4} />}>
-                <Screens.Dashboard
-                  expenses={hub.expenses}
-                  incomes={hub.incomes}
-                  allIncomes={hub.allIncomes}
-                  allExpenses={hub.allExpenses}
-                  previousPeriodExpenses={hub.previousExpenses}
-                  comparisonCutoff={hub.comparisonCutoff}
-                  selectedRange={dateRange}
-                  onDateRangeChange={setDateRange}
-                  budgets={budgets}
-                  isLoading={isLoadingData}
-                />
-              </Suspense>
-            )}
-            {activeView === 'income' && hubTab === 'overview' && (
-              isLoadingData
-                ? <SectionSkeleton title="Loading income" rows={4} />
-                : <IncomeSummary
-                    incomes={incomeHub.incomes}
-                    previousPeriodIncomes={incomeHub.previousIncomes}
-                    comparisonCutoff={incomeHub.comparisonCutoff}
-                    allIncomes={hub.allIncomes}
-                    allExpenses={hub.allExpenses}
-                    selectedRange={incomeDateRange}
-                    onDateRangeChange={setIncomeDateRange}
-                  />
-            )}
-
-            {/* The list tab, and every screen that isn't a hub */}
-            {(!isHub || hubTab === 'list') && (
-              <div>
-                <Suspense fallback={<SectionSkeleton title="Loading section" rows={4} />}>{renderActiveView()}</Suspense>
-              </div>
-            )}
+            {renderPlace()}
           </div>
-
-          <QuickActions onAddExpense={() => openExpenseForm()} onAddIncome={() => openIncomeForm()} onScanStatement={openStatementImport} />
-          <MobileNav activeView={activeView} onSelect={setActiveView} />
         </main>
       </div>
+
+      <MobileNav place={route.place} onAddExpense={() => openExpenseForm()} onAddIncome={() => openIncomeForm()} onScanStatement={openStatementImport} />
 
       {/* Dialogs */}
       {expenseForm.open && (

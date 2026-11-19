@@ -62,6 +62,7 @@ describe('bills', () => {
     expect(n.title).toBe('Netflix is due tomorrow');
     expect(n.body).toBe('Netflix $15.49 tomorrow');
     expect(n.keys).toEqual(['bill:netflix|subscriptions:2026-11-22']);
+    expect(n.url).toBe('/app'); // Home, where charges due are listed
     expect(billNotice({ expenses: [netflix], today: '2026-11-21', sent: new Set(n.keys) })).toBeNull();
   });
 });
@@ -74,6 +75,7 @@ describe('budget alerts', () => {
     const at85 = budgetNotice({ budgets, expenses: [spend('Groceries', 60), spend('Boba', 25)], month: '2026-11', subToMain: map, sent: new Set() })!;
     expect(at85.keys).toEqual(['budget:2026-11:Food:80']);
     expect(at85.title).toBe('Budget check: Food');
+    expect(at85.url).toBe('/app/budgets');
     expect(at85.body).toBe("You've used 85% of your Food budget ($100.00) this month.");
 
     const sent = new Set(at85.keys);
@@ -100,6 +102,7 @@ describe('monthly summary', () => {
     expect(n.title).toBe('Your October summary');
     expect(n.body).toBe('You spent $1,200.00, 86% of your budgets. Top category: Housing ($900.00).');
     expect(n.keys).toEqual(['summary:2026-10']);
+    expect(n.url).toBe('/app/insights/reports');
   });
 
   it('says nothing for a month with no spending', () => {
